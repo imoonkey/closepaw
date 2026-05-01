@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-04-18
+> Last updated: 2026-05-01
 
 ## Quick Start
 
@@ -31,7 +31,8 @@ doc/main/
 │   ├── turn_prompt_anatomy.md # Per-turn OpenAI prompt/input/tools breakdown
 │   ├── multiagent.md  # Multi-agent system, Planner-Executor, delegation
 │   ├── planning.md    # TodoState, ScratchpadState, context hygiene
-│   └── memory.md      # Cross-session memory (MemoryStore, recall, auto-retain)
+│   ├── memory.md      # Cross-session memory (MemoryStore, recall, auto-retain)
+│   └── agent_skills.md # Agentskills.io system: catalog, activate_skill, App vs Agent skills
 │
 ├── infra/             # Agent infrastructure
 │   ├── session.md     # AgentSession, SessionServices, lifecycle
@@ -295,6 +296,7 @@ app/src/main/kotlin/ai/closepaw/
 | **CapsuleMode** | Smart Capsule state (Running, Takeover, etc.) | [overlay.md](ui/overlay.md) |
 | **Context Hygiene** | Token-efficient history management (compression pipeline) | [planning.md](agent/planning.md), [history/runtime.md](app/history/runtime.md) |
 | **Cross-Session Memory** | Persistent app-specific learnings recalled per turn | [memory.md](agent/memory.md) |
+| **Agent Skills** | agentskills.io-compatible task/capability skills with catalog + on-demand activation | [agent_skills.md](agent/agent_skills.md) |
 
 ---
 

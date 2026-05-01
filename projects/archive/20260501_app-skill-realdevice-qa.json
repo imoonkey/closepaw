@@ -1,0 +1,26 @@
+{
+  "app-skill-realdevice-qa": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "agent": "w-app-skill-realdevice-qa",
+    "title": "Real-device QA — verify migrated app skills still load",
+    "description": "Install fresh build on nubia (100.64.43.95:5555), run a goal that opens Settings, verify in trace/logcat that the Settings app skill (now app-settings with metadata.package: com.android.settings) loads correctly. Spot-check 1-2 other apps if possible.",
+    "scope": [],
+    "acceptCriteria": [
+      "Fresh debug build installed on nubia",
+      "Trace shows app skill loaded for ai.closepaw or com.android.settings (app skill body in prompt)",
+      "No new errors in logcat related to AppSkillRepository or SkillFrontmatterParser",
+      "App functions normally (no crash on session start)"
+    ],
+    "tags": [
+      "agent-skills",
+      "qa"
+    ],
+    "estimate": "xs",
+    "priority": "normal",
+    "created": "2026-05-01T15:58:07Z",
+    "updated": "2026-05-01T16:04:22Z",
+    "note": "5/5 PASS on nubia. App skill body for com.android.settings loaded into prompt at turn 2. No errors."
+  }
+}

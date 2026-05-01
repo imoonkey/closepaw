@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-05-01: Agent Skills (agentskills.io) + App Skill frontmatter migration
+
+**What changed:**
+- **agentskill feature** — new `agent/cognition/skills/` package: `SkillFrontmatterParser` (SnakeYAML + lenient regex fallback), `AgentSkillCatalog` (one-time discovery of `filesDir/skills/*/SKILL.md`), `AgentSkillManager` (`@Synchronized` activation, `/skill-name` mention parsing), `ActivateSkillTool`. Wired into `SessionServices` (manager preserved across `copy()`), `SessionToolingBootstrapper` (conditional tool registration when catalog non-empty), `TurnPlanningPhaseRunner` (catalog → system prompt; explicit-mention bodies → user-role messages, NOT system prompt). All three roles (`StandaloneAgentDef`, `PlannerAgentDef`, `ExecutorAgentDef`) added `activate_skill` to allowedTools. SnakeYAML dependency added to `app/build.gradle.kts`.
+- **App skill frontmatter migration** — all 17 `app/src/main/assets/app_skills/<package>/SKILL.md` migrated from old `name: com.android.settings` to agentskills.io-compatible `name: app-<short-name>` (e.g. `app-settings`, `app-chrome`) + `metadata.package: <pkg>`. Directory still keyed by package — lookup path unchanged.
+- **App skill loader unification** — `AssetAppSkillRepository` now uses shared `SkillFrontmatterParser`; local `FRONTMATTER_REGEX` and `stripFrontmatter()` deleted.
+- **Build-time guard** — new `AppSkillAssetIntegrityTest` parses every real `app_skills/*/SKILL.md` and asserts `name: app-*` + `metadata.package == directory name`. Catches typos at unit-test time.
+
+**Why:**
+- Two distinct skill types now coexist with one shared parser. App Skills remain auto-loaded per foreground package; Agent Skills are general-purpose task/capability instructions activatable by user (`/skill-name` in goal) or model (`activate_skill` tool). Skill bodies enter conversation as user-role messages or tool results, NOT system prompt — preserving the design priority where Active Agent Skills sit below user goal, screen evidence, and app skills. Re-activation re-reads the file and re-delivers the body so the model can recover after compaction.
+- Two codex review rounds caught 1 CRITICAL + 6 HIGH issues, all fixed before merge: synchronized activation state (LinkedHashSet shared via copy()), explicit-mention body delivery, read-failure rollback, description length cap (≤1024 chars), mention-regex boundary (no `/data/local/tmp` false positives), prompt-layer authority (bodies as user messages not system prompt), idempotent re-activation with body, multiline-description sanitization (newlines/control → space).
+
+**Key files:**
+- agent/cognition/skills: `SkillFrontmatterParser.kt`, `SkillFrontmatter.kt`, `AgentSkillCatalog.kt`, `AgentSkillEntry.kt`, `AgentSkillManager.kt`
+- tool: `impl/ActivateSkillTool.kt`, `ToolName.kt`, `ui/common/ToolUi.kt`
+- session/agent wiring: `SessionServices.kt`, `SessionToolingBootstrapper.kt`, `TurnPlanningPhaseRunner.kt`, definition/`{Standalone,Planner,Executor}AgentDef.kt`
+- app skill: `agent/cognition/prompt/AppSkillRepository.kt` + 17 migrated `assets/app_skills/*/SKILL.md`
+- tests: `agent/cognition/skills/{SkillFrontmatterParser,AgentSkillCatalog,AgentSkillManager}Test.kt`, `tool/impl/ActivateSkillToolTest.kt`, `agent/cognition/prompt/{AssetAppSkillRepository,AppSkillAssetIntegrity}Test.kt`, `agent/definition/AgentDefTest.kt`
+- build: `app/build.gradle.kts` (SnakeYAML dep)
+- docs: `doc/main/agent/agent_skills.md` (new), `doc/main/agent/turn_prompt_anatomy.md`, `doc/main/README.md`
+
+**Verification:** `./gradlew clean assembleDebug` BUILD SUCCESSFUL. `./gradlew testDebugUnitTest` all green. Two codex review rounds, all 7 HIGH/CRITICAL issues addressed. Real-device QA on Nubia P0110 (via Tailscale + cproxy): 5/5 PASS for agent skill scenarios — catalog in system prompt, model-driven `activate_skill`, `/skill-name` explicit, invalid-skill skipped, app skill regression. Migrated Settings app skill confirmed loading: `App skill lookup: pkg=com.android.settings, found=true`.
+**Commit:** `15e59b28..c9ac836f` (agentskill feature) · `e806fe32..7e1651e6` (app skill migration + loader unify) · `c9ac836f` (asset integrity test)
+**Next:** Skill installation UX (currently ADB push only — future skill hub integration noted in design)
+**Blockers:** None
+
 ## 2026-04-28: Settings UI — full-screen pages replace ModalBottomSheet
 
 **What changed:**

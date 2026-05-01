@@ -1,0 +1,28 @@
+{
+  "app-skill-asset-validation": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "agent": "w-app-skill-asset-validation",
+    "title": "Add unit test that parses all 17 real app_skills SKILL.md files",
+    "description": "Add a build-time guard: a unit test that opens every SKILL.md under app/src/main/assets/app_skills/, runs SkillFrontmatterParser on each, and asserts: (1) parse succeeds, (2) name matches ^app-[a-z0-9-]{0,63}$, (3) metadata.package == directory name. Catches typos that mocked tests miss.",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/prompt/AppSkillAssetIntegrityTest.kt"
+    ],
+    "acceptCriteria": [
+      "Test file exists and is a JVM unit test (no Android dependencies — read assets via java.io.File from project root)",
+      "Test iterates all directories under app/src/main/assets/app_skills/",
+      "For each: parses frontmatter, asserts name starts with app-, asserts metadata.package equals dir name",
+      "./gradlew testDebugUnitTest --tests *AppSkillAssetIntegrity* passes",
+      "Intentionally breaking one SKILL.md file makes the test fail (manually verify by user, not in test)"
+    ],
+    "tags": [
+      "agent-skills",
+      "testing"
+    ],
+    "estimate": "xs",
+    "priority": "normal",
+    "created": "2026-05-01T15:58:07Z",
+    "updated": "2026-05-01T16:04:22Z"
+  }
+}

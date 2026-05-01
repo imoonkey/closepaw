@@ -1,0 +1,30 @@
+{
+  "app-skill-frontmatter-migration": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "App Skill Frontmatter Migration to agentskills.io format",
+    "description": "Migrate the 17 existing app skill SKILL.md files in app/src/main/assets/app_skills/<package>/ from the old frontmatter format to the agentskills.io-compatible format. Old: name: <package.name>. New: name: app-<short-name> (lowercase-hyphen, e.g. app-settings, app-chrome) and metadata: { package: <package.name> }. Directory structure (keyed by package name) and AppSkillRepository load path remain unchanged in this task. Naming guidance: short-name = user-recognizable app name, not the package suffix.",
+    "design": "doc/archive/20260501_agentskill/final/design.md",
+    "scope": [
+      "app/src/main/assets/app_skills/**/SKILL.md"
+    ],
+    "acceptCriteria": [
+      "All SKILL.md files under app/src/main/assets/app_skills/ have name: app-<short-name> in lowercase-hyphen format",
+      "All SKILL.md files have metadata.package field with the original Android package name",
+      "All files validate against SkillFrontmatterParser (description present, name matches lowercase-hyphen regex)",
+      "./gradlew assembleDebug succeeds",
+      "./gradlew testDebugUnitTest --tests *AppSkill* passes (loader still finds bodies by directory)",
+      "find app/src/main/assets/app_skills -name SKILL.md | xargs -I {} grep -l \"^name: app-\" {} | wc -l matches the directory count"
+    ],
+    "tags": [
+      "agent-skills",
+      "migration"
+    ],
+    "estimate": "s",
+    "priority": "normal",
+    "created": "2026-05-01T15:33:06Z",
+    "updated": "2026-05-01T15:44:54Z",
+    "agent": "w-app-skill-migration"
+  }
+}

@@ -1,0 +1,267 @@
+{
+  "agentskill": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Agent Skills (agentskills.io) Support",
+    "description": "Add agentskills.io SKILL.md standard support to ClosePaw. Single skill root (filesDir/skills/), catalog in system prompt, activate_skill tool, SnakeYAML parser. Design: projects/active/agentskill/final/design.md",
+    "design": "projects/active/agentskill/final/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/ActivateSkillTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/*AgentDef.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/TurnPlanningPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug succeeds",
+      "./gradlew test succeeds"
+    ],
+    "tags": [
+      "feature",
+      "agent-skills"
+    ],
+    "estimate": "m",
+    "created": "2026-04-30T16:32:59Z",
+    "updated": "2026-05-01T14:51:14Z"
+  },
+  "agentskill-parser": {
+    "parent": "agentskill",
+    "depends": [],
+    "state": "done",
+    "title": "Skill Frontmatter Parser (SnakeYAML + fallback)",
+    "description": "Create SkillFrontmatterParser using SnakeYAML to parse SKILL.md frontmatter including nested metadata map. Lenient fallback: catch SnakeYAML exceptions, extract name + description via regex. Returns parsed SkillFrontmatter data class + body string. Add SnakeYAML dependency to build.gradle. Reusable by app skills later (metadata.package field).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/SkillFrontmatterParser.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/SkillFrontmatter.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/SkillFrontmatterParserTest.kt",
+      "app/build.gradle*"
+    ],
+    "acceptCriteria": [
+      "SkillFrontmatterParser.kt exists in agent/cognition/skills/",
+      "Parses valid frontmatter with name, description, license, compatibility, allowed-tools, metadata map",
+      "Malformed YAML (unquoted colons) falls back to regex, extracts name + description",
+      "Missing description returns null/error result",
+      "Returns body string with frontmatter stripped",
+      "SnakeYAML dependency added to build.gradle",
+      "Unit tests pass: ./gradlew test --tests *SkillFrontmatterParser*"
+    ],
+    "tags": [
+      "agent-skills"
+    ],
+    "estimate": "s",
+    "created": "2026-04-30T16:33:10Z",
+    "updated": "2026-04-30T22:28:12Z",
+    "agent": "w-agentskill-parser"
+  },
+  "agentskill-catalog": {
+    "parent": "agentskill",
+    "depends": [
+      "agentskill-parser"
+    ],
+    "state": "done",
+    "title": "Skill Catalog Discovery",
+    "description": "Create AgentSkillCatalog that scans context.filesDir/skills/*/SKILL.md at session start. Uses SkillFrontmatterParser to extract metadata. Builds immutable Map<String, AgentSkillEntry> (name, description, filePath). Validates: name matches directory, 1-64 chars lowercase-hyphen, description present. Skips and logs invalid skills. catalogPrompt() returns system prompt section text or null if empty.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/AgentSkillCatalog.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/AgentSkillEntry.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/AgentSkillCatalogTest.kt"
+    ],
+    "acceptCriteria": [
+      "AgentSkillCatalog.kt and AgentSkillEntry.kt exist in agent/cognition/skills/",
+      "Scans filesDir/skills/*/SKILL.md one level deep",
+      "Invalid skills (bad name, missing description) are skipped with log warning",
+      "catalogPrompt() returns formatted skill listing or null when empty",
+      "Unit tests pass: ./gradlew test --tests *AgentSkillCatalog*"
+    ],
+    "tags": [
+      "agent-skills"
+    ],
+    "estimate": "s",
+    "created": "2026-04-30T16:33:19Z",
+    "updated": "2026-04-30T22:31:15Z",
+    "agent": "w-agentskill-catalog"
+  },
+  "agentskill-manager": {
+    "parent": "agentskill",
+    "depends": [
+      "agentskill-catalog"
+    ],
+    "state": "done",
+    "title": "Skill Activation Manager",
+    "description": "Create AgentSkillManager — session-scoped, stored in SessionServices. Wraps AgentSkillCatalog. Tracks active skills in LinkedHashSet (idempotent activation, stable order). activate(name) reads SKILL.md body from filePath, strips frontmatter, returns body. activateExplicitMentions(text) matches /skill-name patterns against catalog names at word boundaries. Preserved across SessionServices.copy() for sub-agent inheritance.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/AgentSkillManager.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/AgentSkillManagerTest.kt"
+    ],
+    "acceptCriteria": [
+      "AgentSkillManager.kt exists in agent/cognition/skills/",
+      "activate() returns skill body (frontmatter stripped) on success, already-active on duplicate, error on unknown",
+      "activateExplicitMentions() parses /skill-name from text, no false positives on paths/URLs",
+      "Active skills preserved across copy()",
+      "Unit tests pass: ./gradlew test --tests *AgentSkillManager*"
+    ],
+    "tags": [
+      "agent-skills"
+    ],
+    "estimate": "s",
+    "created": "2026-04-30T16:33:30Z",
+    "updated": "2026-04-30T22:34:17Z",
+    "agent": "w-agentskill-manager"
+  },
+  "agentskill-tool": {
+    "parent": "agentskill",
+    "depends": [
+      "agentskill-manager"
+    ],
+    "state": "done",
+    "title": "ActivateSkillTool Implementation",
+    "description": "Create ActivateSkillTool implementing ToolSpec. Parameters: name (required), agent_thought (optional). Tool description is one line: \"Activate a skill by name. See the skill catalog in the system prompt for available skills.\" Delegates to AgentSkillManager.activate(). Add ActivateSkill to ToolName enum as non-screen-changing. Add \"activate_skill\" to allowedTools in StandaloneAgentDef, PlannerAgentDef, ExecutorAgentDef.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/ActivateSkillTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/PlannerAgentDef.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/ExecutorAgentDef.kt",
+      "app/src/test/kotlin/ai/closepaw/tool/impl/ActivateSkillToolTest.kt"
+    ],
+    "acceptCriteria": [
+      "ActivateSkillTool.kt exists in tool/impl/",
+      "ToolName.from(\"activate_skill\").isScreenChanging == false",
+      "grep -q activate_skill app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt",
+      "grep -q activate_skill app/src/main/kotlin/ai/closepaw/agent/definition/PlannerAgentDef.kt",
+      "Tool returns skill body on valid name, error on unknown, already-active on duplicate",
+      "Unit tests pass: ./gradlew test --tests *ActivateSkillTool*"
+    ],
+    "tags": [
+      "agent-skills"
+    ],
+    "estimate": "s",
+    "created": "2026-04-30T16:33:41Z",
+    "updated": "2026-04-30T22:38:05Z",
+    "agent": "w-agentskill-tool"
+  },
+  "agentskill-session": {
+    "parent": "agentskill",
+    "depends": [
+      "agentskill-tool"
+    ],
+    "state": "done",
+    "title": "Session Integration Wiring",
+    "description": "Wire AgentSkillManager into session lifecycle. In SessionServices.create(): construct AgentSkillManager with File(context.filesDir, \"skills\"). Add agentSkillManager field to SessionServices + copy(). In SessionToolingBootstrapper: register ActivateSkillTool only when catalog is non-empty. In TurnPlanningPhaseRunner: call activateExplicitMentions(goal) before first prompt build. Append catalogPrompt() to system prompt string in AgentRoleDef construction.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/TurnPlanningPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q agentSkillManager app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "grep -q ActivateSkillTool app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "grep -q activateExplicitMentions app/src/main/kotlin/ai/closepaw/agent/TurnPlanningPhaseRunner.kt",
+      "Catalog section appears in system prompt when skills exist",
+      "./gradlew assembleDebug succeeds",
+      "Existing app-skill tests remain green: ./gradlew test --tests *AppSkill*"
+    ],
+    "tags": [
+      "agent-skills"
+    ],
+    "estimate": "s",
+    "created": "2026-04-30T16:33:51Z",
+    "updated": "2026-04-30T22:42:31Z",
+    "agent": "w-agentskill-session"
+  },
+  "agentskill-tests": {
+    "parent": "agentskill",
+    "depends": [
+      "agentskill-session"
+    ],
+    "state": "done",
+    "title": "Integration Tests & Build Verification",
+    "description": "Comprehensive test pass. Ensure all component tests pass together, build succeeds, and existing app-skill tests are green. Add any missing edge case tests discovered during integration.",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/test/kotlin/ai/closepaw/tool/impl/ActivateSkillToolTest.kt"
+    ],
+    "acceptCriteria": [
+      "./gradlew assembleDebug succeeds",
+      "./gradlew test succeeds (all tests pass)",
+      "./gradlew lint produces no new errors",
+      "Existing AssetAppSkillRepositoryTest passes unchanged",
+      "Existing PromptBuilderTest passes unchanged"
+    ],
+    "tags": [
+      "agent-skills",
+      "testing"
+    ],
+    "estimate": "s",
+    "created": "2026-04-30T16:33:59Z",
+    "updated": "2026-04-30T22:50:59Z",
+    "agent": "w-agentskill-tests"
+  },
+  "agentskill-codex-review": {
+    "parent": "agentskill",
+    "depends": [
+      "agentskill-tests"
+    ],
+    "state": "done",
+    "title": "Codex Code Review & Fix",
+    "description": "Codex reviews the full agentskill implementation (parser, catalog, manager, tool, session wiring). Focus on: correctness against the design doc, Kotlin idioms, error handling, edge cases, thread safety, test coverage gaps. Fix any issues found.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/ActivateSkillTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/TurnPlanningPhaseRunner.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/test/kotlin/ai/closepaw/tool/impl/ActivateSkillToolTest.kt"
+    ],
+    "acceptCriteria": [
+      "Code review findings documented and addressed",
+      "./gradlew assembleDebug succeeds",
+      "./gradlew test succeeds",
+      "No new lint warnings from ./gradlew lint"
+    ],
+    "tags": [
+      "agent-skills",
+      "review"
+    ],
+    "estimate": "s",
+    "agent": "w-agentskill-codex-review",
+    "created": "2026-04-30T16:37:49Z",
+    "updated": "2026-05-01T14:51:14Z",
+    "note": "Two review rounds. Round 1: 1C+3H fixed. Round 2: 3H fixed. All verified."
+  },
+  "agentskill-qa": {
+    "parent": "agentskill",
+    "depends": [
+      "agentskill-codex-review"
+    ],
+    "state": "done",
+    "title": "Real Device QA Verification",
+    "description": "End-to-end QA on a real device. Push a test skill via ADB to filesDir/skills/, start a session, verify: (1) catalog appears in system prompt (check traces), (2) model can activate_skill and receives body, (3) /skill-name explicit activation works, (4) skill with invalid name/description is skipped, (5) session without skills has no activate_skill tool registered, (6) existing app skills still work normally.",
+    "scope": [],
+    "acceptCriteria": [
+      "Test skill pushed via adb push to device filesDir/skills/test-skill/SKILL.md",
+      "Agent session trace shows catalog section in system prompt with test-skill listed",
+      "Model successfully calls activate_skill and receives skill body in tool result",
+      "/test-skill explicit mention activates skill on first turn",
+      "Invalid skill (missing description) does not appear in catalog",
+      "Session with empty skills/ dir does not register activate_skill tool",
+      "Existing app skill (e.g. com.android.settings) still loads correctly per turn"
+    ],
+    "tags": [
+      "agent-skills",
+      "qa"
+    ],
+    "estimate": "s",
+    "requireHumanReview": true,
+    "created": "2026-04-30T16:37:49Z",
+    "updated": "2026-05-01T14:51:14Z",
+    "agent": "w-agentskill-qa",
+    "note": "All 6 scenarios PASS on emulator + 5/5 PASS on real device (nubia via Tailscale + cproxy). Two codex review rounds completed, all HIGH/CRITICAL issues fixed."
+  }
+}

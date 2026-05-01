@@ -41,9 +41,11 @@ The standalone and planner prompts now keep only cross-tool policy in the system
 5. **Task Modes** — Manipulation, information gathering, blocked/unsupported handling
 6. **Completion** — Verification doctrine before `complete_task`
 7. **Device Environment** — Runtime context (device, screen, date)
+8. **Available Skills catalog** (optional) — Appended by `TurnPlanningPhaseRunner` from `AgentSkillManager.catalogPrompt()` when one or more valid skills exist under `filesDir/skills/<name>/SKILL.md`. One-line descriptions only; bodies are loaded on demand via `activate_skill`.
 
-Tool-local semantics now live in tool descriptions, and app-specific guidance lives in
-`app/src/main/assets/app_skills/<package>/SKILL.md`.
+Tool-local semantics now live in tool descriptions, app-specific guidance lives in
+`app/src/main/assets/app_skills/<package>/SKILL.md`, and task/capability guidance lives in
+`filesDir/skills/<name>/SKILL.md` (Agent Skills, see [agent_skills.md](agent_skills.md)).
 
 → See: `agent/definition/StandaloneAgentDef.kt`, `agent/definition/PlannerAgentDef.kt`
 
@@ -51,14 +53,15 @@ Tool-local semantics now live in tool descriptions, and app-specific guidance li
 
 ## 2. Input Items Composition
 
-`PromptBuilder.buildInputItems(observation, warnings, ..., appSkill)` constructs the full
+`PromptBuilder.buildInputItems(observation, warnings, ..., appSkill, activatedAgentSkills)` constructs the full
 `input` list in fixed order:
 
 1. **History section** (`HistoryManager.forPrompt()`, normalized)
 2. **Working memory section** (optional — todos + scratchpad)
 3. **Recalled memory section** (optional — cross-session memories from `MemoryRecaller`)
 4. **App skill section** (optional single user message)
-5. **Current observation section** (screen JSON + optional screenshot)
+5. **Activated agent skills section** (optional — bodies of `/skill-name` mentions in goal)
+6. **Current observation section** (screen JSON + optional screenshot)
 
 ### 2.1 History Section
 
@@ -126,7 +129,36 @@ Package: net.gsantner.markor
 This keeps app knowledge out of the static system prompt while ensuring the active app's guidance
 is adjacent to the current observation.
 
-### 2.4 Observation Section
+App skill frontmatter follows the agentskills.io-compatible format:
+
+```yaml
+---
+name: app-markor
+description: App-specific guidance for Markor.
+metadata:
+  package: net.gsantner.markor
+---
+```
+
+`name` is `app-<short-name>` (lowercase-hyphen, user-recognizable). `metadata.package` carries the Android package name. The on-disk directory is still keyed by package name; lookup uses the directory, not the `metadata.package` field. The shared `SkillFrontmatterParser` strips frontmatter for both App Skills and Agent Skills.
+
+### 2.4 Activated Agent Skills Section (Optional)
+
+When the user goal contains `/skill-name` mentions matching skills in the catalog, the bodies are activated by `TurnPlanningPhaseRunner` and injected as a single user message AFTER the app skill but BEFORE the observation:
+
+```text
+## Skill: calendar-date-math
+...full SKILL.md body...
+
+## Skill: image-table-reading
+...full SKILL.md body...
+```
+
+Bodies are loaded only on the first turn after explicit mention; subsequent turns retain them in conversation history. Model-driven activation via the `activate_skill` tool returns the body as a tool result and follows the same compaction rules as any tool output.
+
+→ See: [agent_skills.md](agent_skills.md) for the full Agent Skills system.
+
+### 2.5 Observation Section
 
 Final user message always includes current screen JSON:
 
@@ -175,9 +207,11 @@ Mode-level allowlists are defined by agent definitions:
 
 | Mode | Available Tools |
 |------|-----------------|
-| Standalone (`BASIC`) | `mobile_action`, `system_button`, `wait`, `open_app`, `shell`, `write_todos`, `scratchpad`, `complete_task`, `ask_user` |
-| Planner (`PRO` main) | `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task` |
-| Executor (delegated) | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task`, `ask_user` |
+| Standalone (`BASIC`) | `mobile_action`, `system_button`, `wait`, `open_app`, `shell`, `write_todos`, `scratchpad`, `complete_task`, `ask_user`, `activate_skill`* |
+| Planner (`PRO` main) | `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task`, `activate_skill`* |
+| Executor (delegated) | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task`, `ask_user`, `activate_skill`* |
+
+*`activate_skill` is registered only when `AgentSkillManager` finds at least one valid skill under `filesDir/skills/`. If no skills are present, the tool is omitted entirely.
 
 Tool calls returned by the model but outside the allowlist are dropped before completion checks.
 

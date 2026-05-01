@@ -1,0 +1,29 @@
+{
+  "app-skill-loader-unify": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Unify AppSkillRepository to use SkillFrontmatterParser",
+    "description": "Refactor AssetAppSkillRepository to use the shared SkillFrontmatterParser instead of its own FRONTMATTER_REGEX. After this change, both Agent Skills and App Skills go through one parser. Optional but tidier — eliminates duplicate frontmatter-stripping code, gives app skills the same validation (lowercase-hyphen name, description bounds, etc.). Depends on frontmatter migration because the parser will reject old-format names (com.android.settings has dots, fails name regex).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/prompt/AppSkillRepository.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/prompt/AssetAppSkillRepositoryTest.kt"
+    ],
+    "acceptCriteria": [
+      "AssetAppSkillRepository.load() uses SkillFrontmatterParser to strip frontmatter and return body",
+      "FRONTMATTER_REGEX removed from AppSkillRepository.kt (no duplicate frontmatter handling)",
+      "Skills with malformed frontmatter return null with log warning",
+      "./gradlew assembleDebug succeeds",
+      "./gradlew testDebugUnitTest succeeds (existing AssetAppSkillRepositoryTest passes after migration)"
+    ],
+    "tags": [
+      "agent-skills",
+      "refactor"
+    ],
+    "estimate": "xs",
+    "priority": "low",
+    "created": "2026-05-01T15:33:06Z",
+    "updated": "2026-05-01T15:47:57Z",
+    "agent": "w-app-skill-loader-unify"
+  }
+}
