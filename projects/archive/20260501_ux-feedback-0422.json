@@ -1,0 +1,238 @@
+{
+  "ux-feedback-0422": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "UX Feedback (capsule + chat) — 2026-04-22",
+    "description": "Three UX issues: thought truncation end-to-end, chat trace hierarchy, final-answer survives collapse. See projects/active/ux-feedback-0422/README.md.",
+    "design": "projects/active/ux-feedback-0422/README.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "Real-device QA passes",
+      "codex code-review surfaces no critical/high issues"
+    ],
+    "created": "2026-04-22T21:33:56Z",
+    "updated": "2026-04-22T22:32:26Z"
+  },
+  "uxfb-1-thought-data": {
+    "parent": "ux-feedback-0422",
+    "depends": [],
+    "state": "done",
+    "title": "UXFB-1 · Full thought preservation (data path)",
+    "description": "Stop truncating agent_thought in the canonical pipeline. Rename sanitizeThought → compactThought, raise ceiling to ~80 chars, and keep it for opt-in callers only. ThoughtUpdate carries {full, compact}. Reducer and history store full text. Drop IslandOverlayHost.modeText .take(24). See README §1 + Decision D1.",
+    "design": "projects/active/ux-feedback-0422/README.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/protocol/TextUtils.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/ThoughtEvents.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/TurnPlanningPhaseRunner.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatEventReducer.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/compose/IslandOverlayHost.kt",
+      "app/src/main/kotlin/ai/closepaw/history/**",
+      "app/src/test/kotlin/ai/closepaw/history/**"
+    ],
+    "acceptCriteria": [
+      "./gradlew :app:assembleDebug succeeds",
+      "./gradlew :app:test succeeds",
+      "grep -q \"fun compactThought\" app/src/main/kotlin/ai/closepaw/protocol/TextUtils.kt",
+      "! grep -q \"\\.take(24)\" app/src/main/kotlin/ai/closepaw/ui/overlay/compose/IslandOverlayHost.kt",
+      "ThoughtUpdate has full and compact fields (grep)",
+      "MessageConverterTest covers a >200-char thought round-trip"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-22T21:34:16Z",
+    "updated": "2026-04-22T21:46:05Z",
+    "agent": "w-uxfb-1-thought-data"
+  },
+  "uxfb-2-capsule-marquee": {
+    "parent": "ux-feedback-0422",
+    "depends": [
+      "uxfb-1-thought-data"
+    ],
+    "state": "done",
+    "title": "UXFB-2 · Capsule marquee + reduced-motion fallback",
+    "description": "Add Modifier.basicMarquee to thought Text in StatusIslandCompose and SmartCapsuleSurface. Reduced-motion users see compactThought() output instead. See README §1 renderer half + Decision D1.",
+    "design": "projects/active/ux-feedback-0422/README.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/compose/StatusIslandCompose.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/SmartCapsuleSurface.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Motion.kt"
+    ],
+    "acceptCriteria": [
+      "./gradlew :app:assembleDebug succeeds",
+      "./gradlew :app:test succeeds",
+      "grep -q \"basicMarquee\" app/src/main/kotlin/ai/closepaw/ui/overlay/compose/StatusIslandCompose.kt",
+      "grep -q \"basicMarquee\" app/src/main/kotlin/ai/closepaw/ui/capsule/surface/SmartCapsuleSurface.kt",
+      "reduced-motion branch present (grep for reducedMotion or accessibility check)"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "created": "2026-04-22T21:34:27Z",
+    "updated": "2026-04-22T21:50:09Z",
+    "agent": "w-uxfb-2"
+  },
+  "uxfb-3-final-collapsepill": {
+    "parent": "ux-feedback-0422",
+    "depends": [
+      "uxfb-1-thought-data"
+    ],
+    "state": "done",
+    "title": "UXFB-3 · FinalText concept + CollapsePill + file split",
+    "description": "Introduce ContentBlock.FinalText (or isFinal flag) populated by reducer at completion: complete_task.answer OR last text-block-without-tool-calls (Turn.kt:205-209 stop criteria). Replace row-root clickable with dedicated CollapsePill that owns click+Role.Button+semantics. Final region always visible when present. Extract MessageBubble.kt (currently 463 lines, over 400-line cap) into AgentRow.kt + AgentSummary.kt; AgentTrace.kt extraction lives in UXFB-4. See README §3 + Decisions D2, D3.",
+    "design": "projects/active/ux-feedback-0422/README.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatEventReducer.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/model/ContentBlock.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentRow.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentSummary.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/CollapsePill.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/chat/**",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/ChatAgentRowDisclosureTest.kt"
+    ],
+    "acceptCriteria": [
+      "./gradlew :app:assembleDebug succeeds",
+      "./gradlew :app:test succeeds",
+      "wc -l app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt produces value <= 200",
+      "grep -q \"FinalText\\|isFinal\" app/src/main/kotlin/ai/closepaw/ui/chat/model/ContentBlock.kt",
+      "CollapsePill.kt exists",
+      "row root no longer clickable (no Modifier.clickable on AgentRow Column)",
+      "CollapsedHeadlineTest replaced or removed"
+    ],
+    "priority": "high",
+    "estimate": "l",
+    "created": "2026-04-22T21:34:34Z",
+    "updated": "2026-04-22T22:06:05Z",
+    "agent": "w-uxfb-3"
+  },
+  "uxfb-4-thoughtgroup-restyle": {
+    "parent": "ux-feedback-0422",
+    "depends": [
+      "uxfb-3-final-collapsepill"
+    ],
+    "state": "done",
+    "title": "UXFB-4 · ThoughtGroup restyle + style.md sync",
+    "description": "Restructure ExpandedTrace into ThoughtGroups (consecutive Thought + N Actions). Left vertical rule per group, thought as bodyLarge group header (no italic, no ✱), actions indented monoSmall. Extract AgentTrace.kt out of MessageBubble.kt. Update doc/main/ui/style.md typography table in same PR. See README §2.",
+    "design": "projects/active/ux-feedback-0422/README.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentRow.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentTrace.kt",
+      "doc/main/ui/style.md",
+      "app/src/test/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "./gradlew :app:assembleDebug succeeds",
+      "./gradlew :app:test succeeds",
+      "AgentTrace.kt exists with ThoughtGroup composable",
+      "doc/main/ui/style.md typography table updated (no italic+onSurfaceVariant for thought)",
+      "ThoughtGroupTest exercises preface (actions-before-first-thought) case"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "created": "2026-04-22T21:34:35Z",
+    "updated": "2026-04-22T22:10:51Z",
+    "agent": "w-uxfb-4"
+  },
+  "uxfb-qa-realdevice": {
+    "parent": "ux-feedback-0422",
+    "depends": [
+      "uxfb-1-thought-data",
+      "uxfb-2-capsule-marquee",
+      "uxfb-3-final-collapsepill",
+      "uxfb-4-thoughtgroup-restyle"
+    ],
+    "state": "done",
+    "title": "UXFB-QA · Real-device end-to-end QA",
+    "description": "Run scripts/setup.sh + ./scripts/debug-run.sh on real device, exercise: (1) long thought visible in capsule (marquee scrolls; reduced-motion shows compact), (2) chat trace renders ThoughtGroups with left rule, (3) completed row hides trace behind CollapsePill but final answer stays visible and selectable, (4) tap pill toggles trace. Use /ux-visual-debug skill.",
+    "scope": [
+      "scripts/**"
+    ],
+    "acceptCriteria": [
+      "All 4 user scenarios pass on device",
+      "No crashes or ANRs in logcat",
+      "Capsule renders fullText (verifiable via dumpsys / capture)",
+      "Final answer is selectable via long-press"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-22T21:34:49Z",
+    "updated": "2026-04-22T22:32:25Z",
+    "agent": "w-uxfb-qa"
+  },
+  "uxfb-codex-review": {
+    "parent": "ux-feedback-0422",
+    "depends": [
+      "uxfb-1-thought-data",
+      "uxfb-2-capsule-marquee",
+      "uxfb-3-final-collapsepill",
+      "uxfb-4-thoughtgroup-restyle"
+    ],
+    "state": "done",
+    "title": "UXFB-Review · codex /code-review on accumulated diff",
+    "description": "Spawn codex via multmux, ask /code-review on the cumulative diff against pre-uxfb baseline. Surface critical/high issues; if any, file follow-up tasks.",
+    "scope": [
+      "projects/active/ux-feedback-0422/**"
+    ],
+    "acceptCriteria": [
+      "codex review report saved to projects/active/ux-feedback-0422/codex-review.md",
+      "No critical issues, or all critical issues addressed in follow-ups"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "created": "2026-04-22T21:34:50Z",
+    "updated": "2026-04-22T22:32:25Z",
+    "agent": "w-uxfb-review"
+  },
+  "uxfb-followup-trim-ime": {
+    "parent": "ux-feedback-0422",
+    "depends": [],
+    "state": "done",
+    "agent": "w-uxfb-fu",
+    "title": "UXFB-Followup · trim complete_task answer + IME inset",
+    "description": "Two real-device QA findings on top of the milestone:\n\n(1) ActionDescriptionFormatter.formatCompleteTask (app/src/main/kotlin/ai/closepaw/agent/ActionDescriptionFormatter.kt:95) does answer.take(50) — chat trace shows complete_task action description truncated mid-word (e.g. \"Complete (success): Your Gmail is filtered to unread emails. I can verif\"). Drop the take(50). The trace area is vertically scrollable, no need to bound. Update ActionTargetTest if any cases pin the truncation.\n\n(2) When keyboard appears, the entire ChatScreen including ChatHeader shifts up — only the input dock (SmartCapsule bottomBar) should move. Root cause: MainActivity uses enableEdgeToEdge() but no explicit windowSoftInputMode in AndroidManifest, so default adjustResize shrinks the window and Compose re-lays out everything. Fix: add android:windowSoftInputMode=\"adjustNothing\" to the MainActivity entry in app/src/main/AndroidManifest.xml AND add Modifier.imePadding() to the bottomBar Box in app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt:137 so the input dock floats above the IME via Compose insets only. Also pass contentWindowInsets = WindowInsets(0) (or .exclude(WindowInsets.ime)) to the Scaffold so it does not redundantly pad. Verify with scripts/setup.sh + device launch + tap input field — header must stay anchored, only input box rises.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/ActionDescriptionFormatter.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/ActionTargetTest.kt",
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt"
+    ],
+    "acceptCriteria": [
+      "./gradlew :app:assembleDebug succeeds",
+      "./gradlew :app:test succeeds",
+      "grep -c \"\\.take(50)\" app/src/main/kotlin/ai/closepaw/agent/ActionDescriptionFormatter.kt produces 0",
+      "grep -q \"windowSoftInputMode\" app/src/main/AndroidManifest.xml",
+      "grep -q \"imePadding\" app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt",
+      "Real-device check: launch app, tap input → header anchored (use scripts/setup.sh + adb screencap before/after IME open)"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "created": "2026-04-22T22:51:30Z",
+    "updated": "2026-04-22T22:57:02Z"
+  },
+  "uxfb-followup2-ime-scope": {
+    "parent": "ux-feedback-0422",
+    "depends": [],
+    "state": "done",
+    "agent": "w-uxfb-fu2",
+    "title": "UXFB-Followup2 - scope adjustNothing IME handling to onboarding + settings",
+    "description": "Codex HIGH on commit 08ae6378: windowSoftInputMode=adjustNothing is activity-wide. Compensating imePadding only landed in ChatScreen. Onboarding API-key CTA (OnboardingSteps.kt:379) and Settings API-key sheet (ApiKeyFields.kt:28) get hidden behind the keyboard. Add Modifier.imePadding to OnboardingShell + SettingsSheet containers so they match. Keep adjustNothing globally (chat already QA-verified).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/**",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityContent.kt"
+    ],
+    "acceptCriteria": [
+      "./gradlew :app:assembleDebug succeeds",
+      "./gradlew :app:test succeeds",
+      "grep -q imePadding app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingShell.kt",
+      "grep -q imePadding app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "Settings API-key field visible above IME on device (screenshot)"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "created": "2026-04-22T23:39:02Z",
+    "updated": "2026-04-22T23:45:59Z"
+  }
+}
