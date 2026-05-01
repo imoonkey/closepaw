@@ -91,8 +91,8 @@ class ActivateSkillToolTest {
     }
 
     @Test
-    fun `execute returns already active on duplicate`() = runBlocking {
-        createSkill("date-math", "Compute dates", "Body.")
+    fun `execute returns body on re-activation`() = runBlocking {
+        createSkill("date-math", "Compute dates", "Use ISO-8601.")
         val manager = AgentSkillManager(tempDir.root)
         val t = ActivateSkillTool(manager)
         manager.activate("date-math")
@@ -104,7 +104,7 @@ class ActivateSkillToolTest {
         val result = invocation.execute(stubContext)
 
         assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
-        assertThat((result as ToolExecutionResult.Success).output).contains("already active")
+        assertThat((result as ToolExecutionResult.Success).output).isEqualTo("Use ISO-8601.")
     }
 
     @Test

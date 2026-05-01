@@ -70,17 +70,14 @@ internal class TurnPlanningPhaseRunner(
                         .joinToString("\n\n") { "## Skill: ${it.name}\n${it.body}" }
                         .takeIf { it.isNotEmpty() }
 
-                // Append agent skill catalog and activated skill bodies to system prompt.
+                // Catalog (one-liner descriptions) stays in system prompt.
+                // Activated skill BODIES go into user-role messages (lower priority).
                 val catalogSection = services.agentSkillManager.catalogPrompt()
                 val fullSystemPrompt = buildString {
                         append(systemPrompt)
                         if (catalogSection != null) {
                                 append("\n\n")
                                 append(catalogSection)
-                        }
-                        if (activatedSkillBodies != null) {
-                                append("\n\n")
-                                append(activatedSkillBodies)
                         }
                 }
 
@@ -105,7 +102,8 @@ internal class TurnPlanningPhaseRunner(
                                 turnNumber = turnNumber,
                                 maxTurns = config.maxTurns,
                                 appSkill = appSkill,
-                                recalledMemory = recalledMemory
+                                recalledMemory = recalledMemory,
+                                activatedAgentSkills = activatedSkillBodies
                         )
 
                 // Record screen observation for future turns.

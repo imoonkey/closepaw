@@ -266,4 +266,49 @@ class AgentSkillCatalogTest {
         assertThat(catalog.entries).hasSize(1)
         assertThat(catalog.entries).containsKey("good-skill")
     }
+
+    @Test
+    fun `multiline description is sanitized to single line`() {
+        val dir = tempDir.newFolder("multi-desc")
+        dir.resolve("SKILL.md").writeText(
+            "---\nname: multi-desc\ndescription: \"Line one\\nLine two\\tTabbed\"\n---\nBody."
+        )
+
+        val catalog = AgentSkillCatalog(tempDir.root)
+
+        assertThat(catalog.entries).hasSize(1)
+        assertThat(catalog.entries["multi-desc"]!!.description).doesNotContain("\n")
+        assertThat(catalog.entries["multi-desc"]!!.description).doesNotContain("\t")
+    }
+
+    @Test
+    fun `description with control characters is sanitized`() {
+        val dir = tempDir.newFolder("ctrl-desc")
+        dir.resolve("SKILL.md").writeText(
+            "---\nname: ctrl-desc\ndescription: \"Clean\\x00text\\x01here\"\n---\nBody."
+        )
+
+        val catalog = AgentSkillCatalog(tempDir.root)
+
+        if (catalog.entries.containsKey("ctrl-desc")) {
+            val desc = catalog.entries["ctrl-desc"]!!.description
+            assertThat(desc).doesNotContainMatch("\\p{Cntrl}")
+        }
+    }
+
+    @Test
+    fun `description with literal newlines is sanitized`() {
+        val dir = tempDir.newFolder("newline-desc")
+        dir.resolve("SKILL.md").writeText(
+            "---\nname: newline-desc\ndescription: |-\n  First line\n  Second line\n---\nBody."
+        )
+
+        val catalog = AgentSkillCatalog(tempDir.root)
+
+        assertThat(catalog.entries).hasSize(1)
+        val desc = catalog.entries["newline-desc"]!!.description
+        assertThat(desc).doesNotContain("\n")
+        assertThat(desc).contains("First line")
+        assertThat(desc).contains("Second line")
+    }
 }

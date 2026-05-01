@@ -64,14 +64,23 @@ class AgentSkillCatalog(skillsDir: File) {
                 continue
             }
 
-            if (fm.description.length > MAX_DESCRIPTION_LENGTH) {
-                Log.w(TAG, "Description too long (${fm.description.length} chars) in ${dir.name}")
+            val sanitizedDescription = fm.description
+                .replace(Regex("[\\r\\n\\t\\x00-\\x1F]"), " ")
+                .trim()
+
+            if (sanitizedDescription.isEmpty()) {
+                Log.w(TAG, "Empty description after sanitization in ${dir.name}")
+                continue
+            }
+
+            if (sanitizedDescription.length > MAX_DESCRIPTION_LENGTH) {
+                Log.w(TAG, "Description too long (${sanitizedDescription.length} chars) in ${dir.name}")
                 continue
             }
 
             result[fm.name] = AgentSkillEntry(
                 name = fm.name,
-                description = fm.description,
+                description = sanitizedDescription,
                 filePath = skillFile.absolutePath
             )
         }

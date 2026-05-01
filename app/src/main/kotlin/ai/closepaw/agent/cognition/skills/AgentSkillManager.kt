@@ -24,10 +24,6 @@ class AgentSkillManager(skillsDir: File) {
         val entry = catalog.entries[name]
             ?: return ActivationResult.NotFound(name)
 
-        if (activeSkills.contains(name)) {
-            return ActivationResult.AlreadyActive(name)
-        }
-
         val content = try {
             File(entry.filePath).readText()
         } catch (e: IOException) {

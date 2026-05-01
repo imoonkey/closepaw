@@ -39,15 +39,17 @@ class AgentSkillManagerTest {
     }
 
     @Test
-    fun `activate returns already active on duplicate`() {
-        createSkill("date-math", "Compute date ranges")
+    fun `activate returns body on re-activation`() {
+        createSkill("date-math", "Compute date ranges", "Use ISO-8601 format.")
         val manager = AgentSkillManager(tempDir.root)
         manager.activate("date-math")
 
         val result = manager.activate("date-math")
 
-        assertThat(result).isInstanceOf(ActivationResult.AlreadyActive::class.java)
-        assertThat((result as ActivationResult.AlreadyActive).name).isEqualTo("date-math")
+        assertThat(result).isInstanceOf(ActivationResult.Success::class.java)
+        val success = result as ActivationResult.Success
+        assertThat(success.name).isEqualTo("date-math")
+        assertThat(success.body).isEqualTo("Use ISO-8601 format.")
     }
 
     @Test
@@ -107,19 +109,17 @@ class AgentSkillManagerTest {
     }
 
     @Test
-    fun `concurrent activations do not corrupt state`() {
+    fun `concurrent activations all return success with body`() {
         createSkill("shared-skill", "Concurrent test", "Body.")
         val manager = AgentSkillManager(tempDir.root)
         val barrier = CyclicBarrier(10)
         val successCount = AtomicInteger(0)
-        val alreadyActiveCount = AtomicInteger(0)
 
         val threads = (1..10).map {
             Thread {
                 barrier.await()
                 when (manager.activate("shared-skill")) {
                     is ActivationResult.Success -> successCount.incrementAndGet()
-                    is ActivationResult.AlreadyActive -> alreadyActiveCount.incrementAndGet()
                     else -> {}
                 }
             }
@@ -127,8 +127,7 @@ class AgentSkillManagerTest {
         threads.forEach { it.start() }
         threads.forEach { it.join() }
 
-        assertThat(successCount.get()).isEqualTo(1)
-        assertThat(alreadyActiveCount.get()).isEqualTo(9)
+        assertThat(successCount.get()).isEqualTo(10)
     }
 
     @Test
@@ -243,7 +242,7 @@ class AgentSkillManagerTest {
     }
 
     @Test
-    fun `activateExplicitMentions returns already active for pre-activated skills`() {
+    fun `activateExplicitMentions returns body for pre-activated skills`() {
         createSkill("date-math", "Compute date ranges", "Body.")
         val manager = AgentSkillManager(tempDir.root)
         manager.activate("date-math")
@@ -251,7 +250,8 @@ class AgentSkillManagerTest {
         val results = manager.activateExplicitMentions("/date-math")
 
         assertThat(results).hasSize(1)
-        assertThat(results[0]).isInstanceOf(ActivationResult.AlreadyActive::class.java)
+        assertThat(results[0]).isInstanceOf(ActivationResult.Success::class.java)
+        assertThat((results[0] as ActivationResult.Success).body).isEqualTo("Body.")
     }
 
     @Test
@@ -261,7 +261,8 @@ class AgentSkillManagerTest {
         manager.activate("date-math")
 
         val second = manager.activate("date-math")
-        assertThat(second).isInstanceOf(ActivationResult.AlreadyActive::class.java)
+        assertThat(second).isInstanceOf(ActivationResult.Success::class.java)
+        assertThat((second as ActivationResult.Success).body).isEqualTo("Body.")
     }
 
     @Test
@@ -277,7 +278,7 @@ class AgentSkillManagerTest {
 
         val results = manager.activateExplicitMentions("/ccc-skill /aaa-skill /bbb-skill")
         assertThat(results).hasSize(3)
-        assertThat(results.map { (it as ActivationResult.AlreadyActive).name })
+        assertThat(results.map { (it as ActivationResult.Success).name })
             .containsExactly("ccc-skill", "aaa-skill", "bbb-skill")
             .inOrder()
     }
