@@ -1,6 +1,8 @@
 ---
-name: de.dennisguse.opentracks
+name: app-opentracks
 description: App-specific guidance for OpenTracks sport tracker.
+metadata:
+  package: de.dennisguse.opentracks
 ---
 
 ## CRITICAL — Activity type is hidden

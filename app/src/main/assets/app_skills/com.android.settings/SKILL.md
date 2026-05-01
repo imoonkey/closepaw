@@ -1,6 +1,8 @@
 ---
-name: com.android.settings
+name: app-settings
 description: App-specific guidance for Android Settings.
+metadata:
+  package: com.android.settings
 ---
 
 ## System Toggles (Wi-Fi, Bluetooth)

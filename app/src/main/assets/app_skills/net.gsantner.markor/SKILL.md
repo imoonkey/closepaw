@@ -1,6 +1,8 @@
 ---
-name: net.gsantner.markor
+name: app-markor
 description: App-specific guidance for Markor text editor.
+metadata:
+  package: net.gsantner.markor
 ---
 
 ## New-File Extension

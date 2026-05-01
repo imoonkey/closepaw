@@ -1,6 +1,8 @@
 ---
-name: com.google.android.apps.photos
+name: app-photos
 description: App-specific guidance for Google Photos / Gallery.
+metadata:
+  package: com.google.android.apps.photos
 ---
 
 - Open images full-screen before reading text or details — thumbnails are too small for reliable OCR.

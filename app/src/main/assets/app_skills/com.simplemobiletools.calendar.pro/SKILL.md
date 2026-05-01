@@ -1,6 +1,8 @@
 ---
-name: com.simplemobiletools.calendar.pro
+name: app-simple-calendar
 description: App-specific guidance for Simple Calendar Pro.
+metadata:
+  package: com.simplemobiletools.calendar.pro
 ---
 
 ## CRITICAL — Month grid has no per-cell accessibility nodes

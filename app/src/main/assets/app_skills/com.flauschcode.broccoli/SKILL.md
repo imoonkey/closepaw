@@ -1,6 +1,8 @@
 ---
-name: com.flauschcode.broccoli
+name: app-broccoli
 description: App-specific guidance for Broccoli recipe manager.
+metadata:
+  package: com.flauschcode.broccoli
 ---
 
 - Add recipes via FAB from the recipe list. Never use "Edit" on an existing recipe to create a different one.

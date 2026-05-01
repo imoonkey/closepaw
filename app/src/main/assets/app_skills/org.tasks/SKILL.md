@@ -1,6 +1,8 @@
 ---
-name: org.tasks
+name: app-tasks
 description: App-specific guidance for Tasks.org.
+metadata:
+  package: org.tasks
 ---
 
 ## CRITICAL — Completion status is hidden

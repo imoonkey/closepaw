@@ -1,6 +1,8 @@
 ---
-name: com.android.chrome
+name: app-chrome
 description: App-specific guidance for Chrome browser.
+metadata:
+  package: com.android.chrome
 ---
 
 - Use `long_press` (not single click) on file rows in Files app — single click may silently fail.

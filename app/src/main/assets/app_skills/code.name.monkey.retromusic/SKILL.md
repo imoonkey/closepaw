@@ -1,6 +1,8 @@
 ---
-name: code.name.monkey.retromusic
+name: app-retromusic
 description: App-specific guidance for Retro Music player.
+metadata:
+  package: code.name.monkey.retromusic
 ---
 
 - Playlist detail view shows total duration. Add songs from the Songs tab, not from inside the playlist.

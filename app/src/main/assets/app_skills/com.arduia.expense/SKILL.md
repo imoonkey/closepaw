@@ -1,6 +1,8 @@
 ---
-name: com.arduia.expense
+name: app-expense
 description: App-specific guidance for Pro Expense.
+metadata:
+  package: com.arduia.expense
 ---
 
 - Tap FAB to add. Fill ALL 4 fields: name, amount, category, note. Re-read name and amount before saving — field focus can silently overwrite the wrong field.

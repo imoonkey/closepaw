@@ -1,6 +1,8 @@
 ---
-name: com.google.android.documentsui
+name: app-documents
 description: App-specific guidance for Android Documents UI (Files).
+metadata:
+  package: com.google.android.documentsui
 ---
 
 - If the hamburger menu doesn't open via click, swipe right from the left edge.

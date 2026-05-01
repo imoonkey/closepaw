@@ -1,6 +1,8 @@
 ---
-name: com.dimowner.audiorecorder
+name: app-audio-recorder
 description: App-specific guidance for Audio Recorder.
+metadata:
+  package: com.dimowner.audiorecorder
 ---
 
 - Rename a recording from its 3-dot menu or by long-pressing it.

@@ -1,6 +1,8 @@
 ---
-name: net.osmand
+name: app-osmand
 description: App-specific guidance for OsmAnd maps.
+metadata:
+  package: net.osmand
 ---
 
 ## CRITICAL — Use Address tab for search

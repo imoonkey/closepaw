@@ -1,6 +1,8 @@
 ---
-name: org.videolan.vlc
+name: app-vlc
 description: App-specific guidance for VLC media player.
+metadata:
+  package: org.videolan.vlc
 ---
 
 ## CRITICAL — Use library tabs, not Browse

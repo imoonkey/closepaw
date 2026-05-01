@@ -1,6 +1,8 @@
 ---
-name: com.google.android.apps.nbu.files
+name: app-files
 description: App-specific guidance for Google Files (file manager).
+metadata:
+  package: com.google.android.apps.nbu.files
 ---
 
 - Use `element_index` on file names, NOT coordinate clicks. Left edge (x < 150) overlaps the hamburger menu.

@@ -1,6 +1,8 @@
 ---
-name: com.simplemobiletools.gallery.pro
+name: app-simple-gallery
 description: App-specific guidance for Simple Gallery Pro.
+metadata:
+  package: com.simplemobiletools.gallery.pro
 ---
 
 - Open images full-screen before reading text or details — thumbnails are too small for reliable OCR.

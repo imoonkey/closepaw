@@ -1,6 +1,8 @@
 ---
-name: com.google.android.calendar
+name: app-google-calendar
 description: App-specific guidance for Google Calendar.
+metadata:
+  package: com.google.android.calendar
 ---
 
 - For date queries, switch to Agenda or list view. Month-grid cells are not reliably labeled.
