@@ -12,10 +12,18 @@ import org.junit.Test
 class AssetAppSkillRepositoryTest {
 
     @Test
-    fun `load returns skill text for matching package asset`() {
+    fun `load returns body for skill with valid frontmatter`() {
         val assets = mockk<AssetManager>()
+        val content = """
+            ---
+            name: app-markor
+            description: Markor app guidance.
+            ---
+
+            # Markor Skill
+        """.trimIndent()
         every { assets.open("app_skills/net.gsantner.markor/SKILL.md") } returns
-            ByteArrayInputStream("# Markor Skill".toByteArray())
+            ByteArrayInputStream(content.toByteArray())
 
         val repository = AssetAppSkillRepository(assets)
 
@@ -33,6 +41,19 @@ class AssetAppSkillRepositoryTest {
         val repository = AssetAppSkillRepository(assets)
 
         val skill = repository.load("com.example.missing")
+
+        assertThat(skill).isNull()
+    }
+
+    @Test
+    fun `load returns null when frontmatter is malformed`() {
+        val assets = mockk<AssetManager>()
+        every { assets.open("app_skills/com.example.bad/SKILL.md") } returns
+            ByteArrayInputStream("# No frontmatter here".toByteArray())
+
+        val repository = AssetAppSkillRepository(assets)
+
+        val skill = repository.load("com.example.bad")
 
         assertThat(skill).isNull()
     }
