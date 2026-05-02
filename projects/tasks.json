@@ -1086,7 +1086,7 @@
   "ts-bridge-manager-core": {
     "parent": "ts-phase3-bridge-manager",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "TermuxBridgeManager core: Holder + StateFlow + status types",
     "description": "Implement TermuxBridgeManagerHolder (process-wide singleton, double-check locking like AuthStoreHolder). TermuxBridgeManager with StateFlow<TermuxBridgeStatus>, Mutex-serialized setup/health/restart methods, and snapshot() returning immutable TermuxCapabilitySnapshot. Status sealed class: NotInstalled, NeedsSetup(reason), SetupInProgress, Ready, Disabled. TermuxCapabilitySnapshot data class: available (bridge ready AND user enabled), enabled (settings toggle), status (debug/logging).",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1110,13 +1110,14 @@
       "kotlin"
     ],
     "created": "2026-05-02T01:13:48Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T02:36:09Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-bridge-manager-core"
   },
   "ts-run-command-adapter": {
     "parent": "ts-phase3-bridge-manager",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "TermuxRunCommandAdapter: RUN_COMMAND intent + PendingIntent result",
     "description": "Implement TermuxRunCommandAdapter that sends RUN_COMMAND intents to Termux and receives results via PendingIntent BroadcastReceiver. Each call generates unique requestId to ignore stale/late results. Supports EXTRA_STDIN for bridge.py deployment via base64 encoding (avoids shell quoting). Returns RunCommandResult(stdout, stderr, exitCode). Handles SecurityException (permission missing) and ActivityNotFoundException (Termux not installed / allow-external-apps disabled).",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1139,8 +1140,9 @@
       "kotlin"
     ],
     "created": "2026-05-02T01:13:56Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T02:36:09Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-run-command-adapter"
   },
   "ts-bootstrap-flow": {
     "parent": "ts-phase3-bridge-manager",
