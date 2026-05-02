@@ -6,6 +6,11 @@ import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.AVAILABLE_LOCAL_MODELS
 import ai.closepaw.ui.settings.LocalModelOption
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
 data class AppSettings(
         val selectedModel: String,
@@ -18,7 +23,8 @@ data class AppSettings(
         val executorModel: String?,
         val platformMode: PlatformMode,
         val traceEnabled: Boolean,
-        val browserScriptEnabled: Boolean
+        val browserScriptEnabled: Boolean,
+        val termuxShellEnabled: Boolean
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -38,6 +44,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
         private const val KEY_TRACE_ENABLED = "trace_enabled"
         private const val KEY_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
+        private const val KEY_TERMUX_SHELL_ENABLED = "termux_shell_enabled"
 
         const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_MAX_TURNS = 20
@@ -49,7 +56,11 @@ class AppSettingsStore(private val context: Context) {
         val DEFAULT_PLATFORM_MODE = PlatformMode.ACCESSIBILITY
         const val DEFAULT_TRACE_ENABLED = false
         const val DEFAULT_BROWSER_SCRIPT_ENABLED = false
+        const val DEFAULT_TERMUX_SHELL_ENABLED = true
     }
+
+    private val _termuxShellEnabled = MutableStateFlow(loadTermuxShellEnabled())
+    val termuxShellEnabled: StateFlow<Boolean> = _termuxShellEnabled.asStateFlow()
 
     /** Plain prefs for non-secret settings only (model, turns, mode, etc.). */
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -98,6 +109,10 @@ class AppSettingsStore(private val context: Context) {
         val traceEnabled = prefs.getBoolean(KEY_TRACE_ENABLED, DEFAULT_TRACE_ENABLED)
         val browserScriptEnabled =
                 prefs.getBoolean(KEY_BROWSER_SCRIPT_ENABLED, DEFAULT_BROWSER_SCRIPT_ENABLED)
+        val termuxShellEnabled = prefs.getBoolean(
+                KEY_TERMUX_SHELL_ENABLED,
+                DEFAULT_TERMUX_SHELL_ENABLED
+        )
 
         return AppSettings(
                 selectedModel = selectedModel,
@@ -110,8 +125,19 @@ class AppSettingsStore(private val context: Context) {
                 executorModel = executorModel,
                 platformMode = platformMode,
                 traceEnabled = traceEnabled,
-                browserScriptEnabled = browserScriptEnabled
+                browserScriptEnabled = browserScriptEnabled,
+                termuxShellEnabled = termuxShellEnabled
         )
+    }
+
+    fun loadTermuxShellEnabled(): Boolean =
+        prefs().getBoolean(KEY_TERMUX_SHELL_ENABLED, DEFAULT_TERMUX_SHELL_ENABLED)
+
+    suspend fun setTermuxShellEnabled(value: Boolean) {
+        withContext(Dispatchers.IO) {
+            prefs().edit().putBoolean(KEY_TERMUX_SHELL_ENABLED, value).apply()
+        }
+        _termuxShellEnabled.value = value
     }
 
     fun saveExecutorModel(value: String?) {

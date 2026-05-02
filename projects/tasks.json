@@ -1150,7 +1150,7 @@
       "ts-bridge-manager-core",
       "ts-run-command-adapter"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Termux detection + 4-step bootstrap flow",
     "description": "Implement Termux detection via PackageManager (check com.termux installed). 4-step idempotent bootstrap with probe-derived readiness: Step 1 (Probe) - RUN_COMMAND echo CLOSEPAW_PROBE=ok, verify Termux initialized + allow-external-apps + permission. Step 2 (Install) - pkg install -y python git ripgrep, verify with which. Step 3 (Deploy) - deploy bridge.py via EXTRA_STDIN base64, create workspace/artifacts/logs dirs, verify CLOSEPAW_DEPLOY=ok marker. Step 4 (Start) - python3 ~/.closepaw/bridge.py &, poll /v1/health until ready with correct version. Each step has explicit success marker. Failure maps to NeedsSetup(reason).",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1172,15 +1172,16 @@
       "bootstrap"
     ],
     "created": "2026-05-02T01:14:07Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T02:42:23Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase3-bootstrap-health"
   },
   "ts-health-lifecycle": {
     "parent": "ts-phase3-bridge-manager",
     "depends": [
       "ts-bootstrap-flow"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Health polling, restart, version mismatch, settings toggle",
     "description": "Implement health polling at 30s interval via /v1/health. On bridge failure: restart via RUN_COMMAND. On version mismatch: re-deploy bridge.py from raw resource then restart. Enabled toggle persisted in AppSettingsStore. Health polling updates TermuxBridgeManager.state (affects next session, not current). Bridge 30-min idle watchdog handled server-side; client just restarts on next session if bridge exited.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1202,7 +1203,7 @@
       "lifecycle"
     ],
     "created": "2026-05-02T01:14:16Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T02:42:23Z",
     "worktree": "termux-shell"
   },
   "ts-phase4-shell-tool": {
