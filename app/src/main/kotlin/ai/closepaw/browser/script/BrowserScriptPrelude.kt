@@ -1,0 +1,64 @@
+package ai.closepaw.browser.script
+
+object BrowserScriptPrelude {
+
+    const val BRIDGE_OBJECT_NAME: String = "AndroidBrowserScript"
+
+    val PRELUDE: String = buildString {
+        appendLine("(function() {")
+        appendLine("  'use strict';")
+        appendLine("  const __pending = new Map();")
+        appendLine("  let __nextId = 1;")
+        appendLine("  globalThis.cdp = function(method, params, options) {")
+        appendLine("    const id = __nextId++;")
+        appendLine("    const safeParams = (params == null) ? {} : params;")
+        appendLine("    const safeOptions = (options == null) ? {} : options;")
+        appendLine("    return new Promise(function(resolve, reject) {")
+        appendLine("      __pending.set(id, { resolve: resolve, reject: reject });")
+        appendLine("      AndroidBrowserScript.send(JSON.stringify({")
+        appendLine("        id: id, method: method, params: safeParams, options: safeOptions")
+        appendLine("      }));")
+        appendLine("    });")
+        appendLine("  };")
+        appendLine("  globalThis.__cdpResolve = function(id, result) {")
+        appendLine("    const pending = __pending.get(id);")
+        appendLine("    if (!pending) return;")
+        appendLine("    __pending.delete(id);")
+        appendLine("    pending.resolve(result);")
+        appendLine("  };")
+        appendLine("  globalThis.__cdpReject = function(id, error) {")
+        appendLine("    const pending = __pending.get(id);")
+        appendLine("    if (!pending) return;")
+        appendLine("    __pending.delete(id);")
+        appendLine("    const msg = (error && error.message) ? error.message : String(error);")
+        appendLine("    const e = new Error(msg);")
+        appendLine("    if (error && error.code !== undefined) { e.code = error.code; }")
+        appendLine("    if (error && error.name !== undefined) { e.name = error.name; }")
+        appendLine("    if (error && error.cause !== undefined) { e.cause = error.cause; }")
+        appendLine("    pending.reject(e);")
+        appendLine("  };")
+        appendLine("})();")
+    }
+
+    fun wrapScript(userScript: String): String = buildString {
+        appendLine("(async function() {")
+        appendLine("  try {")
+        appendLine("    const __result = await (async function() {")
+        appendLine(userScript)
+        appendLine("    })();")
+        appendLine("    AndroidBrowserScript.done(JSON.stringify({")
+        appendLine("      ok: true,")
+        appendLine("      result: __result === undefined ? null : __result")
+        appendLine("    }));")
+        appendLine("  } catch (e) {")
+        appendLine("    AndroidBrowserScript.done(JSON.stringify({")
+        appendLine("      ok: false,")
+        appendLine("      error: {")
+        appendLine("        message: (e && e.message) ? e.message : String(e),")
+        appendLine("        stack: (e && e.stack) ? e.stack : ''")
+        appendLine("      }")
+        appendLine("    }));")
+        appendLine("  }")
+        appendLine("})();")
+    }
+}
