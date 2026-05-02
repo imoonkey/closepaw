@@ -1,0 +1,2 @@
+      moe.shizuku.manager.permission.API_V23
+        moe.shizuku.manager.permission.API_V23: granted=true

@@ -1,0 +1,3 @@
+    versionCode=541412337 minSdk=29 targetSdk=33
+    versionName=109.0.5414.123
+    versionCode=541412337 minSdk=24 targetSdk=33

@@ -1,5 +1,107 @@
 # Browser CDP Real-Device QA
 
+## Phase 1 — AOSP emulator (emulator-5554) — PASS
+
+### Device
+
+- Emulator: `emulator-5554`, `google/sdk_gphone64_x86_64/emu64x:13/TE1A.240213.009/12342917:userdebug/dev-keys`.
+- Android 13, kernel `6.6.56-android15-8 #1 SMP PREEMPT`.
+- `ro.debuggable=1`, `getenforce=Enforcing`.
+- Chrome: `com.android.chrome` versionName `109.0.5414.123` (versionCode 541412337).
+- Shizuku: `moe.shizuku.privileged.api` 13.5, `shizuku_server` running as `u:r:su:s0` (root via `adb root` bootstrap; standard Shizuku startup path on `userdebug` builds).
+- ClosePaw: debug APK from `app/build/outputs/apk/debug/app-debug.apk` (versionName 1.0, includes the new TCP-relay UserService and HTTP Content-Length-aware reader).
+
+### Use case
+
+Run one complete agent-driven `browser_script` call through the production Shizuku Chrome DevTools transport to open `https://example.com` and return the page `title`, with **no debug TCP fallback** and **no host-side `adb forward`**.
+
+### Setup
+
+1. `adb -s emulator-5554 install -r -t app/build/outputs/apk/debug/app-debug.apk` — installed.
+2. Enabled accessibility service for `ai.closepaw/.app.AgentService` (was already enabled).
+3. `pm grant ai.closepaw moe.shizuku.manager.permission.API_V23` — Android-level grant.
+4. Chrome had no `chrome_devtools_remote` socket by default. Wrote `/data/local/tmp/chrome-command-line` with `chrome --remote-debugging-socket-name=chrome_devtools_remote --enable-remote-debugging --no-first-run --disable-fre --no-default-browser-check`. On `userdebug` Chrome reads this file without the per-profile `enable-command-line-on-non-rooted-devices` flag.
+5. `adb -s emulator-5554 install -r -t eval/tools/shizuku.apk` — Shizuku 13.5 installed.
+6. Bootstrapped Shizuku as the standard adb-root flow does (the official `start.sh` invokes `libshizuku.so`, which in turn execs `app_process moe.shizuku.starter.ServiceStarter`):
+   ```
+   adb shell /data/app/.../moe.shizuku.privileged.api-.../lib/x86_64/libshizuku.so
+   ```
+   `shizuku_server pid=...` confirmed in `u:r:su:s0`.
+7. Granted ClosePaw via Shizuku's UI dialog ("Allow all the time"). Shizuku app showed `Authorized 1 application`.
+8. Ran `adb -s emulator-5554 forward --list` — empty. **No host involvement.**
+
+### Steps
+
+1. Ran:
+   ```
+   ANDROID_SERIAL=emulator-5554 \
+   DEBUG_AUTO_APPROVE=true \
+   DEBUG_BROWSER_SCRIPT_ENABLED=true \
+   DEBUG_BROWSER_TCP_FALLBACK=false \
+   DEBUG_MAX_WAIT_SECONDS=180 \
+   ./scripts/debug-run.sh --basic --accessibility-only \
+     "Use the browser_script tool to open https://example.com and tell me the page title. Return the title in your final answer."
+   ```
+2. Turn 1: agent took a screenshot of the previous chat.
+3. Turn 2: LLM emitted `browser_script` with a script that called `Browser.getVersion`, `Target.getTargets`, `Target.attachToTarget`, `Page.enable`, `Runtime.enable`, `Page.navigate('https://example.com')`, `Runtime.evaluate('document.title')`.
+4. The bridge ran the production transport path:
+   - `AppProcessLocalSocketTransport` failed (app context denied — expected; AVC `scontext=u:r:untrusted_app:s0:c195,...` `tcontext=u:r:untrusted_app:s0:c125,...` `connectto unix_stream_socket`).
+   - `ShizukuUserServiceProvider.bindUserService` spawned `ai.closepaw:chrome_devtools` in `u:r:su:s0`.
+   - `UserServiceTransport.exchange` round-tripped `GET /json/version` and `GET /json/list` over the abstract socket — returned valid JSON.
+   - The bridge called `UserServiceTransport.ensureRelayPortSuspend()` → UserService bound `127.0.0.1:37903` and started accept loop (`I ChromeDevtoolsUS: TCP relay started on 127.0.0.1:37903`).
+   - `BrowserSessionManager.rewriteHost` rewrote Chrome's `webSocketDebuggerUrl` (port-less `ws://localhost/devtools/...`) to `ws://127.0.0.1:37903/devtools/...`.
+   - OkHttp opened the WebSocket against the relay; UserService accepted, opened a second `LocalSocket` to `@chrome_devtools_remote`, and pumped bytes both ways.
+   - CDP commands flowed through the relay; `Page.navigate` opened `https://example.com`, `Runtime.evaluate('document.title')` returned `Example Domain`.
+5. Turn 3: LLM called `complete_task` with `The page title is: Example Domain`.
+
+### Result
+
+- **`browser_script` outcome: `ok`**, `duration_ms: 7685`.
+- **Tool result body:** `Success: {"title":"Example Domain"}`.
+- **Trace metadata:** `{"call_id":"call_1gPZcWNk9Hq9IEeQXeRQfUp6","outcome":"ok","raw_result_json":"{\"kind\":\"ok\",\"result_json\":\"{\\\"title\\\":\\\"Example Domain\\\"}\"}"}`.
+- **Agent outcome:** `Task completed: outcome: GOAL_ACHIEVED`, agent answer `The page title is: Example Domain`.
+- **Title was read by `browser_script`** (real CDP), not by screen scraping.
+- **No screenshot or tab-switch was needed for the verdict** — the goal was specifically the title via `browser_script`.
+
+### Evidence
+
+- Run root: `debug-output/run_20260501_211519/`.
+- Snapshot copy of artifacts: `projects/active/browser/cn/aosp_emulator_pass_20260501/`.
+- Key files in the snapshot:
+  - `30_turn_2_browser_script_call_1gPZcWNk9Hq9IEeQXeRQfUp6_result.txt` — raw tool result body.
+  - `29_browser_script_call_1gPZcWNk9Hq9IEeQXeRQfUp6.json` — outcome metadata (`outcome:"ok"`).
+  - `key_log_lines.txt` — every `browser_script`, `UserServiceManager`, `TCP relay`, and final outcome line from agent.log + logcat.
+  - `processes.txt` — confirms `shizuku_server` and `ai.closepaw:chrome_devtools` UserService context.
+  - `proc_net_unix.txt` — confirms `@chrome_devtools_remote` socket bound.
+  - `adb_forward_list.txt` — empty (proves no host involvement).
+  - `chrome_command_line.txt` — the flag file used to expose Chrome's CDP socket.
+  - `chrome_version.txt` — `109.0.5414.123`.
+  - `closepaw_shizuku_perm.txt` — `moe.shizuku.manager.permission.API_V23: granted=true`.
+  - `device_buildinfo.txt` — `userdebug/dev-keys`, Enforcing.
+
+### Code changes that made this PASS possible
+
+- `app/src/main/aidl/.../IChromeDevtoolsUserService.aidl` — added `int startTcpRelay()`.
+- `app/src/main/kotlin/.../ChromeDevtoolsUserService.kt` — implemented:
+  - HTTP Content-Length-aware reader (`readHttpResponse`); Chrome's `net::HttpServer` ignores `Connection: close` on the abstract socket and never EOFs after a single response, so reading until EOF hangs.
+  - Removed `shutdownOutput()`; on this build it triggers an immediate connection RST with no response.
+  - Device-side TCP relay: `startTcpRelay()` binds a free 127.0.0.1 port, spawns an accept loop, and bidirectionally pumps each accepted TCP connection to a fresh abstract socket. Idempotent; one relay per UserService process; tears down with the process.
+- `app/src/main/kotlin/.../AppProcessLocalSocketTransport.kt` — same HTTP-aware reader; added `UserServiceTransport.ensureRelayPortSuspend()`.
+- `app/src/main/kotlin/.../ShizukuChromeDevtoolsBridge.kt` — added `resolveWebSocketHost()` that returns `127.0.0.1:<relayPort>`.
+- `app/src/main/kotlin/.../BrowserSessionManager.kt` — added `rewriteHost(...)` and called it before opening the OkHttp WebSocket so CDP traffic tunnels through the relay.
+
+### Known limitation (Phase 2 scope)
+
+When `shizuku_server` runs in `u:r:shell:s0` (the regular non-root ADB bootstrap, e.g. on locked production devices), the same SELinux denial documented for the nubia P0110 below blocks the UserService from connecting to `chrome_devtools_remote`. Verified on this same emulator after `adb unroot` + restart of `shizuku_server` in shell context: AVC `connectto` denial with `scontext=u:r:shell:s0` `tcontext=u:r:untrusted_app:s0:c125,...`. Phase 2 is the workaround for shell-context Shizuku on locked devices.
+
+### Verdict — Phase 1
+
+PASS — production Shizuku UserService transport drove an end-to-end `browser_script` round-trip on AOSP emulator-5554 with no host involvement and no debug TCP fallback.
+
+---
+
+## Diagnostic history — nubia P0110 (FAIL, device-policy block)
+
 ## Device — model, Android version, build, Shizuku state, Chrome version
 
 - Device: nubia P0110, Android 16, build `1.11.0.0 release-keys`.

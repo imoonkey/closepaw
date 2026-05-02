@@ -1,0 +1,4 @@
+{
+  "script": "const targetUrl = 'https:\/\/example.com';\nconst {targetInfos} = await cdp('Target.getTargets');\nlet page = targetInfos.find(t => t.type === 'page' && (t.url === targetUrl || [REDACTED_JWT](targetUrl)));\nif (!page) {\n  page = targetInfos.find(t => t.type === 'page');\n}\nif (!page) {\n  throw new Error('No Chrome page target found');\n}\nconst session = await cdp('Target.attachToTarget', {targetId: page.targetId, flatten: true});\nconst sessionId = session.sessionId;\nawait cdp('Page.enable', {}, {sessionId});\nawait cdp('Runtime.enable', {}, {sessionId});\nawait cdp('Page.navigate', {url: targetUrl}, {sessionId});\nawait new Promise(resolve => setTimeout(resolve, 1500));\nconst evalResult = await cdp('Runtime.evaluate', {\n  expression: 'document.title',\n  returnByValue: true\n}, {sessionId});\nconst title = evalResult?.result?.value;\nif (!title) throw new Error('Could not read page title');\nreturn {title};",
+  "timeout_ms": 30000
+}
