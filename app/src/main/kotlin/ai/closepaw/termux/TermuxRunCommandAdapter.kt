@@ -20,6 +20,7 @@ data class RunCommandResult(val stdout: String, val stderr: String, val exitCode
 
 sealed class RunCommandError : Exception() {
     object PermissionMissing : RunCommandError()
+    object AllowExternalAppsMissing : RunCommandError()
     object TermuxNotAvailable : RunCommandError()
     data class Timeout(val ms: Long) : RunCommandError()
     data class Other(override val cause: Throwable?) : RunCommandError()
@@ -82,7 +83,12 @@ class TermuxRunCommandAdapter(private val context: Context) {
 
                         unregisterReceiverIfNeeded()
                         if (continuation.isActive) {
-                            continuation.resume(intent.toRunCommandResult())
+                            val error = intent.toRunCommandError()
+                            if (error != null) {
+                                continuation.resumeWithException(error)
+                            } else {
+                                continuation.resume(intent.toRunCommandResult())
+                            }
                         }
                     }
                 }
@@ -148,10 +154,29 @@ class TermuxRunCommandAdapter(private val context: Context) {
         filter: IntentFilter
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            appContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            appContext.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             appContext.registerReceiver(receiver, filter)
+        }
+    }
+
+    private fun Intent.toRunCommandError(): RunCommandError? {
+        val result = getBundleExtra(EXTRA_RESULT_BUNDLE)
+        val err = result.errorCodeResult(this)
+        val errmsg = result.stringResult(this, RESULT_ERROR_MESSAGE).trim()
+        val combined = listOfNotNull(err, errmsg.takeIf { it.isNotBlank() }).joinToString("\n")
+
+        return when {
+            errmsg.contains("allow-external-apps", ignoreCase = true) ->
+                RunCommandError.AllowExternalAppsMissing
+            combined.contains("PluginErrorCode_PERMISSION", ignoreCase = true) ->
+                RunCommandError.PermissionMissing
+            err.isNonZeroErrorCode() ->
+                RunCommandError.Other(
+                    IllegalStateException("Termux RUN_COMMAND error $err: $errmsg")
+                )
+            else -> null
         }
     }
 
@@ -179,6 +204,26 @@ class TermuxRunCommandAdapter(private val context: Context) {
         }
     }
 
+    @Suppress("DEPRECATION")
+    private fun Bundle?.errorCodeResult(intent: Intent): String? {
+        val value = if (this?.containsKey(RESULT_ERROR_CODE) == true) {
+            get(RESULT_ERROR_CODE)
+        } else {
+            intent.extras?.takeIf { it.containsKey(RESULT_ERROR_CODE) }?.get(RESULT_ERROR_CODE)
+        }
+        return when (value) {
+            null -> null
+            is Number -> value.toInt().toString()
+            is String -> value.trim()
+            else -> value.toString()
+        }
+    }
+
+    private fun String?.isNonZeroErrorCode(): Boolean {
+        val normalized = this?.trim().orEmpty()
+        return normalized.isNotEmpty() && normalized != "0"
+    }
+
     companion object {
         private const val TAG = "TermuxRunCommand"
         private const val DEFAULT_TIMEOUT_MS = 60_000L
@@ -201,5 +246,7 @@ class TermuxRunCommandAdapter(private val context: Context) {
         private const val RESULT_STDOUT = "stdout"
         private const val RESULT_STDERR = "stderr"
         private const val RESULT_EXIT_CODE = "exitCode"
+        private const val RESULT_ERROR_CODE = "err"
+        private const val RESULT_ERROR_MESSAGE = "errmsg"
     }
 }

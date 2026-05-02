@@ -26,7 +26,7 @@ import okhttp3.Request
 import org.json.JSONException
 import org.json.JSONObject
 
-class TermuxBridgeManager(private val context: Context) {
+class TermuxBridgeManager(context: Context) {
     companion object {
         private const val TAG = "TermuxBridgeManager"
         private const val TERMUX_PACKAGE = "com.termux"
@@ -39,14 +39,32 @@ class TermuxBridgeManager(private val context: Context) {
         private const val START_TIMEOUT_MS = 10_000L
         private const val HEALTH_READY_TIMEOUT_MS = 10_000L
         private const val HEALTH_POLL_INTERVAL_MS = 30_000L
+        private const val DEPLOY_BRIDGE_COMMAND =
+            "mkdir -p ~/.closepaw ~/closepaw/workspace ~/closepaw/artifacts ~/closepaw/logs && " +
+                "base64 -d > ~/.closepaw/bridge.py && " +
+                "python3 -m py_compile ~/.closepaw/bridge.py && echo CLOSEPAW_DEPLOY=ok"
+        private val START_BRIDGE_COMMAND =
+            """
+            mkdir -p ~/closepaw/logs
+            nohup python3 ~/.closepaw/bridge.py >/dev/null 2>~/closepaw/logs/bridge.err </dev/null &
+            pid=${'$'}!
+            sleep 1
+            if ! kill -0 ${'$'}pid 2>/dev/null; then
+                echo CLOSEPAW_START=failed
+                cat ~/closepaw/logs/bridge.err
+                exit 1
+            fi
+            echo CLOSEPAW_START=ok
+            """.trimIndent()
 
         fun get(context: Context): TermuxBridgeManager = TermuxBridgeManagerHolder.instance(context)
     }
 
+    private val context: Context = context.applicationContext
     private val _state = MutableStateFlow<TermuxBridgeStatus>(TermuxBridgeStatus.NotInstalled)
     val state: StateFlow<TermuxBridgeStatus> = _state.asStateFlow()
     private val mutex = Mutex()
-    private val adapter = TermuxRunCommandAdapter(context.applicationContext)
+    private val adapter = TermuxRunCommandAdapter(this.context)
     private val httpClient =
         OkHttpClient.Builder()
             .connectTimeout(1, TimeUnit.SECONDS)
@@ -58,35 +76,19 @@ class TermuxBridgeManager(private val context: Context) {
     private var healthPollingJob: Job? = null
 
     suspend fun setup(): TermuxBridgeStatus {
-        val current = _state.value
-        if (current is TermuxBridgeStatus.SetupInProgress) return current
-
-        return mutex.withLock {
-            val locked = _state.value
-            if (locked is TermuxBridgeStatus.SetupInProgress) locked else setupLocked()
-        }
+        return mutex.withLock { setupLocked() }
     }
 
     suspend fun healthCheck(): TermuxBridgeStatus {
-        val current = _state.value
-        if (current is TermuxBridgeStatus.SetupInProgress) return current
-
         return mutex.withLock {
-            val locked = _state.value
-            if (locked is TermuxBridgeStatus.SetupInProgress) return@withLock locked
             if (!detectTermuxInstalled()) return@withLock emit(TermuxBridgeStatus.NotInstalled)
 
-            when (fetchHealth()) {
-                HealthProbe.Ready -> emit(TermuxBridgeStatus.Ready)
-                HealthProbe.BridgeOutdated,
-                HealthProbe.InvalidIdentity,
-                HealthProbe.Unavailable -> setupLocked()
-            }
+            emit(fetchHealth().toPassiveStatus())
         }
     }
 
     suspend fun restart(): TermuxBridgeStatus {
-        return setup()
+        return mutex.withLock { restartLocked() }
     }
 
     fun startHealthPolling(scope: CoroutineScope) {
@@ -120,20 +122,42 @@ class TermuxBridgeManager(private val context: Context) {
     }
 
     private suspend fun setupLocked(): TermuxBridgeStatus {
-        emit(TermuxBridgeStatus.SetupInProgress)
+        return runWithSetupState { doBootstrap() }
+    }
 
+    private suspend fun restartLocked(): TermuxBridgeStatus {
+        return runWithSetupState { doRestart() }
+    }
+
+    private suspend fun runWithSetupState(
+        block: suspend () -> TermuxBridgeStatus
+    ): TermuxBridgeStatus {
+        val priorState = _state.value
+        emit(TermuxBridgeStatus.SetupInProgress)
+        return try {
+            emit(block())
+        } catch (ce: CancellationException) {
+            _state.value = priorState.restoredAfterCancellation()
+            throw ce
+        } catch (e: Exception) {
+            Log.w(TAG, "Termux setup failed: ${e.message}", e)
+            emit(needsSetup(NeedsSetupReason.UNKNOWN))
+        }
+    }
+
+    private suspend fun doBootstrap(): TermuxBridgeStatus {
         if (!detectTermuxInstalled()) {
-            return emit(TermuxBridgeStatus.NotInstalled)
+            return TermuxBridgeStatus.NotInstalled
         }
 
         val probe =
             try {
                 adapter.runShell("echo CLOSEPAW_PROBE=ok", timeoutMs = PROBE_TIMEOUT_MS)
             } catch (e: RunCommandError) {
-                return emit(needsSetup(e.toReason(NeedsSetupReason.UNKNOWN)))
+                return needsSetup(e.toReason(NeedsSetupReason.UNKNOWN))
             }
         if (!probe.stdout.contains("CLOSEPAW_PROBE=ok")) {
-            return emit(needsSetup(NeedsSetupReason.UNKNOWN))
+            return needsSetup(NeedsSetupReason.UNKNOWN)
         }
 
         val install =
@@ -143,40 +167,51 @@ class TermuxBridgeManager(private val context: Context) {
                     timeoutMs = INSTALL_TIMEOUT_MS
                 )
             } catch (e: RunCommandError) {
-                return emit(needsSetup(e.toReason(NeedsSetupReason.PACKAGES_MISSING)))
+                return needsSetup(e.toReason(NeedsSetupReason.PACKAGES_MISSING))
             }
         if (install.exitCode != 0 || !install.stdout.hasInstalledBinaries()) {
-            return emit(needsSetup(NeedsSetupReason.PACKAGES_MISSING))
+            return needsSetup(NeedsSetupReason.PACKAGES_MISSING)
         }
 
         val deploy =
             try {
                 adapter.runShell(
-                    "mkdir -p ~/.closepaw ~/closepaw/workspace ~/closepaw/artifacts ~/closepaw/logs && cat > ~/.closepaw/bridge.py && echo CLOSEPAW_DEPLOY=ok",
+                    DEPLOY_BRIDGE_COMMAND,
                     stdinBase64 = bridgeResourceBase64(),
                     timeoutMs = DEPLOY_TIMEOUT_MS
                 )
             } catch (e: RunCommandError) {
-                return emit(needsSetup(e.toReason(NeedsSetupReason.UNKNOWN)))
+                return needsSetup(e.toReason(NeedsSetupReason.UNKNOWN))
             }
-        if (!deploy.stdout.contains("CLOSEPAW_DEPLOY=ok")) {
-            return emit(needsSetup(NeedsSetupReason.UNKNOWN))
+        if (deploy.exitCode != 0 || !deploy.stdout.contains("CLOSEPAW_DEPLOY=ok")) {
+            return needsSetup(NeedsSetupReason.UNKNOWN)
         }
 
-        try {
-            adapter.runShell(
-                "nohup python3 ~/.closepaw/bridge.py >/dev/null 2>&1 &",
-                timeoutMs = START_TIMEOUT_MS
-            )
-        } catch (e: RunCommandError) {
-            return emit(needsSetup(e.toReason(NeedsSetupReason.UNKNOWN)))
+        return when (val start = startBridge()) {
+            StartResult.Started -> waitForReadyHealth().toStartupStatus()
+            is StartResult.Failed -> needsSetup(start.reason)
+        }
+    }
+
+    private suspend fun doRestart(): TermuxBridgeStatus {
+        if (!detectTermuxInstalled()) {
+            return TermuxBridgeStatus.NotInstalled
         }
 
-        return when (waitForReadyHealth()) {
-            HealthProbe.Ready -> emit(TermuxBridgeStatus.Ready)
-            HealthProbe.BridgeOutdated -> emit(needsSetup(NeedsSetupReason.BRIDGE_OUTDATED))
-            HealthProbe.InvalidIdentity,
-            HealthProbe.Unavailable -> emit(needsSetup(NeedsSetupReason.HEALTH_TIMEOUT))
+        return when (val start = startBridge()) {
+            StartResult.Started ->
+                when (waitForReadyHealth()) {
+                    HealthProbe.Ready -> TermuxBridgeStatus.Ready
+                    HealthProbe.BridgeOutdated -> doBootstrap()
+                    HealthProbe.InvalidIdentity,
+                    HealthProbe.Unavailable -> needsSetup(NeedsSetupReason.HEALTH_TIMEOUT)
+                }
+            is StartResult.Failed ->
+                if (start.reason == NeedsSetupReason.PORT_IN_USE) {
+                    needsSetup(NeedsSetupReason.PORT_IN_USE)
+                } else {
+                    doBootstrap()
+                }
         }
     }
 
@@ -195,6 +230,34 @@ class TermuxBridgeManager(private val context: Context) {
                 Base64.encodeToString(stream.readBytes(), Base64.NO_WRAP)
             }
         }
+
+    private suspend fun startBridge(): StartResult {
+        val result =
+            try {
+                adapter.runShell(START_BRIDGE_COMMAND, timeoutMs = START_TIMEOUT_MS)
+            } catch (e: RunCommandError) {
+                return StartResult.Failed(e.toReason(NeedsSetupReason.UNKNOWN))
+            }
+
+        val output = "${result.stdout}\n${result.stderr}"
+        val failed = result.exitCode != 0 || result.stdout.contains("CLOSEPAW_START=failed")
+        if (failed) {
+            val reason =
+                if (output.contains("port_in_use", ignoreCase = true)) {
+                    NeedsSetupReason.PORT_IN_USE
+                } else {
+                    NeedsSetupReason.UNKNOWN
+                }
+            Log.w(TAG, "Termux bridge start failed: $output")
+            return StartResult.Failed(reason)
+        }
+
+        if (!result.stdout.contains("CLOSEPAW_START=ok")) {
+            Log.w(TAG, "Termux bridge start did not report success: $output")
+            return StartResult.Failed(NeedsSetupReason.UNKNOWN)
+        }
+        return StartResult.Started
+    }
 
     private suspend fun waitForReadyHealth(): HealthProbe {
         return withTimeoutOrNull(HEALTH_READY_TIMEOUT_MS) {
@@ -239,6 +302,7 @@ class TermuxBridgeManager(private val context: Context) {
     private fun RunCommandError.toReason(fallback: NeedsSetupReason): NeedsSetupReason =
         when (this) {
             RunCommandError.PermissionMissing -> NeedsSetupReason.PERMISSION_MISSING
+            RunCommandError.AllowExternalAppsMissing -> NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING
             RunCommandError.TermuxNotAvailable -> NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING
             is RunCommandError.Timeout -> fallback
             is RunCommandError.Other -> fallback
@@ -248,6 +312,29 @@ class TermuxBridgeManager(private val context: Context) {
         val binaries = lineSequence().map { it.trim().substringAfterLast('/') }.toSet()
         return listOf("python3", "git", "rg").all { it in binaries }
     }
+
+    private fun HealthProbe.toPassiveStatus(): TermuxBridgeStatus =
+        when (this) {
+            HealthProbe.Ready -> TermuxBridgeStatus.Ready
+            HealthProbe.BridgeOutdated -> needsSetup(NeedsSetupReason.BRIDGE_OUTDATED)
+            HealthProbe.InvalidIdentity,
+            HealthProbe.Unavailable -> needsSetup(NeedsSetupReason.HEALTH_TIMEOUT)
+        }
+
+    private fun HealthProbe.toStartupStatus(): TermuxBridgeStatus =
+        when (this) {
+            HealthProbe.Ready -> TermuxBridgeStatus.Ready
+            HealthProbe.BridgeOutdated -> needsSetup(NeedsSetupReason.BRIDGE_OUTDATED)
+            HealthProbe.InvalidIdentity,
+            HealthProbe.Unavailable -> needsSetup(NeedsSetupReason.HEALTH_TIMEOUT)
+        }
+
+    private fun TermuxBridgeStatus.restoredAfterCancellation(): TermuxBridgeStatus =
+        when (this) {
+            TermuxBridgeStatus.Ready,
+            TermuxBridgeStatus.SetupInProgress -> needsSetup(NeedsSetupReason.UNKNOWN)
+            else -> this
+        }
 
     private fun needsSetup(reason: NeedsSetupReason): TermuxBridgeStatus.NeedsSetup =
         TermuxBridgeStatus.NeedsSetup(reason)
@@ -262,6 +349,11 @@ class TermuxBridgeManager(private val context: Context) {
         object BridgeOutdated : HealthProbe()
         object InvalidIdentity : HealthProbe()
         object Unavailable : HealthProbe()
+    }
+
+    private sealed class StartResult {
+        object Started : StartResult()
+        data class Failed(val reason: NeedsSetupReason) : StartResult()
     }
 
     private object TermuxBridgeManagerHolder {

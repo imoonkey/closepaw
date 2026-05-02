@@ -1060,7 +1060,7 @@
     "depends": [
       "ts-review-phase2"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 3: TermuxBridgeManager + Bootstrap",
     "description": "Kotlin-side bridge lifecycle management: TermuxBridgeManager (process-wide singleton via Holder pattern), TermuxRunCommandAdapter for bootstrap, 4-step bootstrap flow, health polling, and settings integration.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1690,7 +1690,7 @@
     "depends": [
       "ts-health-lifecycle"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex review: Phase 3 Bridge Manager + Bootstrap",
     "description": "Codex code-review of TermuxBridgeManager, TermuxRunCommandAdapter, bootstrap flow, health lifecycle, and settings toggle.",
     "worktree": "termux-shell",
@@ -1700,10 +1700,10 @@
       "review written to projects/active/termux_shell/reviews/phase3_review.md",
       "no high-severity findings remain unaddressed"
     ],
-    "agent": "codex",
+    "agent": "w-ts-review-phase3",
     "estimate": "s",
     "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T01:32:15Z"
+    "updated": "2026-05-02T02:54:58Z"
   },
   "ts-review-phase4": {
     "parent": "ts-phase4-shell-tool",
