@@ -1237,7 +1237,7 @@
   "ts-shell-tool-impl": {
     "parent": "ts-phase4-shell-tool",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "TermuxShellTool: ToolSpec + OkHttp + cancellation",
     "description": "Implement TermuxShellTool extending ToolSpec. Tool parameters: command (required), cwd (optional, defaults to workspace root), timeout_seconds (optional, default 120s, max 120s). OkHttp client with explicit read/call timeout = timeout_ms + 5000ms grace period (not OkHttp default 10s). Cancellable via suspendCancellableCoroutine with cont.invokeOnCancellation { call.cancel() }. Coroutine cancel -> Call.cancel() -> TCP disconnect -> bridge kills subprocess.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1260,15 +1260,16 @@
       "okhttp"
     ],
     "created": "2026-05-02T01:14:33Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T03:04:18Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase4-tool"
   },
   "ts-shell-tool-result": {
     "parent": "ts-phase4-shell-tool",
     "depends": [
       "ts-shell-tool-impl"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "TermuxShellTool result mapping",
     "description": "Implement result mapping from bridge HTTP responses to ToolExecutionResult. HTTP 200 with any exit_code -> Success (stdout/stderr/exit_code as tool output). HTTP 200 with timed_out=true -> Success (partial output + timeout info). HTTP 409 busy -> Failure (bridge busy, LLM can retry). HTTP 4xx/5xx -> Failure (transport/protocol error). Connection refused/timeout -> Failure (bridge not available). IOException -> Failure (network error). Non-zero exit code is NOT a Failure - it is informational for the LLM.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1289,7 +1290,7 @@
       "tool"
     ],
     "created": "2026-05-02T01:14:42Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T03:04:19Z",
     "worktree": "termux-shell"
   },
   "ts-tool-registration": {
@@ -1297,7 +1298,7 @@
     "depends": [
       "ts-shell-tool-impl"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "ToolName + TurnToolPolicy for termux_shell",
     "description": "Add TermuxShell to ToolName enum with isScreenChanging=false (auto-allow policy, same as existing shell tool). Update TurnToolPolicy: termux_shell must NOT be hoistable. Only cognitive tools (scratchpad, write_todos, remember_experience) are hoistable. termux_shell, shell, ask_user, activate_skill preserve LLM-returned order.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1320,7 +1321,7 @@
       "policy"
     ],
     "created": "2026-05-02T01:14:51Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T03:04:19Z",
     "worktree": "termux-shell"
   },
   "ts-shell-tool-tests": {
