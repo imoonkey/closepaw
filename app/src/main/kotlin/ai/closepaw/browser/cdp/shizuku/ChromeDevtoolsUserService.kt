@@ -5,6 +5,7 @@ import android.net.LocalSocketAddress
 import android.os.SystemClock
 import android.util.Log
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -64,6 +65,59 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
 
     override fun destroy() {
         stopRelay()
+    }
+
+    @Synchronized
+    override fun ensureChromeRemoteDebugPort(port: Int): Boolean {
+        require(port in 1024..65535) { "port out of range: $port" }
+        val file = File(CHROME_COMMAND_LINE_PATH)
+        val desired = renderChromeCommandLine(port)
+        val current = runCatching { file.readText() }.getOrNull()
+        if (current?.trim() == desired.trim()) {
+            // Already configured for this port — leave Chrome alone (avoids tab-loss restart).
+            Log.i(TAG, "chrome-command-line already requests port $port; no action needed")
+            return true
+        }
+        return try {
+            file.writeText(desired)
+            // Match the existing 0644 mode so Chrome (different UID) can read it.
+            runCatching { file.setReadable(true, false) }
+            Log.i(TAG, "Wrote chrome-command-line for --remote-debugging-port=$port")
+            forceRestartChrome()
+            true
+        } catch (e: IOException) {
+            Log.w(TAG, "Failed to write $CHROME_COMMAND_LINE_PATH", e)
+            false
+        }
+    }
+
+    private fun forceRestartChrome() {
+        // We are in shell context — `am` is invokable. Force-stop drops Chrome, then start
+        // brings it back so it re-reads /data/local/tmp/chrome-command-line on launch.
+        runShellCommand(arrayOf("am", "force-stop", CHROME_PACKAGE))
+        // Brief settle so Chrome's process actually exits before we relaunch.
+        Thread.sleep(800)
+        runShellCommand(
+            arrayOf(
+                "am", "start",
+                "-a", "android.intent.action.VIEW",
+                "-d", "about:blank",
+                CHROME_PACKAGE,
+            )
+        )
+    }
+
+    private fun runShellCommand(cmd: Array<String>) {
+        try {
+            val proc = ProcessBuilder(*cmd).redirectErrorStream(true).start()
+            proc.inputStream.bufferedReader().use { reader ->
+                val output = reader.readText().trim()
+                if (output.isNotEmpty()) Log.d(TAG, "${cmd.joinToString(" ")} → $output")
+            }
+            proc.waitFor()
+        } catch (e: Exception) {
+            Log.w(TAG, "Shell command failed: ${cmd.joinToString(" ")}", e)
+        }
     }
 
     @Volatile
@@ -206,10 +260,22 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
 
     companion object {
         const val CHROME_DEVTOOLS_SOCKET = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET
+        const val CHROME_COMMAND_LINE_PATH = "/data/local/tmp/chrome-command-line"
+        const val CHROME_PACKAGE = "com.android.chrome"
         private const val BUFFER = 4096
         private const val TAG = "ChromeDevtoolsUS"
 
         private val CRLFCRLF = byteArrayOf(0x0d, 0x0a, 0x0d, 0x0a)
+
+        /**
+         * Render the chrome-command-line file content for a given TCP debug port. Drops
+         * `--remote-debugging-socket-name` since `--remote-debugging-port` is what we need
+         * for the Phase 2 path; mixing both is risky on Chromium-on-Android because the
+         * abstract-socket factory and TCP-server-socket factory are mutually exclusive.
+         */
+        internal fun renderChromeCommandLine(port: Int): String =
+            "chrome --remote-debugging-port=$port --enable-remote-debugging " +
+                "--no-first-run --no-default-browser-check\n"
 
         internal fun indexOfDoubleCrlf(bytes: ByteArray): Int {
             outer@ for (i in 0..bytes.size - 4) {

@@ -8,12 +8,14 @@ import ai.closepaw.browser.cdp.CdpConnectionClosedException
 import ai.closepaw.browser.cdp.ChromeCdpClient
 import ai.closepaw.browser.cdp.ChromeCdpTarget
 import ai.closepaw.browser.cdp.shizuku.AppProcessLocalSocketTransport
+import ai.closepaw.browser.cdp.shizuku.ChromeRemoteDebugPortTransport
 import ai.closepaw.browser.cdp.shizuku.DebugTcpDevtoolsSocketTransport
 import ai.closepaw.browser.cdp.shizuku.DefaultDevtoolsDiagnostics
 import ai.closepaw.browser.cdp.shizuku.DevtoolsSetupError
 import ai.closepaw.browser.cdp.shizuku.DevtoolsVersion
 import ai.closepaw.browser.cdp.shizuku.PageTarget
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeDevtoolsBridge
+import ai.closepaw.browser.cdp.shizuku.ShizukuChromeRemoteDebugSetup
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeRunningProbe
 import ai.closepaw.browser.cdp.shizuku.ShizukuStatusAdapter
 import ai.closepaw.browser.cdp.shizuku.ShizukuUserServiceProvider
@@ -266,13 +268,17 @@ class BrowserSessionManager(
             context: Context,
             debugTcpFallbackEnabled: Boolean,
         ): ShizukuChromeDevtoolsBridge {
+            val userServiceProvider = ShizukuUserServiceProvider(context)
             return ShizukuChromeDevtoolsBridge(
                 status = ShizukuStatusAdapter(),
                 diagnostics = DefaultDevtoolsDiagnostics(
                     chromeRunningProbe = ShizukuChromeRunningProbe(),
                 ),
                 appProcessTransport = AppProcessLocalSocketTransport(),
-                userServiceProvider = ShizukuUserServiceProvider(context),
+                userServiceProvider = userServiceProvider,
+                chromeTcpLoopbackTransport = ChromeRemoteDebugPortTransport(
+                    setup = ShizukuChromeRemoteDebugSetup(userServiceProvider),
+                ),
                 fallbackTransport = if (BuildConfig.DEBUG && debugTcpFallbackEnabled) {
                     DebugTcpDevtoolsSocketTransport()
                 } else {

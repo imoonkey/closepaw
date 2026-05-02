@@ -27,6 +27,23 @@ interface IChromeDevtoolsUserService {
      */
     int startTcpRelay();
 
+    /**
+     * Phase 2 path for locked OEM devices where the shell UID cannot connectto
+     * the abstract socket: write `--remote-debugging-port=<port>` into
+     * `/data/local/tmp/chrome-command-line` and force-restart Chrome so it
+     * binds a TCP loopback CDP server. Idempotent — if Chrome's command-line
+     * file already requests this port the file is left untouched and Chrome
+     * is not restarted.
+     *
+     * Returns true if the file is now configured for the requested port.
+     * Returns false only when the UserService cannot write
+     * `/data/local/tmp/chrome-command-line` at all (extremely rare). Whether
+     * Chrome will actually honour the file depends on the per-Chrome-profile
+     * `enable-command-line-on-non-rooted-devices` flag at chrome://flags —
+     * the caller verifies this by polling `127.0.0.1:<port>` after invocation.
+     */
+    boolean ensureChromeRemoteDebugPort(int port);
+
     /** Tear down the user service process. */
     void destroy();
 }

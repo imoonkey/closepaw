@@ -51,6 +51,22 @@ sealed class DevtoolsSetupError(
         cause = cause,
     )
 
+    /**
+     * Phase 2 path failure: the Shizuku UserService wrote /data/local/tmp/chrome-command-line
+     * with `--remote-debugging-port=N` and force-restarted Chrome, but Chrome did not bind the
+     * TCP loopback port within the wait window. On stock Chrome this almost always means the
+     * per-Chrome-profile flag at chrome://flags#enable-command-line-on-non-rooted-devices is
+     * still off, so Chrome silently ignores the command-line file. The fix is a one-time user
+     * action — see the message body.
+     */
+    class ChromeRemoteDebuggingFlagNotEnabled(cause: Throwable?) : DevtoolsSetupError(
+        code = "chrome_flag_not_enabled",
+        message = "Chrome did not bind the requested TCP debug port. Open Chrome → " +
+            "chrome://flags#enable-command-line-on-non-rooted-devices → enable → relaunch Chrome, " +
+            "then try again.",
+        cause = cause,
+    )
+
     class DebugTcpFallbackInaccessible(
         cause: Throwable?,
         userServiceCause: Throwable?,

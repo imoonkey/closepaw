@@ -28,6 +28,7 @@ class ShizukuChromeDevtoolsBridge(
     private val diagnostics: DevtoolsDiagnostics,
     private val appProcessTransport: DevtoolsSocketTransport,
     private val userServiceProvider: UserServiceProvider? = null,
+    private val chromeTcpLoopbackTransport: DevtoolsSocketTransport? = null,
     private val fallbackTransport: DevtoolsSocketTransport? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val requestTimeoutMs: Int = DEFAULT_TIMEOUT_MS,
@@ -37,10 +38,25 @@ class ShizukuChromeDevtoolsBridge(
         require(appProcessTransport.label == TransportLabel.APP_PROCESS) {
             "appProcessTransport must declare TransportLabel.APP_PROCESS"
         }
+        require(chromeTcpLoopbackTransport == null ||
+                chromeTcpLoopbackTransport.label == TransportLabel.CHROME_TCP_LOOPBACK) {
+            "chromeTcpLoopbackTransport must declare TransportLabel.CHROME_TCP_LOOPBACK"
+        }
         require(fallbackTransport == null || fallbackTransport.label == TransportLabel.DEBUG_TCP) {
             "fallbackTransport must declare TransportLabel.DEBUG_TCP"
         }
     }
+
+    /**
+     * Tracks which transport satisfied the most recent successful HTTP fetch so
+     * [resolveWebSocketHost] can pick the right WS URL transformation:
+     *  - APP_PROCESS / DEBUG_TCP / CHROME_TCP_LOOPBACK → use Chrome's URL as-is (Chrome
+     *    knows the port it's bound to, so the embedded `webSocketDebuggerUrl` is correct).
+     *  - USER_SERVICE → rewrite host to `127.0.0.1:<relayPort>` because the URL has no port
+     *    (Chrome thinks it's serving the abstract socket).
+     */
+    @Volatile
+    private var lastSuccessfulTransport: TransportLabel? = null
 
     /** Reads `/json/version` and returns the parsed payload. */
     suspend fun fetchVersion(): DevtoolsVersion = withContext(ioDispatcher) {
@@ -59,12 +75,14 @@ class ShizukuChromeDevtoolsBridge(
 
     /**
      * Resolve the host:port the CDP WebSocket should connect to. When the UserService transport
-     * is in use, returns `localhost:<relayPort>` from the device-side TCP relay (CDP traffic is
-     * tunneled through the shell-UID UserService because Chrome's `webSocketDebuggerUrl` has no
-     * port and the abstract socket is unreachable from app UID). When only the app-process or
-     * debug TCP transport is available, returns null and the caller uses the URL as-is.
+     * was the most recent success, returns `127.0.0.1:<relayPort>` from the device-side TCP
+     * relay (CDP traffic is tunneled through the shell-UID UserService because Chrome's
+     * `webSocketDebuggerUrl` has no port and the abstract socket is unreachable from app UID).
+     * For every other transport — including Phase 2 [TransportLabel.CHROME_TCP_LOOPBACK] —
+     * Chrome's response already contains the correct port, so this returns null.
      */
     suspend fun resolveWebSocketHost(): String? = withContext(ioDispatcher) {
+        if (lastSuccessfulTransport != TransportLabel.USER_SERVICE) return@withContext null
         val provider = userServiceProvider ?: return@withContext null
         val transport = provider.obtain() as? UserServiceTransport
             ?: return@withContext null
@@ -86,27 +104,60 @@ class ShizukuChromeDevtoolsBridge(
                 appProcessTransport.exchange(request, requestTimeoutMs)
             )
         }
-        appResponse.getOrNull()?.let { return it }
+        appResponse.getOrNull()?.let {
+            lastSuccessfulTransport = TransportLabel.APP_PROCESS
+            return it
+        }
         val appError = appResponse.exceptionOrNull()
 
         val provider = userServiceProvider
+        var userError: Throwable? = null
+        if (provider != null) {
+            val userResponse = runCatching {
+                DevtoolsHttpProtocol.parseHttpBody(
+                    provider.obtain().exchange(request, requestTimeoutMs)
+                )
+            }
+            userResponse.getOrNull()?.let {
+                lastSuccessfulTransport = TransportLabel.USER_SERVICE
+                return it
+            }
+            userError = userResponse.exceptionOrNull()
+        }
+
+        // Phase 2: Chrome --remote-debugging-port=N TCP loopback (works on locked OEM devices).
+        val chromeTcp = chromeTcpLoopbackTransport
+        if (chromeTcp != null) {
+            val chromeResponse = runCatching {
+                DevtoolsHttpProtocol.parseHttpBody(
+                    chromeTcp.exchange(request, requestTimeoutMs)
+                )
+            }
+            chromeResponse.getOrNull()?.let {
+                lastSuccessfulTransport = TransportLabel.CHROME_TCP_LOOPBACK
+                return it
+            }
+            // ChromeRemoteDebuggingFlagNotEnabled is actionable — surface it; otherwise fall
+            // through to debug TCP fallback so we don't mask the more specific error.
+            (chromeResponse.exceptionOrNull() as? DevtoolsSetupError.ChromeRemoteDebuggingFlagNotEnabled)
+                ?.let { throw it }
+        }
+
         if (provider == null) {
             val fallbackResponse = tryFallbackTransport(request, userServiceCause = null)
-            if (fallbackResponse != null) return DevtoolsHttpProtocol.parseHttpBody(fallbackResponse)
+            if (fallbackResponse != null) {
+                lastSuccessfulTransport = TransportLabel.DEBUG_TCP
+                return DevtoolsHttpProtocol.parseHttpBody(fallbackResponse)
+            }
             if (appError is DevtoolsSetupError) throw appError
             throw DevtoolsSetupError.AppProcessSocketInaccessible(appError)
         }
 
-        val userResponse = runCatching {
-            DevtoolsHttpProtocol.parseHttpBody(
-                provider.obtain().exchange(request, requestTimeoutMs)
-            )
-        }
-        userResponse.getOrNull()?.let { return it }
-
-        val userError = userResponse.exceptionOrNull()
         val fallbackResponse = tryFallbackTransport(request, userError)
-        if (fallbackResponse != null) return DevtoolsHttpProtocol.parseHttpBody(fallbackResponse)
+        if (fallbackResponse != null) {
+            lastSuccessfulTransport = TransportLabel.DEBUG_TCP
+            return DevtoolsHttpProtocol.parseHttpBody(fallbackResponse)
+        }
 
         throw toUserServiceError(userError)
     }
@@ -188,4 +239,4 @@ interface DevtoolsSocketTransport {
     suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray
 }
 
-enum class TransportLabel { APP_PROCESS, USER_SERVICE, DEBUG_TCP }
+enum class TransportLabel { APP_PROCESS, USER_SERVICE, DEBUG_TCP, CHROME_TCP_LOOPBACK }

@@ -147,6 +147,14 @@ class UserServiceTransport(
         port
     }
 
+    /**
+     * Ask the shell-context UserService to write `/data/local/tmp/chrome-command-line` and
+     * force-restart Chrome so it binds the requested TCP debug port. Used by the Phase 2
+     * [ChromeRemoteDebugPortTransport] when shell cannot connectto the abstract socket.
+     * Idempotent on the UserService side.
+     */
+    fun ensureChromeRemoteDebugPort(port: Int): Boolean = binder.ensureChromeRemoteDebugPort(port)
+
     override suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray =
         runInterruptible(Dispatchers.IO) {
             val response: ByteArray? = binder.exchange(request, timeoutMs)
