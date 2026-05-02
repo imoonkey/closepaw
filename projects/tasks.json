@@ -884,7 +884,7 @@
       "ts-network-security",
       "ts-bridge-resource"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Substrate verification tests",
     "description": "CI test: raw resource exists and contains expected BRIDGE_VERSION line. Instrumentation test: OkHttp can reach http://127.0.0.1 under release network security config (validates cleartext exception works). These tests gate Phase 2.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -905,8 +905,9 @@
       "test"
     ],
     "created": "2026-05-02T01:12:50Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T01:50:48Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-substrate-tests"
   },
   "ts-phase2-bridge-daemon": {
     "parent": "termux-shell",
