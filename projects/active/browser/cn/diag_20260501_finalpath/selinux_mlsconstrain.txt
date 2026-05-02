@@ -1,0 +1,2 @@
+(mlsconstrain (unix_stream_socket (connectto)) (or (or (eq l1 l2) (eq t1 mlstrustedsubject)) (eq t2 mlstrustedsubject)))
+(mlsconstrain (unix_stream_socket (create relabelfrom relabelto)) (or (and (eq h1 h2) (eq l1 l2)) (eq t1 mlstrustedsubject)))

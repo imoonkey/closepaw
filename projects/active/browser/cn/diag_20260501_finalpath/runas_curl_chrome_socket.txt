@@ -1,0 +1,4 @@
+*   Trying :0...
+* Immediate connect fail for : Permission denied
+* Failed to connect to localhost port 80 after 0 ms: Could not connect to server
+* closing connection #0

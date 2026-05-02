@@ -1,0 +1,1 @@
+05-01 23:31:21.465 23169 23169 W curl    : type=1400 audit(0.0:92640): avc:  denied  { connectto } for  path=006368726F6D655F646576746F6F6C735F72656D6F7465 scontext=u:r:shell:s0 tcontext=u:r:untrusted_app:s0:c211,c256,c512,c768 tclass=unix_stream_socket permissive=0

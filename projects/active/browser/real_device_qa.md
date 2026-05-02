@@ -104,6 +104,124 @@ Diagnosis: the app process is blocked by SELinux from connecting to Chrome's abs
 - Verification for QA-control code: `./gradlew :app:testDebugUnitTest --tests ai.closepaw.app.MainActivityIntentApplierSecurityTest --tests ai.closepaw.session.SessionBrowserIntegrationTest` passed.
 - Build verification: `./gradlew assembleDebug` passed.
 
+## Root cause — definitive diagnosis (added 2026-05-01 after Hyp-A/Hyp-B isolation)
+
+The failure is NOT a code bug. The production transport is correctly designed and the Shizuku
+UserService binder runs in the right process — it is the device's SELinux policy that blocks every
+in-app path to Chrome's `chrome_devtools_remote` abstract socket. Evidence:
+
+### Hypothesis A — RULED OUT (binder wiring is correct)
+
+The original failure stack ends at
+`IChromeDevtoolsUserService$Stub.onTransact(IChromeDevtoolsUserService.java:75)`. `Stub.onTransact`
+only runs in the binder *server* process, never in the client. Confirmed by `ps -AZ` on the device:
+the `ai.closepaw:chrome_devtools` process (the Shizuku UserService) is in
+`u:r:shell:s0` with UID `shell`, not the app context. So `LocalSocket.connect` at
+`ChromeDevtoolsUserService.exchange:43` runs in shell context, exactly as designed. The
+`AppProcessLocalSocketTransport` AVC at `scontext=u:r:untrusted_app:s0:c66,c257,c512,c768` is the
+*first* leg (the deliberate app-process attempt that always fails on this device); the JavaBinder
+`IOException: Permission denied` 300ms later is the *second* leg, the UserService running as shell.
+
+### Hypothesis B — CONFIRMED (shell domain has no `connectto` to app abstract sockets on this build)
+
+Reproduced with shell-only tooling — no Shizuku, no app, just `adb shell` (which is the same
+`u:r:shell:s0` SELinux context Shizuku spawns UserServices in):
+
+```text
+$ adb -s 100.64.43.95:5555 shell 'curl --abstract-unix-socket chrome_devtools_remote http://localhost/json/version'
+* Immediate connect fail for : Permission denied
+
+# kernel audit:
+type=1400 audit(0.0:92640): avc: denied { connectto }
+  for path=...chrome_devtools_remote
+  scontext=u:r:shell:s0
+  tcontext=u:r:untrusted_app:s0:c211,c256,c512,c768
+  tclass=unix_stream_socket permissive=0
+```
+
+Inspecting the device's compiled SELinux policy at `/system/etc/selinux/plat_sepolicy.cil`:
+
+```cil
+(allow adbd appdomain (unix_stream_socket (connectto)))
+(allow runas_app untrusted_app_all (unix_stream_socket (connectto)))
+; ...no rule allowing shell -> appdomain unix_stream_socket connectto.
+```
+
+Stock AOSP includes `allow shell appdomain:unix_stream_socket connectto` so that
+`adb shell` can reach Chrome's CDP socket; nubia/ZTE removed it from the `shell` domain on this
+build (`nubia/pacific:16/1.11.0.0` user release-keys, verity enforcing, `ro.debuggable=0`). Every
+Shizuku-spawned process inherits `shell` and inherits this denial.
+
+### Workarounds attempted — none can carry production traffic on this device
+
+1. **`run-as ai.closepaw` → `runas_app` domain.** The policy *does* allow
+   `runas_app -> untrusted_app_all` connectto, but the MLS constraint blocks it because Chrome's
+   level (`s0:c211,c256,c512,c768`) and our level (`s0:c66,c257,c512,c768`) do not dominate each
+   other and `runas_app` is NOT in `mlstrustedsubject`:
+
+   ```text
+   (mlsconstrain (unix_stream_socket (connectto))
+       (or (or (eq l1 l2) (eq t1 mlstrustedsubject)) (eq t2 mlstrustedsubject)))
+   ; mlstrustedsubject set: adbd ... runas (transient) ... shell ... — runas_app NOT included.
+   ```
+
+   Empirical AVC from the device:
+
+   ```text
+   type=1400 audit(0.0:92586): avc: denied { connectto } for path=...chrome_devtools_remote
+     scontext=u:r:runas_app:s0:c66,c257,c512,c768
+     tcontext=u:r:untrusted_app:s0:c211,c256,c512,c768
+     tclass=unix_stream_socket permissive=0
+   ```
+
+2. **`/data/local/tmp/chrome-command-line` to add `--remote-debugging-port=9222`.** Stock Chrome
+   on Android only reads this file when the `chrome://flags` toggle
+   "Enable command line on non-rooted devices" is set; that flag is per-Chrome-profile and cannot
+   be set programmatically. Verified by writing
+   `chrome --remote-debugging-socket-name=closepaw_test_socket --remote-debugging-port=9222 --enable-remote-debugging`,
+   force-stopping Chrome, relaunching, and observing that Chrome continued to bind the *default*
+   `@chrome_devtools_remote` socket and never bound TCP `127.0.0.1:9222`. So the file is being
+   ignored.
+
+3. **adbd path** (the only domain that *does* have policy for chrome_devtools_remote):
+   `(allow adbd appdomain (unix_stream_socket (connectto)))`. adbd auths each connection with the
+   host's RSA private key in `~/.android/adbkey`; the device only has the public half in
+   `/data/misc/adb/adb_keys`, so an on-device caller cannot speak the adb wire protocol to adbd
+   on `localhost:5555` without smuggling the host's private key onto the device — that is "host
+   involvement" the spec explicitly forbids.
+
+4. **Other `mlstrustedsubject` exec targets reachable from shell.** `simpleperf_app_runner` is
+   `mlstrustedsubject`, but `simpleperf_app_runner com.android.chrome --show-app-type` returns
+   `non_profileable`, so Chrome cannot be attached. No other shell-reachable exec target carries
+   both the `connectto` type rule AND the MLS bypass.
+
+5. **Root.** `which su` empty, `/system/bin/su` and `/system/xbin/su` absent, `ro.debuggable=0`,
+   verity enforcing. The device is a fully-locked production user build.
+
+### Conclusion
+
+The Shizuku-based production transport is the correct design for AOSP-style devices and this
+device specifically does not permit it. There is no in-app code change that can succeed without
+either (a) the user manually toggling `chrome://flags#enable-command-line-on-non-rooted-devices`
+in Chrome and the app then writing `--remote-debugging-port=N` and restarting Chrome (TCP
+loopback path, app-to-app TCP connect is NOT MLS-restricted on this device), or (b) host-side
+adb forwarding (the existing `DebugTcpDevtoolsSocketTransport`, which the spec rules out for
+the final PASS verdict).
+
+### Diagnostic artifacts captured for this conclusion
+
+All under `projects/active/browser/cn/diag_20260501_finalpath/`:
+
+- `shell_curl_chrome_socket.txt` + `shell_curl_avc.txt` — shell-context curl + matching AVC
+- `runas_curl_chrome_socket.txt` + `runas_curl_avc.txt` — `run-as ai.closepaw` curl + AVC
+- `selinux_connectto_rules.txt` — the only allow rules for `connectto` to appdomain
+- `selinux_mlsconstrain.txt` — the MLS constraint that blocks `runas_app`
+- `selinux_mlstrusted.txt` — the `mlstrustedsubject` set (note the absence of `runas_app`)
+- `chrome_cmdline_current.txt` + `proc_net_unix_devtools.txt` — empirical proof that
+  Chrome ignores `/data/local/tmp/chrome-command-line` on this device
+- `device_buildinfo.txt` — `nubia/pacific:16/1.11.0.0`, user release-keys, verity enforcing
+- `processes.txt` — confirms `ai.closepaw:chrome_devtools` runs as `u:r:shell:s0` shell UID
+
 ## Verdict — PASS or FAIL, single line; if PASS, write the literal word PASS
 
-FAIL
+FAIL — production transport blocked by device SELinux policy; not a code bug.

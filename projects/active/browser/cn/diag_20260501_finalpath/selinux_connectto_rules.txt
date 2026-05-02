@@ -1,0 +1,2 @@
+(allow adbd appdomain (unix_stream_socket (connectto)))
+(allow runas_app untrusted_app_all (unix_stream_socket (connectto)))

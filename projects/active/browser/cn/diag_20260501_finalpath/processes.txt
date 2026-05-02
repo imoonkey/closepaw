@@ -1,0 +1,10 @@
+u:r:shell:s0                   shell          398     1   16382524 286492 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell          911     1   16459388 286808 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell         1535     1   16076540 285976 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell         2737     1   16384700 286072 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell         3593     1   16153276 285800 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell         3994     1   16305916 286116 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell         4589     1   16335548 285796 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell         6518     1   16107136 286592 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell         7563     1   16467584 286108 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u:r:shell:s0                   shell        15624     1   16605888 286588 do_epoll_wait       0 S ai.closepaw:chrome_devtools
