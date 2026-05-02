@@ -34,6 +34,8 @@ class AppSettingsState(private val store: AppSettingsStore) {
         private set
     var traceEnabled by mutableStateOf(AppSettingsStore.DEFAULT_TRACE_ENABLED)
         private set
+    var browserScriptEnabled by mutableStateOf(AppSettingsStore.DEFAULT_BROWSER_SCRIPT_ENABLED)
+        private set
 
     /** Transient base URL override for OPENAI provider (set from intent, not persisted). */
     var openaiBaseUrl by mutableStateOf("")
@@ -51,6 +53,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         executorModel = settings.executorModel
         platformMode = settings.platformMode
         traceEnabled = settings.traceEnabled
+        browserScriptEnabled = settings.browserScriptEnabled
 
         Log.d(
                 TAG,
@@ -95,6 +98,11 @@ class AppSettingsState(private val store: AppSettingsStore) {
     fun updateTraceEnabled(value: Boolean) {
         traceEnabled = value
         store.saveTraceEnabled(value)
+    }
+
+    fun updateBrowserScriptEnabled(value: Boolean) {
+        browserScriptEnabled = value
+        store.saveBrowserScriptEnabled(value)
     }
 
     fun updatePerceptionMode(value: String) {

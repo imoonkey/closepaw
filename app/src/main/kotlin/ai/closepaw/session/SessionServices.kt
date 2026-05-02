@@ -8,6 +8,8 @@ import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.agent.cognition.prompt.EmptyAppSkillRepository
 import ai.closepaw.agent.cognition.skills.AgentSkillManager
 import ai.closepaw.auth.AuthStore
+import ai.closepaw.browser.cdp.shizuku.ShizukuStatusAdapter
+import ai.closepaw.browser.script.BrowserSessionManager
 import ai.closepaw.history.HistoryManager
 import ai.closepaw.history.SessionRecordingService
 import ai.closepaw.llm.LLMClient
@@ -23,9 +25,15 @@ import ai.closepaw.tool.AppClassifier
 import ai.closepaw.tool.PolicyEngine
 import ai.closepaw.tool.ToolRegistry
 import ai.closepaw.tool.ToolRouter
+import ai.closepaw.tool.impl.BrowserScriptInvoker
+import ai.closepaw.tool.impl.BrowserScriptTool
+import ai.closepaw.tool.impl.BrowserScriptTraceMetadata
+import ai.closepaw.tool.impl.BrowserScriptTraceSink
+import ai.closepaw.tool.impl.DefaultBrowserScriptCapabilityGate
 import ai.closepaw.tool.impl.RememberExperienceTool
 import ai.closepaw.trace.TraceRecorder
 import kotlinx.coroutines.CoroutineScope
+import org.json.JSONObject
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
@@ -65,6 +73,7 @@ class SessionServices internal constructor(
         val llmClientFactory: LLMClientFactory,
         val traceRecorder: TraceRecorder,
         val recordingService: SessionRecordingService,
+        val browserSessionManager: BrowserSessionManager? = null,
         internal val appSkillRepository: AppSkillRepository = EmptyAppSkillRepository,
         val agentSkillManager: AgentSkillManager = AgentSkillManager(java.io.File("")),
         val userResponseChannel: UserResponseChannel = UserResponseChannel(),
@@ -117,6 +126,13 @@ class SessionServices internal constructor(
             val sessionState = tooling.sessionState
             val toolRegistry = tooling.toolRegistry
             val toolRouter = tooling.toolRouter
+            val browserSessionManager = registerBrowserScriptTool(
+                toolRegistry = toolRegistry,
+                context = context.applicationContext,
+                scope = scope,
+                traceRecorder = traceRecorder,
+                settingsStore = settingsStore,
+            )
 
             val history = SessionHistoryBootstrapper.create(context, scope)
             val historyManager = history.historyManager
@@ -146,11 +162,72 @@ class SessionServices internal constructor(
                     llmClientFactory = llmClientFactory,
                     traceRecorder = traceRecorder,
                     recordingService = recordingService,
+                    browserSessionManager = browserSessionManager,
                     appSkillRepository = appSkillRepository,
                     agentSkillManager = agentSkillManager,
                     memoryStore = memoryStore,
                     memoryRecaller = memoryRecaller
             )
+        }
+
+        internal fun registerBrowserScriptTool(
+            toolRegistry: ToolRegistry,
+            context: Context,
+            scope: CoroutineScope,
+            traceRecorder: TraceRecorder,
+            settingsStore: AppSettingsStore,
+        ): BrowserSessionManager {
+            val browserSessionManager = BrowserSessionManager(
+                context = context.applicationContext,
+                sessionScope = scope,
+                traceRecorder = traceRecorder,
+            )
+            val browserGate = DefaultBrowserScriptCapabilityGate(
+                isExperimentalEnabled = { settingsStore.load().browserScriptEnabled },
+                shizukuStatus = ShizukuStatusAdapter(),
+                preflight = browserSessionManager::preflight,
+                invokerFactory = {
+                    BrowserScriptInvoker { script, timeout ->
+                        browserSessionManager.run(script, timeout)
+                    }
+                },
+            )
+            toolRegistry.register(
+                BrowserScriptTool(
+                    capabilityGate = browserGate,
+                    traceSink = browserScriptTraceSink(traceRecorder),
+                )
+            )
+            return browserSessionManager
+        }
+
+        private fun browserScriptTraceSink(traceRecorder: TraceRecorder): BrowserScriptTraceSink =
+            BrowserScriptTraceSink { metadata ->
+                if (!traceRecorder.enabled) return@BrowserScriptTraceSink
+                traceRecorder.storeText(
+                    kind = "browser_script",
+                    filenameHint = "browser_script_${metadata.callId ?: "call"}.json",
+                    content = browserScriptTraceJson(metadata).toString(),
+                    mimeType = "application/json",
+                    description = "Raw browser_script execution metadata",
+                )
+            }
+
+        private fun browserScriptTraceJson(metadata: BrowserScriptTraceMetadata): JSONObject {
+            return JSONObject().apply {
+                put("call_id", metadata.callId ?: JSONObject.NULL)
+                put("script", metadata.script)
+                put("timeout_ms", metadata.timeoutMs)
+                put("duration_ms", metadata.durationMs)
+                put("outcome", metadata.outcome)
+                put("outcome_code", metadata.outcomeCode ?: JSONObject.NULL)
+                put("severity", metadata.severity?.name ?: JSONObject.NULL)
+                put("retryable", metadata.retryable)
+                put("raw_result_json", metadata.rawResultJson ?: JSONObject.NULL)
+                put("error_message", metadata.errorMessage ?: JSONObject.NULL)
+                put("original_chars", metadata.originalChars)
+                put("truncated_chars", metadata.truncatedChars)
+            }
         }
     }
 
@@ -169,6 +246,7 @@ class SessionServices internal constructor(
             llmClientFactory: LLMClientFactory = this.llmClientFactory,
             traceRecorder: TraceRecorder = this.traceRecorder,
             recordingService: SessionRecordingService = this.recordingService,
+            browserSessionManager: BrowserSessionManager? = this.browserSessionManager,
             appSkillRepository: AppSkillRepository = this.appSkillRepository,
             agentSkillManager: AgentSkillManager = this.agentSkillManager,
             userResponseChannel: UserResponseChannel = this.userResponseChannel,
@@ -189,6 +267,7 @@ class SessionServices internal constructor(
                 llmClientFactory = llmClientFactory,
                 traceRecorder = traceRecorder,
                 recordingService = recordingService,
+                browserSessionManager = browserSessionManager,
                 appSkillRepository = appSkillRepository,
                 agentSkillManager = agentSkillManager,
                 userResponseChannel = userResponseChannel,
@@ -209,6 +288,7 @@ class SessionServices internal constructor(
         historyManager.clear()
 
         val failures = mutableListOf<CleanupFailure>()
+        runStep("browserSessionManager.close", failures) { browserSessionManager?.close() }
         runStep("platform.stop", failures) { platform.stop() }
         runStep("llmClient.cleanup", failures) { llmClient.cleanup() }
         runStep("llmClientFactory.cleanupAll", failures) { llmClientFactory.cleanupAll() }

@@ -60,6 +60,8 @@ internal fun PermissionsAdvancedSettingsPage(
     onDebugModeChange: (Boolean) -> Unit,
     traceEnabled: Boolean,
     onTraceEnabledChange: (Boolean) -> Unit,
+    browserScriptEnabled: Boolean,
+    onBrowserScriptEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -134,6 +136,13 @@ internal fun PermissionsAdvancedSettingsPage(
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
+            SettingsSection(title = "Experimental") {
+                BrowserAutomationToggle(
+                    enabled = browserScriptEnabled,
+                    onEnabledChange = onBrowserScriptEnabledChange
+                )
+            }
+            Spacer(modifier = Modifier.height(20.dp))
             DataStorageSection(
                 traceEnabled = traceEnabled,
                 onTraceEnabledChange = onTraceEnabledChange
@@ -147,6 +156,50 @@ internal fun PermissionsAdvancedSettingsPage(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun BrowserAutomationToggle(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.BugReport,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Browser automation (experimental)",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = "Enable browser_script for Chrome CDP automation",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            )
         }
     }
 }

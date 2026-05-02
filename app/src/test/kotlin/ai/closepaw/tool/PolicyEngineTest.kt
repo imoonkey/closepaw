@@ -101,6 +101,44 @@ class PolicyEngineTest {
         assertThat(decision).isEqualTo(PolicyDecision.Allow)
     }
 
+    @Test
+    fun `browser_script asks in smart mode for chrome even though chrome is normal`() {
+        val engine = engineWith(
+            tiers = mapOf("com.android.chrome" to AppTier.NORMAL)
+        )
+
+        val decision = engine.check("browser_script", JSONObject(), "com.android.chrome")
+
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+        val ask = decision as PolicyDecision.AskUser
+        assertThat(ask.appTier).isEqualTo(AppTier.NORMAL)
+        assertThat(ask.reason).contains("Browser automation")
+    }
+
+    @Test
+    fun `browser_script smart rule is not bypassed by user allow-list`() {
+        val engine = engineWith(
+            tiers = mapOf("com.android.chrome" to AppTier.NORMAL)
+        )
+        engine.allowPackageForSession("com.android.chrome")
+
+        val decision = engine.check("browser_script", JSONObject(), "com.android.chrome")
+
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `browser_script allowed in auto approve mode after runtime gates`() {
+        val engine = engineWith(
+            mode = ApprovalMode.AUTO_APPROVE,
+            tiers = mapOf("com.android.chrome" to AppTier.NORMAL)
+        )
+
+        val decision = engine.check("browser_script", JSONObject(), "com.android.chrome")
+
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
     // --- Non-screen-changing tools ---
 
     @Test

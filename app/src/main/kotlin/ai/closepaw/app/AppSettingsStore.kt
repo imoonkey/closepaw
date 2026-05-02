@@ -17,7 +17,8 @@ data class AppSettings(
         val localModel: LocalModelOption,
         val executorModel: String?,
         val platformMode: PlatformMode,
-        val traceEnabled: Boolean
+        val traceEnabled: Boolean,
+        val browserScriptEnabled: Boolean
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -36,6 +37,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_PLATFORM_MODE = "platform_mode"
         private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
         private const val KEY_TRACE_ENABLED = "trace_enabled"
+        private const val KEY_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
 
         const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_MAX_TURNS = 20
@@ -46,6 +48,7 @@ class AppSettingsStore(private val context: Context) {
         val DEFAULT_LOCAL_MODEL: LocalModelOption = AVAILABLE_LOCAL_MODELS.first()
         val DEFAULT_PLATFORM_MODE = PlatformMode.ACCESSIBILITY
         const val DEFAULT_TRACE_ENABLED = false
+        const val DEFAULT_BROWSER_SCRIPT_ENABLED = false
     }
 
     /** Plain prefs for non-secret settings only (model, turns, mode, etc.). */
@@ -93,6 +96,8 @@ class AppSettingsStore(private val context: Context) {
             DEFAULT_PLATFORM_MODE
         }
         val traceEnabled = prefs.getBoolean(KEY_TRACE_ENABLED, DEFAULT_TRACE_ENABLED)
+        val browserScriptEnabled =
+                prefs.getBoolean(KEY_BROWSER_SCRIPT_ENABLED, DEFAULT_BROWSER_SCRIPT_ENABLED)
 
         return AppSettings(
                 selectedModel = selectedModel,
@@ -104,7 +109,8 @@ class AppSettingsStore(private val context: Context) {
                 localModel = localModel,
                 executorModel = executorModel,
                 platformMode = platformMode,
-                traceEnabled = traceEnabled
+                traceEnabled = traceEnabled,
+                browserScriptEnabled = browserScriptEnabled
         )
     }
 
@@ -130,6 +136,10 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveTraceEnabled(value: Boolean) {
         prefs().edit().putBoolean(KEY_TRACE_ENABLED, value).apply()
+    }
+
+    fun saveBrowserScriptEnabled(value: Boolean) {
+        prefs().edit().putBoolean(KEY_BROWSER_SCRIPT_ENABLED, value).apply()
     }
 
     fun savePerceptionMode(value: String) {

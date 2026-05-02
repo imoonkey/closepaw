@@ -56,6 +56,8 @@ fun SettingsSheet(
     onDebugModeChange: (Boolean) -> Unit,
     traceEnabled: Boolean,
     onTraceEnabledChange: (Boolean) -> Unit,
+    browserScriptEnabled: Boolean,
+    onBrowserScriptEnabledChange: (Boolean) -> Unit,
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
     onAccessibilityClick: () -> Unit,
@@ -170,6 +172,8 @@ fun SettingsSheet(
                     onDebugModeChange = onDebugModeChange,
                     traceEnabled = traceEnabled,
                     onTraceEnabledChange = onTraceEnabledChange,
+                    browserScriptEnabled = browserScriptEnabled,
+                    onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss
                 )
@@ -177,4 +181,3 @@ fun SettingsSheet(
         }
     }
 }
-

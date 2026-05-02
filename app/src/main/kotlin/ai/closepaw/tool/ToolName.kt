@@ -11,7 +11,7 @@ sealed class ToolName(
     val isScreenChanging: Boolean
         get() =
             when (this) {
-                MobileAction, OpenApp, Wait, SystemButton, DelegateTask -> true
+                MobileAction, OpenApp, Wait, SystemButton, DelegateTask, BrowserScript -> true
                 CompleteTask, WriteTodos, Scratchpad, RememberExperience, AskUser, Shell,
                 ActivateSkill -> false
                 is Unknown -> true
@@ -77,6 +77,11 @@ sealed class ToolName(
         canonical = "activate_skill",
         displayName = "Activate skill"
     )
+    data object BrowserScript : ToolName(
+        raw = "browser_script",
+        canonical = "browser_script",
+        displayName = "Browser script"
+    )
     data class Unknown(private val name: String) : ToolName(
         raw = name,
         canonical = normalizeName(name),
@@ -98,6 +103,7 @@ sealed class ToolName(
                 AskUser.canonical -> AskUser
                 Shell.canonical -> Shell
                 ActivateSkill.canonical -> ActivateSkill
+                BrowserScript.canonical -> BrowserScript
                 else -> Unknown(raw)
             }
         }

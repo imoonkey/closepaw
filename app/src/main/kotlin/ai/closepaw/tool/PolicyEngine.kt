@@ -55,8 +55,10 @@ class PolicyEngine(
         val tier = if (destTier != null) minOf(currentTier, destTier) else currentTier
         Log.d(TAG, "Policy check: tool=$toolName, pkg=$packageName, dest=$destinationPackage, tier=$tier, mode=$currentMode")
 
+        val tool = ToolName.from(toolName)
+
         // Non-screen-changing tools → always allow
-        if (!ToolName.from(toolName).isScreenChanging) return PolicyDecision.Allow
+        if (!tool.isScreenChanging) return PolicyDecision.Allow
 
         // Escape actions (back/home) → always allow (agent must not be trapped)
         if (isEscape(toolName, params)) return PolicyDecision.Allow
@@ -64,6 +66,13 @@ class PolicyEngine(
         // BLOCKED is absolute floor — even AUTO_APPROVE cannot bypass
         if (tier == AppTier.BLOCKED) {
             return PolicyDecision.Deny("Blocked: financial/auth app ($packageName)")
+        }
+
+        // browser_script mutates the user's real Chrome profile through CDP. Chrome is a NORMAL
+        // app, but the browser runtime needs its own SMART-mode approval rule and must not be
+        // bypassed by the general user allow-list.
+        if (tool == ToolName.BrowserScript) {
+            return browserScriptDecision(currentMode, tier)
         }
 
         // User-granted allow-list — but NOT in ALWAYS_ASK mode
@@ -141,6 +150,20 @@ class PolicyEngine(
             return button == "back" || button == "home"
         }
         return false
+    }
+
+    private fun browserScriptDecision(mode: ApprovalMode, tier: AppTier): PolicyDecision {
+        return when (mode) {
+            ApprovalMode.ALWAYS_ASK -> PolicyDecision.AskUser(
+                reason = "User requested approval for all actions",
+                appTier = tier
+            )
+            ApprovalMode.AUTO_APPROVE -> PolicyDecision.Allow
+            ApprovalMode.SMART -> PolicyDecision.AskUser(
+                reason = "Browser automation requires approval",
+                appTier = tier
+            )
+        }
     }
 }
 

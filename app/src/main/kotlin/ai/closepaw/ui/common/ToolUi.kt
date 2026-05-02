@@ -44,6 +44,7 @@ private fun resolveToolDisplay(toolName: String): ToolDisplay {
         ToolName.AskUser -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         ToolName.Shell -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         ToolName.ActivateSkill -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
+        ToolName.BrowserScript -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         is ToolName.Unknown -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
     }
 }

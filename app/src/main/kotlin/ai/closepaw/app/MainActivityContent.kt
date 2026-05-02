@@ -136,6 +136,8 @@ internal fun MainActivityContent(
                     onDebugModeChange = settingsState::updateDebugMode,
                     traceEnabled = settingsState.traceEnabled,
                     onTraceEnabledChange = settingsState::updateTraceEnabled,
+                    browserScriptEnabled = settingsState.browserScriptEnabled,
+                    onBrowserScriptEnabledChange = settingsState::updateBrowserScriptEnabled,
                     isAccessibilityEnabled = isAccessibilityEnabled,
                     isOverlayEnabled = isOverlayEnabled,
                     onAccessibilityClick = onAccessibilityClick,
