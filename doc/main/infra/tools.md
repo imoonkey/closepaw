@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, PolicyEngine, and tool execution lifecycle.
-> Last updated: 2026-04-10
+> Last updated: 2026-05-02 (browser-session-integration)
 
 ## Overview
 
@@ -76,14 +76,18 @@ Executes tool calls with lifecycle handling:
 
 Decides whether tool calls are **allowed**, **denied**, or **require approval** based on **app tier** (where the agent is), not action type.
 
-Decision inputs: `(toolName, params, packageName) → PolicyDecision`
+Decision inputs: `(toolName, params, packageName, destinationPackage?) → PolicyDecision`
 
 Decision flow:
 
 1. **Non-screen-changing tools** (scratchpad, write_todos, remember_experience, complete_task, ask_user, shell) → always `Allow`
 2. **Escape actions** (system_button back/home) → always `Allow` (agent must not be trapped in a blocked app)
 3. **BLOCKED app** → always `Deny`, even in `AUTO_APPROVE` mode (absolute floor)
-4. **Approval mode**:
+4. **`browser_script` special rule** → after the BLOCKED-app floor and before user allow-lists,
+   `SMART` mode always asks, even for `com.android.chrome` (`NORMAL` tier)
+5. **User allow-list** → session/persistent package allow-list can approve ordinary screen-changing
+   tools outside `ALWAYS_ASK`, but it does not bypass the `browser_script` SMART prompt
+6. **Approval mode**:
 
 | Mode | NORMAL app | CAUTIOUS app | BLOCKED app |
 |------|------------|--------------|-------------|
@@ -133,6 +137,7 @@ Classifies Android packages into security tiers.
 | `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
 | `shell` | Execute file-related shell commands | `command`, optional `timeout_ms` |
 | `remember_experience` | Save reusable learning to long-term memory | `category`, `content`, optional `package_name` |
+| `browser_script` | Run a JS automation script against the user's real Chrome over CDP | `script`, optional `timeout_ms` |
 
 `delegate_task` is registered lazily only when the selected agent definition requires delegation.
 
@@ -143,6 +148,18 @@ Classifies Android packages into security tiers.
 `remember_experience` writes a timestamped entry to the persistent memory store. Categories: `app` (requires `package_name`), `user_pref`, `device`. Content is prefixed with kind tags (`[workflow]`, `[pitfall]`, `[verification]`). Classified as cognitive (non-screen-changing) and auto-allowed. A **memory gate** blocks writes when the foreground app is BLOCKED (financial/auth), preventing the agent from creating persistent knowledge about blocked app content. Registered eagerly in `SessionServices.create()`.
 
 → See: [agent/memory.md](../agent/memory.md) for the full memory system.
+
+`browser_script` is the single agent-facing entry point for the Browser CDP runtime. The script body uses `await cdp(method, params, options)` against the user's real Chrome (via Shizuku → `chrome_devtools_remote`); loops, branches, parsing and retries all happen inside the script so a single tool call replaces many CDP round-trips. The tool itself stays thin:
+
+- **Strict validation** — `script` must be a non-blank string; `timeout_ms` must be Int/Long (fractional Doubles and string timeouts are rejected, not silently coerced). Per-call timeout is clamped to a runtime cap (default 120s).
+- **Execution-time capability gate** — `BrowserScriptCapabilityGate.acquire()` is consulted on every call, in cheapest-first order: experimental flag → Shizuku availability → Shizuku permission → `ShizukuChromeDevtoolsBridge.preflight()`. Each gate failure surfaces a distinct `Unavailable(code, reason)` (e.g. `experimental_disabled`, `shizuku_permission_missing`, `chrome_not_running`, `devtools_socket_missing`) so the agent and UI can compose the right setup guidance instead of a generic error. `DefaultBrowserScriptCapabilityGate` is the production wiring; the gate is injected so unit tests have an Android-free seam.
+- **Cooperative in-flight cancellation** — `execute()` runs `runOnce` inside a `coroutineScope` with a 50ms watchdog launch that polls `context.isCancelled()`; when set mid-call, the watchdog cancels the scope, the runner unwinds via structured concurrency, and the tool returns `ToolExecutionResult.Cancelled` with real elapsed time (not 0ms).
+- **Bounded compact output** — successful payloads return as raw JSON; oversized outputs are truncated with an explicit `[truncated: original_chars=N]` marker that fits *inside* the cap (default 8192 chars; constructor `require()`s a minimum of 64 to keep the marker intact).
+- **Trace metadata** — every call writes a `BrowserScriptTraceMetadata` record (script, timeout, duration, outcome, outcomeCode, severity, retryable, full serialized runner JSON, error message, char counts) so the trace/debug pipeline sees the full payload while the prompt context stays bounded. Outcome taxonomy: `ok`, `capability_unavailable`, `script_failure` (PERMANENT, agent must rewrite), `runner_timeout` (TRANSIENT, retryable), `cancellation` (TRANSIENT, not retryable), `host_error` (TRANSIENT, retryable). `rawResultJson` always carries the full `ScriptResult` (success payload OR error JSON) — never the user-facing text.
+
+`SessionServices.create()` registers the tool and owns `BrowserSessionManager`; `SessionToolingBootstrapper` stays Android-free and does not receive `Context` or create WebViews.
+
+→ See: [browser.md](browser.md) for session lifecycle, Shizuku/CDP ownership, cleanup, and policy details. The project design source of truth remains [Browser CDP runtime design](../../../projects/active/browser/cn/design_codex.md).
 
 ### mobile_action Actions
 
@@ -328,7 +345,10 @@ tool/
     ├── ScratchpadTool.kt
     ├── DelegateTaskTool.kt
     ├── AskUserTool.kt
-    └── ShellTool.kt
+    ├── ShellTool.kt
+    ├── BrowserScriptTool.kt              # browser_script tool: validation, gate, output cap, trace
+    ├── BrowserScriptTypes.kt             # gate/invoker/sink interfaces, outcome taxonomy, runner JSON serializer
+    └── DefaultBrowserScriptCapabilityGate.kt  # production gate: experimental flag → Shizuku → preflight
 ```
 
 ---

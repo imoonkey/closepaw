@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-05-01
+> Last updated: 2026-05-02 (browser-session-integration)
 
 ## Quick Start
 
@@ -37,6 +37,7 @@ doc/main/
 ├── infra/             # Agent infrastructure
 │   ├── session.md     # AgentSession, SessionServices, lifecycle
 │   ├── tools.md       # Tool system, ToolRouter, ToolRegistry, PolicyEngine
+│   ├── browser.md     # browser_script runtime, session ownership, policy
 │   ├── platform.md    # AndroidPlatform, AccessibilityPlatform, action dispatch
 │   ├── virtual_display.md # VirtualDisplayPlatform, ShizukuClient, hybrid surface
 │   ├── perception.md  # Perceptor, ScreenSnapshot, prompt shaping, text semantics
@@ -157,7 +158,10 @@ app/src/main/kotlin/ai/closepaw/
 │       ├── ScratchpadTool.kt
 │       ├── DelegateTaskTool.kt
 │       ├── RememberExperienceTool.kt
-│       └── ShellTool.kt
+│       ├── ShellTool.kt
+│       ├── BrowserScriptTool.kt              # browser_script: validation, capability gate, bounded output, trace
+│       ├── BrowserScriptTypes.kt             # gate/invoker/sink interfaces, outcome taxonomy, runner JSON serializer
+│       └── DefaultBrowserScriptCapabilityGate.kt  # production gate: experimental flag → Shizuku → preflight
 │
 ├── memory/                          # Cross-session persistent memory
 │   ├── MemoryStore.kt               # File I/O, entry caps, thread safety
@@ -246,6 +250,24 @@ app/src/main/kotlin/ai/closepaw/
 │
 ├── model/                        # Domain models
 │   └── Models.kt                 # ScreenSnapshot, etc.
+│
+├── browser/                      # Browser automation (CDP over Shizuku)
+│   ├── cdp/                      # Chrome DevTools Protocol client
+│   │   ├── CdpTransport.kt       # WebSocket transport abstraction
+│   │   ├── ChromeCdpCommand.kt   # CDP message types, parse/build (result is JsonElement)
+│   │   ├── ChromeCdpTarget.kt    # Page target filtering (real vs internal)
+│   │   ├── ChromeCdpEventBuffer.kt # Thread-safe event ring buffer
+│   │   ├── ChromeCdpClient.kt    # Core client: routing, attach, stale-session recovery
+│   │   └── shizuku/              # Shizuku bridge to Chrome's abstract socket
+│   │       ├── ShizukuChromeDevtoolsBridge.kt  # HTTP bootstrap (version, targets)
+│   │       ├── ChromeDevtoolsUserService.kt    # Shell-UID socket proxy
+│   │       └── ...               # Transport, diagnostics, error classification
+│   └── script/                   # Hidden-WebView JavaScript automation host
+│       ├── BrowserSessionManager.kt # Session owner: lease, lazy resources, reconnect, cleanup
+│       ├── BrowserScriptPrelude.kt # JS prelude (only `globalThis.cdp` exposed) + script wrapper
+│       ├── BrowserScriptBridge.kt  # Pure-Kotlin bridge: parse send → ChromeCdpClient → resolve/reject; cancel/timeout
+│       ├── BrowserScriptJsInterface.kt # @JavascriptInterface surface (only `send`/`done`)
+│       └── BrowserScriptRunner.kt  # Hardened hidden WebView lifecycle, timeout, navigation block, awaited destroy
 │
 └── util/                         # Shared utilities
 ```

@@ -1,6 +1,6 @@
 # Development Guide
 
-> Last updated: 2026-04-16 (commit: b0509f75)
+> Last updated: 2026-05-02 (browser runtime verification)
 
 This guide covers the development workflow for ClosePaw - building, testing, and debugging.
 
@@ -110,6 +110,34 @@ What is and isn't covered:
 Design rules: `projects/active/qa_test/final/cn/design_kiss.md`. Add new tests when adding behavior or fixing bugs — don't wait for bugs to grow guards.
 
 Critical pitfall: **never use Kotlin built-in `assert(...)` for verdicts** in androidTest — it's a no-op without `-ea` and silently passes. Use `org.junit.Assert.assertTrue` / `assertEquals` or Compose's `onNode(...).assertExists()` / `assertCountEquals(...)`.
+
+### 2c. Browser Runtime Tests
+
+The browser CDP runtime has JVM coverage for transport, session lifecycle, policy, settings, and
+tool behavior. Run the full JVM suite after browser changes:
+
+```bash
+./gradlew test
+```
+
+The hidden-WebView prelude test lives in `app/src/androidTest/kotlin/ai/closepaw/browser/script/`.
+At minimum, compile the debug androidTest source set after CDP transport signature changes:
+
+```bash
+./gradlew :app:compileDebugAndroidTestKotlin
+```
+
+To run the on-device browser script host test directly:
+
+```bash
+./gradlew :app:connectedDebugAndroidTest \
+    -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.browser.script.BrowserScriptRunnerInstrumentedTest
+```
+
+To exercise real `browser_script` from the app, enable **Settings → Permissions & Advanced →
+Browser automation (experimental)**, keep Shizuku running and authorized for ClosePaw, and open
+Chrome so its DevTools socket is available. SMART mode still asks for approval before
+`browser_script` runs against Chrome.
 
 ### Prompt Ownership
 

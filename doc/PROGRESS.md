@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-05-01: Browser CDP — `browser_script` tool shell
+
+**What changed:**
+- New `tool/impl/BrowserScriptTool.kt` — the single agent-facing entry point for the Browser CDP runtime. Strict input validation (rejects non-string scripts and fractional/string `timeout_ms` instead of silently coercing), per-call timeout clamp, cooperative in-flight cancellation via a `coroutineScope` + 50ms watchdog that polls `context.isCancelled()` and cancels the scope so the runner unwinds via structured concurrency, bounded compact output with `[truncated: original_chars=N]` marker that fits *inside* the cap, and a constructor `require()` for the cap minimum so the marker can never overflow.
+- New `tool/impl/BrowserScriptTypes.kt` — `BrowserScriptCapabilityGate` interface (Available/Unavailable outcomes), `BrowserScriptInvoker` test seam over `BrowserScriptRunner.run`, `BrowserScriptTraceSink`, full outcome taxonomy (`ok` / `capability_unavailable` / `script_failure` / `runner_timeout` / `cancellation` / `host_error`) with severity (TRANSIENT/PERMANENT) + retryable hint, and a `runnerResultToJson` serializer so the trace persists the full `ScriptResult` for every variant — never the user-facing text.
+- New `tool/impl/DefaultBrowserScriptCapabilityGate.kt` — production gate consulted at execution time on every call. Cheapest-first order: experimental flag → `ShizukuStatusProvider.isAvailable()` → `hasPermission()` → `ShizukuChromeDevtoolsBridge.preflight()`. Each failure surfaces a distinct `Unavailable(code, reason)` so the agent and UI can compose actionable setup guidance.
+- Tests split into four files (each ≤188 lines) plus a shared `BrowserScriptToolFixture.kt`: `BrowserScriptToolTest` (schema/validation/happy/truncation/clamp/cap-guard), `BrowserScriptToolCancellationTest` (pre-cancel/mid-execution watchdog with real elapsed-time accounting/runner-cancel/runner-timeout), `BrowserScriptToolTraceTest` (capability_unavailable variants/probe_error/host_error variants/script_failure/raw-JSON fidelity), `DefaultBrowserScriptCapabilityGateTest` (every gate-failure path + happy path).
+
+**Why:**
+- Design (`projects/active/browser/cn/design_codex.md`) calls for **one** agent-facing tool, not many wrappers — keeps prompt surface small and lets the agent use raw CDP. Helpers move to the bundled `browser-use` agent skill snippets, not the runtime prelude. Three rounds of codex review drove the current shape: round 1 added the gate seam, raw-JSON-in-trace, and outcome taxonomy; round 2 added in-flight cancellation, the concrete `DefaultBrowserScriptCapabilityGate`, schema-type strictness, and the marker-fits-the-cap fix; round 3 split the test file under the 400-line cap, fixed cancellation timing (was reporting 0ms), and added the marker-overflow `require()`.
+- Tool is **defined but not yet wired into `SessionToolingBootstrapper`** — registration, policy rule, and `BrowserSessionManager` ownership land in the next task (`browser-session-integration`).
+
+**Key files:**
+- main: `app/src/main/kotlin/ai/closepaw/tool/impl/{BrowserScriptTool,BrowserScriptTypes,DefaultBrowserScriptCapabilityGate}.kt`
+- tests: `app/src/test/kotlin/ai/closepaw/tool/impl/BrowserScriptTool{,Cancellation,Trace,Fixture}Test.kt` + `DefaultBrowserScriptCapabilityGateTest.kt`
+- docs: `doc/main/infra/tools.md` (built-in tools row + tool-deep-dive paragraph + impl/ listing), `doc/main/README.md` (impl/ listing)
+
+**Verification:** `./gradlew :app:testDebugUnitTest --tests 'ai.closepaw.tool.impl.*' --rerun-tasks` BUILD SUCCESSFUL (135 tests). `./gradlew test` BUILD SUCCESSFUL. AC1-AC5 verified (file exists, `browser_script` literal in source, `[truncated: original_chars=` in source+tests, `browser-use` mention in source+tests, full suite green). All source/test files ≤398 lines.
+**Commit:** uncommitted (browser-script-tool task; predecessors `cdp-bridge-spike`, `cdp-client-core`, `script-host` already accepted)
+**Next:** `browser-session-integration` — own `BrowserSessionManager?` from `SessionServices`, register `browser_script` in `ToolRegistry` + `ToolName`, add the explicit `PolicyEngine` rule (SMART asks even on `com.android.chrome` NORMAL tier), wire the production gate to the real `AppSettingsStore` / `ShizukuStatusAdapter` / `BrowserScriptRunner.run`.
+**Blockers:** None.
+
 ## 2026-05-01: Agent Skills (agentskills.io) + App Skill frontmatter migration
 
 **What changed:**

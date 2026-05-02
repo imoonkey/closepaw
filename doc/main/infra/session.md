@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionCoordinator, SessionServices, and session lifecycle.
-> Last updated: 2026-04-09 (commit: 9ab9b5f)
+> Last updated: 2026-05-02 (browser-session-integration)
 
 ## AgentSession
 
@@ -35,7 +35,7 @@ Platform is acquired on first task and stays alive across Hot Idle until shutdow
 - `Created → Running` (first task): `platform.start()`
 - `Running → Idle` (task complete): platform stays alive (no `platform.stop()`); only `agentRunner.clear()` runs
 - `Idle → Running` (follow-up): `platform.start()` (idempotent — no-op if already running)
-- `Any → Shutdown`: `services.cleanup()` stops platform, clears history, releases LLM clients, closes trace recorder
+- `Any → Shutdown`: `services.cleanup()` closes browser resources, stops platform, clears history, releases LLM clients, closes trace recorder
 
 If `platform.start()` fails on follow-up, session re-arms idle timeout and stays in Idle.
 
@@ -134,6 +134,7 @@ Dependency-injection container for all session-scoped services. Created via fact
 | `llmClientFactory` | Factory for creating LLM clients (cached by provider) |
 | `traceRecorder` | Trace persistence sink |
 | `recordingService` | Session history recording |
+| `browserSessionManager` | Session-scoped owner for browser CDP/WebView/Shizuku resources |
 | `appSkillRepository` | Loads `app_skills/<package>/SKILL.md` assets for per-turn prompt injection |
 | `userResponseChannel` | Suspension bridge for `ask_user` tool (CompletableDeferred) |
 | `memoryStore` | Persistent cross-session memory I/O (`memory/MemoryStore.kt`) |
@@ -153,9 +154,19 @@ Creation is split into three bootstrappers:
 planning runner uses it every turn to load package-scoped app guidance without storing app-skill
 state in the session itself.
 
+Browser runtime wiring also lives in `SessionServices.create(...)`: it creates `BrowserSessionManager`
+with `context.applicationContext`, registers `BrowserScriptTool`, and injects
+`DefaultBrowserScriptCapabilityGate` with `AppSettingsStore`, Shizuku status, preflight, invoker, and
+trace sink. `SessionToolingBootstrapper` stays Android-free and does not own `Context`, WebViews, or
+Shizuku bindings.
+
+→ See: [browser.md](browser.md) for the browser runtime lifecycle and policy rule.
+
 ### Cleanup
 
-`SessionServices.cleanup()` calls `platform.stop()` to release platform resources (virtual display teardown, `ImageReader` release). Wrapped in try-catch for resilience.
+`SessionServices.cleanup()` cancels active tools, closes `browserSessionManager`, then calls
+`platform.stop()` to release platform resources (virtual display teardown, `ImageReader` release).
+Each cleanup step is wrapped in try-catch so one teardown failure does not skip later cleanup.
 
 ### Creation
 
@@ -167,6 +178,8 @@ Built-in tool registration includes:
 - `mobile_action`, `open_app`, `system_button`, `wait`
 - `write_todos`, `scratchpad`, `complete_task`
 - `shell` (restricted file-related shell command execution)
+- `remember_experience` (registered in `SessionServices.create()`)
+- `browser_script` (registered in `SessionServices.create()` with session-scoped browser runtime)
 
 `delegate_task` and `ask_user` are not part of static built-in registration. They are attached lazily by `SessionAgentRunner.start()` when required.
 

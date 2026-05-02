@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-04-28 (settings UI: full-screen pages replace bottom sheet)
+> Last updated: 2026-05-02 (browser automation experimental flag)
 
 ## Overview
 
@@ -32,6 +32,7 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | `agentMode` | `AgentMode` | `PRO` | Main-agent orchestration mode (`BASIC` or `PRO`) |
 | `maxTurns` | `Int` | `20` | Max turns per task (UI default; protocol default is 50) |
 | `debugMode` | `Boolean` | `false` | Verbose logging + debug artifacts |
+| `browserScriptEnabled` | `Boolean` | `false` | Enables experimental `browser_script` execution gate |
 
 ### Platform
 
@@ -109,7 +110,7 @@ The settings UI is a full-screen page overlay with sub-page navigation (system b
 | Perception Mode | 3-button toggle: Accessibility Only, Hybrid, Screenshot Only |
 | API Keys | LLM & Authentication page (mode → provider → model hierarchy: Sign In / API Key / Local tabs) — see Auth Section below |
 | Permissions | Accessibility Service + Overlay permission status indicators |
-| About & Debug | App version + debug mode switch |
+| Permissions & Advanced | Platform mode, debug mode, browser automation experimental toggle, trace/data controls, app version |
 
 ### Local Model Loading Status
 
@@ -144,10 +145,18 @@ ui/settings/
 - `llm_backend` — `OPENAI` or `LOCAL`
 - `max_turns` — integer
 - `debug_mode` — boolean
+- `trace_enabled` — boolean
+- `browser_script_enabled` — boolean, gates `browser_script` before Shizuku/Chrome preflight
 - `perception_mode` — `accessibility_only`, `screenshot_only`, `hybrid`
 - `platform_mode` — `ACCESSIBILITY`, `VIRTUAL_DISPLAY`
-- `main_model` / `executor_model` — model name strings
-- `openai_base_url` — debug-only proxy override
+- `model` / `executor_model` — model name strings
+
+`openaiBaseUrl` is transient state set from the `openai_base_url` intent extra; it is not persisted.
+
+The browser automation toggle lives under **Permissions & Advanced → Experimental**. Turning it on
+only permits the runtime capability gate to continue; `browser_script` still requires Shizuku
+availability, Shizuku permission, Chrome DevTools socket preflight, and the normal tool policy
+approval flow.
 
 `AuthStore` keys (`EncryptedSharedPreferences`, file `auth_store.xml`):
 - One entry per `LLMProvider.name` (e.g. `OPENAI_API`, `OPENAI_CODEX`, `OPENROUTER`, `NOVITA`), value is a JSON-encoded `AuthCredential` (`ApiKey` or `OAuth`).
