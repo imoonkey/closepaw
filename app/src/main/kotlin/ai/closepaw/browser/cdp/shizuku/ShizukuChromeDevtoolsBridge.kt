@@ -57,6 +57,21 @@ class ShizukuChromeDevtoolsBridge(
     /** Run preflight only — useful for explicit diagnostics endpoints. Throws on failure. */
     suspend fun preflight(): Unit = withContext(ioDispatcher) { runPreflight() }
 
+    /**
+     * Resolve the host:port the CDP WebSocket should connect to. When the UserService transport
+     * is in use, returns `localhost:<relayPort>` from the device-side TCP relay (CDP traffic is
+     * tunneled through the shell-UID UserService because Chrome's `webSocketDebuggerUrl` has no
+     * port and the abstract socket is unreachable from app UID). When only the app-process or
+     * debug TCP transport is available, returns null and the caller uses the URL as-is.
+     */
+    suspend fun resolveWebSocketHost(): String? = withContext(ioDispatcher) {
+        val provider = userServiceProvider ?: return@withContext null
+        val transport = provider.obtain() as? UserServiceTransport
+            ?: return@withContext null
+        val port = transport.ensureRelayPortSuspend()
+        "127.0.0.1:$port"
+    }
+
     /** Release any Shizuku UserService binding owned by this bridge. */
     fun close() {
         userServiceProvider?.close()

@@ -125,7 +125,13 @@ class BrowserSessionManager(
         return try {
             val version = bridgeHandle.bridge.fetchVersion()
             val targets = bridgeHandle.bridge.listPageTargets()
-            val endpoint = websocketEndpoint(version, targets)
+            val rawEndpoint = websocketEndpoint(version, targets)
+            val tunnelHost = bridgeHandle.bridge.resolveWebSocketHost()
+            val endpoint = if (tunnelHost != null) {
+                rawEndpoint.copy(url = rewriteHost(rawEndpoint.url, tunnelHost))
+            } else {
+                rawEndpoint
+            }
             client.connect(endpoint.url)
             if (endpoint.directTargetId != null) {
                 client.useDirectPageTarget(endpoint.directTargetId, endpoint.url)
@@ -168,6 +174,21 @@ class BrowserSessionManager(
         targets.firstOrNull { !it.webSocketDebuggerUrl.isNullOrBlank() }?.webSocketDebuggerUrl
             ?.let { return WebSocketEndpoint(it, directTargetId = null) }
         throw DevtoolsSetupError.MalformedResponse("missing webSocketDebuggerUrl")
+    }
+
+    /**
+     * Replace the `[scheme]://[host[:port]]` prefix of a `ws://...` URL with the given
+     * `host:port`. Path/query are preserved verbatim. Used to redirect Chrome's
+     * `webSocketDebuggerUrl` (which has no port — defaults to 80, unreachable from app UID)
+     * onto the device-side TCP relay served by the Shizuku UserService.
+     */
+    private fun rewriteHost(url: String, hostAndPort: String): String {
+        val schemeEnd = url.indexOf("://")
+        if (schemeEnd < 0) return url
+        val pathStart = url.indexOf('/', schemeEnd + 3).let { if (it < 0) url.length else it }
+        val scheme = url.substring(0, schemeEnd)
+        val rest = url.substring(pathStart)
+        return "$scheme://$hostAndPort$rest"
     }
 
     private suspend fun enableCoreDomains(client: ChromeCdpClient) {
@@ -270,6 +291,12 @@ interface BrowserDevtoolsBridge : Closeable {
     suspend fun preflight()
     suspend fun fetchVersion(): DevtoolsVersion
     suspend fun listPageTargets(): List<PageTarget>
+    /**
+     * Returns `host:port` to substitute into `webSocketDebuggerUrl` from Chrome, or null to
+     * use the URL as-is. Used by the Shizuku transport to route CDP through the device-side
+     * TCP relay instead of the app-UID-unreachable abstract socket.
+     */
+    suspend fun resolveWebSocketHost(): String? = null
 }
 
 private class ShizukuBrowserDevtoolsBridge(
@@ -278,6 +305,7 @@ private class ShizukuBrowserDevtoolsBridge(
     override suspend fun preflight() = delegate.preflight()
     override suspend fun fetchVersion(): DevtoolsVersion = delegate.fetchVersion()
     override suspend fun listPageTargets(): List<PageTarget> = delegate.listPageTargets()
+    override suspend fun resolveWebSocketHost(): String? = delegate.resolveWebSocketHost()
     override fun close() = delegate.close()
 }
 

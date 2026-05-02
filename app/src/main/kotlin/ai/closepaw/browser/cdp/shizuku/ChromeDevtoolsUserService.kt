@@ -3,9 +3,15 @@ package ai.closepaw.browser.cdp.shizuku
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.os.SystemClock
+import android.util.Log
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
 import java.net.SocketTimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Shizuku UserService implementation.
@@ -46,22 +52,113 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
             socket.soTimeout = timeout
             socket.outputStream.write(request)
             socket.outputStream.flush()
-            socket.shutdownOutput()
-            readUntilEofOrDeadline(socket, deadline)
+            // Chrome's net::HttpServer ignores `Connection: close` on the abstract socket and
+            // keeps the connection open after a single response, so we MUST stop reading on the
+            // HTTP boundary (Content-Length) instead of waiting for EOF — and we must not
+            // shutdownOutput, because that triggers an immediate RST on this build.
+            readHttpResponse(socket, deadline)
         } finally {
             runCatching { socket.close() }
         }
     }
 
     override fun destroy() {
-        // No persistent state. Process is torn down by Shizuku binder lifecycle.
+        stopRelay()
     }
 
-    private fun readUntilEofOrDeadline(socket: LocalSocket, deadline: Long): ByteArray {
+    @Volatile
+    private var relayPort: Int = 0
+    private var relayServer: ServerSocket? = null
+    private val relayStopped = AtomicBoolean(false)
+
+    @Synchronized
+    override fun startTcpRelay(): Int {
+        if (relayPort != 0) return relayPort
+        // Bind 127.0.0.1:0 — kernel chooses a free port.
+        val server = ServerSocket()
+        server.reuseAddress = true
+        server.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 16)
+        relayServer = server
+        relayPort = server.localPort
+        Thread({ relayAcceptLoop(server) }, "cdp-relay-accept").apply {
+            isDaemon = true
+        }.start()
+        Log.i(TAG, "TCP relay started on 127.0.0.1:$relayPort")
+        return relayPort
+    }
+
+    private fun stopRelay() {
+        if (!relayStopped.compareAndSet(false, true)) return
+        runCatching { relayServer?.close() }
+        relayServer = null
+    }
+
+    private fun relayAcceptLoop(server: ServerSocket) {
+        while (!relayStopped.get() && !server.isClosed) {
+            val client = try {
+                server.accept()
+            } catch (e: IOException) {
+                if (relayStopped.get() || server.isClosed) return
+                Log.w(TAG, "relay accept failed", e)
+                continue
+            }
+            // One thread per connection; bidirectional pump until either side closes.
+            Thread({ proxyConnection(client) }, "cdp-relay-${client.port}").apply {
+                isDaemon = true
+            }.start()
+        }
+    }
+
+    private fun proxyConnection(client: Socket) {
+        val abstractSocket = LocalSocket()
+        try {
+            abstractSocket.connect(
+                LocalSocketAddress(CHROME_DEVTOOLS_SOCKET, LocalSocketAddress.Namespace.ABSTRACT)
+            )
+            client.tcpNoDelay = true
+            // Two pump threads — one each direction. Either close terminates both.
+            val downstream = Thread({
+                runCatching {
+                    pump(abstractSocket.inputStream, client.getOutputStream())
+                }
+                runCatching { client.shutdownOutput() }
+            }, "cdp-relay-down").apply { isDaemon = true }
+            val upstream = Thread({
+                runCatching {
+                    pump(client.getInputStream(), abstractSocket.outputStream)
+                }
+                runCatching { abstractSocket.shutdownOutput() }
+            }, "cdp-relay-up").apply { isDaemon = true }
+            downstream.start()
+            upstream.start()
+            downstream.join()
+            upstream.join()
+        } catch (e: Throwable) {
+            Log.w(TAG, "relay proxy error", e)
+        } finally {
+            runCatching { abstractSocket.close() }
+            runCatching { client.close() }
+        }
+    }
+
+    private fun pump(input: java.io.InputStream, output: java.io.OutputStream) {
+        val buf = ByteArray(BUFFER)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) return
+            if (n > 0) {
+                output.write(buf, 0, n)
+                output.flush()
+            }
+        }
+    }
+
+    private fun readHttpResponse(socket: LocalSocket, deadline: Long): ByteArray {
         val sink = ByteArrayOutputStream(BUFFER)
         val buf = ByteArray(BUFFER)
         val input = socket.inputStream
-        while (true) {
+        var headerEnd = -1
+        while (headerEnd < 0) {
             if (SystemClock.uptimeMillis() > deadline) {
                 throw SocketTimeoutException("read deadline exceeded for $socket")
             }
@@ -70,14 +167,69 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
             } catch (e: SocketTimeoutException) {
                 throw IOException("read timed out after ${socket.soTimeout} ms", e)
             }
-            if (n < 0) break
+            if (n < 0) return sink.toByteArray()
             if (n > 0) sink.write(buf, 0, n)
+            headerEnd = indexOfDoubleCrlf(sink.toByteArray())
         }
+        val collected = sink.toByteArray()
+        val contentLength = parseContentLength(collected, headerEnd) ?: return collected
+        val bodyStart = headerEnd + 4
+        val needed = bodyStart + contentLength - collected.size
+        if (needed <= 0) return collected
+        readExactly(input, sink, needed.toInt(), deadline, socket.soTimeout)
         return sink.toByteArray()
+    }
+
+    private fun readExactly(
+        input: java.io.InputStream,
+        sink: ByteArrayOutputStream,
+        bytes: Int,
+        deadline: Long,
+        soTimeout: Int,
+    ) {
+        var remaining = bytes
+        val buf = ByteArray(BUFFER)
+        while (remaining > 0) {
+            if (SystemClock.uptimeMillis() > deadline) {
+                throw SocketTimeoutException("body read deadline exceeded after ${bytes - remaining}/$bytes bytes")
+            }
+            val n = try {
+                input.read(buf, 0, minOf(remaining, buf.size))
+            } catch (e: SocketTimeoutException) {
+                throw IOException("body read timed out after $soTimeout ms", e)
+            }
+            if (n < 0) throw IOException("EOF after ${bytes - remaining}/$bytes body bytes")
+            sink.write(buf, 0, n)
+            remaining -= n
+        }
     }
 
     companion object {
         const val CHROME_DEVTOOLS_SOCKET = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET
         private const val BUFFER = 4096
+        private const val TAG = "ChromeDevtoolsUS"
+
+        private val CRLFCRLF = byteArrayOf(0x0d, 0x0a, 0x0d, 0x0a)
+
+        internal fun indexOfDoubleCrlf(bytes: ByteArray): Int {
+            outer@ for (i in 0..bytes.size - 4) {
+                for (j in 0 until 4) if (bytes[i + j] != CRLFCRLF[j]) continue@outer
+                return i
+            }
+            return -1
+        }
+
+        internal fun parseContentLength(bytes: ByteArray, headerEnd: Int): Int? {
+            val headers = String(bytes, 0, headerEnd, Charsets.ISO_8859_1)
+            for (line in headers.split("\r\n")) {
+                val idx = line.indexOf(':')
+                if (idx <= 0) continue
+                val name = line.substring(0, idx).trim()
+                if (!name.equals("Content-Length", ignoreCase = true)) continue
+                val value = line.substring(idx + 1).trim()
+                return value.toIntOrNull()
+            }
+            return null
+        }
     }
 }

@@ -48,8 +48,12 @@ class AppProcessLocalSocketTransport : DevtoolsSocketTransport {
                 socket.soTimeout = timeout
                 socket.outputStream.write(request)
                 socket.outputStream.flush()
-                socket.shutdownOutput()
-                val result = readUntilEof(socket, deadline)
+                // Read with HTTP Content-Length awareness: Chrome's net::HttpServer ignores
+                // `Connection: close` on the abstract socket and never EOFs after a single
+                // response. shutdownOutput() also can't be used — it triggers a connection
+                // RST on this build. See ChromeDevtoolsUserService.readHttpResponse for the
+                // same parsing logic.
+                val result = readHttpResponse(socket, deadline)
                 if (cont.isActive) cont.resume(result)
             } catch (t: Throwable) {
                 if (cont.isActive) cont.resumeWithException(t)
@@ -58,11 +62,12 @@ class AppProcessLocalSocketTransport : DevtoolsSocketTransport {
             }
         }
 
-    private fun readUntilEof(socket: LocalSocket, deadline: Long): ByteArray {
+    private fun readHttpResponse(socket: LocalSocket, deadline: Long): ByteArray {
         val sink = ByteArrayOutputStream(BUFFER)
         val buf = ByteArray(BUFFER)
         val input = socket.inputStream
-        while (true) {
+        var headerEnd = -1
+        while (headerEnd < 0) {
             if (SystemClock.uptimeMillis() > deadline) {
                 throw SocketTimeoutException("read deadline exceeded for $socket")
             }
@@ -71,10 +76,42 @@ class AppProcessLocalSocketTransport : DevtoolsSocketTransport {
             } catch (e: SocketTimeoutException) {
                 throw IOException("read timed out after ${socket.soTimeout} ms", e)
             }
-            if (n < 0) break
+            if (n < 0) return sink.toByteArray()
             if (n > 0) sink.write(buf, 0, n)
+            headerEnd = ChromeDevtoolsUserService.indexOfDoubleCrlf(sink.toByteArray())
         }
+        val collected = sink.toByteArray()
+        val contentLength = ChromeDevtoolsUserService.parseContentLength(collected, headerEnd)
+            ?: return collected
+        val bodyStart = headerEnd + 4
+        val needed = bodyStart + contentLength - collected.size
+        if (needed <= 0) return collected
+        readExactly(input, sink, needed.toInt(), deadline, socket.soTimeout)
         return sink.toByteArray()
+    }
+
+    private fun readExactly(
+        input: java.io.InputStream,
+        sink: ByteArrayOutputStream,
+        bytes: Int,
+        deadline: Long,
+        soTimeout: Int,
+    ) {
+        var remaining = bytes
+        val buf = ByteArray(BUFFER)
+        while (remaining > 0) {
+            if (SystemClock.uptimeMillis() > deadline) {
+                throw SocketTimeoutException("body read deadline exceeded after ${bytes - remaining}/$bytes bytes")
+            }
+            val n = try {
+                input.read(buf, 0, minOf(remaining, buf.size))
+            } catch (e: SocketTimeoutException) {
+                throw IOException("body read timed out after $soTimeout ms", e)
+            }
+            if (n < 0) throw IOException("EOF after ${bytes - remaining}/$bytes body bytes")
+            sink.write(buf, 0, n)
+            remaining -= n
+        }
     }
 
     companion object {
@@ -97,6 +134,18 @@ class UserServiceTransport(
 ) : DevtoolsSocketTransport {
 
     override val label: TransportLabel = TransportLabel.USER_SERVICE
+
+    /**
+     * Lazily start the device-side TCP relay (one process == one relay) and return its
+     * 127.0.0.1 port. The app then opens an OkHttp WebSocket to that port to tunnel CDP
+     * traffic through the shell-UID UserService — required because Chrome's
+     * `webSocketDebuggerUrl` has no port (defaults to 80, unreachable from the app UID).
+     */
+    suspend fun ensureRelayPortSuspend(): Int = runInterruptible(Dispatchers.IO) {
+        val port = binder.startTcpRelay()
+        if (port <= 0) throw IOException("UserService.startTcpRelay returned invalid port=$port")
+        port
+    }
 
     override suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray =
         runInterruptible(Dispatchers.IO) {
