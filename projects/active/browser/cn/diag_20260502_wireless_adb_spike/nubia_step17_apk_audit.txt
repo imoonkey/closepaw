@@ -1,0 +1,22 @@
+==> nubia6: pull SettingsBytedanceProject.apk and search for adb-pair classes
+--- pull apk ---
+/system/priv-app/SettingsBytedanceProject/SettingsBytedanceProject.apk: 1 file pulled, 0 skipped. 1.4 MB/s (153740143 bytes in 102.023s)
+-rw-r--r-- 1 qiguo qiguo 153740143 May  2 14:51 /tmp/SettingsBytedanceProject.apk
+
+--- list classes/strings related to AdbPair / WirelessDebug / adbpair ---
+-rw-rw-r-- 1 qiguo qiguo 8841692 May  2 14:51 /tmp/classes.dex
+
+--- strings inside apk matching pair/wireless/adb classes ---
+adb_paired_devices_title
+$adb_pairing_device_dialog_failed_msg
+&adb_pairing_device_dialog_failed_title
+,adb_pairing_device_dialog_pairing_code_label
+adb_pairing_device_dialog_title
+adb_pair_method_code_summary
+adb_pair_method_code_title
+adb_pair_method_qrcode_summary
+adb_pair_method_qrcode_title
+adbwifi_warning_message
+adbwifi_warning_title
+
+--- AndroidManifest activities (extract via aapt if available) ---

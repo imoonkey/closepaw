@@ -1,0 +1,64 @@
+==> emu8: dig deeper — why isn't AdbService responding?
+
+--- raw logcat 200 lines around put ---
+--------- beginning of kernel
+05-02 18:58:33.781     0     0 I init    : service 'adbd' requested start, but it is already running (flags: 132)
+05-02 18:58:33.783     0     0 I init    : Control message: Processed ctl.start for 'adbd' from pid: 509 (system_server)
+--------- beginning of system
+05-02 18:58:33.700   509   526 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.android.systemui/.wifi.WifiDebuggingActivity (has extras)} from uid 1000
+--------- beginning of main
+05-02 18:58:34.895  6632  6866 D CompatibilityChangeReporter: Compat change id reported: 150939131; UID 10113; state: ENABLED
+05-02 18:58:35.819     0     0 I logd    : logdr: UID=2000 GID=2000 PID=6891 n tail=100 logMask=99 pid=0 start=0ns deadline=0ns
+
+--- after 5s, value: ---
+0
+
+--- try with adb root + direct property bypass ---
+restarting adbd as root
+--- as root: set persist.adb.tls_server.enable=1 directly ---
+1
+41515
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      4            *:41515                    *:*                  
+LISTEN      0      16      [::ffff:127.0.0.1]:35403                    *:*                  
+LISTEN      0      16      [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      4            *:5555                     *:*                  
+
+--- also enable the setting ---
+0
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      16      [::ffff:127.0.0.1]:35403                    *:*                  
+LISTEN      0      16      [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      4            *:5555                     *:*                  
+
+--- AdbService logs ---
+05-02 18:58:33.781     0     0 I init    : service 'adbd' requested start, but it is already running (flags: 132)
+05-02 18:58:33.783     0     0 I init    : Control message: Processed ctl.start for 'adbd' from pid: 509 (system_server)
+05-02 18:58:38.801  6731  6899 I adbd    : adbd restarting as root
+05-02 18:58:38.805   509  1446 W AdbDebuggingManager: Read failed with count -1
+05-02 18:58:38.806   509  1446 E AdbDebuggingManager: Caught an exception opening the socket: java.io.IOException: Connection refused
+05-02 18:58:38.893     0     0 I init    : Service 'adbd' (pid 6731) exited with status 1
+05-02 18:58:38.896     0     0 I init    : Sending signal 9 to service 'adbd' (pid 6731) process group...
+05-02 18:58:38.904     0     0 I init    : starting service 'adbd'...
+05-02 18:58:38.906     0     0 I init    : Created socket '/dev/socket/adbd', mode 660, user 1000, group 1000
+05-02 18:58:38.856  6900  6900 I adbd    : persist.adb.watchdog set to ''
+05-02 18:58:38.856  6900  6900 I adbd    : persist.sys.test_harness set to ''
+05-02 18:58:38.856  6900  6900 I adbd    : adb watchdog timeout set to 600 seconds
+05-02 18:58:38.857  6900  6902 I adbd    : Waiting for persist.adb.tls_server.enable=1
+05-02 18:58:38.857  6900  6900 I adbd    : Setup mdns on port= 5555
+05-02 18:58:38.858  6900  6900 I adbd    : adbd listening on tcp:5555
+05-02 18:58:38.858  6900  6900 I adbd    : adbd listening on vsock:5555
+05-02 18:58:38.858  6900  6900 I adbd    : adbd started
+05-02 18:58:38.858  6900  6904 I adbd    : adbd mDNS service _adb._tcp registered: 1
+05-02 18:58:39.306  6900  6907 I adbd    : jdwp connection from 6667
+05-02 18:58:39.306  6900  6907 I adbd    : jdwp connection from 897
+05-02 18:58:39.306  6900  6907 I adbd    : jdwp connection from 1490
+05-02 18:58:39.306  6900  6907 I adbd    : jdwp connection from 1261
+05-02 18:58:39.306  6900  6907 I adbd    : jdwp connection from 4625
+05-02 18:58:39.306  6900  6907 I adbd    : jdwp connection from 861
+05-02 18:58:39.307  6900  6907 I adbd    : jdwp connection from 834
+05-02 18:58:39.307  6900  6907 I adbd    : jdwp connection from 1517
+05-02 18:58:39.307  6900  6907 I adbd    : jdwp connection from 802
+05-02 18:58:39.307  6900  6907 I adbd    : jdwp connection from 2068
+05-02 18:58:39.307  6900  6907 I adbd    : jdwp connection from 12683
+05-02 18:58:39.307  6900  6907 I adbd    : jdwp connection from 1314

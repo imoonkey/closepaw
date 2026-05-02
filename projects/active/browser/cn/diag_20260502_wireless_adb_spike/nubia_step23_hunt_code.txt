@@ -1,0 +1,85 @@
+==> nubia13: hunt for the 6-digit pairing code
+--- check pairtest.log final state ---
+[PairTest] enablePairingByPairingCode() = null
+[PairTest] --- enablePairingByPairingCode returned, polling state ---
+[PairTest] --- enablePairingByPairingCode returned, polling state ---
+[PairTest] T+500ms: getAdbWirelessPort=42875
+[PairTest] T+500ms: getAdbWirelessPort=42875
+[PairTest] T+1000ms: getAdbWirelessPort=42875
+[PairTest] T+1000ms: getAdbWirelessPort=42875
+[PairTest] T+1500ms: getAdbWirelessPort=42875
+[PairTest] T+1500ms: getAdbWirelessPort=42875
+[PairTest] T+2000ms: getAdbWirelessPort=42875
+[PairTest] T+2000ms: getAdbWirelessPort=42875
+[PairTest] T+2500ms: getAdbWirelessPort=42875
+[PairTest] T+2500ms: getAdbWirelessPort=42875
+[PairTest] T+3000ms: getAdbWirelessPort=42875
+[PairTest] T+3000ms: getAdbWirelessPort=42875
+[PairTest] T+3500ms: getAdbWirelessPort=42875
+[PairTest] T+3500ms: getAdbWirelessPort=42875
+[PairTest] T+4000ms: getAdbWirelessPort=42875
+[PairTest] T+4000ms: getAdbWirelessPort=42875
+[PairTest] T+4500ms: getAdbWirelessPort=42875
+[PairTest] T+4500ms: getAdbWirelessPort=42875
+[PairTest] T+5000ms: getAdbWirelessPort=42875
+[PairTest] T+5000ms: getAdbWirelessPort=42875
+[PairTest] --- holding 60s so external observer can capture pair-port state ---
+[PairTest] --- holding 60s so external observer can capture pair-port state ---
+
+--- listeners now ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0            *:45719                    *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+LISTEN      0      0            *:42875                    *:*                  
+
+--- search all logcat for 'pair'/'code'/'PSK' ---
+05-02 18:05:45.479  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 99], operation[true,1]
+05-02 18:05:45.552  3394  4756 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-56 for "WhoTMCars"WPA_PSK
+05-02 18:05:45.553  3394  4756 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -56, Link speed: 864Mbps, Tx Link speed: 864Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 1080Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+05-02 18:05:45.562  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 100], operation[true,1]
+05-02 18:05:45.637  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 101], operation[true,1]
+05-02 18:05:45.705  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 102], operation[true,1]
+05-02 18:05:48.574  3394  4756 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-56 for "WhoTMCars"WPA_PSK
+05-02 18:05:48.575  3394  4756 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -56, Link speed: 720Mbps, Tx Link speed: 720Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 1080Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+05-02 18:05:51.600  3394  4756 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-55 for "WhoTMCars"WPA_PSK
+05-02 18:05:51.601  3394  4756 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -55, Link speed: 864Mbps, Tx Link speed: 864Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 1200Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+05-02 18:05:54.626  3394  4756 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-55 for "WhoTMCars"WPA_PSK
+05-02 18:05:54.627  3394  4756 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -56, Link speed: 864Mbps, Tx Link speed: 864Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 1200Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+05-02 18:05:57.646  3394  4756 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-55 for "WhoTMCars"WPA_PSK
+05-02 18:05:57.647  3394  4756 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -56, Link speed: 720Mbps, Tx Link speed: 720Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 960Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+05-02 18:06:00.655  3394  4756 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-56 for "WhoTMCars"WPA_PSK
+05-02 18:06:00.656  3394  4756 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -57, Link speed: 864Mbps, Tx Link speed: 864Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 960Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+05-02 18:06:03.678  3394  4756 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-56 for "WhoTMCars"WPA_PSK
+05-02 18:06:03.679  3394  4756 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -56, Link speed: 720Mbps, Tx Link speed: 720Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 1080Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+05-02 18:06:04.018  3394  4894 D Brightness[LuxDebounce]: onLuxSceneChanged: N->S, scores[-1,9,1000], calc process:same=false,N=-1,onlyLux=true,duration=9223372036854775807 tcQ=[0-[T,20.81], 1-[T,69.74]],score5=-1,same=false,tcQ=[],avg=21.586668014526367,sigma=1.9401644651209387 cv=0.08987790351967886,wcQ=[0-[T,20.74], 1-[T,20.82], 2-[T,20.86], 3-[T,20.79], 4-[T,20.71], 5-[T,20.98], 6-[T,27.02], 7-[T,21.64], 8-[T,20.72]],largePair=Pair{14.123333 269.47998},shakePair=Pair{141.80165100097656 127.67833260638723},score2=1000
+05-02 18:06:04.082  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 101], operation[true,1]
+05-02 18:06:04.240  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 100], operation[true,1]
+05-02 18:06:04.299  3394  4894 D Brightness[LuxDebounce]: onLuxSceneChanged: S->N, scores[0,9,-1], calc process:same=false,N=1,onlyLux=true,duration=9223372036854775807 tcQ=[0-[T,20.81], 1-[T,69.74], 2-[T,20.84]],avg=22.239999771118164,sigma=2.4110824091658523 cv=0.10841197994511624,wcQ=[0-[T,20.98], 1-[T,27.02], 2-[T,21.64], 3-[T,20.72], 4-[T,20.84]],large=Pair{7.5544996 52.765995},shakePair=Pair{30.160247802734375 22.60574822624284},score4=0,score5=0,same=true,tcQ=[0-[T,20.84]]
+05-02 18:06:04.405  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 99], operation[true,1]
+
+--- check adbd-related properties (likely we can't read but try) ---
+[init.svc.adbd]: [running]
+[persist.sys.adb_install]: [false]
+[persist.sys.usb.config]: [adb]
+[ro.adb.secure]: [1]
+[service.adb.tcp.port]: [5555]
+[sys.usb.adb.disabled]: [0]
+[sys.usb.config]: [adb]
+
+--- dumpsys adb (look for pairing state) ---
+ADB MANAGER STATE (dumpsys adb):
+{
+  debugging_manager={
+    connected_to_adb=true
+    last_key_received=75:94:95:B4:6D:C9:7E:09:79:CD:84:13:BE:BB:3A:F4
+    user_keys=QAAAAM36XUT7ffmv85ayMFfsgOu1d6R+l7HPlO7Xpt4ODhFem2lk+UuSNMveVfn4vlVs+ytcn89sf/IHgNdR3txMCzFU6K7rDqG3ML8mxde64i5isydHDTNr/iE7neiN/wCWzgBfjxFWxTKsi564jlz/zZsKDZNF3y9bVRDsj61B8nGkPXESGnajvxYksyGrIFO4BDxXuHCm/48FlnJXEf61AbvcZCU/BWmmve8onU5f0536Pejhdh+fMqtGtgtyTQ8shSlUAazdhZe2vOFxjKfbVC2Alck6fI93sQ/FhBz/rNV3EJCHKI1exvhJaf78GwnV0TGe8nrt60Aohq0a8gVJt9r3QsjMbZkZ4Al992VvbBb5pl7R3bf9PK9kbFcH3CoZivrfUdW7i8i/C04ubHod087LHYzkAprxK1uW8ugc08edHqvdmopdVZQWznUfxAqh6SfcO97dDFdyl9LLSTwV5zdX26klUg2jp44Q5c67h9QB5+CtWv+es6YhC1a8Ch9YUlFyYlr5U03bJsesfp11LO66eFtwF/9MQOoxy8lXHzV1FE1SF0pSFjfjoBhINiZy6x9uvTx70FFGjxpSUYSMMeba3LZ5xXkARtdFY4nCiC4O0Q7oz2btUcooddFfkSJLidtqOyAOWMhYoJakOlkxI2EkLzm60dZ7QPy2mZJBv4Z7yHAVTgEAAQA= qiguo@qiguo-ld1
+    QAAAAM3iDIv7Je6/0ufISI3FdORzbSX52BILt6E3ttGUXm2UdB0shpBQyBll5LEWteOLfVPm4vILP263YOiXs4WXxZXDdRzDLVc88E0qz4lUXpp8zu/T4RX02ET9JQjeteh5PF6VKbEfyQ5fDTK7qI0imhSV2tIyoTF0D+pqPE8foKDm6VblRJgharzmNslZxnHloIHQDv5YusNWb+E7BsfwK+nDT9LZIrcuYKxwqIi4N6birmSytdQK3ncwLeRrFc+6d9upzgomfHT8vN9MduRL55fRXk0+gUVt0rrH4LBy/Py8IlvLuJ3KliwKyTVhRAIOgZvPk4ZcJuwhHpfu18DVBXPesrf1cVhgn1cFcpNNc/5kLWHs5ND0Suddhp55GlG2Mn9zIYxePArztGkXCdrvYtGjP7hodOg/Xj8XoG55TclMVpIxNLHqfuTqweTnwqWcdelNp97n184sZECQ2FTgBZ9bZcYMfz7J6sU2os2QPSCmPsTbPh19B++2Jxk7DmlK4sNXNVVhr6DV/nqrSu88/YUSPs6Dqda5cwH739ePnDwFJiNkK9egfqmzwpB2B6G0PJtKwjGwszGjvKT5ZDvhN6ufUhKJwa8QOCIM+KlONRfRq+IeECfG3Ipvnb5hAi0L6CaXLxGmRhQCbyD1dwsXJd0w3wSYY0Y3Tvuq/L57aDlquV62kQEAAQA= moonkey@Moonkeys-MBP.lan
+    
+    keystore=ABX 2�� keyStoreo�� version   2�� adbKey/�� key�QAAAAM36XUT7ffmv85ayMFfsgOu1d6R+l7HPlO7Xpt4ODhFem2lk+UuSNMveVfn4vlVs+ytcn89sf/IHgNdR3txMCzFU6K7rDqG3ML8mxde64i5isydHDTNr/iE7neiN/wCWzgBfjxFWxTKsi564jlz/zZsKDZNF3y9bVRDsj61B8nGkPXESGnajvxYksyGrIFO4BDxXuHCm/48FlnJXEf61AbvcZCU/BWmmve8onU5f0536Pejhdh+fMqtGtgtyTQ8shSlUAazdhZe2vOFxjKfbVC2Alck6fI93sQ/FhBz/rNV3EJCHKI1exvhJaf78GwnV0TGe8nrt60Aohq0a8gVJt9r3QsjMbZkZ4Al992VvbBb5pl7R3bf9PK9kbFcH3CoZivrfUdW7i8i/C04ubHod087LHYzkAprxK1uW8ugc08edHqvdmopdVZQWznUfxAqh6SfcO97dDFdyl9LLSTwV5zdX26klUg2jp44Q5c67h9QB5+CtWv+es6YhC1a8Ch9YUlFyYlr5U03bJsesfp11LO66eFtwF/9MQOoxy8lXHzV1FE1SF0pSFjfjoBhINiZy6x9uvTx70FFGjxpSUYSMMeba3LZ5xXkARtdFY4nCiC4O0Q7oz2btUcooddFfkSJLidtqOyAOWMhYoJakOlkxI2EkLzm60dZ7QPy2mZJBv4Z7yHAVTgEAAQA= qiguo@qiguo-ld1��� lastConnection  ����3 2 / �QAAAAM3iDIv7Je6/0ufISI3FdORzbSX52BILt6E3ttGUXm2UdB0shpBQyBll5LEWteOLfVPm4vILP263YOiXs4WXxZXDdRzDLVc88E0qz4lUXpp8zu/T4RX02ET9JQjeteh5PF6VKbEfyQ5fDTK7qI0imhSV2tIyoTF0D+pqPE8foKDm6VblRJgharzmNslZxnHloIHQDv5YusNWb+E7BsfwK+nDT9LZIrcuYKxwqIi4N6birmSytdQK3ncwLeRrFc+6d9upzgomfHT8vN9MduRL55fRXk0+gUVt0rrH4LBy/Py8IlvLuJ3KliwKyTVhRAIOgZvPk4ZcJuwhHpfu18DVBXPesrf1cVhgn1cFcpNNc/5kLWHs5ND0Suddhp55GlG2Mn9zIYxePArztGkXCdrvYtGjP7hodOg/Xj8XoG55TclMVpIxNLHqfuTqweTnwqWcdelNp97n184sZECQ2FTgBZ9bZcYMfz7J6sU2os2QPSCmPsTbPh19B++2Jxk7DmlK4sNXNVVhr6DV/nqrSu88/YUSPs6Dqda5cwH739ePnDwFJiNkK9egfqmzwpB2B6G0PJtKwjGwszGjvKT5ZDvhN6ufUhKJwa8QOCIM+KlONRfRq+IeECfG3Ipvnb5hAi0L6CaXLxGmRhQCbyD1dwsXJd0w3wSYY0Y3Tvuq/L57aDlquV62kQEAAQA= moonkey@Moonkeys-MBP.lan�   ���F3 3  
+  }
+}
+
+--- /proc/net/tcp shows the listener; also check what process owns 45719 ---
+LISTEN      0      0            *:45719                    *:*                   uid:1000 ino:18601627 sk:0

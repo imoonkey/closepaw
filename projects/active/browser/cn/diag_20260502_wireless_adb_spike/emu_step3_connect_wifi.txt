@@ -1,0 +1,42 @@
+==> emu6: scan + connect to virtual AndroidWifi AP
+    BSSID              Frequency      RSSI           Age(sec)     SSID                                 Flags
+  00:13:10:85:fe:01       2447        -50            104.778    AndroidWifi                       [ESS]
+
+--- try cmd wifi connect-network ---
+
+Exception occurred while executing 'connect-network':
+java.lang.SecurityException: Uid 2000 does not have access to connect-network wifi command (or such command doesn't exist)
+	at com.android.server.wifi.WifiShellCommand.onCommand(Unknown Source:63)
+	at com.android.wifi.x.com.android.modules.utils.BasicShellCommandHandler.exec(BasicShellCommandHandler.java:97)
+	at com.android.server.wifi.WifiServiceImpl.handleShellCommand(Unknown Source:33)
+	at android.os.Binder.onShellCommand(Binder.java:1102)
+	at android.os.Binder.shellCommand(Binder.java:1049)
+	at android.os.Binder.onTransact(Binder.java:877)
+	at android.net.wifi.IWifiManager$Stub.onTransact(IWifiManager.java:2136)
+	at android.os.Binder.execTransactInternal(Binder.java:1285)
+	at android.os.Binder.execTransact(Binder.java:1244)
+--- status ---
+Wifi is enabled
+Wifi scanning is always available
+==== Primary ClientModeManager instance ====
+Wifi is not connected
+16: wlan0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
+    link/ether 02:15:b2:00:00:00 brd ff:ff:ff:ff:ff:ff
+
+--- now retry wireless adb enable ---
+value:
+0
+TLS port:
+
+pairing port:
+
+listeners:
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  
+--- AdbService logs ---
+05-02 18:57:46.299   509   526 I AdbDebuggingManager: Not connected to any wireless network. Not enabling adbwifi.
+05-02 18:57:46.381     0     0 I init    : service 'adbd' requested start, but it is already running (flags: 132)
+05-02 18:57:46.383     0     0 I init    : Control message: Processed ctl.start for 'adbd' from pid: 509 (system_server)
+05-02 18:57:49.380  6588  6588 W getprop : type=1400 audit(0.0:14589): avc: denied { read } for name="u:object_r:adbd_prop:s0" dev="tmpfs" ino=60 scontext=u:r:shell:s0 tcontext=u:object_r:adbd_prop:s0 tclass=file permissive=0

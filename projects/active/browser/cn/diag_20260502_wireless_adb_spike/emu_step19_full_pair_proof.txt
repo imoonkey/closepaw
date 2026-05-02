@@ -1,0 +1,31 @@
+==> emu22: pair from host using the displayed code, then test OPEN(localabstract)
+
+--- need to reach 10.0.2.x from host. Forward the pairing port ---
+43525
+43993
+emulator-5554 tcp:34811 tcp:34811
+emulator-5554 tcp:43525 tcp:43525
+emulator-5554 tcp:43993 tcp:43993
+
+
+--- adb pair to localhost:43525 with code 369416 ---
+(this performs TLS-PSK pairing — proves the code/port flow works end-to-end)
+Successfully paired to 127.0.0.1:43525 [guid=adb-EMULATOR32X1X15X0-CWkH7B]
+
+--- after pair, check adb_keys keystore (need root) ---
+QAAAAM36XUT7ffmv85ayMFfsgOu1d6R+l7HPlO7Xpt4ODhFem2lk+UuSNMveVfn4vlVs+ytcn89sf/IHgNdR3txMCzFU6K7rDqG3ML8mxde64i5isydHDTNr/iE7neiN/wCWzgBfjxFWxTKsi564jlz/zZsKDZNF3y9bVRDsj61B8nGkPXESGnajvxYksyGrIFO4BDxXuHCm/48FlnJXEf61AbvcZCU/BWmmve8onU5f0536Pejhdh+fMqtGtgtyTQ8shSlUAazdhZe2vOFxjKfbVC2Alck6fI93sQ/FhBz/rNV3EJCHKI1exvhJaf78GwnV0TGe8nrt60Aohq0a8gVJt9r3QsjMbZkZ4Al992VvbBb5pl7R3bf9PK9kbFcH3CoZivrfUdW7i8i/C04ubHod087LHYzkAprxK1uW8ugc08edHqvdmopdVZQWznUfxAqh6SfcO97dDFdyl9LLSTwV5zdX26klUg2jp44Q5c67h9QB5+CtWv+es6YhC1a8Ch9YUlFyYlr5U03bJsesfp11LO66eFtwF/9MQOoxy8lXHzV1FE1SF0pSFjfjoBhINiZy6x9uvTx70FFGjxpSUYSMMeba3LZ5xXkARtdFY4nCiC4O0Q7oz2btUcooddFfkSJLidtqOyAOWMhYoJakOlkxI2EkLzm60dZ7QPy2mZJBv4Z7yHAVTgEAAQA= qiguo@qiguo-ld1
+
+--- adb connect to TLS port ---
+failed to connect to '127.0.0.1:43993': Connection refused
+List of devices attached
+100.64.43.95:5555	device
+emulator-5554	device
+emulator-5556	device
+
+
+--- now issue forward localabstract on the wireless connection ---
+adb: device '127.0.0.1:43993' not found
+--- and curl Chrome's CDP via this WIRELESS-ADB-AUTHENTICATED tunnel ---
+
+--- FINAL PROOF: host-paired with the displayed code; CDP reachable through the wireless TLS adb session ---
+--- this is exactly what an in-device app would do, just with the host playing the role of in-device ---

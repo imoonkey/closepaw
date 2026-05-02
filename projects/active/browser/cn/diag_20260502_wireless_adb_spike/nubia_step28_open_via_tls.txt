@@ -1,0 +1,45 @@
+==> nubia18: clean OPEN(localabstract) test
+--- Chrome socket present? ---
+0000000000000000: 00000002 00000000 00000000 0001 02     0 @chrome_devtools_remote
+0000000000000000: 00000002 00000000 00010000 0001 01 14372175 @chrome_devtools_remote
+--- Chrome process ---
+u0_a211       5155  1946   41715152 110340 0                   0 S com.android.chrome_zygote
+u0_a211      10090  1946   43366024 404736 0                   0 S com.android.chrome
+u0_i6        10239  5155  270843612 282520 0                   0 S com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0
+
+--- adb devices (should show both connections) ---
+List of devices attached
+100.64.43.95:42875	device
+100.64.43.95:5555	device
+emulator-5554	device
+emulator-5556	device
+
+
+--- forward from BOTH device entries ---
+9999
+--- via USB-mode adb session: ---
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to 127.0.0.1 (127.0.0.1) port 9999 (#0)
+> GET /json/version HTTP/1.1
+> Host: 127.0.0.1:9999
+> User-Agent: curl/7.58.0
+> Accept: */*
+> 
+* Operation timed out after 5001 milliseconds with 0 bytes received
+* stopped the pause stream!
+* Closing connection 0
+
+--- now via WIRELESS TLS adb session ---
+9998
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to 127.0.0.1 (127.0.0.1) port 9998 (#0)
+> GET /json/version HTTP/1.1
+> Host: 127.0.0.1:9998
+> User-Agent: curl/7.58.0
+> Accept: */*
+> 
+* Operation timed out after 5001 milliseconds with 0 bytes received
+* stopped the pause stream!
+* Closing connection 0

@@ -1,0 +1,32 @@
+==> emu11: navigate properly to wireless debugging settings
+--- known AOSP intents for wireless debugging ---
+→ com.android.settings.WIRELESS_DEBUGGING_SETTINGS
+Starting: Intent { act=com.android.settings.WIRELESS_DEBUGGING_SETTINGS }
+Error: Activity not started, unable to resolve Intent { act=com.android.settings.WIRELESS_DEBUGGING_SETTINGS flg=0x10000000 }
+    topResumedActivity=ActivityRecord{209a060 u0 com.android.settings/.Settings} t428}
+---
+→ android.settings.WIRELESS_DEBUGGING_SETTINGS
+Starting: Intent { act=android.settings.WIRELESS_DEBUGGING_SETTINGS }
+Error: Activity not started, unable to resolve Intent { act=android.settings.WIRELESS_DEBUGGING_SETTINGS flg=0x10000000 }
+    topResumedActivity=ActivityRecord{209a060 u0 com.android.settings/.Settings} t428}
+---
+
+--- try direct activity component ---
+→ com.android.settings/.Settings$AdbWirelessSettingsActivity
+Starting: Intent { cmp=com.android.settings/.Settings }
+Warning: Activity not started, intent has been delivered to currently running top-most instance.
+    topResumedActivity=ActivityRecord{209a060 u0 com.android.settings/.Settings} t428}
+---
+→ com.android.settings/.development.AdbWirelessSettingsActivity
+Starting: Intent { cmp=com.android.settings/.development.AdbWirelessSettingsActivity }
+Error type 3
+    topResumedActivity=ActivityRecord{209a060 u0 com.android.settings/.Settings} t428}
+---
+→ com.android.settings/com.android.settings.development.AdbWirelessSettings
+Starting: Intent { cmp=com.android.settings/.development.AdbWirelessSettings }
+Error type 3
+    topResumedActivity=ActivityRecord{209a060 u0 com.android.settings/.Settings} t428}
+---
+
+--- look at Settings package activities ---
+        88f47ed com.android.settings/.development.qstile.DevelopmentTiles$WirelessDebugging filter b3a0622 permission android.permission.BIND_QUICK_SETTINGS_TILE

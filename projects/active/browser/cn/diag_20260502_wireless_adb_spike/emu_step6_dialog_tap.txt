@@ -1,0 +1,21 @@
+==> emu9: trigger wireless debug enable + auto-tap the WifiDebuggingActivity dialog
+restarting adbd as non root
+
+--- current activity ---
+    topResumedActivity=ActivityRecord{3c99f08 u0 com.android.systemui/.wifi.WifiDebuggingActivity} t427}
+--- UI dump (expect WifiDebuggingActivity dialog) ---
+<node index="0" text="Allow wireless debugging on this network?" resource-id="android:id/alertTitle" class="android.widget.TextView" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[133,893][947,1011]" /
+<node index="0" text="Always allow on this network" resource-id="android:id/alwaysUse" class="android.widget.CheckBox" package="com.android.systemui" content-desc="" checkable="true" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[107,1264][971,1348]" /
+<node index="0" text="Cancel" resource-id="android:id/button2" class="android.widget.Button" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[636,1401][810,1543]" /
+<node index="1" text="Allow" resource-id="android:id/button1" class="android.widget.Button" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[810,1401][978,1543]" /
+
+--- find the 'Allow' button bounds and tap it ---
+Allow bounds: bounds="[810,1401][978,1543]"
+Tapping center: 894,1472
+--- post-tap state ---
+1
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0            *:34811                    *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  

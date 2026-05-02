@@ -1,0 +1,45 @@
+==> emu16: state check + try implicit pair flow
+1
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0            *:34811                    *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  
+
+--- dumpsys adb to see current keystore ---
+ADB MANAGER STATE (dumpsys adb):
+{
+  debugging_manager={
+    connected_to_adb=true
+    system_keys=QAAAAE9gPndRSSNfBY3ACLbX+VfCUCHio37G7+m2bon6CZPik/mnwrIV5smqITaqk2rYSivASH6A6u7xhHBBLLO8muQApFDD1ubp1XTNnIbz4tCXpUNPDvP9OXampNw8BfYk/j1gjRySjCQPYJDYhKZIqK/v7HseK1EHP7KSAPGo3bjBLKgskUZXa+OPZmsTge8BIT3VlqUZ4NnScv5OWmsJMuu1/vTEcTf5V5uAJCrWPtyRJClaFMtQoAN5mBK3h7iOtdWyfuRqQkSKXlgD1h7/7FzuctsWq5V7hwMYn3YsPjCZE9aHgwuBQ9cHeGi5v8F7/eGI9a5g7vMg9HWTXTyBGLL5M8upXdRg8l3z3au63NOeSMoo9pDcMkjx4EWgfIQdwv1kV5r107VL8jrjrylcBRoTFxvZL8MDcvSU9RxYd1qDu4jkXtTdMfdBMwCZKV4R1h+G710AJOm5BSF67Cp0OaIUiSwv0hleT/hqCESc0y+y5W6IR1azQcPWHlGyNns/vSSWLtmgDyVFhfMrb8QKWpWmo0Dktc/Q+wvrgwmi0Kt1ewSk3nmQrVn0cjsJLmGISa5HMVfF5i4C4Gl2P6VUH3tgWhnDvBO/aezgAUXzn6da5lmv21L712yuh6RK6BbE0b6lbURlFOuMYqUFvuXFT0H43lLYM0xcmFbdzAr7aR1I81MNYQEAAQA= android-eng@google.com
+  }
+}
+
+--- try adb connect to emu's TLS port from host (probe) ---
+(emulator's network: 10.0.2.x, but host can reach via 'adb connect <emu_ip>:port' through forward)
+34811
+
+--- check what 'service list' has now (wireless adb ports may register as mDNS) ---
+7	adb: [android.debug.IAdbManager]
+129	mdns: []
+
+--- try IAdbManager.enablePairingByPairingCode via service call ---
+(transaction codes for IAdbManager.aidl from AOSP frameworks/base/core/java/android/debug/IAdbManager.aidl)
+(method 5 = enablePairingByPairingCode)
+Result: Parcel(00000000    '....')
+
+--- after service call, check if pairing port appeared ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  
+
+
+--- dumpsys adb after ---
+ADB MANAGER STATE (dumpsys adb):
+{
+  debugging_manager={
+    connected_to_adb=true
+    system_keys=QAAAAE9gPndRSSNfBY3ACLbX+VfCUCHio37G7+m2bon6CZPik/mnwrIV5smqITaqk2rYSivASH6A6u7xhHBBLLO8muQApFDD1ubp1XTNnIbz4tCXpUNPDvP9OXampNw8BfYk/j1gjRySjCQPYJDYhKZIqK/v7HseK1EHP7KSAPGo3bjBLKgskUZXa+OPZmsTge8BIT3VlqUZ4NnScv5OWmsJMuu1/vTEcTf5V5uAJCrWPtyRJClaFMtQoAN5mBK3h7iOtdWyfuRqQkSKXlgD1h7/7FzuctsWq5V7hwMYn3YsPjCZE9aHgwuBQ9cHeGi5v8F7/eGI9a5g7vMg9HWTXTyBGLL5M8upXdRg8l3z3au63NOeSMoo9pDcMkjx4EWgfIQdwv1kV5r107VL8jrjrylcBRoTFxvZL8MDcvSU9RxYd1qDu4jkXtTdMfdBMwCZKV4R1h+G710AJOm5BSF67Cp0OaIUiSwv0hleT/hqCESc0y+y5W6IR1azQcPWHlGyNns/vSSWLtmgDyVFhfMrb8QKWpWmo0Dktc/Q+wvrgwmi0Kt1ewSk3nmQrVn0cjsJLmGISa5HMVfF5i4C4Gl2P6VUH3tgWhnDvBO/aezgAUXzn6da5lmv21L712yuh6RK6BbE0b6lbURlFOuMYqUFvuXFT0H43lLYM0xcmFbdzAr7aR1I81MNYQEAAQA= android-eng@google.com
+  }
+}

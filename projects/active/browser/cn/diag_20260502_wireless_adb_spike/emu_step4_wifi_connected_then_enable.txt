@@ -1,0 +1,44 @@
+==> emu7: re-root, connect wifi, then test
+restarting adbd as root
+Connection initiated 
+Wifi is enabled
+Wifi scanning is always available
+==== ClientModeManager instance: ConcreteClientModeManager{id=14539 iface=wlan0 role=ROLE_CLIENT_PRIMARY} ====
+Wifi is connected to "AndroidWifi"
+WifiInfo: SSID: "AndroidWifi", BSSID: 00:13:10:85:fe:01, MAC: 02:15:b2:00:00:00, IP: /10.0.2.16, Security type: 0, Supplicant state: COMPLETED, Wi-Fi standard: 1, RSSI: -50, Link speed: 1Mbps, Tx Link speed: 1Mbps, Max Supported Tx Link speed: 11Mbps, Rx Link speed: -1Mbps, Max Supported Rx Link speed: 11Mbps, Frequency: 2447MHz, Net ID: 0, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"AndroidWifi"openMLO Information: , AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>
+successfulTxPackets: 9
+successfulTxPacketsPerSecond: 2.9553385898514013
+retriedTxPackets: 0
+retriedTxPacketsPerSecond: 0.0
+lostTxPackets: 0
+16: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    link/ether 02:15:b2:00:00:00 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.2.16/24 brd 10.0.2.255 scope global wlan0
+       valid_lft forever preferred_lft forever
+    inet6 fec0::da29:13a7:abd5:b7e4/64 scope site temporary optimistic tentative dynamic 
+       valid_lft 86400sec preferred_lft 14400sec
+    inet6 fec0::51d4:7372:210d:2697/64 scope site optimistic tentative dynamic mngtmpaddr stable-privacy 
+       valid_lft 86400sec preferred_lft 14400sec
+    inet6 fe80::6bee:1729:a039:40b5/64 scope link stable-privacy 
+       valid_lft forever preferred_lft forever
+
+--- back to non-root for testing ---
+restarting adbd as non root
+uid=2000(shell) gid=2000(shell) groups=2000(shell),1004(input),1007(log),1011(adb),1015(sdcard_rw),1028(sdcard_r),1078(ext_data_rw),1079(ext_obb_rw),3001(net_bt_admin),3002(net_bt),3003(inet),3006(net_bw_stats),3009(readproc),3011(uhid),3012(readtracefs) context=u:r:shell:s0
+
+--- enable wireless adb ---
+value:
+0
+TLS port (prop):
+
+pairing port (prop):
+
+listeners:
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  
+--- AdbService logs ---
+05-02 18:58:13.669     0     0 I init    : service 'adbd' requested start, but it is already running (flags: 132)
+05-02 18:58:13.670     0     0 I init    : Control message: Processed ctl.start for 'adbd' from pid: 509 (system_server)
+05-02 18:58:16.656  6833  6833 W getprop : type=1400 audit(0.0:14593): avc: denied { read } for name="u:object_r:adbd_prop:s0" dev="tmpfs" ino=60 scontext=u:r:shell:s0 tcontext=u:object_r:adbd_prop:s0 tclass=file permissive=0

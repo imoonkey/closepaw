@@ -1,0 +1,77 @@
+==> nubia7: extract activity/fragment class names from dex
+--- search for AdbPair / AdbWireless / WirelessDebug class names ---
+
+--- also extract all dex files and search ---
+ extracting: classes2.dex            
+ extracting: classes3.dex            
+ extracting: classes4.dex            
+ extracting: classes5.dex            
+ extracting: classes6.dex            
+=== /tmp/classes2.dex ===
+=== /tmp/classes3.dex ===
+=== /tmp/classes4.dex ===
+=== /tmp/classes5.dex ===
+=== /tmp/classes6.dex ===
+=== /tmp/classes.dex ===
+
+--- search for the fragment dispatch in SubSettings ---
+
+--- list all activity/fragment classes containing 'Adb' ---
+==> nubia8: simpler grep across all dex files
+isFastPairDevice
+pairDeviceByCsip
+unpairDevice
+
+--- look for 'WirelessDebugging' and similar full strings ---
+
+--- direct grep for class signature pattern Lxxx;  ---
+Landroid/debug/IAdbManager;
+Landroid/debug/IAdbManager$Stub;
+Landroid/icu/lang/UCharacter$BidiPairedBracketType;
+Landroid/util/Pair;
+Landroidx/core/util/Pair;
+Landroidx/core/util/PairKt;
+Lcom/airbnb/lottie/model/MutablePair;
+Lcom/android/settings/bluetooth/BluetoothEventManager$PairingCancelHandler;
+Lcom/android/settings/bluetooth/BluetoothPairingDialog;
+Lcom/android/settings/bluetooth/BluetoothPairingDialog$1;
+Lcom/android/settings/bluetooth/BluetoothPairingDialog$$ExternalSyntheticLambda0;
+Lcom/android/settings/bluetooth/BluetoothPairingDialog$$ExternalSyntheticLambda1;
+Lcom/android/settings/bluetooth/BluetoothPairingDialog$$ExternalSyntheticLambda2;
+Lcom/android/settings/bluetooth/BluetoothPairingDialog$$ExternalSyntheticLambda3;
+Lcom/android/settings/bluetooth/BluetoothPairingRequest;
+Lcom/android/settings/bluetooth/BluetoothPairingRequest$1;
+Lcom/android/settingslib/development/AbstractEnableAdbPreferenceController;
+Lcom/bytedance/apm/core/SpPair;
+Lcom/bytedance/apm/core/SpPair$1;
+Lcom/bytedance/apm/util/Pair;
+Lcom/bytedance/apm/util/SpPair;
+Lcom/bytedance/apm/util/SpPair$1;
+Lcom/google/common/base/PairwiseEquivalence;
+Lcom/google/common/collect/Streams$TemporaryPair;
+Lcom/google/common/graph/EndpointPair;
+Lcom/google/common/graph/EndpointPair$1;
+Lcom/google/common/graph/EndpointPairIterator;
+Lcom/google/common/graph/EndpointPairIterator$1;
+Lcom/google/common/graph/EndpointPairIterator$Directed;
+Lcom/google/common/graph/EndpointPairIterator$Undirected;
+Lcom/google/common/graph/EndpointPair$Ordered;
+Lcom/google/common/graph/EndpointPair$Unordered;
+Lcom/google/common/math/PairedStats;
+Lcom/google/common/math/PairedStatsAccumulator;
+Lcom/google/common/util/concurrent/ExecutionList$RunnableExecutorPair;
+Lcom/google/crypto/tink/subtle/Ed25519Sign$KeyPair;
+Lcom/google/crypto/tink/subtle/EngineWrapper$TKeyPairGenerator;
+Lcom/google/zxing/oned/rss/expanded/ExpandedPair;
+Lcom/google/zxing/oned/rss/Pair;
+Lcom/google/zxing/qrcode/encoder/BlockPair;
+Lcom/obric/common/oea/foundation/animation/util/FloatFloatPair;
+Lcom/obric/common/oea/foundation/animation/util/FloatFloatPairKt;
+Lcom/obric/matrix/proto/Pair;
+Lcom/obric/matrix/proto/Pair$Builder;
+Lcom/obric/matrix/proto/Pair$ProtoAdapter_Pair;
+Lcom/ss/android/http/legacy/message/BasicNameValuePair;
+Lcom/ss/android/http/legacy/NameValuePair;
+Lcz/msebera/android/httpclient/message/BasicNameValuePair;
+Lcz/msebera/android/httpclient/NameValuePair;
+Lio/reactivex/internal/operators/parallel/ParallelReduceFull$SlotPair;

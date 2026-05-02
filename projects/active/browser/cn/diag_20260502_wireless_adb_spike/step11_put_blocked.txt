@@ -1,0 +1,36 @@
+==> step 11: probe what state changed (why put=1 is now silently rejected)
+--- list all adb_wifi* and adb_paired* settings ---
+adb_enabled=1
+adb_wifi_enabled=0
+
+--- try put 0 (should work since we did this before) ---
+(if SettingsShellCmd appears here, put 0 works but put 1 doesn't)
+
+--- try put 1 again with explicit type ---
+05-02 14:52:51.280  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+
+--- try as different user / from different shell ---
+/system/bin/sh: su: inaccessible or not found
+no su
+0
+
+--- check if there's an OEM-specific setting blocking it ---
+com.obric.settings.allow_start_app=com.tencent.mm,com.eg.android.AlipayGphone
+custom_key_wireless_cast_name=null
+debug.force_rtl=0
+debug_app=com.moonkey.androidagent
+default_lockscreen_uri=android.resource://com.obric.wallpaper/drawable/three_horse
+device_name=nubia M153
+lockscreen_background=android.resource://com.obric.wallpaper/drawable/three_horse
+long_time_not_launch_app=["com.obric.lifelog","ai.closepaw","com.google.android.apps.youtube.music","com.ubercab","com.arm.aichat","io.raindrop.raindropio","com.tencent.mm","com.instagram.android","notion.id","com.google.android.apps.labs.language.tailwind","tech.butterfly.app","moe.shizuku.privileged.api","com.obric.recorder","com.twitter.android","com.mcdonalds.app","ai.liquid.chatapp","com.obric.calendar","com.tailscale.ipn","com.obric.securitymanager","com.github.android","com.zzkko","com.einnovation.temu","com.google.android.apps.bard","com.android.chrome","com.doordash.driverapp","com.xingin.xhs","com.openai.chatgpt","com.google.android.apps.docs","com.google.android.youtube","com.paypal.android.p2pmobile","com.tiktok.lite.go","com.google.android.apps.maps","com.alibaba.aliexpresshd","com.obric.compass","com.obric.calculator","com.google.android.apps.dynamite","com.google.android.apps.messaging","com.obric.clock","com.walmart.android","com.bytedance.obric.airecordassistant","me.lyft.android","com.robinhood.android","org.telegram.messenger","com.facebook.orca","com.whatsapp","com.obric.notes","com.duolingo","com.obric.weather","com.google.android.safetycore","com.facebook.katana","com.aurora.store","com.apkmirror.helper.prod","com.amazon.mShop.android.shopping","com.doubao.android.community","com.google.android.gm","com.anthropic.claude","com.google.android.contactkeys","com.obric.feedbackserviceproject","com.obric.filemanager"]
+maybe_launch_pkg_from_predict_result={"app": {"com.android.settings": 0.8571428571428571, "com.google.android.gm": 0.42857142857142855, "com.google.android.apps.maps": 0.42857142857142855, "ai.closepaw.test": 0.4264359776958886, "com.moonkey.androidagent": 0.2857142857142857, "com.android.chrome": 0.2857142857142857, "ai.closepaw": 0.2857142857142857, "com.google.android.youtube": 0.21546248205923324, "com.tailscale.ipn": 0.17210972343187592, "com.ubercab": 0.1609985608015958, "moe.shizuku.privileged.api": 0.14285714285714285, "com.openai.chatgpt": 0.134675267788685, "com.obric.nodisturb": 0.07053196060751132, "com.amazon.mShop.android.shopping": 0.0684142302199715, "com.whatsapp": 0.06512223437114684, "notion.id": 0.06414631724224895, "com.obric.quicksearch": 0.06349266853544033, "com.obric.weather": 0.05951226913380536, "com.larus.nova": 0.04859786792607479, "com.einnovation.temu": 0.04231326785343237, "com.obric.matrix": 0.03644119392485845, "com.google.android.gms": 0.03565489426491941, "com.zzkko": 0.03439400710049534, "com.android.contacts": 0.018991309994798478, "com.obric.updater": 0.015222123088899697, "com.android.providers.media.module": 0.01291930253199125, "com.google.android.apps.youtube.music": 0.010002318464588433, "tech.butterfly.app": 0.00990135638609213, "com.android.gallery3d": 0.008106098661657013, "com.android.mms": 0.005684743002692283, "com.android.vending": 0.005090324850700156, "ai.liquid.chatapp": 0.005046899762848889, "com.obric.camera2": 0.004852539030474778, "com.android.documentsui": 0.0033674363418523257, "com.xingin.xhs": 0.0033044013456474675, "com.tencent.mm": 0.0031993341588789637, "com.android.credentialmanager": 0.002056670549895223, "com.obric.autoaction": 0.0012944391538330935, "com.obric.appstore": 0.0008429242686576188, "com.google.android.apps.dynamite": 0.0006743962758061217}, "time": 16384}
+obric_app_channel_com_larus_nova=obric_pacific
+obric_home_auto_fill=0
+obric_home_hidden_text=0
+obric_home_wallpaper_blur=0
+obric_launcher_dot_type=1
+obric_lockscreen_clock_font_family=Ola Sans Clock
+obric_lockscreen_clock_height=72
+obric_proximity_hint_dismissed=0
+wait_for_debugger=0
+wireless_charging_started_sound=/product/media/audio/ui/WirelessChargingStarted.ogg

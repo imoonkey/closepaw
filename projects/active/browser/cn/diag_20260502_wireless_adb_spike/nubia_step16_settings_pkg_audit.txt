@@ -1,0 +1,63 @@
+==> nubia5: state recheck (no service call)
+1
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+LISTEN      0      0            *:42875                    *:*                  
+
+--- check Settings package activities thoroughly ---
+(SettingsBytedanceProject is the custom one; let's also check which package owns 'com.android.settings')
+package:/product/priv-app/SettingsIntelligence/SettingsIntelligence.apk=com.android.settings.intelligence
+package:/system/priv-app/SettingsBytedanceProject/SettingsBytedanceProject.apk=com.android.settings
+package:/product/overlay/SettingsResCommon_Sys.apk=com.android.settings.overlay.common
+package:/system/priv-app/SettingsProvider/SettingsProvider.apk=com.android.providers.settings
+
+--- list components (activity classes) of com.android.settings via dumpsys ---
+Activity Resolver Table:
+  Full MIME Types:
+      vnd.android.cursor.item/telephony-carrier:
+        8504ac4 com.android.settings/.ApnEditorActivity filter 88fbdad
+          Action: "android.intent.action.EDIT"
+          Action: "android.intent.action.VIEW"
+          Category: "android.intent.category.DEFAULT"
+          StaticType: "vnd.android.cursor.item/telephony-carrier"
+      vnd.android.cursor.dir/telephony-carrier:
+        8504ac4 com.android.settings/.ApnEditorActivity filter 1cca8e2
+          Action: "android.intent.action.INSERT"
+          Category: "android.intent.category.DEFAULT"
+          StaticType: "vnd.android.cursor.dir/telephony-carrier"
+      text/plain:
+        e5c2046 com.android.settings/.contenttest.ContentTestActivity filter b7f7a3
+          Action: "android.settings.PROCESS_WIFI_EASY_CONNECT_URI"
+          Category: "android.intent.category.DEFAULT"
+          StaticType: "text/plain"
+
+  Base MIME Types:
+      vnd.android.cursor.dir:
+        8504ac4 com.android.settings/.ApnEditorActivity filter 1cca8e2
+          Action: "android.intent.action.INSERT"
+          Category: "android.intent.category.DEFAULT"
+          StaticType: "vnd.android.cursor.dir/telephony-carrier"
+      vnd.android.cursor.item:
+        8504ac4 com.android.settings/.ApnEditorActivity filter 88fbdad
+          Action: "android.intent.action.EDIT"
+          Action: "android.intent.action.VIEW"
+          Category: "android.intent.category.DEFAULT"
+          StaticType: "vnd.android.cursor.item/telephony-carrier"
+      text:
+        e5c2046 com.android.settings/.contenttest.ContentTestActivity filter b7f7a3
+          Action: "android.settings.PROCESS_WIFI_EASY_CONNECT_URI"
+          Category: "android.intent.category.DEFAULT"
+          StaticType: "text/plain"
+
+  Schemes:
+      package:
+        2d1a072 com.android.settings/.inputmethod.InputMethodAndLanguageSettingsActivity filter 27f7940
+          Action: "android.settings.APP_LOCALE_SETTINGS"
+          Category: "android.intent.category.DEFAULT"
+          Scheme: "package"
+        89149e9 com.android.settings/.fuelgauge.RequestIgnoreBatteryOptimizations filter d97a66e
+          Action: "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+          Category: "android.intent.category.DEFAULT"
+          Scheme: "package"
+          mPriority=1, mOrder=0, mHasStaticPartialTypes=false, mHasDynamicPartialTypes=false
+        55b910f com.android.settings/.FakeAppDataUsageSettings filter ec9859c
+          Action: "android.settings.IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS"

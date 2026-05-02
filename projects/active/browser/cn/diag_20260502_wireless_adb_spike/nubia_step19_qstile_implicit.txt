@@ -1,0 +1,34 @@
+==> nubia9: check QuickSettings tile + implicit-pair viability
+
+--- Look for WirelessDebugging quick settings tile in SystemUI ---
+
+--- Check shell's permissions (does it have MANAGE_DEBUGGING?) ---
+      android.permission.SET_DEBUG_APP
+      android.permission.DEBUG_VIRTUAL_MACHINE
+      android.permission.MANAGE_DEBUGGING
+      android.permission.SET_DEBUG_APP: granted=true
+      android.permission.DEBUG_VIRTUAL_MACHINE: granted=true
+      android.permission.MANAGE_DEBUGGING: granted=true
+      android.permission.SET_DEBUG_APP: granted=true
+      android.permission.DEBUG_VIRTUAL_MACHINE: granted=true
+      android.permission.MANAGE_DEBUGGING: granted=true
+
+--- Check Shizuku's permissions ---
+
+--- Implicit pair test: does adbd accept an unknown TLS connection and prompt the user? ---
+(connect to TLS port 42875 from host with my normal key — already trusted, will succeed silently)
+(to test prompt, would need to generate new key — but we can check what happens with bare connection)
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+LISTEN      0      0            *:42875                    *:*                  
+
+--- check AdbDebuggingHandler logs for any pairing activity ---
+
+--- check what 'cmd statusbar tile' or quick settings have available ---
+  mCurrentRequestAddTilePackages=[
+  TileRequestTracker:
+
+--- look for QSTile related to adb ---
+internet,bt,music,vol_bright,mobile_data,mute,auto_brightness,dnd,custom(com.obric.screenrecorder/.QuickSettingService),screenshots,airplane,hotspot,location,rotation,nfc,flashlight,calculator,battery
