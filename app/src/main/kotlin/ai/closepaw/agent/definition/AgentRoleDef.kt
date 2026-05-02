@@ -46,7 +46,7 @@ internal data class AgentRoleDef(
             }
 
         val prompt = if (resolvedTools.any { it.canonical == ToolName.TermuxShell.canonical }) {
-            systemPrompt + "\n\n" + WORKSPACE_SHELL_PROMPT_SECTION
+            systemPrompt + "\n\n" + workspaceShellPromptSectionFor(executionRole)
         } else {
             systemPrompt
         }

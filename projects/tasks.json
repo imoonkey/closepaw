@@ -1480,7 +1480,7 @@
     "depends": [
       "ts-runner-wiring"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "PRO mode delegation + checkpoint reload",
     "description": "PRO mode: Planner runs workspace commands (termux_shell) directly, does not delegate to Executor. Planner prompt addition: \"For workspace commands (termux_shell), execute directly instead of delegating.\" delegate_task description unchanged: \"delegate ONE atomic UI action.\" Checkpoint reload: session restore at task boundary captures fresh TermuxCapabilitySnapshot (not serialized from old snapshot). SessionServices.create() is the single capture point. Integration tests: tool present/absent matches prompt present/absent.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1503,8 +1503,9 @@
       "pro-mode"
     ],
     "created": "2026-05-02T01:15:45Z",
-    "updated": "2026-05-02T01:23:29Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T03:40:13Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-pro-mode"
   },
   "ts-phase6-settings-qa": {
     "parent": "termux-shell",

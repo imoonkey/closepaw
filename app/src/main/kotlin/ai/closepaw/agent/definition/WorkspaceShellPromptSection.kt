@@ -1,5 +1,7 @@
 package ai.closepaw.agent.definition
 
+import ai.closepaw.agent.AgentExecutionRole
+
 internal val WORKSPACE_SHELL_PROMPT_SECTION =
     """
     ## Workspace Shell
@@ -11,3 +13,12 @@ internal val WORKSPACE_SHELL_PROMPT_SECTION =
     - Workspace files live in ~/closepaw/workspace/. Use ~/.closepaw/artifacts/ to share large files between commands.
     - For UI manipulation, prefer mobile_action / system_button / open_app — termux_shell cannot drive the UI.
     """.trimIndent()
+
+private const val PLANNER_WORKSPACE_SHELL_DIRECTIVE =
+    "For workspace commands (termux_shell), execute directly instead of delegating."
+
+internal fun workspaceShellPromptSectionFor(role: AgentExecutionRole): String {
+    if (role != AgentExecutionRole.PLANNER) return WORKSPACE_SHELL_PROMPT_SECTION
+
+    return WORKSPACE_SHELL_PROMPT_SECTION + "\n\n" + PLANNER_WORKSPACE_SHELL_DIRECTIVE
+}
