@@ -1,21 +1,18 @@
 package ai.closepaw.browser.script
 
 import android.content.Context
-import ai.closepaw.BuildConfig
 import ai.closepaw.browser.cdp.CdpConnection
 import ai.closepaw.browser.cdp.CdpConnectionFactory
 import ai.closepaw.browser.cdp.CdpConnectionClosedException
 import ai.closepaw.browser.cdp.ChromeCdpClient
 import ai.closepaw.browser.cdp.ChromeCdpTarget
 import ai.closepaw.browser.cdp.shizuku.AppProcessLocalSocketTransport
-import ai.closepaw.browser.cdp.shizuku.ChromeRemoteDebugPortTransport
-import ai.closepaw.browser.cdp.shizuku.DebugTcpDevtoolsSocketTransport
 import ai.closepaw.browser.cdp.shizuku.DefaultDevtoolsDiagnostics
 import ai.closepaw.browser.cdp.shizuku.DevtoolsSetupError
 import ai.closepaw.browser.cdp.shizuku.DevtoolsVersion
+import ai.closepaw.browser.cdp.shizuku.HostMediatedCdpRelayTransport
 import ai.closepaw.browser.cdp.shizuku.PageTarget
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeDevtoolsBridge
-import ai.closepaw.browser.cdp.shizuku.ShizukuChromeRemoteDebugSetup
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeRunningProbe
 import ai.closepaw.browser.cdp.shizuku.ShizukuStatusAdapter
 import ai.closepaw.browser.cdp.shizuku.ShizukuUserServiceProvider
@@ -48,13 +45,9 @@ class BrowserSessionManager(
     context: Context,
     sessionScope: CoroutineScope,
     @Suppress("unused") private val traceRecorder: TraceRecorder,
-    debugTcpFallbackEnabled: Boolean = false,
     private val bridgeFactory: () -> BrowserDevtoolsBridge = {
         ShizukuBrowserDevtoolsBridge(
-            createDefaultBridge(
-                context.applicationContext,
-                debugTcpFallbackEnabled,
-            )
+            createDefaultBridge(context.applicationContext)
         )
     },
     private val cdpConnectionFactory: CdpConnectionFactory = OkHttpCdpConnectionFactory(),
@@ -264,10 +257,7 @@ class BrowserSessionManager(
     )
 
     companion object {
-        private fun createDefaultBridge(
-            context: Context,
-            debugTcpFallbackEnabled: Boolean,
-        ): ShizukuChromeDevtoolsBridge {
+        private fun createDefaultBridge(context: Context): ShizukuChromeDevtoolsBridge {
             val userServiceProvider = ShizukuUserServiceProvider(context)
             return ShizukuChromeDevtoolsBridge(
                 status = ShizukuStatusAdapter(),
@@ -276,14 +266,7 @@ class BrowserSessionManager(
                 ),
                 appProcessTransport = AppProcessLocalSocketTransport(),
                 userServiceProvider = userServiceProvider,
-                chromeTcpLoopbackTransport = ChromeRemoteDebugPortTransport(
-                    setup = ShizukuChromeRemoteDebugSetup(userServiceProvider),
-                ),
-                fallbackTransport = if (BuildConfig.DEBUG && debugTcpFallbackEnabled) {
-                    DebugTcpDevtoolsSocketTransport()
-                } else {
-                    null
-                },
+                hostMediatedRelayTransport = HostMediatedCdpRelayTransport(),
             )
         }
     }

@@ -47,7 +47,6 @@ class SessionBrowserIntegrationTest {
             scope = scope,
             traceRecorder = NoopTraceRecorder,
             settingsStore = AppSettingsStore(context),
-            debugTcpFallbackEnabled = false,
         )
 
         assertThat(registry.contains("browser_script")).isTrue()

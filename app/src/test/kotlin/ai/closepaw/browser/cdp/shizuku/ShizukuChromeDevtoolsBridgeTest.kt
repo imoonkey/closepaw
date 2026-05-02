@@ -29,13 +29,13 @@ class ShizukuChromeDevtoolsBridgeTest {
             responses = defaultResponses(),
         ),
         userServiceProvider: UserServiceProvider? = null,
-        fallbackTransport: DevtoolsSocketTransport? = null,
+        hostMediatedRelayTransport: DevtoolsSocketTransport? = null,
     ): ShizukuChromeDevtoolsBridge = ShizukuChromeDevtoolsBridge(
         status = status,
         diagnostics = diagnostics,
         appProcessTransport = appProcessTransport,
         userServiceProvider = userServiceProvider,
-        fallbackTransport = fallbackTransport,
+        hostMediatedRelayTransport = hostMediatedRelayTransport,
         ioDispatcher = UnconfinedTestDispatcher(),
     )
 
@@ -43,7 +43,15 @@ class ShizukuChromeDevtoolsBridgeTest {
 
     @Test
     fun setup_error_shizuku_unavailable() = runTest {
-        val b = bridge(status = FakeStatus(available = false, permitted = true))
+        // Shizuku errors only surface when Shizuku is the chosen transport — i.e. when a
+        // userServiceProvider is wired but the relay isn't. Without a provider Shizuku is
+        // simply not part of the cascade.
+        val b = bridge(
+            status = FakeStatus(available = false, permitted = true),
+            userServiceProvider = FakeUserServiceProvider(
+                transport = FakeTransport(TransportLabel.USER_SERVICE),
+            ),
+        )
         val err = assertFailsWith<DevtoolsSetupError> { b.fetchVersion() }
         assertThat(err).isSameInstanceAs(DevtoolsSetupError.ShizukuUnavailable)
         assertThat(err.code).isEqualTo("shizuku_unavailable")
@@ -51,7 +59,12 @@ class ShizukuChromeDevtoolsBridgeTest {
 
     @Test
     fun setup_error_shizuku_permission_missing() = runTest {
-        val b = bridge(status = FakeStatus(available = true, permitted = false))
+        val b = bridge(
+            status = FakeStatus(available = true, permitted = false),
+            userServiceProvider = FakeUserServiceProvider(
+                transport = FakeTransport(TransportLabel.USER_SERVICE),
+            ),
+        )
         val err = assertFailsWith<DevtoolsSetupError> { b.fetchVersion() }
         assertThat(err).isSameInstanceAs(DevtoolsSetupError.ShizukuPermissionMissing)
         assertThat(err.code).isEqualTo("shizuku_permission_missing")
@@ -221,18 +234,18 @@ class ShizukuChromeDevtoolsBridgeTest {
     }
 
     @Test
-    fun bridge_falls_back_to_debug_tcp_when_user_service_cannot_reach_socket() = runTest {
+    fun bridge_falls_back_to_host_mediated_relay_when_user_service_cannot_reach_socket() = runTest {
         val app = FakeTransport(TransportLabel.APP_PROCESS, error = SecurityException("blocked"))
         val user = FakeTransport(
             TransportLabel.USER_SERVICE,
             error = IOException("Permission denied"),
         )
-        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val relay = FakeTransport(TransportLabel.HOST_MEDIATED_RELAY, responses = defaultResponses())
         val provider = FakeUserServiceProvider(transport = user)
         val b = bridge(
             appProcessTransport = app,
             userServiceProvider = provider,
-            fallbackTransport = debugTcp,
+            hostMediatedRelayTransport = relay,
         )
 
         val v = b.fetchVersion()
@@ -240,12 +253,12 @@ class ShizukuChromeDevtoolsBridgeTest {
         assertThat(v.browser).isEqualTo("Chrome/130.0.0.0")
         assertThat(app.calls).isEqualTo(1)
         assertThat(user.calls).isEqualTo(1)
-        assertThat(debugTcp.calls).isEqualTo(1)
+        assertThat(relay.calls).isEqualTo(1)
         assertThat(provider.obtainCalls).isEqualTo(1)
     }
 
     @Test
-    fun bridge_falls_back_to_debug_tcp_when_app_process_returns_empty_response() = runTest {
+    fun bridge_falls_back_to_host_mediated_relay_when_app_process_returns_empty_response() = runTest {
         val app = FakeTransport(
             TransportLabel.APP_PROCESS,
             responses = mapOf("/json/version" to ByteArray(0)),
@@ -254,12 +267,12 @@ class ShizukuChromeDevtoolsBridgeTest {
             TransportLabel.USER_SERVICE,
             error = IOException("Permission denied"),
         )
-        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val relay = FakeTransport(TransportLabel.HOST_MEDIATED_RELAY, responses = defaultResponses())
         val provider = FakeUserServiceProvider(transport = user)
         val b = bridge(
             appProcessTransport = app,
             userServiceProvider = provider,
-            fallbackTransport = debugTcp,
+            hostMediatedRelayTransport = relay,
         )
 
         val v = b.fetchVersion()
@@ -267,65 +280,89 @@ class ShizukuChromeDevtoolsBridgeTest {
         assertThat(v.browser).isEqualTo("Chrome/130.0.0.0")
         assertThat(app.calls).isEqualTo(1)
         assertThat(user.calls).isEqualTo(1)
-        assertThat(debugTcp.calls).isEqualTo(1)
+        assertThat(relay.calls).isEqualTo(1)
     }
 
     @Test
-    fun bridge_falls_back_to_debug_tcp_when_user_service_returns_empty_response() = runTest {
+    fun bridge_falls_back_to_host_mediated_relay_when_user_service_returns_empty_response() = runTest {
         val app = FakeTransport(TransportLabel.APP_PROCESS, error = SecurityException("blocked"))
         val user = FakeTransport(
             TransportLabel.USER_SERVICE,
             responses = mapOf("/json/version" to ByteArray(0)),
         )
-        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val relay = FakeTransport(TransportLabel.HOST_MEDIATED_RELAY, responses = defaultResponses())
         val provider = FakeUserServiceProvider(transport = user)
         val b = bridge(
             appProcessTransport = app,
             userServiceProvider = provider,
-            fallbackTransport = debugTcp,
+            hostMediatedRelayTransport = relay,
         )
 
         val v = b.fetchVersion()
 
         assertThat(v.browser).isEqualTo("Chrome/130.0.0.0")
         assertThat(user.calls).isEqualTo(1)
-        assertThat(debugTcp.calls).isEqualTo(1)
+        assertThat(relay.calls).isEqualTo(1)
     }
 
     @Test
-    fun bridge_skips_debug_tcp_when_user_service_succeeds() = runTest {
+    fun bridge_skips_host_mediated_relay_when_user_service_succeeds() = runTest {
         val app = FakeTransport(TransportLabel.APP_PROCESS, error = SecurityException("blocked"))
         val user = FakeTransport(TransportLabel.USER_SERVICE, responses = defaultResponses())
-        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val relay = FakeTransport(TransportLabel.HOST_MEDIATED_RELAY, responses = defaultResponses())
         val provider = FakeUserServiceProvider(transport = user)
         val b = bridge(
             appProcessTransport = app,
             userServiceProvider = provider,
-            fallbackTransport = debugTcp,
+            hostMediatedRelayTransport = relay,
         )
 
         b.fetchVersion()
 
         assertThat(user.calls).isEqualTo(1)
-        assertThat(debugTcp.calls).isEqualTo(0)
+        assertThat(relay.calls).isEqualTo(0)
     }
 
     @Test
     fun bridge_skips_user_service_when_app_transport_succeeds() = runTest {
         val app = FakeTransport(TransportLabel.APP_PROCESS, responses = defaultResponses())
         val provider = FakeUserServiceProvider(transport = FakeTransport(TransportLabel.USER_SERVICE))
-        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val relay = FakeTransport(TransportLabel.HOST_MEDIATED_RELAY, responses = defaultResponses())
         val b = bridge(
             appProcessTransport = app,
             userServiceProvider = provider,
-            fallbackTransport = debugTcp,
+            hostMediatedRelayTransport = relay,
         )
 
         b.fetchVersion()
 
         assertThat(app.calls).isEqualTo(1)
         assertThat(provider.obtainCalls).isEqualTo(0)
-        assertThat(debugTcp.calls).isEqualTo(0)
+        assertThat(relay.calls).isEqualTo(0)
+    }
+
+    @Test
+    fun bridge_surfaces_relay_unreachable_when_user_service_and_relay_both_fail() = runTest {
+        val app = FakeTransport(TransportLabel.APP_PROCESS, error = SecurityException("blocked"))
+        val user = FakeTransport(
+            TransportLabel.USER_SERVICE,
+            error = IOException("Permission denied"),
+        )
+        val relay = FakeTransport(
+            TransportLabel.HOST_MEDIATED_RELAY,
+            error = HostMediatedRelayUnreachableException(9222..9230, "127.0.0.1"),
+        )
+        val provider = FakeUserServiceProvider(transport = user)
+        val b = bridge(
+            appProcessTransport = app,
+            userServiceProvider = provider,
+            hostMediatedRelayTransport = relay,
+        )
+
+        val err = assertFailsWith<DevtoolsSetupError.HostMediatedRelayUnreachable> {
+            b.fetchVersion()
+        }
+        assertThat(err.code).isEqualTo("host_mediated_relay_unreachable")
     }
 
     @Test

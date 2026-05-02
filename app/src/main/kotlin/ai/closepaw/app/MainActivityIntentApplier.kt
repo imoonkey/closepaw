@@ -12,7 +12,6 @@ internal data class MainActivityIntentApplyResult(
     val pendingTraceRunId: String?,
     val pendingExcludedTools: Set<String>,
     val pendingApprovalMode: ApprovalMode?,
-    val pendingBrowserDebugTcpFallbackEnabled: Boolean?
 )
 
 /**
@@ -34,7 +33,6 @@ internal suspend fun applyIntentPayloadToSettings(
     currentPendingTraceRunId: String?,
     currentPendingExcludedTools: Set<String>,
     currentPendingApprovalMode: ApprovalMode?,
-    currentPendingBrowserDebugTcpFallbackEnabled: Boolean?,
     log: (String) -> Unit
 ): MainActivityIntentApplyResult {
     if (!isDebugBuild) {
@@ -43,8 +41,6 @@ internal suspend fun applyIntentPayloadToSettings(
             pendingTraceRunId = currentPendingTraceRunId,
             pendingExcludedTools = currentPendingExcludedTools,
             pendingApprovalMode = currentPendingApprovalMode,
-            pendingBrowserDebugTcpFallbackEnabled =
-                currentPendingBrowserDebugTcpFallbackEnabled
         )
     }
 
@@ -121,16 +117,11 @@ internal suspend fun applyIntentPayloadToSettings(
         payload.approvalMode?.also { mode ->
             log("Approval mode set from intent: $mode")
         } ?: currentPendingApprovalMode
-    val pendingBrowserDebugTcpFallbackEnabled =
-        payload.browserDebugTcpFallbackEnabled?.also { enabled ->
-            log("Browser debug TCP fallback set from intent: $enabled")
-        } ?: currentPendingBrowserDebugTcpFallbackEnabled
 
     return MainActivityIntentApplyResult(
         pendingTraceEnabled = pendingTraceEnabled,
         pendingTraceRunId = pendingTraceRunId,
         pendingExcludedTools = pendingExcludedTools,
         pendingApprovalMode = pendingApprovalMode,
-        pendingBrowserDebugTcpFallbackEnabled = pendingBrowserDebugTcpFallbackEnabled
     )
 }

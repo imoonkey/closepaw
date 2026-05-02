@@ -67,20 +67,23 @@ sealed class DevtoolsSetupError(
         cause = cause,
     )
 
-    class DebugTcpFallbackInaccessible(
-        cause: Throwable?,
-        userServiceCause: Throwable?,
-    ) : DevtoolsSetupError(
-        code = "debug_tcp_fallback_inaccessible",
-        message = "The debug TCP DevTools fallback could not reach 127.0.0.1:9222. For " +
-            "real-device debug QA, expose Chrome DevTools on device-local 127.0.0.1:9222 " +
-            "with adb reverse and a host-side forward or relay to chrome_devtools_remote.",
+    /**
+     * Surfaced when ALL in-device transports failed AND the host-mediated relay is either
+     * not wired or its 127.0.0.1 port range probe came up empty. The fix is a one-time host
+     * action: run `scripts/setup-cdp-relay.sh` on the user's PC while their device is
+     * attached over ADB. The transport then chains device 127.0.0.1:&lt;port&gt; through the host
+     * adbd into Chrome's `chrome_devtools_remote` socket.
+     */
+    class HostMediatedRelayUnreachable(cause: Throwable?) : DevtoolsSetupError(
+        code = "host_mediated_relay_unreachable",
+        message = "Chrome DevTools is not reachable on this device. To enable the " +
+            "host-mediated CDP relay, attach the device over ADB and run " +
+            "`scripts/setup-cdp-relay.sh` on the host once. The script wires " +
+            "`adb forward tcp:9222 localabstract:chrome_devtools_remote` and " +
+            "`adb reverse tcp:9222 tcp:9222`, after which ClosePaw can talk CDP through " +
+            "device-local 127.0.0.1:9222.",
         cause = cause,
-    ) {
-        init {
-            if (userServiceCause != null) addSuppressed(userServiceCause)
-        }
-    }
+    )
 
     class MalformedResponse(detail: String, cause: Throwable? = null) : DevtoolsSetupError(
         code = "malformed_response",

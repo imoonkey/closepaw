@@ -23,7 +23,6 @@
 #   APPROVAL_MODE: "SMART" (default), "AUTO_APPROVE", or "ALWAYS_ASK" for debug builds
 #   DEBUG_AUTO_APPROVE: true/false shortcut for APPROVAL_MODE=AUTO_APPROVE
 #   DEBUG_BROWSER_SCRIPT_ENABLED: true/false to toggle browser_script before launch
-#   DEBUG_BROWSER_TCP_FALLBACK: true/false opt-in for adb reverse Chrome CDP fallback
 #
 
 set -e
@@ -257,8 +256,6 @@ case "$(echo "$APPROVAL_MODE" | tr '[:lower:]' '[:upper:]')" in
         APPROVAL_MODE="SMART"
         ;;
 esac
-DEBUG_BROWSER_TCP_FALLBACK="${DEBUG_BROWSER_TCP_FALLBACK:-false}"
-DEBUG_BROWSER_TCP_FALLBACK=$(normalize_bool "$DEBUG_BROWSER_TCP_FALLBACK")
 DEBUG_BROWSER_SCRIPT_ENABLED="${DEBUG_BROWSER_SCRIPT_ENABLED:-}"
 if [[ -n "$DEBUG_BROWSER_SCRIPT_ENABLED" ]]; then
     DEBUG_BROWSER_SCRIPT_ENABLED=$(normalize_bool "$DEBUG_BROWSER_SCRIPT_ENABLED")
@@ -281,7 +278,6 @@ log "Using approval mode: $APPROVAL_MODE"
 if [[ -n "$DEBUG_BROWSER_SCRIPT_ENABLED" ]]; then
     log "Using browser_script enabled override: $DEBUG_BROWSER_SCRIPT_ENABLED"
 fi
-log "Using browser debug TCP fallback: $DEBUG_BROWSER_TCP_FALLBACK"
 
 # Ensure device connected
 DEVICE="$(select_device || true)"
@@ -393,7 +389,7 @@ SAFE_PLATFORM_MODE=$(escape_shell_arg "$PLATFORM_MODE")
 
 INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --es perception_mode '$SAFE_PERCEPTION_MODE' --es platform_mode '$SAFE_PLATFORM_MODE' --ez auto_start true --ez fresh_session true --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
 SAFE_APPROVAL_MODE=$(escape_shell_arg "$APPROVAL_MODE")
-INTENT_EXTRAS="$INTENT_EXTRAS --es approval_mode '$SAFE_APPROVAL_MODE' --ez browser_debug_tcp_fallback $DEBUG_BROWSER_TCP_FALLBACK"
+INTENT_EXTRAS="$INTENT_EXTRAS --es approval_mode '$SAFE_APPROVAL_MODE'"
 if [[ -n "$DEBUG_BROWSER_SCRIPT_ENABLED" ]]; then
     INTENT_EXTRAS="$INTENT_EXTRAS --ez browser_script_enabled $DEBUG_BROWSER_SCRIPT_ENABLED"
 fi

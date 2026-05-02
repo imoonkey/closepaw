@@ -1,24 +1,31 @@
 package ai.closepaw.tool.impl
 
 import ai.closepaw.browser.cdp.shizuku.DevtoolsSetupError
-import ai.closepaw.browser.cdp.shizuku.ShizukuStatusProvider
 import kotlinx.coroutines.CancellationException
 
 /**
- * Production capability gate. Each check fails closed with a distinct, actionable code so the
- * agent and UI can compose specific guidance ("turn on experimental flag", "grant Shizuku
- * permission", "open Chrome", "enable Chrome USB debugging path") instead of a generic error.
+ * Production capability gate.
  *
- * Order matters: the cheapest checks come first so we don't spin up Shizuku UserService binding
- * when the experimental flag is off.
+ * The gate has two responsibilities:
+ *
+ * 1. Reject early when the experimental browser-automation flag is off, so we never spin up
+ *    transport probes for a disabled feature.
+ * 2. Surface the most actionable [DevtoolsSetupError] for whichever transport state the
+ *    bridge reports during preflight (Chrome socket missing, Shizuku unavailable, host-mediated
+ *    relay unreachable). The bridge owns the cascade and per-transport probe logic; the gate
+ *    just turns that verdict into a stable code/reason string the agent and UI can render.
+ *
+ * Shizuku is no longer mandatory: the host-mediated relay path works without it on devices
+ * whose SELinux denies the shell-domain connectto, so the gate intentionally does NOT short-
+ * circuit on Shizuku availability. That decision lives inside the bridge's preflight, which
+ * knows which transports are actually wired.
  *
  * Dependencies are injected as functional seams so the gate has zero Android coupling and
- * the wiring (AppSettingsStore, ShizukuStatusAdapter, ShizukuChromeDevtoolsBridge.preflight,
- * BrowserScriptRunner.run) lives in SessionServices.
+ * the wiring (AppSettingsStore, ShizukuChromeDevtoolsBridge.preflight, BrowserScriptRunner.run)
+ * lives in SessionServices.
  */
 class DefaultBrowserScriptCapabilityGate(
     private val isExperimentalEnabled: () -> Boolean,
-    private val shizukuStatus: ShizukuStatusProvider,
     private val preflight: suspend () -> Unit,
     private val invokerFactory: () -> BrowserScriptInvoker,
 ) : BrowserScriptCapabilityGate {
@@ -30,12 +37,6 @@ class DefaultBrowserScriptCapabilityGate(
                 "Browser automation is disabled. Enable it in app settings before invoking " +
                     "browser_script.",
             )
-        }
-        if (!shizukuStatus.isAvailable()) {
-            return fromSetupError(DevtoolsSetupError.ShizukuUnavailable)
-        }
-        if (!shizukuStatus.hasPermission()) {
-            return fromSetupError(DevtoolsSetupError.ShizukuPermissionMissing)
         }
         try {
             preflight()

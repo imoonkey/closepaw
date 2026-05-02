@@ -16,8 +16,6 @@ data class SessionConfig(
         val actionDelayMs: Long = 2000,
         /** Approval mode for tool execution */
         val approvalMode: ApprovalMode = ApprovalMode.SMART,
-        /** Debug-only escape hatch for the adb reverse Chrome DevTools TCP fallback. */
-        val browserDebugTcpFallbackEnabled: Boolean = false,
         /** Execution mode for main agent orchestration */
         val agentMode: AgentMode = AgentMode.PRO,
         /**

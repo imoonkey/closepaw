@@ -9,7 +9,6 @@ import ai.closepaw.agent.cognition.prompt.EmptyAppSkillRepository
 import ai.closepaw.agent.cognition.skills.AgentSkillManager
 import ai.closepaw.agent.cognition.skills.BundledAgentSkillInstaller
 import ai.closepaw.auth.AuthStore
-import ai.closepaw.browser.cdp.shizuku.ShizukuStatusAdapter
 import ai.closepaw.browser.script.BrowserSessionManager
 import ai.closepaw.history.HistoryManager
 import ai.closepaw.history.SessionRecordingService
@@ -135,7 +134,6 @@ class SessionServices internal constructor(
                 scope = scope,
                 traceRecorder = traceRecorder,
                 settingsStore = settingsStore,
-                debugTcpFallbackEnabled = config.browserDebugTcpFallbackEnabled,
             )
 
             val history = SessionHistoryBootstrapper.create(context, scope)
@@ -192,17 +190,14 @@ class SessionServices internal constructor(
             scope: CoroutineScope,
             traceRecorder: TraceRecorder,
             settingsStore: AppSettingsStore,
-            debugTcpFallbackEnabled: Boolean,
         ): BrowserSessionManager {
             val browserSessionManager = BrowserSessionManager(
                 context = context.applicationContext,
                 sessionScope = scope,
                 traceRecorder = traceRecorder,
-                debugTcpFallbackEnabled = debugTcpFallbackEnabled,
             )
             val browserGate = DefaultBrowserScriptCapabilityGate(
                 isExperimentalEnabled = { settingsStore.load().browserScriptEnabled },
-                shizukuStatus = ShizukuStatusAdapter(),
                 preflight = browserSessionManager::preflight,
                 invokerFactory = {
                     BrowserScriptInvoker { script, timeout ->
