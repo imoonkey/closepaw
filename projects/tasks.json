@@ -762,7 +762,7 @@
       "general-agent"
     ],
     "created": "2026-05-02T01:12:15Z",
-    "updated": "2026-05-02T01:12:15Z"
+    "updated": "2026-05-02T04:12:39Z"
   },
   "ts-phase1-substrate": {
     "parent": "termux-shell",
@@ -789,7 +789,7 @@
       "substrate"
     ],
     "created": "2026-05-02T01:12:21Z",
-    "updated": "2026-05-02T01:23:27Z",
+    "updated": "2026-05-02T04:12:39Z",
     "worktree": "termux-shell"
   },
   "ts-manifest-visibility": {
@@ -933,7 +933,7 @@
       "python"
     ],
     "created": "2026-05-02T01:12:57Z",
-    "updated": "2026-05-02T01:32:24Z",
+    "updated": "2026-05-02T04:12:39Z",
     "worktree": "termux-shell"
   },
   "ts-bridge-server": {
@@ -1080,7 +1080,7 @@
       "kotlin"
     ],
     "created": "2026-05-02T01:13:36Z",
-    "updated": "2026-05-02T01:32:24Z",
+    "updated": "2026-05-02T04:12:39Z",
     "worktree": "termux-shell"
   },
   "ts-bridge-manager-core": {
@@ -1231,7 +1231,7 @@
       "tool"
     ],
     "created": "2026-05-02T01:14:23Z",
-    "updated": "2026-05-02T01:32:24Z",
+    "updated": "2026-05-02T04:12:39Z",
     "worktree": "termux-shell"
   },
   "ts-shell-tool-impl": {
@@ -1381,7 +1381,7 @@
       "wiring"
     ],
     "created": "2026-05-02T01:15:07Z",
-    "updated": "2026-05-02T01:32:24Z",
+    "updated": "2026-05-02T04:12:39Z",
     "worktree": "termux-shell"
   },
   "ts-prompt-updates": {
@@ -1530,7 +1530,7 @@
       "qa"
     ],
     "created": "2026-05-02T01:15:51Z",
-    "updated": "2026-05-02T01:32:24Z",
+    "updated": "2026-05-02T04:12:39Z",
     "worktree": "termux-shell"
   },
   "ts-settings-ui": {
