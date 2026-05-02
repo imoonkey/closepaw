@@ -2,7 +2,7 @@
 
 > Session-scoped `browser_script` runtime: `BrowserSessionManager`, Chrome CDP transport,
 > Shizuku bridge ownership, settings gate, and policy.
-> Last updated: 2026-05-02 (browser-session-integration)
+> Last updated: 2026-05-02 (browser-use skill packaging)
 
 Design source of truth: [projects/active/browser/cn/design_codex.md](../../../projects/active/browser/cn/design_codex.md).
 
@@ -22,12 +22,22 @@ await cdp(method, params = {}, options = {})
 There are no native `browser_click`, `browser_type`, or helper APIs. Loops, retries, parsing, and
 workflow-specific helpers live in the submitted JavaScript or installed agent skill snippets.
 
+The bundled `browser-use` Agent Skill packages the reusable snippets. APK assets live under
+`app/src/main/assets/agent_skills/browser-use/`, but session runtime loads only the installed copy
+under `context.filesDir/skills/browser-use/`. Installed `SKILL.md` contains absolute paths to:
+
+- `scripts/page.js` — `pageJs`, navigation/load wait, screenshots, page info
+- `scripts/tabs.js` — list/current/switch/new tab helpers
+- `scripts/input.js` — click/type/key/scroll helpers
+
 ## Session Ownership
 
 `SessionServices.create()` owns browser runtime wiring:
 
 - Creates a session-scoped `BrowserSessionManager` with `context.applicationContext` and the session
   coroutine scope.
+- Installs bundled Agent Skill seeds before the skill catalog is constructed; `browser-use`
+  installation rewrites `{{SKILL_DIR}}` and writes `.install-complete` as the success sentinel.
 - Registers `BrowserScriptTool` in `ToolRegistry`.
 - Wires `DefaultBrowserScriptCapabilityGate` to `AppSettingsStore`, `ShizukuStatusAdapter`,
   `BrowserSessionManager.preflight()`, and a `BrowserScriptInvoker`.
@@ -82,6 +92,9 @@ Primary regression coverage:
 - `PolicyEngineTest` covers the Chrome SMART-mode ask rule and allow-list bypass guard.
 - `SessionBrowserIntegrationTest` covers `browser_script` registration.
 - `SessionServicesCleanupTest` covers shutdown cleanup after browser use.
+- `BundledAgentSkillInstallerTest`, `BrowserUseSkillAssetTest`, and
+  `SessionServicesBundledSkillInstallTest` cover bundled `browser-use` copy, snippet assets,
+  placeholder substitution, and sentinel-gated refresh fallback.
 - `BrowserSessionManagerTest` covers transport failure, synchronous send failure, server close, full
   CDP/bridge teardown, and reconnect on the next run.
 - `AppSettingsStoreTest` covers the experimental flag default and round-trip persistence.

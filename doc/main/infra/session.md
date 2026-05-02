@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionCoordinator, SessionServices, and session lifecycle.
-> Last updated: 2026-05-02 (browser-session-integration)
+> Last updated: 2026-05-02 (bundled Agent Skill install)
 
 ## AgentSession
 
@@ -153,6 +153,13 @@ Creation is split into three bootstrappers:
 `SessionServices.create(...)` also wires `AssetAppSkillRepository(context.assets)` directly. The
 planning runner uses it every turn to load package-scoped app guidance without storing app-skill
 state in the session itself.
+
+Before constructing `AgentSkillManager`, `SessionServices.create(...)` runs
+`BundledAgentSkillInstaller(context.assets).install(filesDir/skills)`. This seeds bundled Agent
+Skills such as `browser-use` from APK assets into the runtime skill directory and substitutes
+installed absolute snippet paths into `SKILL.md`. A `.install-complete` sentinel marks the last
+successful bundled install; without that sentinel, install failure is treated as first-install
+failure and aborts session creation instead of silently hiding the skill from the catalog.
 
 Browser runtime wiring also lives in `SessionServices.create(...)`: it creates `BrowserSessionManager`
 with `context.applicationContext`, registers `BrowserScriptTool`, and injects

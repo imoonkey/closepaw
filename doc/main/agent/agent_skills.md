@@ -1,5 +1,7 @@
 # Agent Skills
 
+> Last updated: 2026-05-02 (bundled browser-use skill install)
+
 agentskills.io-compatible skill system: discoverable task/capability instructions the agent can activate on demand. Coexists with — but is distinct from — the per-package App Skill system.
 
 ## Two Skill Types
@@ -124,6 +126,30 @@ Catalog descriptions are sanitized (single-line, ≤1024 chars) before reaching 
 | `session/SessionToolingBootstrapper.kt` | Conditional `ActivateSkillTool` registration |
 | `agent/TurnPlanningPhaseRunner.kt` | Catalog → system prompt; `/skill-name` → activated bodies |
 | `agent/cognition/prompt/AppSkillRepository.kt` | Loads App Skills via shared `SkillFrontmatterParser` |
+| `agent/cognition/skills/BundledAgentSkillInstaller.kt` | Seeds bundled Agent Skills from APK assets into `filesDir/skills` |
+
+## Bundled Agent Skill Seeds
+
+Runtime Agent Skills are still loaded only from `context.filesDir/skills/<name>/`; APK assets are
+seed/update sources, not the catalog source of truth. `SessionServices.create()` installs bundled
+skills before constructing `AgentSkillManager`, so the session catalog sees the installed runtime
+copy.
+
+Current bundled seed:
+
+```text
+app/src/main/assets/agent_skills/browser-use/
+  SKILL.md
+  scripts/page.js
+  scripts/tabs.js
+  scripts/input.js
+```
+
+The installer copies the whole skill directory into `context.filesDir/skills/browser-use/`,
+rewrites `{{SKILL_DIR}}` in installed `SKILL.md` to that absolute runtime path, and writes
+`.install-complete` only after the copy succeeds. Session bootstrap treats missing sentinel as no
+previous successful install: first-install failure aborts session creation, while refresh failure
+after a sentinel-marked install logs a warning and keeps the previous install.
 
 ## Installing a Skill (v1)
 
@@ -145,3 +171,6 @@ Catalog refresh requires a new session (catalog is immutable per session).
 - `AgentSkillManagerTest` — activate, idempotent, mention parsing, boundary, concurrency, read failure
 - `ActivateSkillToolTest` — valid, unknown, body return path
 - `AppSkillAssetIntegrityTest` — parses every real `app_skills/*/SKILL.md` at build time, asserts `name: app-*` + `metadata.package` matches directory
+- `BundledAgentSkillInstallerTest` — bundled copy, `{{SKILL_DIR}}` substitution, idempotent overwrite, real asset substitution
+- `BrowserUseSkillAssetTest` — real `browser-use` asset files and snippet grouping
+- `SessionServicesBundledSkillInstallTest` — first-install failure, sentinel-gated refresh fallback

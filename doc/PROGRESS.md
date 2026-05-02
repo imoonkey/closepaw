@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-05-02: Browser CDP — bundled `browser-use` Agent Skill
+
+**What changed:**
+- Added bundled `app/src/main/assets/agent_skills/browser-use/` with `SKILL.md` plus grouped snippet bundles `scripts/page.js`, `scripts/tabs.js`, and `scripts/input.js`.
+- Added `BundledAgentSkillInstaller`: session startup seeds bundled skills into `context.filesDir/skills/browser-use/`, rewrites `{{SKILL_DIR}}` in installed `SKILL.md` to the absolute runtime path, and writes `.install-complete` only after a successful copy.
+- `SessionServices.create()` now installs bundled Agent Skill seeds before constructing `AgentSkillManager`; first install failures abort session creation, while refresh failures keep a sentinel-marked previous install.
+
+**Why:**
+- `activate_skill` only reads `SKILL.md` bodies from `filesDir/skills`, while reusable browser snippets must be readable via shell `cat` at stable absolute paths. Keeping assets as seeds and the installed directory as runtime source of truth matches the Browser CDP design and avoids adding native browser helper APIs.
+
+**Key files:** `app/src/main/assets/agent_skills/browser-use/**`, `agent/cognition/skills/BundledAgentSkillInstaller.kt`, `session/SessionServices.kt`, `app/src/test/kotlin/ai/closepaw/{agent/cognition/skills,browser,session}/`
+**Verification:** `./gradlew test` BUILD SUCCESSFUL. AC1-AC7 verified, including real asset placeholder substitution and sentinel-gated refresh fallback.
+**Commit:** uncommitted (browser-use-skill-v0)
+**Next:** Holistic review / real-device QA for Browser CDP runtime.
+**Blockers:** None.
+
 ## 2026-05-01: Browser CDP — `browser_script` tool shell
 
 **What changed:**
