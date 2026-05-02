@@ -163,7 +163,10 @@ class TermuxBridgeManager(context: Context) {
         val install =
             try {
                 adapter.runShell(
-                    "pkg install -y python git ripgrep && which python3 && which git && which rg",
+                    // `command -v` instead of `which` — Termux v0.118+ does not ship a
+                    // `which` binary by default and `pkg install -y python git ripgrep`
+                    // does not pull one in, so the legacy probe always returned 127.
+                    "pkg install -y python git ripgrep && command -v python3 && command -v git && command -v rg",
                     timeoutMs = INSTALL_TIMEOUT_MS
                 )
             } catch (e: RunCommandError) {

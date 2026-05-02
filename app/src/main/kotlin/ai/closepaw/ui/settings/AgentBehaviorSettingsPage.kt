@@ -40,6 +40,7 @@ import ai.closepaw.termux.TermuxBridgeManager
 import ai.closepaw.termux.TermuxBridgeStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val TERMUX_INSTALL_URL = "https://f-droid.org/packages/com.termux/"
 
@@ -92,7 +93,15 @@ private fun TermuxShellSettingsRow() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(manager, termuxShellEnabled) {
-        if (termuxShellEnabled) manager.healthCheck()
+        if (termuxShellEnabled) {
+            // healthCheck is probe-only; if state is still NotInstalled, also try detection
+            // via setup() so a freshly-installed Termux gets noticed without an app restart.
+            if (manager.state.value is TermuxBridgeStatus.NotInstalled) {
+                manager.setup()
+            } else {
+                manager.healthCheck()
+            }
+        }
     }
 
     val displayedStatus = if (termuxShellEnabled) bridgeStatus else TermuxBridgeStatus.Disabled
@@ -100,16 +109,24 @@ private fun TermuxShellSettingsRow() {
         when (displayedStatus) {
             TermuxBridgeStatus.NotInstalled -> {
                 {
-                    try {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse(TERMUX_INSTALL_URL))
-                        )
-                    } catch (_: ActivityNotFoundException) {
-                        Toast.makeText(
-                            context,
-                            "Unable to open Termux install page",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                    scope.launch(Dispatchers.IO) {
+                        // Try detection first; only fall back to F-Droid if Termux really isn't there.
+                        val state = manager.setup()
+                        if (state is TermuxBridgeStatus.NotInstalled) {
+                            withContext(Dispatchers.Main) {
+                                try {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(TERMUX_INSTALL_URL))
+                                    )
+                                } catch (_: ActivityNotFoundException) {
+                                    Toast.makeText(
+                                        context,
+                                        "Unable to open Termux install page",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
                     }
                 }
             }

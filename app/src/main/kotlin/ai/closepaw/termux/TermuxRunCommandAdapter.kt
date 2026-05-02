@@ -154,7 +154,11 @@ class TermuxRunCommandAdapter(private val context: Context) {
         filter: IntentFilter
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            appContext.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            // Termux invokes our PendingIntent via Binder, so the resulting broadcast appears
+            // to come from Termux's UID; RECEIVER_NOT_EXPORTED rejects it. The PendingIntent
+            // already restricts the sender to whoever holds the PendingIntent reference, and
+            // we set its target package to our own, so this broadcast surface stays narrow.
+            appContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             appContext.registerReceiver(receiver, filter)
@@ -172,7 +176,9 @@ class TermuxRunCommandAdapter(private val context: Context) {
                 RunCommandError.AllowExternalAppsMissing
             combined.contains("PluginErrorCode_PERMISSION", ignoreCase = true) ->
                 RunCommandError.PermissionMissing
-            err.isNonZeroErrorCode() ->
+            // Termux v0.118+ uses err=-1 to mean "no execution-stage error"; only treat
+            // positive err codes (or any non-empty errmsg) as a transport-level failure.
+            errmsg.isNotBlank() || err.isPositiveErrorCode() ->
                 RunCommandError.Other(
                     IllegalStateException("Termux RUN_COMMAND error $err: $errmsg")
                 )
@@ -219,9 +225,10 @@ class TermuxRunCommandAdapter(private val context: Context) {
         }
     }
 
-    private fun String?.isNonZeroErrorCode(): Boolean {
+    private fun String?.isPositiveErrorCode(): Boolean {
         val normalized = this?.trim().orEmpty()
-        return normalized.isNotEmpty() && normalized != "0"
+        val code = normalized.toIntOrNull() ?: return false
+        return code > 0
     }
 
     companion object {
