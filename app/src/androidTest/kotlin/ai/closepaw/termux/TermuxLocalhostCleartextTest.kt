@@ -1,5 +1,6 @@
 package ai.closepaw.termux
 
+import ai.closepaw.BuildConfig
 import android.security.NetworkSecurityPolicy
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.net.InetAddress
@@ -22,14 +23,28 @@ class TermuxLocalhostCleartextTest {
     @Test
     fun okHttp_can_use_cleartext_loopback() {
         val networkPolicy = NetworkSecurityPolicy.getInstance()
-        assertFalse(
-            "network security config must keep non-loopback cleartext blocked",
-            networkPolicy.isCleartextTrafficPermitted(NON_LOOPBACK_HOST),
-        )
         assertTrue(
-            "network security config must permit cleartext loopback",
+            "network security config must permit 127.0.0.1 for the Termux bridge",
             networkPolicy.isCleartextTrafficPermitted(LOOPBACK_HOST),
         )
+        assertFalse(
+            "network security config must keep non-loopback cleartext blocked by base-config",
+            networkPolicy.isCleartextTrafficPermitted(NON_LOOPBACK_HOST),
+        )
+
+        // Release permits only 127.0.0.1. Instrumentation runs against the debug
+        // variant here, so the example.com assertion above covers base-config=false
+        // while these checks document the debug-only developer-tooling exceptions.
+        if (BuildConfig.DEBUG) {
+            assertTrue(
+                "debug network security config must permit emulator-host cleartext",
+                networkPolicy.isCleartextTrafficPermitted(EMULATOR_HOST),
+            )
+            assertTrue(
+                "debug network security config must permit localhost cleartext",
+                networkPolicy.isCleartextTrafficPermitted(LOCALHOST_HOST),
+            )
+        }
 
         val serverSocket = ServerSocket(0, 1, InetAddress.getByName(LOOPBACK_HOST))
         val executor = Executors.newSingleThreadExecutor()
@@ -87,6 +102,8 @@ class TermuxLocalhostCleartextTest {
 
     private companion object {
         const val NON_LOOPBACK_HOST = "example.com"
+        const val EMULATOR_HOST = "10.0.2.2"
+        const val LOCALHOST_HOST = "localhost"
         const val LOOPBACK_HOST = "127.0.0.1"
     }
 }

@@ -767,7 +767,7 @@
   "ts-phase1-substrate": {
     "parent": "termux-shell",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 1: Substrate (Manifest + Network + Resource)",
     "description": "AndroidManifest.xml package visibility, network_security_config.xml localhost cleartext exception, bridge.py raw resource packaging, and verification tests.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1645,7 +1645,7 @@
     "depends": [
       "ts-substrate-tests"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex review: Phase 1 Substrate",
     "description": "Codex code-review of all Phase 1 changes: manifest, network_security_config, bridge resource packaging, and substrate tests.",
     "worktree": "termux-shell",
@@ -1655,10 +1655,10 @@
       "review written to projects/active/termux_shell/reviews/phase1_review.md",
       "no high-severity findings remain unaddressed"
     ],
-    "agent": "codex",
+    "agent": "w-ts-review-phase1",
     "estimate": "s",
     "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T01:32:15Z"
+    "updated": "2026-05-02T01:59:32Z"
   },
   "ts-review-phase2": {
     "parent": "ts-phase2-bridge-daemon",
