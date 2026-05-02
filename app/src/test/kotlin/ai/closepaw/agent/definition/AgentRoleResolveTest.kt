@@ -47,8 +47,28 @@ class AgentRoleResolveTest {
     fun `planner workspace prompt directs planner to run termux shell directly`() {
         val resolved = PlannerRoleDef.resolve(availableSnapshot)
 
-        assertThat(resolved.systemPrompt)
-            .contains("For workspace commands (termux_shell), execute directly instead of delegating.")
+        assertThat(resolved.systemPrompt).contains(PLANNER_WORKSPACE_SHELL_DIRECTIVE)
+    }
+
+    @Test
+    fun planner_without_termux_does_not_contain_directive() {
+        val resolved = PlannerRoleDef.resolve(unavailableSnapshot)
+
+        assertThat(resolved.systemPrompt).doesNotContain(PLANNER_WORKSPACE_SHELL_DIRECTIVE)
+    }
+
+    @Test
+    fun standalone_with_termux_does_not_contain_directive() {
+        val resolved = StandaloneRoleDef.resolve(availableSnapshot)
+
+        assertThat(resolved.systemPrompt).doesNotContain(PLANNER_WORKSPACE_SHELL_DIRECTIVE)
+    }
+
+    @Test
+    fun executor_with_termux_does_not_contain_directive() {
+        val resolved = ExecutorRoleDef.resolve(availableSnapshot)
+
+        assertThat(resolved.systemPrompt).doesNotContain(PLANNER_WORKSPACE_SHELL_DIRECTIVE)
     }
 
     @Test
@@ -65,7 +85,19 @@ class AgentRoleResolveTest {
         assertThat(resolved.timeoutMs).isEqualTo(ExecutorRoleDef.timeoutMs)
     }
 
+    @Test
+    fun executor_with_termux_excluded_keeps_base_timeout() {
+        val resolved = ExecutorRoleDef.resolve(
+            snapshot = availableSnapshot,
+            excludedTools = setOf(ToolName.TermuxShell)
+        )
+
+        assertThat(resolved.timeoutMs).isEqualTo(ExecutorRoleDef.timeoutMs)
+    }
+
     private companion object {
+        const val PLANNER_WORKSPACE_SHELL_DIRECTIVE =
+            "For workspace commands (termux_shell), execute directly instead of delegating."
         val availableSnapshot = TermuxCapabilitySnapshot(
             available = true,
             enabled = true,

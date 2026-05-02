@@ -1359,7 +1359,7 @@
     "depends": [
       "ts-review-phase4"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 5: Agent Wiring",
     "description": "Wire TermuxShellTool into the agent system: shell description update, system prompt extension, conditional tool registration via TermuxCapabilitySnapshot, AgentRoleDef.resolve(), runner integration, PRO mode delegation contract, and checkpoint reload.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1736,7 +1736,7 @@
     "depends": [
       "ts-pro-mode"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex review: Phase 5 Agent Wiring",
     "description": "Codex code-review of agent wiring: shell description, prompt extension, conditional registration, ResolvedAgentRole, runner wiring, PRO mode, checkpoint reload.",
     "worktree": "termux-shell",
@@ -1746,10 +1746,10 @@
       "review written to projects/active/termux_shell/reviews/phase5_review.md",
       "no high-severity findings remain unaddressed"
     ],
-    "agent": "codex",
+    "agent": "w-ts-review-phase5",
     "estimate": "s",
     "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T01:32:15Z"
+    "updated": "2026-05-02T03:49:18Z"
   },
   "ts-review-phase6": {
     "parent": "ts-phase6-settings-qa",
