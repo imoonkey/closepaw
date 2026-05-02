@@ -20,8 +20,8 @@ class ShellTool(
 
     override val description: String =
         """
-        Execute a shell command on the device for file-oriented inspection only (cat, ls, stat).
-        Do NOT use for UI control, app launching, protected app storage, or state-changing commands.
+        Android toybox shell. Limited commands (ls, cat, stat, grep, etc.), no pipe/redirect.
+        Use termux_shell for full toolchain (python/git etc).
         """.trimIndent()
 
     override val parameterSchema: JSONObject =

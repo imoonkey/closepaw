@@ -1387,7 +1387,7 @@
   "ts-prompt-updates": {
     "parent": "ts-phase5-agent-wiring",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Shell description + system prompt extension",
     "description": "Update existing shell tool description to clarify toybox scope and guide users to termux_shell for full toolchain. New description: \"Android toybox shell. Limited commands (ls, cat, stat, grep, etc.), no pipe/redirect. Use termux_shell for full toolchain (python/git etc).\" Add system prompt Workspace Shell section (injected when TermuxCapabilitySnapshot.available is true): termux_shell description, when-to-use-which-shell guidance, UI vs shell guidance, workspace path ~/closepaw/workspace/.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1409,13 +1409,14 @@
       "prompt"
     ],
     "created": "2026-05-02T01:15:16Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T03:32:14Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase5-prompt-reg"
   },
   "ts-conditional-registration": {
     "parent": "ts-phase5-agent-wiring",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Conditional tool registration + AgentRoleDef.resolve()",
     "description": "Implement conditional tool registration: read TermuxCapabilitySnapshot (immutable, captured at session start) to decide whether to register TermuxShellTool. Add AgentRoleDef.resolve(snapshot, excludedTools) -> ResolvedAgentRole. ResolvedAgentRole contains adjusted allowedTools (base + termux_shell if available - excluded), systemPrompt (+ workspace section if tool exposed), and timeoutMs (150s for executor when termux available). Prompt injection follows tool exposure: if termux_shell excluded, workspace prompt section also excluded.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1437,15 +1438,16 @@
       "registration"
     ],
     "created": "2026-05-02T01:15:25Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T03:32:14Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase5-prompt-reg"
   },
   "ts-runner-wiring": {
     "parent": "ts-phase5-agent-wiring",
     "depends": [
       "ts-conditional-registration"
     ],
-    "state": "ready",
+    "state": "running",
     "title": "Runner wiring: SessionAgentRunner + IsolatedSubAgentRunner + role allow-lists",
     "description": "Wire ResolvedAgentRole into SessionAgentRunner and IsolatedSubAgentRunner. Both read the resolved role (not raw AgentRoleDef). All 3 roles (Standalone, Planner, Executor) get termux_shell when available. Executor timeout increases to 150s when termux_shell is exposed (long-running commands need headroom above 120s bridge timeout + 5s grace). Snapshot capture path: SessionServices.create() -> SessionServices field -> SessionAgentRunner.start() -> AgentRoleDef.resolve() -> ResolvedAgentRole.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1469,8 +1471,9 @@
       "runner"
     ],
     "created": "2026-05-02T01:15:36Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T03:32:14Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase5-prompt-reg"
   },
   "ts-pro-mode": {
     "parent": "ts-phase5-agent-wiring",

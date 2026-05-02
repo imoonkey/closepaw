@@ -31,4 +31,12 @@ data class TermuxCapabilitySnapshot(
     val available: Boolean,
     val enabled: Boolean,
     val status: TermuxBridgeStatus
-)
+) {
+    companion object {
+        val Unavailable = TermuxCapabilitySnapshot(
+            available = false,
+            enabled = false,
+            status = TermuxBridgeStatus.Disabled
+        )
+    }
+}
