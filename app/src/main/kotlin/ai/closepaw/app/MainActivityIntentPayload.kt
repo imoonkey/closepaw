@@ -2,6 +2,7 @@ package ai.closepaw.app
 
 import android.content.Intent
 import ai.closepaw.protocol.AgentMode
+import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 
@@ -17,6 +18,9 @@ data class MainActivityIntentPayload(
         val mainModel: String?,
         val executorModel: String?,
         val maxTurns: Int?,
+        val approvalMode: ApprovalMode?,
+        val browserScriptEnabled: Boolean?,
+        val browserDebugTcpFallbackEnabled: Boolean?,
         val goalText: String?,
         val freshSession: Boolean,
         val debugMode: Boolean?,
@@ -99,6 +103,32 @@ data class MainActivityIntentPayload(
                         null
                     }
 
+            val approvalMode =
+                    intent.getStringExtra(MainActivity.EXTRA_APPROVAL_MODE)?.let { raw ->
+                        try {
+                            ApprovalMode.valueOf(raw.uppercase())
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+
+            val browserScriptEnabled =
+                    if (intent.hasExtra(MainActivity.EXTRA_BROWSER_SCRIPT_ENABLED)) {
+                        intent.getBooleanExtra(MainActivity.EXTRA_BROWSER_SCRIPT_ENABLED, false)
+                    } else {
+                        null
+                    }
+
+            val browserDebugTcpFallbackEnabled =
+                    if (intent.hasExtra(MainActivity.EXTRA_BROWSER_DEBUG_TCP_FALLBACK)) {
+                        intent.getBooleanExtra(
+                                MainActivity.EXTRA_BROWSER_DEBUG_TCP_FALLBACK,
+                                false
+                        )
+                    } else {
+                        null
+                    }
+
             val debugMode =
                     if (intent.hasExtra(MainActivity.EXTRA_DEBUG_MODE)) {
                         intent.getBooleanExtra(MainActivity.EXTRA_DEBUG_MODE, false)
@@ -138,6 +168,9 @@ data class MainActivityIntentPayload(
                     mainModel = mainModel,
                     executorModel = executorModel,
                     maxTurns = maxTurns,
+                    approvalMode = approvalMode,
+                    browserScriptEnabled = browserScriptEnabled,
+                    browserDebugTcpFallbackEnabled = browserDebugTcpFallbackEnabled,
                     goalText = goalText,
                     freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
                     debugMode = debugMode,

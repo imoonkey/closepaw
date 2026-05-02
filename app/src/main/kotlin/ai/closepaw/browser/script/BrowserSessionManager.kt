@@ -46,8 +46,14 @@ class BrowserSessionManager(
     context: Context,
     sessionScope: CoroutineScope,
     @Suppress("unused") private val traceRecorder: TraceRecorder,
+    debugTcpFallbackEnabled: Boolean = false,
     private val bridgeFactory: () -> BrowserDevtoolsBridge = {
-        ShizukuBrowserDevtoolsBridge(createDefaultBridge(context.applicationContext))
+        ShizukuBrowserDevtoolsBridge(
+            createDefaultBridge(
+                context.applicationContext,
+                debugTcpFallbackEnabled,
+            )
+        )
     },
     private val cdpConnectionFactory: CdpConnectionFactory = OkHttpCdpConnectionFactory(),
     private val cdpClientFactory: (CdpConnectionFactory, (Throwable) -> Unit) -> ChromeCdpClient =
@@ -235,7 +241,10 @@ class BrowserSessionManager(
     )
 
     companion object {
-        private fun createDefaultBridge(context: Context): ShizukuChromeDevtoolsBridge {
+        private fun createDefaultBridge(
+            context: Context,
+            debugTcpFallbackEnabled: Boolean,
+        ): ShizukuChromeDevtoolsBridge {
             return ShizukuChromeDevtoolsBridge(
                 status = ShizukuStatusAdapter(),
                 diagnostics = DefaultDevtoolsDiagnostics(
@@ -243,7 +252,7 @@ class BrowserSessionManager(
                 ),
                 appProcessTransport = AppProcessLocalSocketTransport(),
                 userServiceProvider = ShizukuUserServiceProvider(context),
-                fallbackTransport = if (BuildConfig.DEBUG) {
+                fallbackTransport = if (BuildConfig.DEBUG && debugTcpFallbackEnabled) {
                     DebugTcpDevtoolsSocketTransport()
                 } else {
                     null

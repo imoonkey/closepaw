@@ -3,6 +3,7 @@ package ai.closepaw.app
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
+import ai.closepaw.protocol.ApprovalMode
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -31,6 +32,9 @@ class MainActivityIntentApplierSecurityTest {
             mainModel = "evil-model",
             executorModel = "evil-executor",
             maxTurns = 999,
+            approvalMode = ApprovalMode.AUTO_APPROVE,
+            browserScriptEnabled = true,
+            browserDebugTcpFallbackEnabled = true,
             goalText = "pwned",
             freshSession = false,
             debugMode = true,
@@ -48,6 +52,8 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceEnabled = null,
             currentPendingTraceRunId = null,
             currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingBrowserDebugTcpFallbackEnabled = null,
             log = {}
         )
 
@@ -58,6 +64,8 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(result.pendingTraceEnabled).isNull()
         assertThat(result.pendingTraceRunId).isNull()
         assertThat(result.pendingExcludedTools).isEmpty()
+        assertThat(result.pendingApprovalMode).isNull()
+        assertThat(result.pendingBrowserDebugTcpFallbackEnabled).isNull()
     }
 
     @Test
@@ -74,6 +82,9 @@ class MainActivityIntentApplierSecurityTest {
             mainModel = null,
             executorModel = null,
             maxTurns = null,
+            approvalMode = ApprovalMode.AUTO_APPROVE,
+            browserScriptEnabled = true,
+            browserDebugTcpFallbackEnabled = true,
             goalText = null,
             freshSession = false,
             debugMode = null,
@@ -91,6 +102,8 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceEnabled = true,
             currentPendingTraceRunId = "existing-run",
             currentPendingExcludedTools = setOf("open_app"),
+            currentPendingApprovalMode = ApprovalMode.SMART,
+            currentPendingBrowserDebugTcpFallbackEnabled = false,
             log = {}
         )
 
@@ -98,6 +111,8 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(result.pendingTraceEnabled).isTrue()
         assertThat(result.pendingTraceRunId).isEqualTo("existing-run")
         assertThat(result.pendingExcludedTools).containsExactly("open_app")
+        assertThat(result.pendingApprovalMode).isEqualTo(ApprovalMode.SMART)
+        assertThat(result.pendingBrowserDebugTcpFallbackEnabled).isFalse()
     }
 
     @Test
@@ -114,6 +129,9 @@ class MainActivityIntentApplierSecurityTest {
             mainModel = null,
             executorModel = null,
             maxTurns = null,
+            approvalMode = ApprovalMode.AUTO_APPROVE,
+            browserScriptEnabled = true,
+            browserDebugTcpFallbackEnabled = true,
             goalText = null,
             freshSession = false,
             debugMode = null,
@@ -131,6 +149,8 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceEnabled = null,
             currentPendingTraceRunId = null,
             currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingBrowserDebugTcpFallbackEnabled = null,
             log = {}
         )
 
@@ -138,5 +158,8 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(cred).isEqualTo(AuthCredential.ApiKey("debug-key"))
         assertThat(result.pendingTraceEnabled).isTrue()
         assertThat(result.pendingTraceRunId).isEqualTo("debug-run")
+        assertThat(result.pendingApprovalMode).isEqualTo(ApprovalMode.AUTO_APPROVE)
+        assertThat(result.pendingBrowserDebugTcpFallbackEnabled).isTrue()
+        assertThat(settingsState.browserScriptEnabled).isTrue()
     }
 }

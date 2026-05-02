@@ -135,6 +135,7 @@ class SessionServices internal constructor(
                 scope = scope,
                 traceRecorder = traceRecorder,
                 settingsStore = settingsStore,
+                debugTcpFallbackEnabled = config.browserDebugTcpFallbackEnabled,
             )
 
             val history = SessionHistoryBootstrapper.create(context, scope)
@@ -191,11 +192,13 @@ class SessionServices internal constructor(
             scope: CoroutineScope,
             traceRecorder: TraceRecorder,
             settingsStore: AppSettingsStore,
+            debugTcpFallbackEnabled: Boolean,
         ): BrowserSessionManager {
             val browserSessionManager = BrowserSessionManager(
                 context = context.applicationContext,
                 sessionScope = scope,
                 traceRecorder = traceRecorder,
+                debugTcpFallbackEnabled = debugTcpFallbackEnabled,
             )
             val browserGate = DefaultBrowserScriptCapabilityGate(
                 isExperimentalEnabled = { settingsStore.load().browserScriptEnabled },

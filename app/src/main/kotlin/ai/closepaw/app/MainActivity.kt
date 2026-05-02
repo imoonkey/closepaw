@@ -41,6 +41,7 @@ import ai.closepaw.onboarding.OnboardingViewModel
 import ai.closepaw.onboarding.OnboardingViewModelFactory
 import ai.closepaw.onboarding.PermissionStateMonitor
 import ai.closepaw.perception.PerceptionConfig
+import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionLlmConfig
@@ -80,6 +81,9 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_MAIN_MODEL = "main_model"
         const val EXTRA_EXECUTOR_MODEL = "executor_model"
         const val EXTRA_MAX_TURNS = "max_turns"
+        const val EXTRA_APPROVAL_MODE = "approval_mode"
+        const val EXTRA_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
+        const val EXTRA_BROWSER_DEBUG_TCP_FALLBACK = "browser_debug_tcp_fallback"
         const val EXTRA_PLATFORM_MODE = "platform_mode"
         const val EXTRA_EXCLUDED_TOOLS = "excluded_tools"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
@@ -94,6 +98,8 @@ class MainActivity : ComponentActivity() {
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
     private var pendingExcludedTools: Set<String> = emptySet()
+    private var pendingApprovalMode: ApprovalMode? = null
+    private var pendingBrowserDebugTcpFallbackEnabled: Boolean? = null
     private var pendingAutoStartGoal: String? = null
     private var pendingGoalRunnable: Runnable? = null
     private var pendingGoalForConfirmation by mutableStateOf<String?>(null)
@@ -349,11 +355,17 @@ class MainActivity : ComponentActivity() {
                 currentPendingTraceEnabled = pendingTraceEnabled,
                 currentPendingTraceRunId = pendingTraceRunId,
                 currentPendingExcludedTools = pendingExcludedTools,
+                currentPendingApprovalMode = pendingApprovalMode,
+                currentPendingBrowserDebugTcpFallbackEnabled =
+                    pendingBrowserDebugTcpFallbackEnabled,
                 log = { message -> Log.d(TAG, message) }
             )
             pendingTraceEnabled = applyResult.pendingTraceEnabled
             pendingTraceRunId = applyResult.pendingTraceRunId
             pendingExcludedTools = applyResult.pendingExcludedTools
+            pendingApprovalMode = applyResult.pendingApprovalMode
+            pendingBrowserDebugTcpFallbackEnabled =
+                applyResult.pendingBrowserDebugTcpFallbackEnabled
 
             if (alreadyConsumed) {
                 Log.d(TAG, "Intent payload already consumed, skipping action dispatch")
@@ -588,6 +600,8 @@ class MainActivity : ComponentActivity() {
         pendingTraceEnabled = null
         pendingTraceRunId = null
         pendingExcludedTools = emptySet()
+        pendingApprovalMode = null
+        pendingBrowserDebugTcpFallbackEnabled = null
         pendingAutoStartGoal = null
 
         sessionHistoryManager.setActiveSessionId(session.sessionId.value)
@@ -657,6 +671,9 @@ class MainActivity : ComponentActivity() {
         val sessionConfig =
                 SessionConfig(
                         maxTurns = settingsState.maxTurns,
+                        approvalMode = pendingApprovalMode ?: ApprovalMode.SMART,
+                        browserDebugTcpFallbackEnabled =
+                                pendingBrowserDebugTcpFallbackEnabled ?: false,
                         mainModel = settingsState.selectedModel,
                         executorModel = settingsState.executorModel,
                         debugMode = settingsState.debugMode,
