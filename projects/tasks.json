@@ -1030,7 +1030,7 @@
       "ts-bridge-exec",
       "ts-bridge-watchdog"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Host-side pytest for bridge daemon",
     "description": "Comprehensive host-side pytest suite covering: health endpoint, exec endpoint, timeout (process-group kill), exit code passthrough, output cap (stdout and stderr independently), artifact overflow (stdout_ref/stderr_ref), stale daemon pidfile handling, port conflict detection (port_in_use error), busy lock (409 on concurrent exec). Tests run against a real bridge process started in-process or subprocess.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1051,8 +1051,9 @@
       "test"
     ],
     "created": "2026-05-02T01:13:28Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T02:14:06Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-bridge-pytest"
   },
   "ts-phase3-bridge-manager": {
     "parent": "termux-shell",
