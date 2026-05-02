@@ -577,7 +577,7 @@
     "depends": [
       "browser-verification"
     ],
-    "state": "running",
+    "state": "done",
     "agent": "w-holistic",
     "title": "Holistic review of Browser CDP runtime changes",
     "description": "Review the full Browser CDP runtime change set against the design for KISS, security/policy, session lifecycle, Shizuku/CDP transport, WebView host hardening, browser-use skill packaging, tests, and docs. Document findings and make sure critical/high issues are fixed or converted into follow-up tasks before completion.",
@@ -600,6 +600,99 @@
     ],
     "created": "2026-05-01T19:36:46Z",
     "updated": "2026-05-01T19:36:46Z"
+  },
+  "browser-cdp-websocket-shizuku-tunnel": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-holistic-review"
+    ],
+    "state": "ready",
+    "title": "Tunnel CDP WebSocket through Shizuku/localabstract",
+    "description": "Holistic review High #1: ChromeCdpClient currently connects to the CDP WebSocket via OkHttp on a normal network URL, but on production devices the chrome_devtools_remote socket is only reachable through the Shizuku app-process or UserService transport. Implement a real Shizuku/localabstract-backed WebSocket transport so the WS handshake + frames go through the same Shizuku tunnel as the bootstrap HTTP. Replace the OkHttp connection or wrap it behind a transport that proxies through the bridge. Add tests for handshake, message round-trip, and clean close.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/**",
+      "app/src/test/kotlin/ai/closepaw/browser/cdp/**"
+    ],
+    "acceptCriteria": [
+      "CDP WebSocket connects through Shizuku app-process or UserService transport, not direct OkHttp",
+      "Tests assert WS handshake + frame round-trip + close work over the Shizuku tunnel",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku",
+      "follow-up"
+    ],
+    "created": "2026-05-02T00:00:00Z",
+    "updated": "2026-05-02T00:00:00Z"
+  },
+  "browser-screenshot-artifact-formatting": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-holistic-review"
+    ],
+    "state": "ready",
+    "title": "Store Page.captureScreenshot bytes as trace artifacts (no base64 in tool output)",
+    "description": "Holistic review High #2: Screenshot results from cdp('Page.captureScreenshot') currently return base64 in the user-facing tool output, which inflates the LLM context and leaks raw bytes through prompt boundaries. Decode/store screenshot bytes via TraceRecorder.storeBytes, return compact metadata (artifact id, byte count, format) instead. Update browser-use/scripts/page.js helper to follow the new contract; assert in tests that no base64 reaches user-facing output.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptBridge.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "app/src/main/assets/agent_skills/browser-use/scripts/page.js",
+      "app/src/test/kotlin/ai/closepaw/browser/**",
+      "app/src/test/kotlin/ai/closepaw/tool/impl/**"
+    ],
+    "acceptCriteria": [
+      "Page.captureScreenshot bytes are stored via TraceRecorder.storeBytes (or equivalent)",
+      "Tool output contains compact metadata (artifact id + size), no base64 payload",
+      "page.js helper returns the compact metadata",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "tool",
+      "follow-up"
+    ],
+    "created": "2026-05-02T00:00:00Z",
+    "updated": "2026-05-02T00:00:00Z"
+  },
+  "browser-cdp-command-timeout-recovery": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-holistic-review"
+    ],
+    "state": "ready",
+    "title": "Map CDP command timeouts to JS rejection + broken/recovery decision",
+    "description": "Holistic review High #5: ChromeCdpClient.sendRaw() times out with TimeoutCancellationException, but BrowserScriptBridge.dispatch() rethrows all CancellationException instead of rejecting the specific CDP promise. The script then waits for the global tool timeout; BrowserSessionManager does not mark the CDP connection broken for that path. Map per-command timeouts to a typed CDP error that rejects the JS promise with a recognizable code/name; decide whether the per-command timeout should mark the client broken (probably yes after N consecutive timeouts, configurable). Add tests for promise rejection, trace outcome, and next-call recovery semantics.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpCommand.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptBridge.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "Per-command CDP timeout rejects the originating JS promise with typed CdpException (not coroutine cancellation)",
+      "Repeated/decision-rule timeouts can mark the client broken so next browser_script call reconnects",
+      "Tests cover promise rejection, broken transition policy, and next-call recovery",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "cdp",
+      "follow-up"
+    ],
+    "created": "2026-05-02T00:00:00Z",
+    "updated": "2026-05-02T00:00:00Z"
   },
   "browser-real-device-qa": {
     "parent": "browser-cdp-runtime",
