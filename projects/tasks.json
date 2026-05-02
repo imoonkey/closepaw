@@ -914,7 +914,7 @@
     "depends": [
       "ts-review-phase1"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 2: Bridge Daemon (Host-Side Python)",
     "description": "Implement the Python bridge daemon (~150 lines, stdlib only) that runs inside Termux. ThreadingHTTPServer on 127.0.0.1:18422 with /v1/exec and /v1/health endpoints. Handles process lifecycle, output capping, exec serialization, and idle shutdown.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -962,7 +962,7 @@
       "python"
     ],
     "created": "2026-05-02T01:13:05Z",
-    "updated": "2026-05-02T02:08:37Z",
+    "updated": "2026-05-02T02:27:28Z",
     "worktree": "termux-shell",
     "agent": "w-ts-bridge-daemon"
   },
@@ -994,7 +994,7 @@
       "python"
     ],
     "created": "2026-05-02T01:13:15Z",
-    "updated": "2026-05-02T02:08:37Z",
+    "updated": "2026-05-02T02:27:28Z",
     "worktree": "termux-shell"
   },
   "ts-bridge-watchdog": {
@@ -1021,7 +1021,7 @@
       "python"
     ],
     "created": "2026-05-02T01:13:21Z",
-    "updated": "2026-05-02T02:08:37Z",
+    "updated": "2026-05-02T02:27:28Z",
     "worktree": "termux-shell"
   },
   "ts-bridge-pytest": {
@@ -1051,7 +1051,7 @@
       "test"
     ],
     "created": "2026-05-02T01:13:28Z",
-    "updated": "2026-05-02T02:14:06Z",
+    "updated": "2026-05-02T02:27:28Z",
     "worktree": "termux-shell",
     "agent": "w-ts-bridge-pytest"
   },
@@ -1667,7 +1667,7 @@
     "depends": [
       "ts-bridge-pytest"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Codex review: Phase 2 Bridge Daemon",
     "description": "Codex code-review of bridge daemon: closepaw_bridge.py, exec loop, health endpoint, pidfile, output cap, idle watchdog, and host-side pytest.",
     "worktree": "termux-shell",
@@ -1680,7 +1680,7 @@
     "agent": "w-ts-review-phase2",
     "estimate": "s",
     "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T02:14:23Z"
+    "updated": "2026-05-02T02:27:28Z"
   },
   "ts-review-phase3": {
     "parent": "ts-phase3-bridge-manager",
