@@ -1211,7 +1211,7 @@
     "depends": [
       "ts-review-phase3"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 4: TermuxShellTool",
     "description": "Implement TermuxShellTool as a ToolSpec, OkHttp HTTP client to bridge daemon, result mapping, ToolName registration, and turn ordering policy update.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1712,7 +1712,7 @@
     "depends": [
       "ts-shell-tool-tests"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex review: Phase 4 TermuxShellTool",
     "description": "Codex code-review of TermuxShellTool implementation: ToolSpec, OkHttp client, result mapping, cancellation, ToolName, TurnToolPolicy changes.",
     "worktree": "termux-shell",
@@ -1722,10 +1722,10 @@
       "review written to projects/active/termux_shell/reviews/phase4_review.md",
       "no high-severity findings remain unaddressed"
     ],
-    "agent": "codex",
+    "agent": "w-ts-review-phase4",
     "estimate": "s",
     "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T01:32:15Z"
+    "updated": "2026-05-02T03:20:56Z"
   },
   "ts-review-phase5": {
     "parent": "ts-phase5-agent-wiring",

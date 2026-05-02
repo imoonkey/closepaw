@@ -9,6 +9,8 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import okhttp3.Call
+import okhttp3.EventListener
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -16,6 +18,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.Test
 import java.net.ServerSocket
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class TermuxShellToolTest {
@@ -47,6 +50,33 @@ class TermuxShellToolTest {
     }
 
     @Test
+    fun `request body maps command cwd env and timeout to bridge payload`() = runTest {
+        withServer { server ->
+            server.enqueue(jsonResponse(200, """{"exit_code":0,"stdout":"ok\n"}"""))
+
+            val result = execute(server, JSONObject()
+                .put("command", "python3 script.py")
+                .put("cwd", "~/closepaw/workspace/project")
+                .put("timeout_seconds", 3)
+                .put("env", JSONObject()
+                    .put("TERM", "dumb")
+                    .put("LC_ALL", "C")))
+
+            assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+            val request = server.takeRequest()
+            val body = JSONObject(request.body.readUtf8())
+            assertThat(request.method).isEqualTo("POST")
+            assertThat(request.path).isEqualTo("/v1/exec")
+            assertThat(jsonKeys(body)).containsExactly("command", "cwd", "timeout_ms", "env")
+            assertThat(body.getString("command")).isEqualTo("python3 script.py")
+            assertThat(body.getString("cwd")).isEqualTo("~/closepaw/workspace/project")
+            assertThat(body.getLong("timeout_ms")).isEqualTo(3_000L)
+            assertThat(body.getJSONObject("env").getString("TERM")).isEqualTo("dumb")
+            assertThat(body.getJSONObject("env").getString("LC_ALL")).isEqualTo("C")
+        }
+    }
+
+    @Test
     fun `http 200 exit zero maps to success with stdout`() = runTest {
         withServer { server ->
             server.enqueue(jsonResponse(200, """{"exit_code":0,"stdout":"hi\n"}"""))
@@ -55,6 +85,23 @@ class TermuxShellToolTest {
 
             assertThat(output.getInt("exit_code")).isEqualTo(0)
             assertThat(output.getString("stdout")).isEqualTo("hi\n")
+        }
+    }
+
+    @Test
+    fun `http 200 with unknown fields still maps to success`() = runTest {
+        withServer { server ->
+            server.enqueue(
+                jsonResponse(
+                    200,
+                    """{"exit_code":0,"stdout":"ok","unknown":{"nested":true}}"""
+                )
+            )
+
+            val output = successJson(execute(server, JSONObject().put("command", "echo ok")))
+
+            assertThat(output.getInt("exit_code")).isEqualTo(0)
+            assertThat(output.getString("stdout")).isEqualTo("ok")
         }
     }
 
@@ -105,6 +152,17 @@ class TermuxShellToolTest {
     }
 
     @Test
+    fun `http 400 invalid request maps to invalid request failure`() = runTest {
+        withServer { server ->
+            server.enqueue(jsonResponse(400, """{"error":"invalid_request"}"""))
+
+            val result = execute(server, JSONObject().put("command", "pwd"))
+
+            assertThat(failureReason(result)).isEqualTo("invalid_request")
+        }
+    }
+
+    @Test
     fun `connection refused maps to bridge unavailable failure`() = runTest {
         val deadPort = ServerSocket(0).use { it.localPort }
         val tool = TermuxShellTool(bridgeBaseUrl = "http://127.0.0.1:$deadPort")
@@ -116,13 +174,23 @@ class TermuxShellToolTest {
     }
 
     @Test
-    fun `cancelling coroutine while bridge call is pending throws promptly`() = runTest {
+    fun `cancelling coroutine while bridge call is pending cancels okhttp call`() = runTest {
         withServer { server ->
+            val cancelLatch = CountDownLatch(1)
+            val client = OkHttpClient.Builder()
+                .eventListenerFactory {
+                    object : EventListener() {
+                        override fun canceled(call: Call) {
+                            cancelLatch.countDown()
+                        }
+                    }
+                }
+                .build()
             server.enqueue(
                 jsonResponse(200, """{"exit_code":0,"stdout":"late"}""")
                     .setHeadersDelay(5, TimeUnit.SECONDS),
             )
-            val invocation = tool(server)
+            val invocation = tool(server, client)
                 .createInvocation(JSONObject().put("command", "sleep 5"))
 
             val deferred = async(start = CoroutineStart.UNDISPATCHED) {
@@ -137,7 +205,41 @@ class TermuxShellToolTest {
             } catch (_: CancellationException) {
                 // The suspended OkHttp await is cancellation-aware and does not wait for the response.
             }
+            assertThat(cancelLatch.await(500, TimeUnit.MILLISECONDS)).isTrue()
         }
+    }
+
+    @Test
+    fun `non-string env value returns invalid request failure`() = runTest {
+        val params = JSONObject()
+            .put("command", "env")
+            .put("env", JSONObject().put("COUNT", 1))
+
+        val result = TermuxShellTool().createInvocation(params).execute(testContext())
+
+        assertThat(failureReason(result)).isEqualTo("invalid_request")
+    }
+
+    @Test
+    fun `non-integer timeout seconds returns invalid request failure`() = runTest {
+        val params = JSONObject()
+            .put("command", "pwd")
+            .put("timeout_seconds", "10")
+
+        val result = TermuxShellTool().createInvocation(params).execute(testContext())
+
+        assertThat(failureReason(result)).isEqualTo("invalid_request")
+    }
+
+    @Test
+    fun `non-string cwd returns invalid request failure`() = runTest {
+        val params = JSONObject()
+            .put("command", "pwd")
+            .put("cwd", 42)
+
+        val result = TermuxShellTool().createInvocation(params).execute(testContext())
+
+        assertThat(failureReason(result)).isEqualTo("invalid_request")
     }
 
     @Test
@@ -198,6 +300,9 @@ class TermuxShellToolTest {
         assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
         return JSONObject((result as ToolExecutionResult.Success).output)
     }
+
+    private fun jsonKeys(json: JSONObject): Set<String> =
+        json.keys().asSequence().toSet()
 
     private fun failureReason(result: ToolExecutionResult): String {
         assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)

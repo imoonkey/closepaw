@@ -105,6 +105,52 @@ class TurnToolPolicyTest {
     }
 
     @Test
+    fun termuxShell_preserves_order_before_mobileAction() {
+        val calls =
+                listOf(
+                        toolCall(name = "termux_shell"),
+                        toolCall(name = "mobile_action")
+                )
+
+        val result = engine.arbitrateToolCalls(calls)
+
+        assertThat(result.selectedToolCalls.map { it.name })
+                .containsExactly("termux_shell", "mobile_action")
+                .inOrder()
+    }
+
+    @Test
+    fun termuxShell_preserves_order_after_mobileAction() {
+        val calls =
+                listOf(
+                        toolCall(name = "mobile_action"),
+                        toolCall(name = "termux_shell")
+                )
+
+        val result = engine.arbitrateToolCalls(calls)
+
+        assertThat(result.selectedToolCalls.map { it.name })
+                .containsExactly("mobile_action", "termux_shell")
+                .inOrder()
+    }
+
+    @Test
+    fun cognitive_tool_hoists_past_shells() {
+        val calls =
+                listOf(
+                        toolCall(name = "mobile_action"),
+                        toolCall(name = "termux_shell"),
+                        toolCall(name = "scratchpad")
+                )
+
+        val result = engine.arbitrateToolCalls(calls)
+
+        assertThat(result.selectedToolCalls.map { it.name })
+                .containsExactly("scratchpad", "mobile_action", "termux_shell")
+                .inOrder()
+    }
+
+    @Test
     fun `decideCompletion defers completion when screen action exists`() {
         val calls =
                 listOf(

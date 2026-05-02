@@ -20,8 +20,8 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 class TermuxShellTool(
@@ -314,16 +314,27 @@ class TermuxShellTool(
 
         private suspend fun Call.await(): Response =
             suspendCancellableCoroutine { cont ->
-                cont.invokeOnCancellation { cancel() }
+                val responseRef = AtomicReference<Response?>()
+                cont.invokeOnCancellation {
+                    responseRef.getAndSet(null)?.let { response ->
+                        runCatching { response.close() }
+                    }
+                    cancel()
+                }
                 enqueue(object : Callback {
                     override fun onFailure(call: Call, e: IOException) {
                         if (cont.isActive) cont.resumeWithException(e)
                     }
 
                     override fun onResponse(call: Call, response: Response) {
+                        responseRef.set(response)
                         if (cont.isActive) {
-                            cont.resume(response)
+                            cont.resume(response) { _, value, _ ->
+                                responseRef.compareAndSet(value, null)
+                                value.close()
+                            }
                         } else {
+                            responseRef.compareAndSet(response, null)
                             response.close()
                         }
                     }
