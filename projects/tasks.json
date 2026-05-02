@@ -222,5 +222,1325 @@
     "updated": "2026-04-23T00:38:29Z",
     "blockReason": "human-review",
     "requireHumanReview": true
+  },
+  "browser-cdp-runtime": {
+    "parent": null,
+    "depends": [],
+    "state": "running",
+    "title": "Browser CDP Script Runtime",
+    "description": "Implement ClosePaw's minimal browser automation path: one raw browser_script tool backed by Android Chrome CDP through Shizuku, a hidden WebView JS host exposing only cdp(), browser-use skill snippets, session lifecycle wiring, policy gates, and verification.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/**",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "app/src/main/kotlin/ai/closepaw/session/**",
+      "app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/assets/agent_skills/browser-use/**",
+      "app/src/test/kotlin/ai/closepaw/browser/**",
+      "projects/active/browser/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks are done",
+      "projects/active/browser/cn/design_codex.md remains the implementation source of truth"
+    ],
+    "priority": "high",
+    "estimate": "xl",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:32:36Z"
+  },
+  "browser-reference": {
+    "parent": "browser-cdp-runtime",
+    "depends": [],
+    "state": "done",
+    "title": "Browser harness reference alignment",
+    "description": "Keep the browser-harness reference available and ensure the design records the browser-harness behaviors ClosePaw is copying.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      ".reference/browser-harness/**",
+      "projects/active/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -d .reference/browser-harness",
+      "rg -q \"Browser-Harness Details\" projects/active/browser/cn/design_codex.md",
+      "rg -q \"browser-harness\" projects/active/browser/cn/design_codex.md"
+    ],
+    "note": "Verified locally before seeding orchestrate task graph.",
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "docs"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:32:36Z"
+  },
+  "browser-cdp-bridge-spike": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-reference"
+    ],
+    "state": "done",
+    "agent": "w-bridge-spike",
+    "title": "Spike Shizuku Chrome DevTools bridge",
+    "description": "Implement the first transport spike for Android Chrome CDP: connect to chrome_devtools_remote directly if possible, fall back to Shizuku UserService, read /json/version, list page targets, and return precise setup errors for each failure mode.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/**",
+      "app/src/main/kotlin/ai/closepaw/platform/virtualdisplay/Shizuku*.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt",
+      "rg -q \"chrome_devtools_remote\" app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku",
+      "Implementation/tests expose distinct setup errors for Shizuku unavailable, Shizuku permission missing, Chrome not running, DevTools socket missing, app-process socket inaccessible, UserService socket inaccessible, and malformed HTTP/WebSocket response",
+      "./gradlew test"
+    ],
+    "resources": [
+      "For manual confirmation: Android device with Chrome installed, Shizuku available, and Chrome DevTools socket setup path testable. If unavailable, implementation must still expose deterministic setup errors and unit-testable parsing/diagnostics."
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z",
+    "note": "Done. AC pass; 3 codex review rounds applied. Follow-up: browser-cdp-bridge-spike-hardening covers UserService callback identity + unbind-on-failure leak from round 3 review."
+  },
+  "browser-cdp-bridge-spike-hardening": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-cdp-bridge-spike"
+    ],
+    "state": "ready",
+    "title": "Harden ShizukuUserServiceProvider callback lifecycle",
+    "description": "Address two High findings carried over from browser-cdp-bridge-spike round 3 review:\n1. ServiceConnection callbacks (onServiceConnected/Disconnected/BindingDied/NullBinding) do not verify they belong to the current connection or that the provider is not closed; a stale callback from a prior bind cycle can corrupt state or resume a newer pending obtain(). Add a per-bind generation/connection-identity token and ignore stale callbacks.\n2. Failure callbacks (onServiceDisconnected/onBindingDied/onNullBinding) call completeWithError but do not call unbind; failed binds can leak until session shutdown. Clear connection state and call unbindUserService on each terminal failure callback.\n3. Add tests for: stale callback after timeout/close (must be ignored), unbind asserted for each failure callback, no race between old callback and new obtain().",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuUserServiceProvider.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuUserServiceProviderTest.kt"
+    ],
+    "acceptCriteria": [
+      "ServiceConnection callbacks verify connection identity (e.g., generation token) before mutating state",
+      "All terminal failure callbacks (disconnect-before-connect, onNullBinding, onBindingDied) call unbindUserService",
+      "Tests assert unbind on each failure callback and assert stale callback is ignored after close()",
+      "./gradlew :app:testDebugUnitTest --tests 'ai.closepaw.browser.cdp.shizuku.*'"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku",
+      "follow-up"
+    ],
+    "created": "2026-05-01T22:00:00Z",
+    "updated": "2026-05-01T22:00:00Z"
+  },
+  "browser-cdp-client-core": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-cdp-bridge-spike"
+    ],
+    "state": "done",
+    "agent": "w-cdp-client",
+    "title": "Implement ChromeCdpClient core",
+    "description": "Build the Kotlin CDP client around the bridge: open the WebSocket, send raw commands, match responses by id, attach to the first real page, route browser/page domains correctly, buffer events, and recover once from stale active sessions.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/**",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
+      "rg -q \"Target.attachToTarget\" app/src/main/kotlin/ai/closepaw/browser/cdp",
+      "rg -q \"Session with given id not found\" app/src/main/kotlin/ai/closepaw/browser/cdp app/src/test/kotlin/ai/closepaw/browser",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "cdp"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z"
+  },
+  "browser-script-host": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-cdp-client-core"
+    ],
+    "state": "done",
+    "agent": "w-script-host",
+    "title": "Implement hidden WebView browser script host",
+    "description": "Implement BrowserScriptRunner and prelude: hidden local WebView, async wrapper, @JavascriptInterface bridge exposing only send/done, global cdp() promise bridge, strict WebView lockdown, timeout, cancellation, and raw CDP result propagation.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/script/**",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
+      "test -f app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptPrelude.kt",
+      "rg -q \"globalThis.cdp\" app/src/main/kotlin/ai/closepaw/browser/script",
+      "! rg -q \"globalThis\\\\.(sleep|log|pageJs|newTab|clickAt|typeText)\" app/src/main/kotlin/ai/closepaw/browser/script",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "webview",
+      "script-host"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z",
+    "note": "Done. AC pass; 3 codex review rounds applied. Follow-up: browser-script-host-cancel-guard covers remaining onPageFinished/eval-callback cancellation race from round 3 review."
+  },
+  "browser-script-host-cancel-guard": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-script-host"
+    ],
+    "state": "ready",
+    "title": "Add cancellation guard to ScriptHostWebViewClient page-load callbacks",
+    "description": "Address one High finding carried over from browser-script-host round 3 review: ScriptHostWebViewClient has no cancellation guard in onPageFinished or in the evaluateJavascript callback. If timeout/cancellation happens while pageReady.await() is pending, a queued onPageFinished or eval callback can run before cleanup and start arbitrary agent JS. A long script can block the main thread before the drain destroys the WebView.\n\nFix: have onPageFinished and the prelude-eval callback check the runner's cancelled flag (already wired) BEFORE injecting prelude / evaluating user script. If cancelled, do nothing (cleanup will tear down the WebView). Add a JVM test using a fake WebViewClient adapter that asserts cancellation observed before onPageFinished prevents prelude injection.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/script/**"
+    ],
+    "acceptCriteria": [
+      "ScriptHostWebViewClient.onPageFinished checks the cancelled flag before injecting the prelude",
+      "Prelude evaluateJavascript callback checks the cancelled flag before evaluating user script",
+      "JVM test asserts cancellation prevents prelude injection / user script evaluation",
+      "./gradlew :app:testDebugUnitTest --tests 'ai.closepaw.browser.script.*'"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "webview",
+      "follow-up"
+    ],
+    "created": "2026-05-01T22:30:00Z",
+    "updated": "2026-05-01T22:30:00Z"
+  },
+  "browser-script-tool": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-script-host"
+    ],
+    "state": "done",
+    "agent": "w-script-tool",
+    "title": "Add browser_script tool shell",
+    "description": "Add BrowserScriptTool as the single agent-facing tool: validate script and timeout, enforce execution-time browser capability gates, call BrowserScriptRunner, return compact output, and persist raw metadata to trace/debug plumbing.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/**",
+      "app/src/test/kotlin/ai/closepaw/tool/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "rg -q \"browser_script\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "rg -q \"\\\\[truncated: original_chars=\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt app/src/test/kotlin/ai/closepaw/browser app/src/test/kotlin/ai/closepaw/tool",
+      "rg -q \"browser-use\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt app/src/test/kotlin/ai/closepaw/browser app/src/test/kotlin/ai/closepaw/tool",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "tool"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z"
+  },
+  "browser-session-integration": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-script-tool"
+    ],
+    "state": "done",
+    "agent": "w-session-integ",
+    "title": "Wire browser runtime into session lifecycle and policy",
+    "description": "Integrate BrowserSessionManager with SessionServices, ToolRegistry, ToolName, AppSettingsStore, and PolicyEngine. Keep Android Context/WebView ownership out of SessionToolingBootstrapper, close browser resources on shutdown, and make browser_script ask in SMART regardless of Chrome's NORMAL app tier.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsState.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
+      "app/src/test/kotlin/ai/closepaw/**"
+    ],
+    "acceptCriteria": [
+      "rg -q \"BrowserSessionManager\" app/src/main/kotlin/ai/closepaw/session/SessionServices.kt app/src/main/kotlin/ai/closepaw/browser/script",
+      "rg -q \"BrowserScript\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "rg -q \"browser_script\" app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt app/src/main/kotlin/ai/closepaw/session",
+      "PolicyEngine tests verify browser_script asks in SMART for com.android.chrome even though Chrome is NORMAL",
+      "./gradlew test"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "session",
+      "policy"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z"
+  },
+  "browser-use-skill-v0": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-session-integration"
+    ],
+    "state": "done",
+    "agent": "w-skill-v0",
+    "title": "Bundle browser-use skill and snippet bundles",
+    "description": "Package browser-use as an agent skill installed under context.filesDir/skills/browser-use, with SKILL.md guidance and grouped snippet bundles page.js, tabs.js, and input.js. SKILL.md must include absolute installed script paths so the agent can read snippets with shell cat.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/assets/agent_skills/browser-use/**",
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/assets/agent_skills/browser-use/SKILL.md",
+      "test -f app/src/main/assets/agent_skills/browser-use/scripts/page.js",
+      "test -f app/src/main/assets/agent_skills/browser-use/scripts/tabs.js",
+      "test -f app/src/main/assets/agent_skills/browser-use/scripts/input.js",
+      "rg -q \"{{SKILL_DIR}}\" app/src/main/assets/agent_skills/browser-use/SKILL.md",
+      "Tests verify browser-use is installed/copied to context.filesDir/skills/browser-use and SKILL.md gets absolute script paths",
+      "./gradlew test"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "skill"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:56Z"
+  },
+  "browser-verification": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-use-skill-v0"
+    ],
+    "state": "done",
+    "agent": "w-verify",
+    "title": "Automated verification for Browser CDP runtime",
+    "description": "Run automated unit/build verification for the completed Browser CDP runtime before final review and real-device QA.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/browser/**",
+      "app/src/main/kotlin/ai/closepaw/browser/**",
+      "app/src/main/assets/agent_skills/browser-use/**",
+      "projects/active/browser/**"
+    ],
+    "acceptCriteria": [
+      "./gradlew test",
+      "./gradlew assembleDebug",
+      "rg -q \"Unit tests 覆盖\" projects/active/browser/cn/design_codex.md",
+      "rg -q \"browser-use/scripts/\" projects/active/browser/cn/design_codex.md"
+    ],
+    "resources": [],
+    "requireHumanReview": false,
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "verification",
+      "automated"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:37:05Z"
+  },
+  "browser-holistic-review": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-verification"
+    ],
+    "state": "running",
+    "agent": "w-holistic",
+    "title": "Holistic review of Browser CDP runtime changes",
+    "description": "Review the full Browser CDP runtime change set against the design for KISS, security/policy, session lifecycle, Shizuku/CDP transport, WebView host hardening, browser-use skill packaging, tests, and docs. Document findings and make sure critical/high issues are fixed or converted into follow-up tasks before completion.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "projects/active/browser/holistic_review.md"
+    ],
+    "acceptCriteria": [
+      "test -f projects/active/browser/holistic_review.md",
+      "rg -q \"KISS\" projects/active/browser/holistic_review.md",
+      "rg -q \"Security/policy\" projects/active/browser/holistic_review.md",
+      "rg -q \"Session lifecycle\" projects/active/browser/holistic_review.md",
+      "rg -q \"No open critical/high findings\" projects/active/browser/holistic_review.md"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "review"
+    ],
+    "created": "2026-05-01T19:36:46Z",
+    "updated": "2026-05-01T19:36:46Z"
+  },
+  "browser-real-device-qa": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-holistic-review"
+    ],
+    "state": "ready",
+    "title": "Real-device QA for Browser CDP use case",
+    "description": "Run one real-device browser automation use case through browser_script and the installed browser-use snippets. Exercise page open, title/content read through CDP, screenshot evidence, tab creation or switching, and return to the original tab. Document the device/app build, setup, steps, result, and evidence.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "projects/active/browser/real_device_qa.md"
+    ],
+    "acceptCriteria": [
+      "test -f projects/active/browser/real_device_qa.md",
+      "rg -q \"Device\" projects/active/browser/real_device_qa.md",
+      "rg -q \"Use case\" projects/active/browser/real_device_qa.md",
+      "rg -q \"browser_script\" projects/active/browser/real_device_qa.md",
+      "rg -q \"title\" projects/active/browser/real_device_qa.md",
+      "rg -q \"screenshot\" projects/active/browser/real_device_qa.md",
+      "rg -q \"tab\" projects/active/browser/real_device_qa.md",
+      "rg -q \"PASS\" projects/active/browser/real_device_qa.md"
+    ],
+    "resources": [
+      "Android device with Shizuku permission granted, Chrome installed/running, and Browser CDP runtime built into the installed app."
+    ],
+    "requireHumanReview": true,
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "qa",
+      "manual-device"
+    ],
+    "created": "2026-05-01T19:36:46Z",
+    "updated": "2026-05-01T19:36:46Z"
+  },
+  "termux-shell": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Termux Shell Tool",
+    "description": "Add termux_shell tool to ClosePaw via Termux bridge daemon. Full Linux bash shell capability through HTTP bridge on localhost, enabling workspace operations (file R/W, git, python, build tools) alongside existing UI automation. 6 phases: substrate, bridge daemon, bridge manager, shell tool, agent wiring, settings+QA.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/res/xml/network_security_config.xml",
+      "app/src/main/res/raw/closepaw_bridge_py",
+      "tools/termux-bridge/**",
+      "app/src/main/kotlin/ai/closepaw/termux/**",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/**",
+      "app/src/main/kotlin/ai/closepaw/session/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "termux_shell tool functional in BASIC and PRO modes",
+      "Mixed UI+workspace tasks pass",
+      "./gradlew clean assembleDebug lint test passes"
+    ],
+    "priority": "high",
+    "estimate": "xl",
+    "tags": [
+      "termux",
+      "workspace",
+      "general-agent"
+    ],
+    "created": "2026-05-02T01:12:15Z",
+    "updated": "2026-05-02T01:12:15Z"
+  },
+  "ts-phase1-substrate": {
+    "parent": "termux-shell",
+    "depends": [],
+    "state": "ready",
+    "title": "Phase 1: Substrate (Manifest + Network + Resource)",
+    "description": "AndroidManifest.xml package visibility, network_security_config.xml localhost cleartext exception, bridge.py raw resource packaging, and verification tests.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/res/xml/network_security_config.xml",
+      "app/src/main/res/raw/closepaw_bridge_py",
+      "tools/termux-bridge/closepaw_bridge.py",
+      "app/build.gradle.kts"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "substrate"
+    ],
+    "created": "2026-05-02T01:12:21Z",
+    "updated": "2026-05-02T01:23:27Z",
+    "worktree": "termux-shell"
+  },
+  "ts-manifest-visibility": {
+    "parent": "ts-phase1-substrate",
+    "depends": [],
+    "state": "ready",
+    "title": "AndroidManifest.xml: Termux package visibility + RUN_COMMAND",
+    "description": "Add Termux package visibility declaration and RUN_COMMAND service intent query to AndroidManifest.xml. Required for bootstrap flow to discover and communicate with Termux via RUN_COMMAND intent. Add com.termux.permission.RUN_COMMAND permission, <package android:name=\"com.termux\" /> in queries, and <intent><action android:name=\"com.termux.RUN_COMMAND\" /></intent> in queries.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/AndroidManifest.xml"
+    ],
+    "acceptCriteria": [
+      "rg -q \"com.termux.permission.RUN_COMMAND\" app/src/main/AndroidManifest.xml",
+      "rg -q \"com.termux\" app/src/main/AndroidManifest.xml",
+      "rg -q \"com.termux.RUN_COMMAND\" app/src/main/AndroidManifest.xml",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "substrate",
+      "manifest"
+    ],
+    "created": "2026-05-02T01:12:28Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-network-security": {
+    "parent": "ts-phase1-substrate",
+    "depends": [],
+    "state": "ready",
+    "title": "network_security_config.xml: localhost cleartext exception",
+    "description": "Add 127.0.0.1 cleartext traffic exception to network_security_config.xml. Bridge daemon runs on localhost:18422 over HTTP. Narrow exception: only 127.0.0.1, includeSubdomains=false. base-config remains cleartextTrafficPermitted=false.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/res/xml/network_security_config.xml"
+    ],
+    "acceptCriteria": [
+      "rg -q \"127.0.0.1\" app/src/main/res/xml/network_security_config.xml",
+      "rg -q \"cleartextTrafficPermitted.*true\" app/src/main/res/xml/network_security_config.xml",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "substrate",
+      "network"
+    ],
+    "created": "2026-05-02T01:12:34Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-resource": {
+    "parent": "ts-phase1-substrate",
+    "depends": [],
+    "state": "ready",
+    "title": "Bridge script packaging: res/raw + Gradle copy + version constant",
+    "description": "Create tools/termux-bridge/closepaw_bridge.py as canonical source with BRIDGE_VERSION = \"1\" at top. Add Gradle copy task to package it as app/src/main/res/raw/closepaw_bridge_py. The copy task ensures the raw resource is always byte-identical to the canonical source. Version constant appears in /v1/health response and is checked by TermuxBridgeManager for re-deploy decisions.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/closepaw_bridge.py",
+      "app/src/main/res/raw/closepaw_bridge_py",
+      "app/build.gradle.kts"
+    ],
+    "acceptCriteria": [
+      "test -f tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"BRIDGE_VERSION\" tools/termux-bridge/closepaw_bridge.py",
+      "Gradle copy task copies tools/termux-bridge/closepaw_bridge.py to res/raw/closepaw_bridge_py",
+      "./gradlew assembleDebug && test -f app/src/main/res/raw/closepaw_bridge_py"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "substrate",
+      "bridge"
+    ],
+    "created": "2026-05-02T01:12:43Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-substrate-tests": {
+    "parent": "ts-phase1-substrate",
+    "depends": [
+      "ts-manifest-visibility",
+      "ts-network-security",
+      "ts-bridge-resource"
+    ],
+    "state": "ready",
+    "title": "Substrate verification tests",
+    "description": "CI test: raw resource exists and contains expected BRIDGE_VERSION line. Instrumentation test: OkHttp can reach http://127.0.0.1 under release network security config (validates cleartext exception works). These tests gate Phase 2.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/termux/**",
+      "app/src/androidTest/kotlin/ai/closepaw/termux/**"
+    ],
+    "acceptCriteria": [
+      "JVM test asserts raw resource contains BRIDGE_VERSION line",
+      "Instrumentation test asserts OkHttp can connect to http://127.0.0.1 under release config",
+      "./gradlew test"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "substrate",
+      "test"
+    ],
+    "created": "2026-05-02T01:12:50Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-phase2-bridge-daemon": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-phase1-substrate"
+    ],
+    "state": "ready",
+    "title": "Phase 2: Bridge Daemon (Host-Side Python)",
+    "description": "Implement the Python bridge daemon (~150 lines, stdlib only) that runs inside Termux. ThreadingHTTPServer on 127.0.0.1:18422 with /v1/exec and /v1/health endpoints. Handles process lifecycle, output capping, exec serialization, and idle shutdown.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "Host-side pytest passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge",
+      "python"
+    ],
+    "created": "2026-05-02T01:12:57Z",
+    "updated": "2026-05-02T01:23:27Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-server": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [],
+    "state": "ready",
+    "title": "Bridge HTTP server + endpoints + pidfile management",
+    "description": "Implement ThreadingHTTPServer on 127.0.0.1:18422 with /v1/exec (POST) and /v1/health (GET) endpoints. Pidfile management: write {pid, port, version, identity: \"closepaw-bridge\"} on start. On startup: if pidfile exists, check identity → kill old bridge if ours, return port_in_use if not. Idempotent startup. All responses JSON. Health returns {status, version, identity}.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/closepaw_bridge.py"
+    ],
+    "acceptCriteria": [
+      "test -f tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"ThreadingHTTPServer\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"/v1/exec\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"/v1/health\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"closepaw-bridge\" tools/termux-bridge/closepaw_bridge.py",
+      "python3 tools/termux-bridge/closepaw_bridge.py --help || true"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge",
+      "python"
+    ],
+    "created": "2026-05-02T01:13:05Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-exec": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [
+      "ts-bridge-server"
+    ],
+    "state": "ready",
+    "title": "Bridge exec: timeout, disconnect, output cap, exec lock",
+    "description": "Implement /v1/exec execution loop: subprocess.Popen([\"bash\", \"-c\", command]) with start_new_session=True for process-group kill. Two drain threads for stdout/stderr to avoid pipe deadlock. Process-group kill on timeout (os.killpg). Client disconnect detection (poll socket) triggers immediate kill. Output cap with independent stdout/stderr truncation: each has _truncated boolean and _ref path to artifact file in ~/.closepaw/artifacts/. Exec lock: only one /v1/exec at a time, busy returns HTTP 409. Non-zero exit code returns HTTP 200 with exit_code field.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/closepaw_bridge.py"
+    ],
+    "acceptCriteria": [
+      "rg -q \"exec_lock\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"SIGKILL\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"timed_out\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"stdout_truncated\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"stderr_truncated\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"409\" tools/termux-bridge/closepaw_bridge.py"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge",
+      "python"
+    ],
+    "created": "2026-05-02T01:13:15Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-watchdog": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [
+      "ts-bridge-server"
+    ],
+    "state": "ready",
+    "title": "Bridge idle watchdog (30 min auto-exit)",
+    "description": "Implement 30-minute idle watchdog. Track last request timestamp. Background thread checks periodically; if no /v1/exec or /v1/health received within 30 minutes, server shuts down gracefully. Saves battery on Android device.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/closepaw_bridge.py"
+    ],
+    "acceptCriteria": [
+      "rg -q \"watchdog\\|idle\" tools/termux-bridge/closepaw_bridge.py",
+      "Bridge auto-exits after 30 min of no requests"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "bridge",
+      "python"
+    ],
+    "created": "2026-05-02T01:13:21Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-pytest": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [
+      "ts-bridge-exec",
+      "ts-bridge-watchdog"
+    ],
+    "state": "ready",
+    "title": "Host-side pytest for bridge daemon",
+    "description": "Comprehensive host-side pytest suite covering: health endpoint, exec endpoint, timeout (process-group kill), exit code passthrough, output cap (stdout and stderr independently), artifact overflow (stdout_ref/stderr_ref), stale daemon pidfile handling, port conflict detection (port_in_use error), busy lock (409 on concurrent exec). Tests run against a real bridge process started in-process or subprocess.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/tests/**"
+    ],
+    "acceptCriteria": [
+      "test -d tools/termux-bridge/tests",
+      "cd tools/termux-bridge && python3 -m pytest tests/ -v",
+      "Tests cover: health, exec, timeout, exit code, output cap, stdout overflow, stderr overflow, stale daemon, port conflict, busy 409"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge",
+      "python",
+      "test"
+    ],
+    "created": "2026-05-02T01:13:28Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-phase3-bridge-manager": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-phase2-bridge-daemon"
+    ],
+    "state": "ready",
+    "title": "Phase 3: TermuxBridgeManager + Bootstrap",
+    "description": "Kotlin-side bridge lifecycle management: TermuxBridgeManager (process-wide singleton via Holder pattern), TermuxRunCommandAdapter for bootstrap, 4-step bootstrap flow, health polling, and settings integration.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/**",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "l",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "kotlin"
+    ],
+    "created": "2026-05-02T01:13:36Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-manager-core": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [],
+    "state": "ready",
+    "title": "TermuxBridgeManager core: Holder + StateFlow + status types",
+    "description": "Implement TermuxBridgeManagerHolder (process-wide singleton, double-check locking like AuthStoreHolder). TermuxBridgeManager with StateFlow<TermuxBridgeStatus>, Mutex-serialized setup/health/restart methods, and snapshot() returning immutable TermuxCapabilitySnapshot. Status sealed class: NotInstalled, NeedsSetup(reason), SetupInProgress, Ready, Disabled. TermuxCapabilitySnapshot data class: available (bridge ready AND user enabled), enabled (settings toggle), status (debug/logging).",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeStatus.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"TermuxBridgeManagerHolder\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"StateFlow\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"TermuxCapabilitySnapshot\" app/src/main/kotlin/ai/closepaw/termux/",
+      "rg -q \"TermuxBridgeStatus\" app/src/main/kotlin/ai/closepaw/termux/",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "kotlin"
+    ],
+    "created": "2026-05-02T01:13:48Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-run-command-adapter": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [],
+    "state": "ready",
+    "title": "TermuxRunCommandAdapter: RUN_COMMAND intent + PendingIntent result",
+    "description": "Implement TermuxRunCommandAdapter that sends RUN_COMMAND intents to Termux and receives results via PendingIntent BroadcastReceiver. Each call generates unique requestId to ignore stale/late results. Supports EXTRA_STDIN for bridge.py deployment via base64 encoding (avoids shell quoting). Returns RunCommandResult(stdout, stderr, exitCode). Handles SecurityException (permission missing) and ActivityNotFoundException (Termux not installed / allow-external-apps disabled).",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "rg -q \"RUN_COMMAND\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "rg -q \"PendingIntent\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "rg -q \"requestId\\|request_id\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "rg -q \"base64\\|Base64\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "kotlin"
+    ],
+    "created": "2026-05-02T01:13:56Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bootstrap-flow": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [
+      "ts-bridge-manager-core",
+      "ts-run-command-adapter"
+    ],
+    "state": "ready",
+    "title": "Termux detection + 4-step bootstrap flow",
+    "description": "Implement Termux detection via PackageManager (check com.termux installed). 4-step idempotent bootstrap with probe-derived readiness: Step 1 (Probe) - RUN_COMMAND echo CLOSEPAW_PROBE=ok, verify Termux initialized + allow-external-apps + permission. Step 2 (Install) - pkg install -y python git ripgrep, verify with which. Step 3 (Deploy) - deploy bridge.py via EXTRA_STDIN base64, create workspace/artifacts/logs dirs, verify CLOSEPAW_DEPLOY=ok marker. Step 4 (Start) - python3 ~/.closepaw/bridge.py &, poll /v1/health until ready with correct version. Each step has explicit success marker. Failure maps to NeedsSetup(reason).",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"CLOSEPAW_PROBE\" app/src/main/kotlin/ai/closepaw/termux/",
+      "rg -q \"CLOSEPAW_DEPLOY\" app/src/main/kotlin/ai/closepaw/termux/",
+      "rg -q \"pkg install\" app/src/main/kotlin/ai/closepaw/termux/",
+      "Bootstrap flow handles all 4 steps with idempotent re-entry",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "l",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "bootstrap"
+    ],
+    "created": "2026-05-02T01:14:07Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-health-lifecycle": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [
+      "ts-bootstrap-flow"
+    ],
+    "state": "ready",
+    "title": "Health polling, restart, version mismatch, settings toggle",
+    "description": "Implement health polling at 30s interval via /v1/health. On bridge failure: restart via RUN_COMMAND. On version mismatch: re-deploy bridge.py from raw resource then restart. Enabled toggle persisted in AppSettingsStore. Health polling updates TermuxBridgeManager.state (affects next session, not current). Bridge 30-min idle watchdog handled server-side; client just restarts on next session if bridge exited.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"healthCheck\\|health_check\\|healthPoll\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"BRIDGE_VERSION\\|bridgeVersion\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"termux\\|Termux\" app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "lifecycle"
+    ],
+    "created": "2026-05-02T01:14:16Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-phase4-shell-tool": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-phase3-bridge-manager"
+    ],
+    "state": "ready",
+    "title": "Phase 4: TermuxShellTool",
+    "description": "Implement TermuxShellTool as a ToolSpec, OkHttp HTTP client to bridge daemon, result mapping, ToolName registration, and turn ordering policy update.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/turn/TurnToolPolicy.kt"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "tool"
+    ],
+    "created": "2026-05-02T01:14:23Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-shell-tool-impl": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [],
+    "state": "ready",
+    "title": "TermuxShellTool: ToolSpec + OkHttp + cancellation",
+    "description": "Implement TermuxShellTool extending ToolSpec. Tool parameters: command (required), cwd (optional, defaults to workspace root), timeout_seconds (optional, default 120s, max 120s). OkHttp client with explicit read/call timeout = timeout_ms + 5000ms grace period (not OkHttp default 10s). Cancellable via suspendCancellableCoroutine with cont.invokeOnCancellation { call.cancel() }. Coroutine cancel -> Call.cancel() -> TCP disconnect -> bridge kills subprocess.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"ToolSpec\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"suspendCancellableCoroutine\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"invokeOnCancellation\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"timeout_ms.*5000\\|grace\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "tool",
+      "okhttp"
+    ],
+    "created": "2026-05-02T01:14:33Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-shell-tool-result": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [
+      "ts-shell-tool-impl"
+    ],
+    "state": "ready",
+    "title": "TermuxShellTool result mapping",
+    "description": "Implement result mapping from bridge HTTP responses to ToolExecutionResult. HTTP 200 with any exit_code -> Success (stdout/stderr/exit_code as tool output). HTTP 200 with timed_out=true -> Success (partial output + timeout info). HTTP 409 busy -> Failure (bridge busy, LLM can retry). HTTP 4xx/5xx -> Failure (transport/protocol error). Connection refused/timeout -> Failure (bridge not available). IOException -> Failure (network error). Non-zero exit code is NOT a Failure - it is informational for the LLM.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"Success\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"Failure\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"409\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"timed_out\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "Non-zero exit code maps to Success, not Failure"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "tool"
+    ],
+    "created": "2026-05-02T01:14:42Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-tool-registration": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [
+      "ts-shell-tool-impl"
+    ],
+    "state": "ready",
+    "title": "ToolName + TurnToolPolicy for termux_shell",
+    "description": "Add TermuxShell to ToolName enum with isScreenChanging=false (auto-allow policy, same as existing shell tool). Update TurnToolPolicy: termux_shell must NOT be hoistable. Only cognitive tools (scratchpad, write_todos, remember_experience) are hoistable. termux_shell, shell, ask_user, activate_skill preserve LLM-returned order.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/turn/TurnToolPolicy.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"TermuxShell\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "rg -q \"termux_shell\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "TermuxShell.isScreenChanging == false",
+      "TurnToolPolicy does not hoist termux_shell",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "tool",
+      "policy"
+    ],
+    "created": "2026-05-02T01:14:51Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-shell-tool-tests": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [
+      "ts-shell-tool-result",
+      "ts-tool-registration"
+    ],
+    "state": "ready",
+    "title": "TermuxShellTool unit tests",
+    "description": "Unit tests for TermuxShellTool covering: JSON schema validation, result mapping (200 success, 200 timed_out, 409 busy, connection error), cancellation (Call.cancel() invoked on coroutine cancel), non-zero exit code handling (maps to Success not Failure), timeout parameter validation, OkHttp timeout configuration (timeout_ms + 5s grace).",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/tool/impl/TermuxShellToolTest.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/test/kotlin/ai/closepaw/tool/impl/TermuxShellToolTest.kt",
+      "Tests cover: schema, result mapping (200/409/error), cancellation, non-zero exit code, timeout config",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.tool.impl.TermuxShellToolTest\""
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "tool",
+      "test"
+    ],
+    "created": "2026-05-02T01:14:59Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-phase5-agent-wiring": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-phase4-shell-tool"
+    ],
+    "state": "ready",
+    "title": "Phase 5: Agent Wiring",
+    "description": "Wire TermuxShellTool into the agent system: shell description update, system prompt extension, conditional tool registration via TermuxCapabilitySnapshot, AgentRoleDef.resolve(), runner integration, PRO mode delegation contract, and checkpoint reload.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/definition/**",
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/runner/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "l",
+    "tags": [
+      "termux",
+      "agent",
+      "wiring"
+    ],
+    "created": "2026-05-02T01:15:07Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-prompt-updates": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [],
+    "state": "ready",
+    "title": "Shell description + system prompt extension",
+    "description": "Update existing shell tool description to clarify toybox scope and guide users to termux_shell for full toolchain. New description: \"Android toybox shell. Limited commands (ls, cat, stat, grep, etc.), no pipe/redirect. Use termux_shell for full toolchain (python/git etc).\" Add system prompt Workspace Shell section (injected when TermuxCapabilitySnapshot.available is true): termux_shell description, when-to-use-which-shell guidance, UI vs shell guidance, workspace path ~/closepaw/workspace/.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/**"
+    ],
+    "acceptCriteria": [
+      "rg -q \"toybox\" app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
+      "rg -q \"termux_shell\" app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
+      "rg -q \"Workspace Shell\" app/src/main/kotlin/ai/closepaw/agent/definition/",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "agent",
+      "prompt"
+    ],
+    "created": "2026-05-02T01:15:16Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-conditional-registration": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [],
+    "state": "ready",
+    "title": "Conditional tool registration + AgentRoleDef.resolve()",
+    "description": "Implement conditional tool registration: read TermuxCapabilitySnapshot (immutable, captured at session start) to decide whether to register TermuxShellTool. Add AgentRoleDef.resolve(snapshot, excludedTools) -> ResolvedAgentRole. ResolvedAgentRole contains adjusted allowedTools (base + termux_shell if available - excluded), systemPrompt (+ workspace section if tool exposed), and timeoutMs (150s for executor when termux available). Prompt injection follows tool exposure: if termux_shell excluded, workspace prompt section also excluded.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"TermuxCapabilitySnapshot\" app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/definition/",
+      "rg -q \"resolve\" app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "agent",
+      "registration"
+    ],
+    "created": "2026-05-02T01:15:25Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-runner-wiring": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [
+      "ts-conditional-registration"
+    ],
+    "state": "ready",
+    "title": "Runner wiring: SessionAgentRunner + IsolatedSubAgentRunner + role allow-lists",
+    "description": "Wire ResolvedAgentRole into SessionAgentRunner and IsolatedSubAgentRunner. Both read the resolved role (not raw AgentRoleDef). All 3 roles (Standalone, Planner, Executor) get termux_shell when available. Executor timeout increases to 150s when termux_shell is exposed (long-running commands need headroom above 120s bridge timeout + 5s grace). Snapshot capture path: SessionServices.create() -> SessionServices field -> SessionAgentRunner.start() -> AgentRoleDef.resolve() -> ResolvedAgentRole.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/runner/SessionAgentRunner.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/runner/IsolatedSubAgentRunner.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/runner/SessionAgentRunner.kt",
+      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/runner/IsolatedSubAgentRunner.kt",
+      "rg -q \"termuxSnapshot\\|termux_snapshot\\|TermuxCapability\" app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "rg -q \"150\" app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "agent",
+      "runner"
+    ],
+    "created": "2026-05-02T01:15:36Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-pro-mode": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [
+      "ts-runner-wiring"
+    ],
+    "state": "ready",
+    "title": "PRO mode delegation + checkpoint reload",
+    "description": "PRO mode: Planner runs workspace commands (termux_shell) directly, does not delegate to Executor. Planner prompt addition: \"For workspace commands (termux_shell), execute directly instead of delegating.\" delegate_task description unchanged: \"delegate ONE atomic UI action.\" Checkpoint reload: session restore at task boundary captures fresh TermuxCapabilitySnapshot (not serialized from old snapshot). SessionServices.create() is the single capture point. Integration tests: tool present/absent matches prompt present/absent.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/definition/PlannerAgentDef.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt"
+    ],
+    "acceptCriteria": [
+      "Planner prompt includes guidance to run termux_shell directly",
+      "delegate_task description still says UI action only",
+      "SessionServices.create() captures fresh TermuxCapabilitySnapshot on reload",
+      "Integration test: tool present iff prompt section present",
+      "./gradlew test"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "agent",
+      "pro-mode"
+    ],
+    "created": "2026-05-02T01:15:45Z",
+    "updated": "2026-05-02T01:23:29Z",
+    "worktree": "termux-shell"
+  },
+  "ts-phase6-settings-qa": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-phase5-agent-wiring"
+    ],
+    "state": "ready",
+    "title": "Phase 6: Settings UI + QA",
+    "description": "Settings UI for Termux Shell toggle in Agent Behavior page, and comprehensive QA: workspace tasks, UI regression, mixed tasks, turn ordering, cancellation, bootstrap recovery.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "settings",
+      "qa"
+    ],
+    "created": "2026-05-02T01:15:51Z",
+    "updated": "2026-05-02T01:23:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-settings-ui": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [],
+    "state": "ready",
+    "title": "Agent Behavior settings: Termux Shell row",
+    "description": "Add Termux Shell row to Agent Behavior settings page. Three-state display: Ready, Needs Setup (tap to setup), Not Installed (tap to install). Toggle switch for enable/disable. Typed reason for debug (permission missing, allow-external-apps missing, packages missing, bridge outdated, health timeout, port_in_use). \"Setup changes apply next session\" messaging. Reads TermuxBridgeManager.state for current status.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "Settings UI shows Termux Shell row with 3-state indicator",
+      "Toggle persists to AppSettingsStore",
+      "\"applies next session\" message shown on state change",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "settings",
+      "ui"
+    ],
+    "created": "2026-05-02T01:15:59Z",
+    "updated": "2026-05-02T01:23:29Z",
+    "worktree": "termux-shell"
+  },
+  "ts-qa-workspace": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [
+      "ts-settings-ui"
+    ],
+    "state": "ready",
+    "title": "QA: workspace tasks + UI regression + mixed tasks",
+    "description": "End-to-end QA: (1) Pure workspace task in BASIC mode - run a command via termux_shell, verify output. (2) Pure workspace task in PRO mode - Planner uses termux_shell directly. (3) Pure UI task - verify no regression in mobile_action/system_button/etc. (4) Mixed UI+workspace task - combine UI navigation with termux_shell file operations in single session.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [],
+    "acceptCriteria": [
+      "Pure workspace task passes in BASIC mode",
+      "Pure workspace task passes in PRO mode (Planner runs shell directly)",
+      "Pure UI task passes with no regression",
+      "Mixed UI+workspace task completes successfully"
+    ],
+    "requireHumanReview": true,
+    "resources": [
+      "Android device with Termux installed and configured"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "qa"
+    ],
+    "created": "2026-05-02T01:16:07Z",
+    "updated": "2026-05-02T01:23:29Z",
+    "worktree": "termux-shell"
+  },
+  "ts-qa-ordering-cancel": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [
+      "ts-settings-ui"
+    ],
+    "state": "ready",
+    "title": "QA: turn ordering + cancellation",
+    "description": "Test turn ordering: mobile_action + termux_shell in same turn must NOT be reordered (both non-hoistable). Only cognitive tools (scratchpad, write_todos) hoist ahead. Test cancellation: stop session during long-running termux_shell command -> verify bridge subprocess killed promptly (not waiting 120s timeout). Verify OkHttp Call.cancel() -> TCP disconnect -> bridge process-group kill.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [],
+    "acceptCriteria": [
+      "Turn ordering test: mobile_action + termux_shell preserve LLM order",
+      "Cancellation test: session stop during long command kills subprocess within seconds",
+      "./gradlew test (ordering policy unit tests)"
+    ],
+    "resources": [
+      "Android device with Termux installed and configured"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "qa",
+      "ordering",
+      "cancellation"
+    ],
+    "created": "2026-05-02T01:16:16Z",
+    "updated": "2026-05-02T01:23:29Z",
+    "worktree": "termux-shell"
+  },
+  "ts-qa-bootstrap": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [
+      "ts-settings-ui"
+    ],
+    "state": "ready",
+    "title": "QA: bootstrap step failures + recovery",
+    "description": "Test each bootstrap step failure and recovery: Step 1 (Probe) - Termux not installed, permission missing, allow-external-apps disabled. Step 2 (Install) - pkg install failure, partial install recovery. Step 3 (Deploy) - bridge.py write failure, re-deploy on version mismatch. Step 4 (Start) - bridge start failure, health check timeout. Also test: checkpoint/reload does not resurrect dead bridge (fresh snapshot at SessionServices.create()). Each failure shows typed reason in Settings UI.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [],
+    "acceptCriteria": [
+      "Each bootstrap step failure produces correct typed reason",
+      "Recovery from each failure mode succeeds on retry",
+      "Checkpoint reload captures fresh snapshot (dead bridge not resurrected)",
+      "Settings UI shows appropriate status for each failure"
+    ],
+    "requireHumanReview": true,
+    "resources": [
+      "Android device with Termux (may need to simulate failures via package removal, permission revocation)"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "qa",
+      "bootstrap"
+    ],
+    "created": "2026-05-02T01:16:24Z",
+    "updated": "2026-05-02T01:23:29Z",
+    "worktree": "termux-shell"
   }
 }

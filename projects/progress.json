@@ -9086,5 +9086,698 @@
     "timestamp": "2026-05-01T16:15:04.961Z",
     "status": "active",
     "sessionName": "claude-skill-impl"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777655733181",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T17:15:33.181Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777657146038",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T17:39:06.038Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777659111535",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T18:11:51.535Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777659971302",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T18:26:11.302Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777662182305",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T19:03:02.305Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777662489547",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T19:08:09.547Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-browser-design-review-codex-1777663227307",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "browser-design-review-codex finished processing",
+    "timestamp": "2026-05-01T19:20:27.307Z",
+    "status": "active",
+    "sessionName": "browser-design-review-codex"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777663718667",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T19:28:38.667Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777664332796",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T19:38:52.796Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-codex-android-playwright-1777665194517",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-android-playwright finished processing",
+    "timestamp": "2026-05-01T19:53:14.517Z",
+    "status": "active",
+    "sessionName": "codex-android-playwright"
+  },
+  {
+    "id": "session-idle-w-bridge-spike-1777665256115",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-bridge-spike finished processing",
+    "timestamp": "2026-05-01T19:54:16.115Z",
+    "status": "active",
+    "sessionName": "w-bridge-spike"
+  },
+  {
+    "id": "session-idle-w-bridge-review-1777665625871",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-bridge-review finished processing",
+    "timestamp": "2026-05-01T20:00:25.871Z",
+    "status": "active",
+    "sessionName": "w-bridge-review"
+  },
+  {
+    "id": "session-idle-w-bridge-spike-1777666365923",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-bridge-spike finished processing",
+    "timestamp": "2026-05-01T20:12:45.923Z",
+    "status": "active",
+    "sessionName": "w-bridge-spike"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777666736335",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T20:18:56.335Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-bridge-review-1777667044673",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-bridge-review finished processing",
+    "timestamp": "2026-05-01T20:24:04.673Z",
+    "status": "active",
+    "sessionName": "w-bridge-review"
+  },
+  {
+    "id": "session-idle-w-bridge-spike-1777667229890",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-bridge-spike finished processing",
+    "timestamp": "2026-05-01T20:27:09.890Z",
+    "status": "active",
+    "sessionName": "w-bridge-spike"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777667538023",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T20:32:18.023Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-bridge-spike-1777667784668",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-bridge-spike finished processing",
+    "timestamp": "2026-05-01T20:36:24.668Z",
+    "status": "active",
+    "sessionName": "w-bridge-spike"
+  },
+  {
+    "id": "session-idle-w-bridge-review-1777668957032",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-bridge-review finished processing",
+    "timestamp": "2026-05-01T20:55:57.032Z",
+    "status": "active",
+    "sessionName": "w-bridge-review"
+  },
+  {
+    "id": "session-idle-w-bridge-spike-1777669080533",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-bridge-spike finished processing",
+    "timestamp": "2026-05-01T20:58:00.533Z",
+    "status": "active",
+    "sessionName": "w-bridge-spike"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777669389409",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T21:03:09.409Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777669822101",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T21:10:22.101Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-cdp-client-1777670501028",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-cdp-client finished processing",
+    "timestamp": "2026-05-01T21:21:41.028Z",
+    "status": "active",
+    "sessionName": "w-cdp-client"
+  },
+  {
+    "id": "session-idle-w-cdp-review-1777670810203",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-cdp-review finished processing",
+    "timestamp": "2026-05-01T21:26:50.204Z",
+    "status": "active",
+    "sessionName": "w-cdp-review"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777671181328",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T21:33:01.328Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-cdp-client-1777671551686",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-cdp-client finished processing",
+    "timestamp": "2026-05-01T21:39:11.686Z",
+    "status": "active",
+    "sessionName": "w-cdp-client"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777671737070",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T21:42:17.070Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-cdp-review-1777671798923",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-cdp-review finished processing",
+    "timestamp": "2026-05-01T21:43:18.923Z",
+    "status": "active",
+    "sessionName": "w-cdp-review"
+  },
+  {
+    "id": "session-idle-w-cdp-client-1777672169598",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-cdp-client finished processing",
+    "timestamp": "2026-05-01T21:49:29.598Z",
+    "status": "active",
+    "sessionName": "w-cdp-client"
+  },
+  {
+    "id": "session-idle-w-cdp-review-1777672293190",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-cdp-review finished processing",
+    "timestamp": "2026-05-01T21:51:33.190Z",
+    "status": "active",
+    "sessionName": "w-cdp-review"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777672417094",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T21:53:37.094Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-cdp-client-1777672478956",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-cdp-client finished processing",
+    "timestamp": "2026-05-01T21:54:38.956Z",
+    "status": "active",
+    "sessionName": "w-cdp-client"
+  },
+  {
+    "id": "session-idle-codex-eng-review-1777672727352",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "codex-eng-review finished processing",
+    "timestamp": "2026-05-01T21:58:47.352Z",
+    "status": "active",
+    "sessionName": "codex-eng-review"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777673037889",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T22:03:57.889Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777673782783",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T22:16:22.783Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777674527627",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T22:28:47.627Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777675334027",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T22:42:14.027Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-script-host-1777675582134",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-script-host finished processing",
+    "timestamp": "2026-05-01T22:46:22.134Z",
+    "status": "active",
+    "sessionName": "w-script-host"
+  },
+  {
+    "id": "session-idle-w-script-review-1777675830544",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-script-review finished processing",
+    "timestamp": "2026-05-01T22:50:30.544Z",
+    "status": "active",
+    "sessionName": "w-script-review"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777676389997",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T22:59:49.997Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-script-host-1777676390010",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-script-host finished processing",
+    "timestamp": "2026-05-01T22:59:50.010Z",
+    "status": "active",
+    "sessionName": "w-script-host"
+  },
+  {
+    "id": "session-idle-w-script-review-1777676700895",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-script-review finished processing",
+    "timestamp": "2026-05-01T23:05:00.895Z",
+    "status": "active",
+    "sessionName": "w-script-review"
+  },
+  {
+    "id": "session-idle-w-script-host-1777677197657",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-script-host finished processing",
+    "timestamp": "2026-05-01T23:13:17.657Z",
+    "status": "active",
+    "sessionName": "w-script-host"
+  },
+  {
+    "id": "session-idle-w-script-review-1777677384104",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-script-review finished processing",
+    "timestamp": "2026-05-01T23:16:24.104Z",
+    "status": "active",
+    "sessionName": "w-script-review"
+  },
+  {
+    "id": "session-idle-w-script-host-1777677508630",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-script-host finished processing",
+    "timestamp": "2026-05-01T23:18:28.630Z",
+    "status": "active",
+    "sessionName": "w-script-host"
+  },
+  {
+    "id": "session-idle-w-script-tool-1777678006572",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-script-tool finished processing",
+    "timestamp": "2026-05-01T23:26:46.572Z",
+    "status": "active",
+    "sessionName": "w-script-tool"
+  },
+  {
+    "id": "session-idle-w-script-tool-review-1777678255909",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-script-tool-review finished processing",
+    "timestamp": "2026-05-01T23:30:55.910Z",
+    "status": "active",
+    "sessionName": "w-script-tool-review"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777678879284",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T23:41:19.284Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-script-tool-1777679004064",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-script-tool finished processing",
+    "timestamp": "2026-05-01T23:43:24.064Z",
+    "status": "active",
+    "sessionName": "w-script-tool"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777679066395",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-01T23:44:26.395Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-script-tool-review-1777679128738",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-script-tool-review finished processing",
+    "timestamp": "2026-05-01T23:45:28.738Z",
+    "status": "active",
+    "sessionName": "w-script-tool-review"
+  },
+  {
+    "id": "session-idle-w-script-tool-1777679689295",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-script-tool finished processing",
+    "timestamp": "2026-05-01T23:54:49.295Z",
+    "status": "active",
+    "sessionName": "w-script-tool"
+  },
+  {
+    "id": "session-idle-w-script-tool-review-1777679813920",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-script-tool-review finished processing",
+    "timestamp": "2026-05-01T23:56:53.920Z",
+    "status": "active",
+    "sessionName": "w-script-tool-review"
+  },
+  {
+    "id": "session-idle-w-script-tool-1777680063482",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "w-script-tool finished processing",
+    "timestamp": "2026-05-02T00:01:03.482Z",
+    "status": "active",
+    "sessionName": "w-script-tool"
+  },
+  {
+    "id": "session-idle-w-session-integ-1777680687373",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-session-integ finished processing",
+    "timestamp": "2026-05-02T00:11:27.373Z",
+    "status": "active",
+    "sessionName": "w-session-integ"
+  },
+  {
+    "id": "session-idle-w-session-review-1777680999707",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-session-review finished processing",
+    "timestamp": "2026-05-02T00:16:39.707Z",
+    "status": "active",
+    "sessionName": "w-session-review"
+  },
+  {
+    "id": "session-idle-w-session-integ-1777681373914",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-session-integ finished processing",
+    "timestamp": "2026-05-02T00:22:53.914Z",
+    "status": "active",
+    "sessionName": "w-session-integ"
+  },
+  {
+    "id": "session-idle-w-session-review-1777681498873",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-session-review finished processing",
+    "timestamp": "2026-05-02T00:24:58.873Z",
+    "status": "active",
+    "sessionName": "w-session-review"
+  },
+  {
+    "id": "session-idle-w-session-integ-1777681935141",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-session-integ finished processing",
+    "timestamp": "2026-05-02T00:32:15.141Z",
+    "status": "active",
+    "sessionName": "w-session-integ"
+  },
+  {
+    "id": "session-idle-w-session-review-1777681997673",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-session-review finished processing",
+    "timestamp": "2026-05-02T00:33:17.673Z",
+    "status": "active",
+    "sessionName": "w-session-review"
+  },
+  {
+    "id": "session-idle-w-session-integ-1777682434749",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-session-integ finished processing",
+    "timestamp": "2026-05-02T00:40:34.749Z",
+    "status": "active",
+    "sessionName": "w-session-integ"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777682621326",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-02T00:43:41.326Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777682808747",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-02T00:46:48.747Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-session-integ-1777682933778",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-session-integ finished processing",
+    "timestamp": "2026-05-02T00:48:53.778Z",
+    "status": "active",
+    "sessionName": "w-session-integ"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777683121330",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-02T00:52:01.330Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-skill-v0-1777683370968",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-skill-v0 finished processing",
+    "timestamp": "2026-05-02T00:56:10.968Z",
+    "status": "active",
+    "sessionName": "w-skill-v0"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777683558687",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-02T00:59:18.687Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-skill-v0-review-1777683683953",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-skill-v0-review finished processing",
+    "timestamp": "2026-05-02T01:01:23.953Z",
+    "status": "active",
+    "sessionName": "w-skill-v0-review"
+  },
+  {
+    "id": "session-idle-w-skill-v0-1777683996735",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-skill-v0 finished processing",
+    "timestamp": "2026-05-02T01:06:36.735Z",
+    "status": "active",
+    "sessionName": "w-skill-v0"
+  },
+  {
+    "id": "session-idle-w-skill-v0-review-1777684121116",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-skill-v0-review finished processing",
+    "timestamp": "2026-05-02T01:08:41.116Z",
+    "status": "active",
+    "sessionName": "w-skill-v0-review"
+  },
+  {
+    "id": "session-idle-w-skill-v0-1777684246183",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-skill-v0 finished processing",
+    "timestamp": "2026-05-02T01:10:46.183Z",
+    "status": "active",
+    "sessionName": "w-skill-v0"
+  },
+  {
+    "id": "session-idle-w-skill-v0-review-1777684371259",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-skill-v0-review finished processing",
+    "timestamp": "2026-05-02T01:12:51.259Z",
+    "status": "active",
+    "sessionName": "w-skill-v0-review"
+  },
+  {
+    "id": "session-idle-w-skill-v0-1777684683745",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-skill-v0 finished processing",
+    "timestamp": "2026-05-02T01:18:03.745Z",
+    "status": "active",
+    "sessionName": "w-skill-v0"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777684746417",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-02T01:19:06.417Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-verify-1777684808587",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-verify finished processing",
+    "timestamp": "2026-05-02T01:20:08.587Z",
+    "status": "active",
+    "sessionName": "w-verify"
+  },
+  {
+    "id": "session-idle-claude-coding-design-1777684933790",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-coding-design finished processing",
+    "timestamp": "2026-05-02T01:22:13.790Z",
+    "status": "active",
+    "sessionName": "claude-coding-design"
+  },
+  {
+    "id": "session-idle-w-skill-v0-1777684996428",
+    "agent": "codex",
+    "type": "session_idle",
+    "message": "w-skill-v0 finished processing",
+    "timestamp": "2026-05-02T01:23:16.428Z",
+    "status": "active",
+    "sessionName": "w-skill-v0"
   }
 ]
