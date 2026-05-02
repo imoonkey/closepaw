@@ -1667,7 +1667,7 @@
     "depends": [
       "ts-bridge-pytest"
     ],
-    "state": "ready",
+    "state": "running",
     "title": "Codex review: Phase 2 Bridge Daemon",
     "description": "Codex code-review of bridge daemon: closepaw_bridge.py, exec loop, health endpoint, pidfile, output cap, idle watchdog, and host-side pytest.",
     "worktree": "termux-shell",
@@ -1677,10 +1677,10 @@
       "review written to projects/active/termux_shell/reviews/phase2_review.md",
       "no high-severity findings remain unaddressed"
     ],
-    "agent": "codex",
+    "agent": "w-ts-review-phase2",
     "estimate": "s",
     "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T01:32:15Z"
+    "updated": "2026-05-02T02:14:23Z"
   },
   "ts-review-phase3": {
     "parent": "ts-phase3-bridge-manager",

@@ -47,8 +47,14 @@ def free_port():
 def bridge_factory():
     processes = []
 
-    def start_bridge(port, home):
-        proc = start_process(port, home)
+    def start_bridge(port, home, idle_timeout_sec=0, watchdog_tick_sec=None, extra_env=None):
+        proc = start_process(
+            port,
+            home,
+            idle_timeout_sec=idle_timeout_sec,
+            watchdog_tick_sec=watchdog_tick_sec,
+            extra_env=extra_env,
+        )
         processes.append(proc)
         bridge = BridgeProcess(port=port, home=home, process=proc)
         wait_for_health(bridge)
@@ -66,21 +72,26 @@ def bridge_server(tmp_path, free_port, bridge_factory):
     return bridge_factory(free_port, tmp_path)
 
 
-def start_process(port, home):
+def start_process(port, home, idle_timeout_sec=0, watchdog_tick_sec=None, extra_env=None):
     env = os.environ.copy()
     env["HOME"] = str(home)
     env["PYTHONUNBUFFERED"] = "1"
+    if extra_env:
+        env.update(extra_env)
+    args = [
+        sys.executable,
+        str(BRIDGE_SCRIPT),
+        "--host",
+        HOST,
+        "--port",
+        str(port),
+        "--idle-timeout-sec",
+        str(idle_timeout_sec),
+    ]
+    if watchdog_tick_sec is not None:
+        args.extend(["--watchdog-tick-sec", str(watchdog_tick_sec)])
     return subprocess.Popen(
-        [
-            sys.executable,
-            str(BRIDGE_SCRIPT),
-            "--host",
-            HOST,
-            "--port",
-            str(port),
-            "--idle-timeout-sec",
-            "0",
-        ],
+        args,
         cwd=str(home),
         env=env,
         stdout=subprocess.PIPE,
