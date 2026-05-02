@@ -17,11 +17,17 @@ import ai.closepaw.trace.NoopTraceRecorder
 import io.mockk.every
 import io.mockk.mockk
 import java.io.ByteArrayInputStream
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 class SessionServicesProviderRoutingTest {
+
+  @get:Rule
+  val tempDir = TemporaryFolder()
 
   @Test
   fun `openrouter model works without openai key`() {
@@ -89,15 +95,18 @@ class SessionServicesProviderRoutingTest {
     val context = mockk<Context>(relaxed = true)
     val assets = mockk<AssetManager>()
     every { context.assets } returns assets
-    every { context.filesDir } returns java.io.File(System.getProperty("java.io.tmpdir"), "test-agent")
-    every { assets.open("llm_models.json") } answers
-            {
-              ByteArrayInputStream(CATALOG_JSON.toByteArray())
-            }
-    every { assets.open("security/app_tiers.json") } answers
-            {
-              ByteArrayInputStream(APP_TIERS_JSON.toByteArray())
-            }
+    every { context.filesDir } returns tempDir.newFolder("files")
+    every { assets.list(any<String>()) } answers {
+      val file = File("src/main/assets", firstArg<String>())
+      if (file.isDirectory) file.list().orEmpty() else emptyArray()
+    }
+    every { assets.open(any<String>()) } answers {
+      when (val path = firstArg<String>()) {
+        "llm_models.json" -> ByteArrayInputStream(CATALOG_JSON.toByteArray())
+        "security/app_tiers.json" -> ByteArrayInputStream(APP_TIERS_JSON.toByteArray())
+        else -> File("src/main/assets", path).inputStream()
+      }
+    }
     return context
   }
 

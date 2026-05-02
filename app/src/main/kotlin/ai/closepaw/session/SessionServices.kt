@@ -7,6 +7,7 @@ import ai.closepaw.agent.cognition.prompt.AppSkillRepository
 import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.agent.cognition.prompt.EmptyAppSkillRepository
 import ai.closepaw.agent.cognition.skills.AgentSkillManager
+import ai.closepaw.agent.cognition.skills.BundledAgentSkillInstaller
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.browser.cdp.shizuku.ShizukuStatusAdapter
 import ai.closepaw.browser.script.BrowserSessionManager
@@ -112,7 +113,9 @@ class SessionServices internal constructor(
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
             val classifier = appClassifier ?: AppClassifier.fromAssets(context.assets)
-            val agentSkillManager = AgentSkillManager(java.io.File(context.filesDir, "skills"))
+            val skillsDir = java.io.File(context.filesDir, "skills")
+            installBundledAgentSkills(context, skillsDir)
+            val agentSkillManager = AgentSkillManager(skillsDir)
             val settingsStore = AppSettingsStore(context)
             val persistentAllowList = settingsStore.loadPersistentAllowList()
             val tooling = SessionToolingBootstrapper.create(
@@ -168,6 +171,18 @@ class SessionServices internal constructor(
                     memoryStore = memoryStore,
                     memoryRecaller = memoryRecaller
             )
+        }
+
+        internal fun installBundledAgentSkills(context: Context, skillsDir: java.io.File) {
+            val hasExistingBrowserUse = BundledAgentSkillInstaller.hasCompletedBrowserUseInstall(skillsDir)
+            try {
+                BundledAgentSkillInstaller(context.assets).install(skillsDir)
+            } catch (e: Exception) {
+                if (!hasExistingBrowserUse) {
+                    throw IllegalStateException("Failed to install bundled browser-use skill", e)
+                }
+                Log.w(TAG, "Failed to refresh bundled agent skills; keeping existing install", e)
+            }
         }
 
         internal fun registerBrowserScriptTool(
