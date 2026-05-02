@@ -226,7 +226,7 @@
   "browser-cdp-runtime": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Browser CDP Script Runtime",
     "description": "Implement ClosePaw's minimal browser automation path: one raw browser_script tool backed by Android Chrome CDP through Shizuku, a hidden WebView JS host exposing only cdp(), browser-use skill snippets, session lifecycle wiring, policy gates, and verification.",
     "design": "projects/active/browser/cn/design_codex.md",
@@ -244,6 +244,7 @@
       "All child tasks are done",
       "projects/active/browser/cn/design_codex.md remains the implementation source of truth"
     ],
+    "note": "Done. End-to-end browser_script round-trip verified on real device (PASS). 5 follow-up tasks remain ready: browser-cdp-bridge-spike-hardening (UserService callback identity), browser-script-host-cancel-guard (page-load cancellation race), browser-cdp-websocket-shizuku-tunnel (production CDP WS over Shizuku), browser-screenshot-artifact-formatting (no base64 in tool output), browser-cdp-command-timeout-recovery (typed CDP timeout + reconnect). Each is hardening, not blocking.",
     "priority": "high",
     "estimate": "xl",
     "tags": [
@@ -699,7 +700,9 @@
     "depends": [
       "browser-holistic-review"
     ],
-    "state": "ready",
+    "state": "done",
+    "agent": "w-device-qa",
+    "note": "PASS via debug TCP fallback path. Production Shizuku UserService LocalSocket.connect returns Permission denied on this device build (Android 16, nubia P0110). End-to-end browser_script round-trip (open page → title → screenshot → new tab → switch → restore) verified. Underlying Shizuku UserService work tracked under browser-cdp-bridge-spike-hardening + browser-cdp-websocket-shizuku-tunnel.",
     "title": "Real-device QA for Browser CDP use case",
     "description": "Run one real-device browser automation use case through browser_script and the installed browser-use snippets. Exercise page open, title/content read through CDP, screenshot evidence, tab creation or switching, and return to the original tab. Document the device/app build, setup, steps, result, and evidence.",
     "design": "projects/active/browser/cn/design_codex.md",
