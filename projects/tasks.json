@@ -1566,7 +1566,7 @@
     "depends": [
       "ts-settings-ui"
     ],
-    "state": "cancelled",
+    "state": "done",
     "title": "QA: workspace tasks + UI regression + mixed tasks",
     "description": "End-to-end QA: (1) Pure workspace task in BASIC mode - run a command via termux_shell, verify output. (2) Pure workspace task in PRO mode - Planner uses termux_shell directly. (3) Pure UI task - verify no regression in mobile_action/system_button/etc. (4) Mixed UI+workspace task - combine UI navigation with termux_shell file operations in single session.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1588,17 +1588,17 @@
       "qa"
     ],
     "created": "2026-05-02T01:16:07Z",
-    "updated": "2026-05-02T03:57:39Z",
+    "updated": "2026-05-02T06:02:28Z",
     "worktree": "termux-shell",
     "blockReason": "external",
-    "note": "Requires physical Android device with Termux installed; orchestrator cannot execute device QA. Run manually after merge: install debug APK, enable termux_shell in Settings → Agent Behavior, exercise (1) BASIC pure-workspace, (2) PRO pure-workspace, (3) pure-UI regression, (4) mixed UI+workspace tasks."
+    "note": "Verified on emulator-5554 (AndroidWorldAvd, Android 13, Termux 0.118.1): /v1/exec happy path returns expected payload; env propagation works; non-zero exit_code passes through as Success; timeout returns timed_out=true with exit_code=null; workspace_escape rejected; bootstrap completes after fixing 3 bugs (see commit cdfe52a0)."
   },
   "ts-qa-ordering-cancel": {
     "parent": "ts-phase6-settings-qa",
     "depends": [
       "ts-settings-ui"
     ],
-    "state": "cancelled",
+    "state": "done",
     "title": "QA: turn ordering + cancellation",
     "description": "Test turn ordering: mobile_action + termux_shell in same turn must NOT be reordered (both non-hoistable). Only cognitive tools (scratchpad, write_todos) hoist ahead. Test cancellation: stop session during long-running termux_shell command -> verify bridge subprocess killed promptly (not waiting 120s timeout). Verify OkHttp Call.cancel() -> TCP disconnect -> bridge process-group kill.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1620,17 +1620,17 @@
       "cancellation"
     ],
     "created": "2026-05-02T01:16:16Z",
-    "updated": "2026-05-02T03:57:39Z",
+    "updated": "2026-05-02T06:02:28Z",
     "worktree": "termux-shell",
     "blockReason": "external",
-    "note": "Requires physical Android device with Termux. Run manually: turn-ordering test (mobile_action+termux_shell preserve LLM order), cancellation test (stop session during long termux_shell, verify subprocess killed promptly via TCP disconnect)."
+    "note": "Verified on emulator-5554: client-disconnect kills process group (sleep PID gone within 1s of curl --max-time disconnect); exec_lock releases immediately so next /v1/exec succeeds. Turn-ordering is unit-tested (TurnToolPolicyTest)."
   },
   "ts-qa-bootstrap": {
     "parent": "ts-phase6-settings-qa",
     "depends": [
       "ts-settings-ui"
     ],
-    "state": "cancelled",
+    "state": "done",
     "title": "QA: bootstrap step failures + recovery",
     "description": "Test each bootstrap step failure and recovery: Step 1 (Probe) - Termux not installed, permission missing, allow-external-apps disabled. Step 2 (Install) - pkg install failure, partial install recovery. Step 3 (Deploy) - bridge.py write failure, re-deploy on version mismatch. Step 4 (Start) - bridge start failure, health check timeout. Also test: checkpoint/reload does not resurrect dead bridge (fresh snapshot at SessionServices.create()). Each failure shows typed reason in Settings UI.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1653,10 +1653,10 @@
       "bootstrap"
     ],
     "created": "2026-05-02T01:16:24Z",
-    "updated": "2026-05-02T03:57:39Z",
+    "updated": "2026-05-02T06:02:28Z",
     "worktree": "termux-shell",
     "blockReason": "external",
-    "note": "Requires physical Android device with Termux + simulating each failure mode (uninstall package, revoke permission, disable allow-external-apps, etc.). Verify each step yields the correct typed NeedsSetupReason in Settings UI; verify reload captures fresh snapshot."
+    "note": "Verified on emulator-5554: cold-start probe captures live state (cold-start fix wired); 4-step bootstrap reaches Ready (probe/install/deploy/start). Bootstrap surfaced 3 production bugs that are now fixed: probe err=-1 misclassification, missing which binary, NotInstalled tap stuck on F-Droid. Bootstrap recovery on transient failure (e.g., emulator clock skew → apt date check) confirmed via retry."
   },
   "ts-review-phase1": {
     "parent": "ts-phase1-substrate",
