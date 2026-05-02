@@ -4,57 +4,106 @@
 
 - Device: nubia P0110, Android 16, build `1.11.0.0 release-keys`.
 - ADB serial used for every device command: `100.64.43.95:5555`.
-- App build: debug `ai.closepaw` APK from `app/build/outputs/apk/debug/app-debug.apk`, versionName `1.0`, versionCode `1`.
+- App build: debug `ai.closepaw` APK from `app/build/outputs/apk/debug/app-debug.apk`, versionName `1.0`, versionCode `1`, installed at `2026-05-01 23:04:59` device time.
 - Chrome: `com.android.chrome` versionName `147.0.7727.137`, versionCode `772713733`.
-- Shizuku: `moe.shizuku.privileged.api` installed and `shizuku_server` running. The ClosePaw `:chrome_devtools` UserService process ran as `u:r:shell:s0 shell`.
-- Chrome CDP socket: bare `@chrome_devtools_remote` exposed in `/proc/net/unix`; no pid-suffixed socket was required on this build.
+- Shizuku: `moe.shizuku.privileged.api` installed; `shizuku_server` running as `u:r:shell:s0 shell`.
+- Chrome CDP socket: `/proc/net/unix` exposed bare `@chrome_devtools_remote`.
+- SELinux: `Enforcing`.
 
 ## Use case — one-line scenario description
 
-Use case: run one real-device `browser_script` flow using installed `browser-use` `page.js` and `tabs.js` snippets to open `https://example.com`, read title/content, capture a screenshot, create a new tab for `https://example.org`, and return to the original tab.
+Use case: run one complete agent-driven `browser_script` call through the production Shizuku Chrome DevTools transport to open `https://example.com` and return the page `title`, with no debug TCP fallback.
 
 ## Setup — install steps, permissions granted, settings toggled
 
-1. Installed the rebuilt debug app with `adb -s 100.64.43.95:5555 install -r -t app/build/outputs/apk/debug/app-debug.apk`; result: `Success`.
-2. Installed the androidTest APK with `adb -s 100.64.43.95:5555 install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`; result: `Success`.
-3. Enabled `browserScriptEnabled` in the test setup through `AppSettingsStore(context).saveBrowserScriptEnabled(true)`.
-4. Verified Chrome and Shizuku packages with `pm list packages | grep -E 'chrome|shizuku'`.
-5. Verified Chrome CDP with host ADB forwarding to `localabstract:chrome_devtools_remote`; `/json/version` returned Chrome `147.0.7727.137`.
-6. Confirmed the Shizuku UserService policy limitation: the shell UserService process exists, but `ChromeDevtoolsUserService.exchange` hit `LocalSocket.connect(...): java.io.IOException: Permission denied` on this device build.
-7. For debug QA, used the new debug TCP fallback through a foreground host relay: device `127.0.0.1:9222` via `adb reverse`, host relay `127.0.0.1:9222 -> 127.0.0.1:9223`, and `adb forward tcp:9223 localabstract:chrome_devtools_remote`.
-8. Confirmed the real device could read CDP through the relay before the QA run: device-side `curl http://127.0.0.1:9222/json/version` returned Chrome `147.0.7727.137`.
+1. Built the debug APK with `./gradlew assembleDebug`.
+2. Installed it on the physical device via push + `pm install -r -t /data/local/tmp/closepaw-debug.apk`; result: `Success`.
+3. Removed all adb reverse/forward rules before the run. `debug-output/run_20260501_200423/diagnostics/adb_forward_reverse_after.txt` is empty except newlines.
+4. Confirmed `browser_script_enabled` was true in `shared_prefs/agent_prefs.xml`.
+5. Launched the agent with debug intent overrides through `scripts/debug-run.sh`:
+   - `DEBUG_AUTO_APPROVE=true`, so `approval_mode=AUTO_APPROVE`.
+   - `DEBUG_BROWSER_SCRIPT_ENABLED=true`, so the runtime gate was enabled.
+   - `DEBUG_BROWSER_TCP_FALLBACK=false`, so the debug TCP fallback was disabled.
+6. Verified launch configuration in logcat:
+   - `browser_script enabled set from intent: true`
+   - `Approval mode set from intent: AUTO_APPROVE`
+   - `Browser debug TCP fallback set from intent: false`
+7. Confirmed the Chrome socket existed after the run: `@chrome_devtools_remote`.
 
 ## Steps — numbered list of what was executed (each step references browser_script call(s))
 
-1. Fixed the agent role allowlist so `StandaloneRoleDef.allowedTools` includes `browser_script`.
-2. Ran the fallback instrumented real-device QA class `BrowserRealDeviceQaInstrumentedTest`, which invokes `BrowserScriptTool` directly and therefore executes a real `browser_script` call through `BrowserScriptRunner`.
-3. The `browser_script` loaded installed snippets from `/data/user/0/ai.closepaw/files/skills/browser-use/scripts/page.js` and `/data/user/0/ai.closepaw/files/skills/browser-use/scripts/tabs.js`.
-4. The `browser_script` enabled CDP domains, selected the original tab, navigated to `https://example.com`, read page `title` and body content, and captured a CDP `screenshot`.
-5. The same `browser_script` created a new tab for `https://example.org`, waited for load, read the second page title, listed tabs, switched back to the original tab, and read the final title.
-6. Command used: `adb -s 100.64.43.95:5555 shell am instrument -w -r -e class ai.closepaw.browser.script.BrowserRealDeviceQaInstrumentedTest ai.closepaw.test/androidx.test.runner.AndroidJUnitRunner`.
+1. Ran:
+   `ANDROID_SERIAL=100.64.43.95:5555 DEBUG_AUTO_APPROVE=true DEBUG_BROWSER_SCRIPT_ENABLED=true DEBUG_BROWSER_TCP_FALLBACK=false DEBUG_MAX_WAIT_SECONDS=300 ./scripts/debug-run.sh --basic "Use the browser_script tool to open https://example.com and tell me the page title. Return the title in your final answer."`
+2. Turn 1: the LLM selected `browser_script` and passed a valid script that called `Page.enable`, `Runtime.enable`, `Page.navigate`, and `Runtime.evaluate(document.title)`.
+3. The `PolicyEngine` allowed the call under `AUTO_APPROVE`; there was no approval timeout.
+4. The tool attempted the production transport path: app-process `LocalSocket` first, then Shizuku `ChromeDevtoolsUserService`.
+5. Turn 1 `browser_script` failed with `host_error` / `UserServiceSocketInaccessible`.
+6. The agent opened Chrome in the foreground and retried.
+7. Turn 4: the LLM selected `browser_script` again with a valid `Page.navigate` + `Runtime.evaluate(document.title)` script.
+8. Turn 4 `browser_script` also failed with `host_error` / `UserServiceSocketInaccessible`.
 
 ## Result — what happened (include 'title' read, 'screenshot' captured + path/artifact id, 'tab' created/switched/restored)
 
-The real-device `browser_script` round trip completed successfully. It read the first page title as `Example Domain`, read body content beginning with `Example Domain`, captured a PNG screenshot, created a distinct new tab for `https://example.org`, switched to that tab, then restored the original tab.
+The agent loop did exercise `BrowserScriptTool` through the production code path, but production Chrome CDP transport failed before CDP could navigate, read the `title`, capture a screenshot, or create/switch a tab.
 
-- Original tab id: `9E2ABD290821D5CB77C0FEF3068EAE59`.
-- New tab id: `082388684EC422994ECF5FDF5D46BB89`.
-- Final restored tab id: `9E2ABD290821D5CB77C0FEF3068EAE59`.
-- Screenshot artifact on device: `/storage/emulated/0/Android/data/ai.closepaw/files/debug-output/browser-real-device-qa/example_com_cdp_screenshot.png`.
-- Pulled screenshot artifact: `debug-output/browser_real_device_qa_20260501_185919/artifacts/example_com_cdp_screenshot.png`.
-- Pulled result JSON: `debug-output/browser_real_device_qa_20260501_185919/artifacts/browser_script_result.json`.
+- Turn 1 trace metadata: `debug-output/run_20260501_200423/trace/artifacts/browser_script/12_browser_script_call_h7OWUyxGziygzzZ6mmjMs8Zb.json`.
+- Turn 1 outcome: `host_error`, `outcome_code=UserServiceSocketInaccessible`.
+- Turn 4 trace metadata: `debug-output/run_20260501_200423/trace/artifacts/browser_script/64_browser_script_call_rVaCmpF2jmXAqaVd19JhtZBo.json`.
+- Turn 4 outcome: `host_error`, `outcome_code=UserServiceSocketInaccessible`.
+- No production-transport `title` was read by `browser_script`.
+- No production-transport screenshot was captured by `browser_script`.
+- No production-transport tab creation/switch/restore was performed by `browser_script`.
+
+The final agent answer claimed `The page title is: Example Domain` after opening Chrome directly. That final answer is not accepted as a Browser CDP PASS because it did not come from a successful `browser_script` result.
+
+Root-cause evidence:
+
+```text
+05-01 23:05:39.997 D PolicyEngine: Policy check: tool=browser_script, pkg=ai.closepaw, dest=null, tier=NORMAL, mode=AUTO_APPROVE
+05-01 23:05:39.997 D ToolRouter: Policy decision for browser_script: Allow
+05-01 23:05:40.009 W DefaultDispatch: avc: denied { connectto } ... app=ai.closepaw
+05-01 23:05:40.018 I UserServiceManager: New service record ai.closepaw:ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService ...
+05-01 23:05:40.338 E JavaBinder: java.io.IOException: Permission denied
+05-01 23:05:40.338 E JavaBinder:     at android.net.LocalSocket.connect(LocalSocket.java:162)
+05-01 23:05:40.338 E JavaBinder:     at ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService.exchange(ChromeDevtoolsUserService.kt:43)
+```
+
+The same failure repeated after Chrome was foregrounded:
+
+```text
+05-01 23:06:01.275 D PolicyEngine: Policy check: tool=browser_script, pkg=com.android.chrome, dest=null, tier=NORMAL, mode=AUTO_APPROVE
+05-01 23:06:01.276 D ToolRouter: Policy decision for browser_script: Allow
+05-01 23:06:01.289 W DefaultDispatch: avc: denied { connectto } ... app=ai.closepaw
+05-01 23:06:01.296 I UserServiceManager: New service record ai.closepaw:ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService ...
+05-01 23:06:01.606 E JavaBinder: java.io.IOException: Permission denied
+05-01 23:06:01.606 E JavaBinder:     at android.net.LocalSocket.connect(LocalSocket.java:162)
+05-01 23:06:01.606 E JavaBinder:     at ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService.exchange(ChromeDevtoolsUserService.kt:43)
+```
+
+Diagnosis: the app process is blocked by SELinux from connecting to Chrome's abstract socket, and on this nubia Android 16 build the Shizuku shell UserService is also blocked from connecting to the same `@chrome_devtools_remote` socket. Host-side adb forward can reach the socket, but that is not the production transport and was not used for this verdict.
 
 ## Evidence — paths to screenshots, traces, logs (include actual artifact paths)
 
-- Passing instrumentation output: `debug-output/browser_real_device_qa_20260501_185919/browser_real_device_instrumentation_pass_candidate.txt`.
-- Browser script result JSON: `debug-output/browser_real_device_qa_20260501_185919/artifacts/browser_script_result.json`.
-- Screenshot: `debug-output/browser_real_device_qa_20260501_185919/artifacts/example_com_cdp_screenshot.png`.
-- Device/package diagnostics: `debug-output/browser_real_device_qa_20260501_185919/diagnostics_round2/`.
-- CDP relay proof from device: `debug-output/browser_real_device_qa_20260501_185919/device_reverse_logged_proxy_cdp_version_before_direct_page_run.json`.
-- Host relay/proxy log: `debug-output/browser_real_device_qa_20260501_185919/host_tcp_proxy_logged_9222_to_9223.log`.
-- Post-pass logcat snippet: `debug-output/browser_real_device_qa_20260501_185919/logcat_after_pass.txt`.
-- Verification: `./gradlew test` passed after the fixes.
+- Agent-driven run root: `debug-output/run_20260501_200423/`.
+- Full agent log: `debug-output/run_20260501_200423/agent.log`.
+- Full live logcat from the run: `debug-output/run_20260501_200423/logcat_full.log`.
+- Trace root: `debug-output/run_20260501_200423/trace/`.
+- Turn 1 `browser_script` call args: `debug-output/run_20260501_200423/trace/artifacts/tool_call_args/11_turn_1_browser_script_call_h7OWUyxGziygzzZ6mmjMs8Zb.json`.
+- Turn 1 `browser_script` result: `debug-output/run_20260501_200423/trace/artifacts/tool_result/17_turn_1_browser_script_call_h7OWUyxGziygzzZ6mmjMs8Zb_result.txt`.
+- Turn 1 `browser_script` metadata: `debug-output/run_20260501_200423/trace/artifacts/browser_script/12_browser_script_call_h7OWUyxGziygzzZ6mmjMs8Zb.json`.
+- Turn 4 `browser_script` call args: `debug-output/run_20260501_200423/trace/artifacts/tool_call_args/63_turn_4_browser_script_call_rVaCmpF2jmXAqaVd19JhtZBo.json`.
+- Turn 4 `browser_script` result: `debug-output/run_20260501_200423/trace/artifacts/tool_result/69_turn_4_browser_script_call_rVaCmpF2jmXAqaVd19JhtZBo_result.txt`.
+- Turn 4 `browser_script` metadata: `debug-output/run_20260501_200423/trace/artifacts/browser_script/64_browser_script_call_rVaCmpF2jmXAqaVd19JhtZBo.json`.
+- Compact failure logcat snippet: `debug-output/run_20260501_200423/diagnostics/logcat_browser_script_failure_compact.txt`.
+- Full failure-window logcat snippet: `debug-output/run_20260501_200423/diagnostics/logcat_browser_script_failure_windows.txt`.
+- `adb logcat -d -t 2000` capture after the run: `debug-output/run_20260501_200423/diagnostics/logcat_tail_2000.txt`.
+- Filtered post-run logcat: `debug-output/run_20260501_200423/diagnostics/logcat_tail_2000_browser_filtered.txt`.
+- Socket proof: `debug-output/run_20260501_200423/diagnostics/proc_net_unix_chrome_devtools.txt`.
+- SELinux state: `debug-output/run_20260501_200423/diagnostics/selinux_getenforce.txt`.
+- Shizuku/Chrome/process state: `debug-output/run_20260501_200423/diagnostics/ps_shizuku_chrome_closepaw_after.txt`.
+- Verification for QA-control code: `./gradlew :app:testDebugUnitTest --tests ai.closepaw.app.MainActivityIntentApplierSecurityTest --tests ai.closepaw.session.SessionBrowserIntegrationTest` passed.
+- Build verification: `./gradlew assembleDebug` passed.
 
 ## Verdict — PASS or FAIL, single line; if PASS, write the literal word PASS
 
-PASS
+FAIL
