@@ -939,7 +939,7 @@
   "ts-bridge-server": {
     "parent": "ts-phase2-bridge-daemon",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Bridge HTTP server + endpoints + pidfile management",
     "description": "Implement ThreadingHTTPServer on 127.0.0.1:18422 with /v1/exec (POST) and /v1/health (GET) endpoints. Pidfile management: write {pid, port, version, identity: \"closepaw-bridge\"} on start. On startup: if pidfile exists, check identity → kill old bridge if ours, return port_in_use if not. Idempotent startup. All responses JSON. Health returns {status, version, identity}.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -962,15 +962,16 @@
       "python"
     ],
     "created": "2026-05-02T01:13:05Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T02:08:37Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-bridge-daemon"
   },
   "ts-bridge-exec": {
     "parent": "ts-phase2-bridge-daemon",
     "depends": [
       "ts-bridge-server"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Bridge exec: timeout, disconnect, output cap, exec lock",
     "description": "Implement /v1/exec execution loop: subprocess.Popen([\"bash\", \"-c\", command]) with start_new_session=True for process-group kill. Two drain threads for stdout/stderr to avoid pipe deadlock. Process-group kill on timeout (os.killpg). Client disconnect detection (poll socket) triggers immediate kill. Output cap with independent stdout/stderr truncation: each has _truncated boolean and _ref path to artifact file in ~/.closepaw/artifacts/. Exec lock: only one /v1/exec at a time, busy returns HTTP 409. Non-zero exit code returns HTTP 200 with exit_code field.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -993,7 +994,7 @@
       "python"
     ],
     "created": "2026-05-02T01:13:15Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T02:08:37Z",
     "worktree": "termux-shell"
   },
   "ts-bridge-watchdog": {
@@ -1001,7 +1002,7 @@
     "depends": [
       "ts-bridge-server"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Bridge idle watchdog (30 min auto-exit)",
     "description": "Implement 30-minute idle watchdog. Track last request timestamp. Background thread checks periodically; if no /v1/exec or /v1/health received within 30 minutes, server shuts down gracefully. Saves battery on Android device.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1020,7 +1021,7 @@
       "python"
     ],
     "created": "2026-05-02T01:13:21Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T02:08:37Z",
     "worktree": "termux-shell"
   },
   "ts-bridge-pytest": {
