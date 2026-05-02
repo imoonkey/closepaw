@@ -1,0 +1,21 @@
+==> step 4a: load-bearing question — does adb forward create a DEVICE-SIDE listener?
+
+--- BASELINE: TCP listening on device ---
+tcp        0      0 127.0.0.1:53922         0.0.0.0:*               LISTEN     
+tcp6       0      0 [::]:5555               [::]:*                  LISTEN     
+tcp6       0      0 ::ffff:127.0.0.1:43129  [::]:*                  LISTEN     
+--- BASELINE: TCP listening on host (filtered to 9xxx) ---
+(empty above means no host listeners on 9999/9222)
+--- ADB FORWARD: tcp:9999 -> localabstract:chrome_devtools_remote ---
+9999
+--- AFTER FORWARD: TCP listening on DEVICE (looking for :9999 specifically) ---
+(empty = no NEW device-side listener; the forward listener lives on HOST)
+
+--- AFTER FORWARD: TCP listening on HOST (looking for :9999) ---
+LISTEN 0       128                         127.0.0.1:9999         0.0.0.0:*     
+--- HOST can reach Chrome's CDP via forward ---
+{
+   "Android-Package": "com.android.chrome",
+   "Browser": "Chrome/147.0.7727.137",
+--- DEVICE-SIDE shell tries to reach 127.0.0.1:9999 ---
+EXIT=7

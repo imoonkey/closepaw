@@ -1,0 +1,4 @@
+==> step 4g: confirm raw adb-protocol exchange with adbd (proper A_CNXN packet)
+--- send A_CNXN to localhost:5555 from device shell, dump first 256 bytes of response ---
+
+(decoded: AUTH packet means adbd wants RSA challenge-response; CNXN means already authenticated/no-auth-required)

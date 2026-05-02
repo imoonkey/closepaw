@@ -1,0 +1,34 @@
+--- check if chrome_devtools_remote socket exists ---
+0000000000000000: 00000002 00000000 00000000 0001 02     0 @chrome_devtools_remote
+0000000000000000: 00000002 00000000 00000000 0001 02     0 @chrome_devtools_remote
+0000000000000000: 00000002 00000000 00010000 0001 01 14372175 @chrome_devtools_remote
+
+--- check chrome process ---
+shell          398     1   16382524 284060 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell          911     1   16459388 284376 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         1535     1   16076540 283544 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         2737     1   16384700 283896 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         3593     1   16153276 283368 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         3994     1   16305916 283556 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         4589     1   16335548 283492 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         4736     1   16474856 284980 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u0_a211       5155  1946   41715152 110340 0                   0 S com.android.chrome_zygote
+shell         5500     1   16339816 285332 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         5688     1   16333416 285736 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         6518     1   16107136 284288 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell         7563     1   16467584 283548 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+u0_a211      10090  1946   43265488 396028 0                   0 S com.android.chrome
+u0_i6        10239  5155  270826120 285172 0                   0 S com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0
+u0_a211      10273  1946   42745236 272664 0                   0 S com.android.chrome:privileged_process0
+shell        15624     1   16605888 284028 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell        19433     1   16541324 283816 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell        19537     1   16260748 283888 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell        29742     1   16437940 283788 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell        30738     1   16270004 284184 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+shell        32069     1   15976360 286028 do_epoll_wait       0 S ai.closepaw:chrome_devtools
+
+--- if no, relaunch Chrome ---
+Starting: Intent { cmp=com.android.chrome/com.google.android.apps.chrome.Main }
+Warning: Activity not started, its current task has been brought to the front
+--- recheck ---
+0000000000000000: 00000002 00000000 00010000 0001 01 14372175 @chrome_devtools_remote

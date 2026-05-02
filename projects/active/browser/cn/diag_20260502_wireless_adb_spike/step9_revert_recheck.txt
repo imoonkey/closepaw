@@ -1,0 +1,24 @@
+==> step 9: revert behavior post-reauth
+--- toggle off then back on, watch for revert ---
+--- after off: ---
+0
+
+--- 300ms after on: ---
+0
+--- 2.3s after on: ---
+0
+
+--- adbd log (any new revert?) ---
+05-02 14:40:58.471  3394  3442 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+05-02 14:40:59.473  3394  5062 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+
+--- so does the revert STILL happen now? ---
+(if the value persists, the OEM revert is gated on something the user just satisfied)
+
+--- is there a pairing port active? (look for service.adb.tls.pairing.* property or another listener) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+
+--- any new mdns service from adbd? ---

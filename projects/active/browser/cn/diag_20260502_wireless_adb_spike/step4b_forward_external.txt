@@ -1,0 +1,24 @@
+==> step 4b: alternative — what if we bind forward to 0.0.0.0:N (host external)?
+
+--- Try adb forward on 0.0.0.0:9999 ---
+adb: error: Invalid source port: '0.0.0.0:9999'
+--- host listening (should be 0.0.0.0:9999 if bind-all worked) ---
+adb: error: listener 'tcp:0.0.0.0:9999' not found
+
+==> step 4c: device-side process trying to reach adbd's own TCP 5555 listener
+If app can talk to localhost:5555 (adbd's adb-protocol port) directly, we have a path.
+
+--- shell attempts to connect to adbd:5555 and read banner ---
+EXIT=0
+--- app context (run-as ai.closepaw) attempts to reach adbd:5555 ---
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:5555...
+* Connected to 127.0.0.1 (127.0.0.1) port 5555
+* using HTTP/1.x
+> GET / HTTP/1.1
+> Host: 127.0.0.1:5555
+> User-Agent: curl/8.12.0-DEV
+> Accept: */*
+> 
+EXIT=0

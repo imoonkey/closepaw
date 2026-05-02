@@ -1,0 +1,14 @@
+==> step 4d: adbd authentication surface
+--- /data/misc/adb/* listing and perms ---
+ls: /data/misc/adb/: Permission denied
+--- can shell context read adb_keys? ---
+cat: /data/misc/adb/adb_keys: Permission denied
+EXIT=0
+--- can shell write to adb_keys? (dry-run via test/write) ---
+EXIT=1
+ls: /data/misc/adb/test: Permission denied
+
+==> step 4e: shell-context speaking to adbd:5555 — issue host:version ---
+(expected: OKAY 0004 + 4-byte version, or AUTH challenge if unauthenticated)
+
+==> step 4f: try the whole forward-via-adbd-from-shell

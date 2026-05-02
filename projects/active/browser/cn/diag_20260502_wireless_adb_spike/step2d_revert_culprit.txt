@@ -1,0 +1,169 @@
+==> step 2d: identify who reverts adb_wifi_enabled to 0
+--- listeners for ADB_WIRELESS_DEBUG_STATE_CHANGED & related ---
+    Filter #2: BroadcastFilter{72dbadb}
+      Action: "com.defrag.action.debug"
+      Action: "ai.closepaw.ACTION_DEBUG_EXEC"
+      Action: "com.tencent.xweb.remotedebug"
+    Filter #0: BroadcastFilter{adbdf73}
+      Action: "com.tencent.xweb.remotedebug"
+  * ReceiverList{8adb9bb 5111 com.android.networkstack.process/1073/u0 remote:4a3964a}
+    app=8581:com.bytedance.os.slardar/u0a68 PRSmt{3adb9ca p:0 rp:8581 t:null sa:955 usps:19 sps:19 kt:0 fs:0 inSfile:false freezeBlockFlags:0 pendingInstallProviderCount:0 fm:INVALID} pid=8581 uid=10068 user=0 #receivers=2
+  * ReceiverList{b6aa978 4950 com.android.systemui/10144/u0 remote:ed5aadb}
+      Action: "com.google.android.gms.nearby.discovery:ACTION_DEBUG_CHANGE"
+  * ReceiverList{fadb9d9 4950 com.android.systemui/10144/u0 remote:16d2c20}
+  * ReceiverList{d1c22d8 4950 com.android.systemui/10144/u-1 remote:aa5adbb}
+    Filter #0: BroadcastFilter{5adbe5a}
+      Ssp: "PatternMatcher{LITERAL: com.google.android.webview.debug}"
+    app=8581:com.bytedance.os.slardar/u0a68 PRSmt{3adb9ca p:0 rp:8581 t:null sa:955 usps:19 sps:19 kt:0 fs:0 inSfile:false freezeBlockFlags:0 pendingInstallProviderCount:0 fm:INVALID} pid=8581 uid=10068 user=0 #receivers=2
+      Action: "com.sd_refresh_rate.action.debug"
+      Action: "com.atfreeze.action.debug"
+          BroadcastFilter{2313ed8 1073/u0 ReceiverList{8adb9bb 5111 com.android.networkstack.process/1073/u0 remote:4a3964a}}
+          BroadcastFilter{72dbadb 1000/u-1 ReceiverList{228e08c 3394 system/1000/u-1 local:9e4c1bf}}
+        com.google.android.gms.nearby.discovery:ACTION_DEBUG_CHANGE:
+          BroadcastFilter{5adbe5a 10194/u0 ReceiverList{2ca5e05 24183 com.google.android.gms.persistent/10194/u0 remote:23a557c}}
+          BroadcastFilter{2a8d631 10144/u-1 ReceiverList{d1c22d8 4950 com.android.systemui/10144/u-1 remote:aa5adbb}}
+          BroadcastFilter{adbdf73 10142/u0 ReceiverList{f705fe2 5323 org.codeaurora.ims/10142/u0 remote:223f0ad}}
+          BroadcastFilter{adbdf73 10142/u0 ReceiverList{f705fe2 5323 org.codeaurora.ims/10142/u0 remote:223f0ad}}
+        com.tencent.xweb.remotedebug:
+          BroadcastFilter{26e6f9e 10144/u0 ReceiverList{fadb9d9 4950 com.android.systemui/10144/u0 remote:16d2c20}}
+          BroadcastFilter{6dce851 10144/u0 ReceiverList{b6aa978 4950 com.android.systemui/10144/u0 remote:ed5aadb}}
+        com.atfreeze.action.debug:
+        com.sd_refresh_rate.action.debug:
+          BroadcastFilter{72dbadb 1000/u-1 ReceiverList{228e08c 3394 system/1000/u-1 local:9e4c1bf}}
+          BroadcastFilter{adbdf73 10142/u0 ReceiverList{f705fe2 5323 org.codeaurora.ims/10142/u0 remote:223f0ad}}
+        com.defrag.action.debug:
+        ai.closepaw.ACTION_DEBUG_EXEC:
+      BroadcastRecord{91f0c8c com.android.server.adb.WIRELESS_DEBUG_ENABLED/u0} to user 0
+      Intent { act=com.android.server.adb.WIRELESS_DEBUG_ENABLED flg=0x400010 }
+      DELIVERED scheduled 0 terminal 0 (-1) #3: BroadcastFilter{6dce851 10144/u0 ReceiverList{b6aa978 4950 com.android.systemui/10144/u0 remote:ed5aadb}}
+    #47: act=com.android.server.adb.WIRELESS_DEBUG_ENABLED flg=0x400010
+      extras: Bundle[{host_connected=false, connected=true, unlocked=false, adb=true, configured=true}]
+      extras: Bundle[{config=VpnConfig{ user=com.tailscale.ipn, interface=tun0, session=null, mtu=1280, addresses=[100.64.43.95/32, fd7a:115c:a1e0::6e36:2b5f/128], routes=[100.79.206.115/32 -> 0.0.0.0 mtu 0, 100.95.23.122/32 -> 0.0.0.0 mtu 0, 100.100.100.100/32 -> 0.0.0.0 mtu 0, 100.111.183.111/32 -> 0.0.0.0 mtu 0, fd7a:115c:a1e0::/48 -> :: mtu 0], dns=[100.100.100.100, fd7a:115c:a1e0::53], searchDomains=[tail6bd948.ts.net, lan], allowedApps=null, disallowedApps=[com.google.android.apps.messaging, com.google.android.projection.gearhead, com.gopro.smarty, com.sonos.acr, com.sonos.acr2, com.google.android.apps.chromecast.app, com.samsung.attvvm, com.att.mobile.android.vvm, com.tmobile.vvm.application, com.metropcs.service.vvm, com.mizmowireless.vvm, com.vna.service.vvm, com.dish.vvm, com.comcast.modesto.vvm.client, com.google.android.apps.scone], configureIntent=PendingIntent{b9d6bdd: PendingIntentRecord{3dbcc98 com.tailscale.ipn startActivity}}, startTime=204194311, legacy=false, blocking=false, allowBypass=false, allowIPv4=true, allowIPv6=true, isMetered=false, requiresInternetValidation=false, excludeLocalRoutes=false, underlyingNetworks=null, proxyInfo=null}}]
+
+--- find OEM/security services in system uid (1000) ---
+root           193 [qcom,system-pool-refill-thread]
+root           194 [qcom,system-pool-refill-high-thread]
+system        1320 servicemanager
+system        1324 vndservicemanager
+system        1336 android.hardware.security.keymint-service-qti
+system        1337 qseecomd
+system        1339 vendor.qti.hardware.qseecom@1.0-service
+system        1654 android.system.suspend-service
+system        1663 android.hardware.gatekeeper-service-qti
+system        1664 vendor.bytedance.hardware.keymanager@1.0-service
+system        1897 time_daemon
+system        2023 hlosminkdaemon
+system        2025 sscrpcd
+system        2026 ssgtzd
+system        2029 qccsyshal_aidl-service
+system        2033 android.hardware.health-service.qti
+system        2034 android.hardware.identity-service-qti
+system        2035 android.hardware.ir-service.example
+system        2036 android.hardware.power-service
+system        2037 android.hardware.secure_element-service.qti
+system        2038 android.hardware.sensors-service.multihal
+system        2040 android.hardware.usb-service.qti
+system        2041 android.hardware.usb.gadget-service.qti
+system        2046 poweropt-service
+system        2048 qesdk-manager
+system        2049 qesdk-secmanager
+system        2050 qfp-daemon
+system        2051 snapdragon_services
+system        2052 odm_tsc
+system        2054 vendor.bd.hardware.display.colormanager.service
+
+--- packages running as system uid ---
+package:com.obric.securitymanager uid:10190
+package:com.bytedance.android.securityinput uid:10101
+package:com.obric.calculator uid:10181
+package:com.obric.appletapp uid:10093
+package:com.obric.matrix uid:1000
+package:com.obric.compass uid:10187
+package:com.obric.recorder uid:10191
+package:com.obric.wallpaper uid:10110
+package:com.obric.music uid:10053
+package:com.bytedance.securityserver uid:10103
+package:com.obric.updater uid:1000
+package:com.obric.mediametadataservice uid:10057
+package:com.obric.numberassistant uid:10050
+package:com.obric.systemui.overlays.system uid:10216
+package:com.obric.account uid:10092
+package:com.obric.systemui.plugin uid:10107
+package:com.bytedance.radioservice.overlay.common uid:10039
+package:com.obric.cloudservice uid:1000
+package:com.obric.lifelog uid:10189
+package:com.bytedance.mmi uid:1000
+package:com.obric.security uid:10060
+package:com.obric.downloadserver uid:10056
+package:com.bytedance.fido.client uid:10088
+package:com.obric.filepreview uid:10089
+package:com.obric.screenrecorder uid:10059
+package:com.obric.gpudrivers.a830 uid:10217
+package:com.obric.vault uid:10100
+package:obric.home.flow uid:10253
+package:com.obric.aivoice uid:10035
+package:com.obric.smsparser uid:10069
+
+--- DEVICE OWNER / MDM check ---
+Current Device Policy Manager state:
+  Immutable state:
+    mHasFeature=true
+    mIsWatch=false
+    mIsAutomotive=false
+    mHasTelephonyFeature=true
+    mSafetyChecker=null
+  
+  
+  
+  Enabled Device Admins (User 0, provisioningState: 0):
+  
+    mPasswordOwner=-1
+    mPasswordTokenHandle=0
+    mAppsSuspended=false
+    mUserSetupComplete=true
+    mAffiliationIds={}
+    mNewUserDisclaimer=null
+  
+  
+  Constants:
+    DAS_DIED_SERVICE_RECONNECT_BACKOFF_SEC: 3600
+    DAS_DIED_SERVICE_RECONNECT_BACKOFF_INCREASE: 2.0
+    DAS_DIED_SERVICE_RECONNECT_MAX_BACKOFF_SEC: 86400
+    DAS_DIED_SERVICE_STABLE_CONNECTION_THRESHOLD_SEC: 120
+  
+  Stats:
+    LockGuard.guard(): count=286620, total=1181.4ms, avg=0.004ms, max calls/s=2004 max dur/s=2.9ms max time=2.9ms
+  
+  Local Policies: 
+  
+  Global Policies: 
+  
+  Default admin policy size limit: -1
+  Current admin policy size limit: -1
+  Admin Policies size: 
+
+Encryption Status: per-user
+Logout user: -10000
+
+
+--- all processes containing 'adb' in name ---
+shell        19389     1   11141956  14892 0                   0 S adbd
+
+--- check device_policy_manager: any restrictions? ---
+
+--- watch BOTH writer events: log all changes to adb_wifi_enabled with verbose tag ---
+--- ALL log lines (no filter) in 1-second window ---
+05-02 14:26:53.176  3394  8430 V SettingsShellCmd: putForUser(userId=0, table=global, key=adb_wifi_enabled, value=1, tag=null, makeDefault=false, overrideableByRestore=false)
+05-02 14:26:53.177  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 14:26:53.177 19389 19394 I adbd    : persist.adb.tls_server.enable changed to 1
+05-02 14:26:53.177 19389 19394 I adbd    : adbwifi started on port 35711
+05-02 14:26:53.177 19389 19394 I adbd    : TlsServer running on port 35711
+05-02 14:26:53.177 19389 19394 I adbd    : adb wifi started on port 35711
+05-02 14:26:53.184 19389 19394 I adbd    : Waiting for persist.adb.tls_server.enable=0
+05-02 14:26:53.191  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 14:26:53.191 19389 19394 I adbd    : persist.adb.tls_server.enable changed to 0
+05-02 14:26:53.191 19389 19394 I adbd    : adb wifi stopped
+05-02 14:26:53.192 19389 19394 I adbd    : Waiting for persist.adb.tls_server.enable=1
+
+--- final state ---
+0

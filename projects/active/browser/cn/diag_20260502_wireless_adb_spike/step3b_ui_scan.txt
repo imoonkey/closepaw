@@ -1,0 +1,2 @@
+==> step 3b: scan UI dump for wireless debugging-relevant text
+<node index="0" text="无线网络" resource-id="com.android.settings:id/title" class="android.widget.TextView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[238,1255][462,1321]" drawing-order="1" hint="" /
