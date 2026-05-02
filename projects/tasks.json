@@ -1330,7 +1330,7 @@
       "ts-shell-tool-result",
       "ts-tool-registration"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "TermuxShellTool unit tests",
     "description": "Unit tests for TermuxShellTool covering: JSON schema validation, result mapping (200 success, 200 timed_out, 409 busy, connection error), cancellation (Call.cancel() invoked on coroutine cancel), non-zero exit code handling (maps to Success not Failure), timeout parameter validation, OkHttp timeout configuration (timeout_ms + 5s grace).",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1350,8 +1350,9 @@
       "test"
     ],
     "created": "2026-05-02T01:14:59Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T03:09:54Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-shell-tool-tests"
   },
   "ts-phase5-agent-wiring": {
     "parent": "termux-shell",
