@@ -9,6 +9,7 @@ import ai.closepaw.agent.AgentExecutionConfig
 import ai.closepaw.agent.AgentExecutionRole
 import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentDefRegistry
+import ai.closepaw.agent.definition.ResolvedAgentRole
 import ai.closepaw.agent.subagent.IsolatedSubAgentRunner
 import ai.closepaw.protocol.AgentEvent
 import ai.closepaw.protocol.SessionId
@@ -56,7 +57,7 @@ internal class SessionAgentRunner(
 
     fun start(taskInput: String, taskId: String) {
         val agentDef = AgentDefRegistry.mainFor(config.agentMode)
-        val resolvedAgentDef = agentDef.resolve(
+        val resolvedAgentDef: ResolvedAgentRole = agentDef.resolve(
             snapshot = services.termuxSnapshot,
             excludedTools = config.excludedTools.toToolNames()
         )

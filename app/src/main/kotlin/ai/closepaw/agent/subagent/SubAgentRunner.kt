@@ -5,6 +5,7 @@ import ai.closepaw.agent.AgentEventDispatcher
 import ai.closepaw.agent.AgentExecutionConfig
 import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentRoleDef
+import ai.closepaw.agent.definition.ResolvedAgentRole
 import ai.closepaw.agent.cognition.policy.DelegationSummaryFormatter
 import ai.closepaw.history.HistoryManager
 import ai.closepaw.history.ResponseItem
@@ -62,7 +63,7 @@ internal class IsolatedSubAgentRunner(
     override suspend fun run(request: SubAgentRequest): SubAgentResult {
         val childTaskId = "sub-${roleDef.name}-${System.currentTimeMillis()}"
         val childSessionId = SessionId("${parentSessionId.value}::$childTaskId")
-        val resolvedRoleDef = roleDef.resolve(
+        val resolvedRoleDef: ResolvedAgentRole = roleDef.resolve(
             snapshot = parentServices.termuxSnapshot,
             excludedTools = parentServices.config.excludedTools.toToolNames()
         )

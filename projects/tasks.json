@@ -1447,7 +1447,7 @@
     "depends": [
       "ts-conditional-registration"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Runner wiring: SessionAgentRunner + IsolatedSubAgentRunner + role allow-lists",
     "description": "Wire ResolvedAgentRole into SessionAgentRunner and IsolatedSubAgentRunner. Both read the resolved role (not raw AgentRoleDef). All 3 roles (Standalone, Planner, Executor) get termux_shell when available. Executor timeout increases to 150s when termux_shell is exposed (long-running commands need headroom above 120s bridge timeout + 5s grace). Snapshot capture path: SessionServices.create() -> SessionServices field -> SessionAgentRunner.start() -> AgentRoleDef.resolve() -> ResolvedAgentRole.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1471,7 +1471,7 @@
       "runner"
     ],
     "created": "2026-05-02T01:15:36Z",
-    "updated": "2026-05-02T03:32:14Z",
+    "updated": "2026-05-02T03:35:56Z",
     "worktree": "termux-shell",
     "agent": "w-ts-phase5-prompt-reg"
   },

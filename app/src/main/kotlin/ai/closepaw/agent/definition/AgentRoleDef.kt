@@ -4,6 +4,8 @@ import ai.closepaw.agent.AgentExecutionRole
 import ai.closepaw.termux.TermuxCapabilitySnapshot
 import ai.closepaw.tool.ToolName
 
+private const val EXECUTOR_TERMUX_TIMEOUT_MS = 150_000L
+
 /**
  * Unified definition of one agent role.
  *
@@ -48,13 +50,22 @@ internal data class AgentRoleDef(
         } else {
             systemPrompt
         }
+        val resolvedTimeoutMs =
+            if (
+                executionRole == AgentExecutionRole.EXECUTOR &&
+                    resolvedTools.any { it.canonical == ToolName.TermuxShell.canonical }
+            ) {
+                EXECUTOR_TERMUX_TIMEOUT_MS
+            } else {
+                timeoutMs
+            }
 
         return ResolvedAgentRole(
             name = name,
             executionRole = executionRole,
             allowedTools = resolvedTools,
             systemPrompt = prompt,
-            timeoutMs = timeoutMs,
+            timeoutMs = resolvedTimeoutMs,
             delegatable = delegatable,
             description = description,
             maxTurns = maxTurns
