@@ -815,7 +815,7 @@
   "ts-phase2-bridge-daemon": {
     "parent": "termux-shell",
     "depends": [
-      "ts-phase1-substrate"
+      "ts-review-phase1"
     ],
     "state": "ready",
     "title": "Phase 2: Bridge Daemon (Host-Side Python)",
@@ -836,7 +836,7 @@
       "python"
     ],
     "created": "2026-05-02T01:12:57Z",
-    "updated": "2026-05-02T01:23:27Z",
+    "updated": "2026-05-02T01:32:24Z",
     "worktree": "termux-shell"
   },
   "ts-bridge-server": {
@@ -959,7 +959,7 @@
   "ts-phase3-bridge-manager": {
     "parent": "termux-shell",
     "depends": [
-      "ts-phase2-bridge-daemon"
+      "ts-review-phase2"
     ],
     "state": "ready",
     "title": "Phase 3: TermuxBridgeManager + Bootstrap",
@@ -981,7 +981,7 @@
       "kotlin"
     ],
     "created": "2026-05-02T01:13:36Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T01:32:24Z",
     "worktree": "termux-shell"
   },
   "ts-bridge-manager-core": {
@@ -1107,7 +1107,7 @@
   "ts-phase4-shell-tool": {
     "parent": "termux-shell",
     "depends": [
-      "ts-phase3-bridge-manager"
+      "ts-review-phase3"
     ],
     "state": "ready",
     "title": "Phase 4: TermuxShellTool",
@@ -1129,7 +1129,7 @@
       "tool"
     ],
     "created": "2026-05-02T01:14:23Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T01:32:24Z",
     "worktree": "termux-shell"
   },
   "ts-shell-tool-impl": {
@@ -1253,7 +1253,7 @@
   "ts-phase5-agent-wiring": {
     "parent": "termux-shell",
     "depends": [
-      "ts-phase4-shell-tool"
+      "ts-review-phase4"
     ],
     "state": "ready",
     "title": "Phase 5: Agent Wiring",
@@ -1277,7 +1277,7 @@
       "wiring"
     ],
     "created": "2026-05-02T01:15:07Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T01:32:24Z",
     "worktree": "termux-shell"
   },
   "ts-prompt-updates": {
@@ -1402,7 +1402,7 @@
   "ts-phase6-settings-qa": {
     "parent": "termux-shell",
     "depends": [
-      "ts-phase5-agent-wiring"
+      "ts-review-phase5"
     ],
     "state": "ready",
     "title": "Phase 6: Settings UI + QA",
@@ -1422,7 +1422,7 @@
       "qa"
     ],
     "created": "2026-05-02T01:15:51Z",
-    "updated": "2026-05-02T01:23:28Z",
+    "updated": "2026-05-02T01:32:24Z",
     "worktree": "termux-shell"
   },
   "ts-settings-ui": {
@@ -1542,5 +1542,128 @@
     "created": "2026-05-02T01:16:24Z",
     "updated": "2026-05-02T01:23:29Z",
     "worktree": "termux-shell"
+  },
+  "ts-review-phase1": {
+    "parent": "ts-phase1-substrate",
+    "depends": [
+      "ts-substrate-tests"
+    ],
+    "state": "ready",
+    "title": "Codex review: Phase 1 Substrate",
+    "description": "Codex code-review of all Phase 1 changes: manifest, network_security_config, bridge resource packaging, and substrate tests.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase1_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "codex",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T01:32:15Z"
+  },
+  "ts-review-phase2": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [
+      "ts-bridge-pytest"
+    ],
+    "state": "ready",
+    "title": "Codex review: Phase 2 Bridge Daemon",
+    "description": "Codex code-review of bridge daemon: closepaw_bridge.py, exec loop, health endpoint, pidfile, output cap, idle watchdog, and host-side pytest.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase2_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "codex",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T01:32:15Z"
+  },
+  "ts-review-phase3": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [
+      "ts-health-lifecycle"
+    ],
+    "state": "ready",
+    "title": "Codex review: Phase 3 Bridge Manager + Bootstrap",
+    "description": "Codex code-review of TermuxBridgeManager, TermuxRunCommandAdapter, bootstrap flow, health lifecycle, and settings toggle.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase3_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "codex",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T01:32:15Z"
+  },
+  "ts-review-phase4": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [
+      "ts-shell-tool-tests"
+    ],
+    "state": "ready",
+    "title": "Codex review: Phase 4 TermuxShellTool",
+    "description": "Codex code-review of TermuxShellTool implementation: ToolSpec, OkHttp client, result mapping, cancellation, ToolName, TurnToolPolicy changes.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase4_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "codex",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T01:32:15Z"
+  },
+  "ts-review-phase5": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [
+      "ts-pro-mode"
+    ],
+    "state": "ready",
+    "title": "Codex review: Phase 5 Agent Wiring",
+    "description": "Codex code-review of agent wiring: shell description, prompt extension, conditional registration, ResolvedAgentRole, runner wiring, PRO mode, checkpoint reload.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase5_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "codex",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T01:32:15Z"
+  },
+  "ts-review-phase6": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [
+      "ts-qa-workspace",
+      "ts-qa-ordering-cancel",
+      "ts-qa-bootstrap"
+    ],
+    "state": "ready",
+    "title": "Codex review: Phase 6 Settings UI + QA",
+    "description": "Codex code-review of settings UI, QA test results, and overall integration. Final sign-off before merge.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase6_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "codex",
+    "estimate": "s",
+    "requireHumanReview": true,
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T01:32:15Z"
   }
 }
