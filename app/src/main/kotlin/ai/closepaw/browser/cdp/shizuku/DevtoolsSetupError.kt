@@ -51,6 +51,21 @@ sealed class DevtoolsSetupError(
         cause = cause,
     )
 
+    class DebugTcpFallbackInaccessible(
+        cause: Throwable?,
+        userServiceCause: Throwable?,
+    ) : DevtoolsSetupError(
+        code = "debug_tcp_fallback_inaccessible",
+        message = "The debug TCP DevTools fallback could not reach 127.0.0.1:9222. For " +
+            "real-device debug QA, expose Chrome DevTools on device-local 127.0.0.1:9222 " +
+            "with adb reverse and a host-side forward or relay to chrome_devtools_remote.",
+        cause = cause,
+    ) {
+        init {
+            if (userServiceCause != null) addSuppressed(userServiceCause)
+        }
+    }
+
     class MalformedResponse(detail: String, cause: Throwable? = null) : DevtoolsSetupError(
         code = "malformed_response",
         message = "Chrome DevTools returned a malformed HTTP/WebSocket response: $detail",

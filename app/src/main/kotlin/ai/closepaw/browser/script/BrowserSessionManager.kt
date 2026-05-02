@@ -1,11 +1,14 @@
 package ai.closepaw.browser.script
 
 import android.content.Context
+import ai.closepaw.BuildConfig
 import ai.closepaw.browser.cdp.CdpConnection
 import ai.closepaw.browser.cdp.CdpConnectionFactory
 import ai.closepaw.browser.cdp.CdpConnectionClosedException
 import ai.closepaw.browser.cdp.ChromeCdpClient
+import ai.closepaw.browser.cdp.ChromeCdpTarget
 import ai.closepaw.browser.cdp.shizuku.AppProcessLocalSocketTransport
+import ai.closepaw.browser.cdp.shizuku.DebugTcpDevtoolsSocketTransport
 import ai.closepaw.browser.cdp.shizuku.DefaultDevtoolsDiagnostics
 import ai.closepaw.browser.cdp.shizuku.DevtoolsSetupError
 import ai.closepaw.browser.cdp.shizuku.DevtoolsVersion
@@ -116,9 +119,13 @@ class BrowserSessionManager(
         return try {
             val version = bridgeHandle.bridge.fetchVersion()
             val targets = bridgeHandle.bridge.listPageTargets()
-            val wsUrl = websocketUrl(version, targets)
-            client.connect(wsUrl)
-            client.attachToFirstRealPage(targets)
+            val endpoint = websocketEndpoint(version, targets)
+            client.connect(endpoint.url)
+            if (endpoint.directTargetId != null) {
+                client.useDirectPageTarget(endpoint.directTargetId, endpoint.url)
+            } else {
+                client.attachToFirstRealPage(targets)
+            }
             enableCoreDomains(client)
             val newResources = BrowserRuntimeResources(
                 cdpClient = client,
@@ -145,10 +152,15 @@ class BrowserSessionManager(
         }
     }
 
-    private fun websocketUrl(version: DevtoolsVersion, targets: List<PageTarget>): String {
-        version.webSocketDebuggerUrl?.takeIf { it.isNotBlank() }?.let { return it }
+    private fun websocketEndpoint(version: DevtoolsVersion, targets: List<PageTarget>): WebSocketEndpoint {
+        ChromeCdpTarget.firstRealPage(targets)
+            ?.takeIf { !it.webSocketDebuggerUrl.isNullOrBlank() }
+            ?.let { return WebSocketEndpoint(it.webSocketDebuggerUrl!!, directTargetId = it.id) }
+        version.webSocketDebuggerUrl?.takeIf { it.isNotBlank() }?.let {
+            return WebSocketEndpoint(it, directTargetId = null)
+        }
         targets.firstOrNull { !it.webSocketDebuggerUrl.isNullOrBlank() }?.webSocketDebuggerUrl
-            ?.let { return it }
+            ?.let { return WebSocketEndpoint(it, directTargetId = null) }
         throw DevtoolsSetupError.MalformedResponse("missing webSocketDebuggerUrl")
     }
 
@@ -217,6 +229,11 @@ class BrowserSessionManager(
         }
     }
 
+    private data class WebSocketEndpoint(
+        val url: String,
+        val directTargetId: String?,
+    )
+
     companion object {
         private fun createDefaultBridge(context: Context): ShizukuChromeDevtoolsBridge {
             return ShizukuChromeDevtoolsBridge(
@@ -226,6 +243,11 @@ class BrowserSessionManager(
                 ),
                 appProcessTransport = AppProcessLocalSocketTransport(),
                 userServiceProvider = ShizukuUserServiceProvider(context),
+                fallbackTransport = if (BuildConfig.DEBUG) {
+                    DebugTcpDevtoolsSocketTransport()
+                } else {
+                    null
+                },
             )
         }
     }

@@ -29,11 +29,13 @@ class ShizukuChromeDevtoolsBridgeTest {
             responses = defaultResponses(),
         ),
         userServiceProvider: UserServiceProvider? = null,
+        fallbackTransport: DevtoolsSocketTransport? = null,
     ): ShizukuChromeDevtoolsBridge = ShizukuChromeDevtoolsBridge(
         status = status,
         diagnostics = diagnostics,
         appProcessTransport = appProcessTransport,
         userServiceProvider = userServiceProvider,
+        fallbackTransport = fallbackTransport,
         ioDispatcher = UnconfinedTestDispatcher(),
     )
 
@@ -219,15 +221,111 @@ class ShizukuChromeDevtoolsBridgeTest {
     }
 
     @Test
+    fun bridge_falls_back_to_debug_tcp_when_user_service_cannot_reach_socket() = runTest {
+        val app = FakeTransport(TransportLabel.APP_PROCESS, error = SecurityException("blocked"))
+        val user = FakeTransport(
+            TransportLabel.USER_SERVICE,
+            error = IOException("Permission denied"),
+        )
+        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val provider = FakeUserServiceProvider(transport = user)
+        val b = bridge(
+            appProcessTransport = app,
+            userServiceProvider = provider,
+            fallbackTransport = debugTcp,
+        )
+
+        val v = b.fetchVersion()
+
+        assertThat(v.browser).isEqualTo("Chrome/130.0.0.0")
+        assertThat(app.calls).isEqualTo(1)
+        assertThat(user.calls).isEqualTo(1)
+        assertThat(debugTcp.calls).isEqualTo(1)
+        assertThat(provider.obtainCalls).isEqualTo(1)
+    }
+
+    @Test
+    fun bridge_falls_back_to_debug_tcp_when_app_process_returns_empty_response() = runTest {
+        val app = FakeTransport(
+            TransportLabel.APP_PROCESS,
+            responses = mapOf("/json/version" to ByteArray(0)),
+        )
+        val user = FakeTransport(
+            TransportLabel.USER_SERVICE,
+            error = IOException("Permission denied"),
+        )
+        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val provider = FakeUserServiceProvider(transport = user)
+        val b = bridge(
+            appProcessTransport = app,
+            userServiceProvider = provider,
+            fallbackTransport = debugTcp,
+        )
+
+        val v = b.fetchVersion()
+
+        assertThat(v.browser).isEqualTo("Chrome/130.0.0.0")
+        assertThat(app.calls).isEqualTo(1)
+        assertThat(user.calls).isEqualTo(1)
+        assertThat(debugTcp.calls).isEqualTo(1)
+    }
+
+    @Test
+    fun bridge_falls_back_to_debug_tcp_when_user_service_returns_empty_response() = runTest {
+        val app = FakeTransport(TransportLabel.APP_PROCESS, error = SecurityException("blocked"))
+        val user = FakeTransport(
+            TransportLabel.USER_SERVICE,
+            responses = mapOf("/json/version" to ByteArray(0)),
+        )
+        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val provider = FakeUserServiceProvider(transport = user)
+        val b = bridge(
+            appProcessTransport = app,
+            userServiceProvider = provider,
+            fallbackTransport = debugTcp,
+        )
+
+        val v = b.fetchVersion()
+
+        assertThat(v.browser).isEqualTo("Chrome/130.0.0.0")
+        assertThat(user.calls).isEqualTo(1)
+        assertThat(debugTcp.calls).isEqualTo(1)
+    }
+
+    @Test
+    fun bridge_skips_debug_tcp_when_user_service_succeeds() = runTest {
+        val app = FakeTransport(TransportLabel.APP_PROCESS, error = SecurityException("blocked"))
+        val user = FakeTransport(TransportLabel.USER_SERVICE, responses = defaultResponses())
+        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val provider = FakeUserServiceProvider(transport = user)
+        val b = bridge(
+            appProcessTransport = app,
+            userServiceProvider = provider,
+            fallbackTransport = debugTcp,
+        )
+
+        b.fetchVersion()
+
+        assertThat(user.calls).isEqualTo(1)
+        assertThat(debugTcp.calls).isEqualTo(0)
+    }
+
+    @Test
     fun bridge_skips_user_service_when_app_transport_succeeds() = runTest {
         val app = FakeTransport(TransportLabel.APP_PROCESS, responses = defaultResponses())
         val provider = FakeUserServiceProvider(transport = FakeTransport(TransportLabel.USER_SERVICE))
-        val b = bridge(appProcessTransport = app, userServiceProvider = provider)
+        val debugTcp = FakeTransport(TransportLabel.DEBUG_TCP, responses = defaultResponses())
+        val b = bridge(
+            appProcessTransport = app,
+            userServiceProvider = provider,
+            fallbackTransport = debugTcp,
+        )
 
         b.fetchVersion()
 
         assertThat(app.calls).isEqualTo(1)
         assertThat(provider.obtainCalls).isEqualTo(0)
+        assertThat(debugTcp.calls).isEqualTo(0)
     }
 
     @Test

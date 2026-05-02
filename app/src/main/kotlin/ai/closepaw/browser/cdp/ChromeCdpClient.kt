@@ -43,10 +43,19 @@ class ChromeCdpClient(
         private set
 
     private var connection: CdpConnection? = null
+    private val parkedConnections = mutableListOf<CdpConnection>()
+    private var directPageWebSocketBase: String? = null
 
     suspend fun connect(wsUrl: String) {
         isBroken = false
+        directPageWebSocketBase = null
         connection = connectionFactory.connect(wsUrl, ::onMessage, ::onFailure, ::onClosed)
+    }
+
+    fun useDirectPageTarget(targetId: String, wsUrl: String) {
+        activeTargetId = targetId
+        activeSessionId = null
+        directPageWebSocketBase = wsUrl.substringBeforeLast('/', missingDelimiterValue = wsUrl)
     }
 
     suspend fun attachToTarget(targetId: String): String {
@@ -85,6 +94,10 @@ class ChromeCdpClient(
         options: CdpOptions = CdpOptions(),
     ): JsonElement {
         if (options.targetId != null) {
+            if (directPageWebSocketBase != null) {
+                switchDirectPageTarget(options.targetId)
+                return sendRaw(method, params, sessionId = null)
+            }
             val sid = attachToTarget(options.targetId)
             return sendRaw(method, params, sid)
         }
@@ -126,19 +139,34 @@ class ChromeCdpClient(
     fun close() {
         connection?.close()
         connection = null
+        parkedConnections.forEach { it.close() }
+        parkedConnections.clear()
         val err = CdpException(-1, "Client closed")
         pending.values.forEach { it.completeExceptionally(err) }
         pending.clear()
         eventBuffer.clear()
         activeSessionId = null
         activeTargetId = null
+        directPageWebSocketBase = null
     }
 
     private fun routeSessionId(method: String, options: CdpOptions): String? {
         if (options.sessionId != null) return options.sessionId
         if (method.startsWith("Target.") || method.startsWith("Browser.")) return null
+        if (directPageWebSocketBase != null) return null
         return activeSessionId
             ?: throw CdpException(-1, "No active page session; call attachToTarget first")
+    }
+
+    private suspend fun switchDirectPageTarget(targetId: String) {
+        val base = directPageWebSocketBase ?: return
+        if (targetId == activeTargetId) return
+        connection?.let { parkedConnections.add(it) }
+        val wsUrl = "$base/$targetId"
+        connection = connectionFactory.connect(wsUrl, ::onMessage, ::onFailure, ::onClosed)
+        isBroken = false
+        activeTargetId = targetId
+        activeSessionId = null
     }
 
     private suspend fun sendRaw(

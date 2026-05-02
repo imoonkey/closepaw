@@ -86,6 +86,36 @@ class ChromeCdpClientTest {
     }
 
     @Test
+    fun `direct page connection routes page domains without session`() = runTest {
+        val conn = FakeCdpConnection()
+        val client = ChromeCdpClient(conn.factory())
+        client.connect("ws://127.0.0.1:9222/devtools/page/page-1")
+        client.useDirectPageTarget("page-1", "ws://127.0.0.1:9222/devtools/page/page-1")
+
+        client.send("Page.enable")
+        assertThat(conn.lastSent()["sessionId"]).isNull()
+        assertThat(client.activeTargetId).isEqualTo("page-1")
+        assertThat(client.activeSessionId).isNull()
+    }
+
+    @Test
+    fun `direct page target option reconnects to target websocket`() = runTest {
+        val conn = FakeCdpConnection()
+        val client = ChromeCdpClient(conn.factory())
+        client.connect("ws://127.0.0.1:9222/devtools/page/page-1")
+        client.useDirectPageTarget("page-1", "ws://127.0.0.1:9222/devtools/page/page-1")
+
+        client.send("Page.enable", options = CdpOptions(targetId = "page-2"))
+
+        assertThat(conn.connectedUrls).containsExactly(
+            "ws://127.0.0.1:9222/devtools/page/page-1",
+            "ws://127.0.0.1:9222/devtools/page/page-2",
+        ).inOrder()
+        assertThat(conn.lastSent()["sessionId"]).isNull()
+        assertThat(client.activeTargetId).isEqualTo("page-2")
+    }
+
+    @Test
     fun `page domain without active session fails fast`() = runTest {
         val conn = FakeCdpConnection()
         val client = ChromeCdpClient(conn.factory())

@@ -28,6 +28,7 @@ class ShizukuChromeDevtoolsBridge(
     private val diagnostics: DevtoolsDiagnostics,
     private val appProcessTransport: DevtoolsSocketTransport,
     private val userServiceProvider: UserServiceProvider? = null,
+    private val fallbackTransport: DevtoolsSocketTransport? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val requestTimeoutMs: Int = DEFAULT_TIMEOUT_MS,
 ) {
@@ -35,6 +36,9 @@ class ShizukuChromeDevtoolsBridge(
     init {
         require(appProcessTransport.label == TransportLabel.APP_PROCESS) {
             "appProcessTransport must declare TransportLabel.APP_PROCESS"
+        }
+        require(fallbackTransport == null || fallbackTransport.label == TransportLabel.DEBUG_TCP) {
+            "fallbackTransport must declare TransportLabel.DEBUG_TCP"
         }
     }
 
@@ -62,33 +66,56 @@ class ShizukuChromeDevtoolsBridge(
         runPreflight()
         val request = DevtoolsHttpProtocol.buildGet(path)
 
-        val appResponse = runCatching { appProcessTransport.exchange(request, requestTimeoutMs) }
-        appResponse.fold(
-            onSuccess = { return DevtoolsHttpProtocol.parseHttpBody(it) },
-            onFailure = { e -> if (e is DevtoolsSetupError) throw e },
-        )
+        val appResponse = runCatching {
+            DevtoolsHttpProtocol.parseHttpBody(
+                appProcessTransport.exchange(request, requestTimeoutMs)
+            )
+        }
+        appResponse.getOrNull()?.let { return it }
         val appError = appResponse.exceptionOrNull()
 
         val provider = userServiceProvider
-            ?: throw DevtoolsSetupError.AppProcessSocketInaccessible(appError)
+        if (provider == null) {
+            val fallbackResponse = tryFallbackTransport(request, userServiceCause = null)
+            if (fallbackResponse != null) return DevtoolsHttpProtocol.parseHttpBody(fallbackResponse)
+            if (appError is DevtoolsSetupError) throw appError
+            throw DevtoolsSetupError.AppProcessSocketInaccessible(appError)
+        }
 
-        val userTransport = try {
-            provider.obtain()
+        val userResponse = runCatching {
+            DevtoolsHttpProtocol.parseHttpBody(
+                provider.obtain().exchange(request, requestTimeoutMs)
+            )
+        }
+        userResponse.getOrNull()?.let { return it }
+
+        val userError = userResponse.exceptionOrNull()
+        val fallbackResponse = tryFallbackTransport(request, userError)
+        if (fallbackResponse != null) return DevtoolsHttpProtocol.parseHttpBody(fallbackResponse)
+
+        throw toUserServiceError(userError)
+    }
+
+    private suspend fun tryFallbackTransport(
+        request: ByteArray,
+        userServiceCause: Throwable?,
+    ): ByteArray? {
+        val fallback = fallbackTransport ?: return null
+        return try {
+            fallback.exchange(request, requestTimeoutMs)
         } catch (e: DevtoolsSetupError) {
             throw e
         } catch (e: Throwable) {
-            throw DevtoolsSetupError.UserServiceSocketInaccessible(e)
+            throw DevtoolsSetupError.DebugTcpFallbackInaccessible(e, userServiceCause)
         }
+    }
 
-        val userResponse = try {
-            userTransport.exchange(request, requestTimeoutMs)
-        } catch (e: DevtoolsSetupError) {
-            throw e
-        } catch (e: Throwable) {
-            throw DevtoolsSetupError.UserServiceSocketInaccessible(e)
+    private fun toUserServiceError(error: Throwable?): DevtoolsSetupError.UserServiceSocketInaccessible {
+        return when (error) {
+            is DevtoolsSetupError.UserServiceSocketInaccessible -> error
+            is DevtoolsSetupError -> throw error
+            else -> DevtoolsSetupError.UserServiceSocketInaccessible(error)
         }
-
-        return DevtoolsHttpProtocol.parseHttpBody(userResponse)
     }
 
     private fun runPreflight() {
@@ -146,4 +173,4 @@ interface DevtoolsSocketTransport {
     suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray
 }
 
-enum class TransportLabel { APP_PROCESS, USER_SERVICE }
+enum class TransportLabel { APP_PROCESS, USER_SERVICE, DEBUG_TCP }
