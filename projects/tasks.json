@@ -795,7 +795,7 @@
   "ts-manifest-visibility": {
     "parent": "ts-phase1-substrate",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "AndroidManifest.xml: Termux package visibility + RUN_COMMAND",
     "description": "Add Termux package visibility declaration and RUN_COMMAND service intent query to AndroidManifest.xml. Required for bootstrap flow to discover and communicate with Termux via RUN_COMMAND intent. Add com.termux.permission.RUN_COMMAND permission, <package android:name=\"com.termux\" /> in queries, and <intent><action android:name=\"com.termux.RUN_COMMAND\" /></intent> in queries.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -816,13 +816,14 @@
       "manifest"
     ],
     "created": "2026-05-02T01:12:28Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T01:41:55Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-manifest-visibility"
   },
   "ts-network-security": {
     "parent": "ts-phase1-substrate",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "network_security_config.xml: localhost cleartext exception",
     "description": "Add 127.0.0.1 cleartext traffic exception to network_security_config.xml. Bridge daemon runs on localhost:18422 over HTTP. Narrow exception: only 127.0.0.1, includeSubdomains=false. base-config remains cleartextTrafficPermitted=false.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -842,13 +843,14 @@
       "network"
     ],
     "created": "2026-05-02T01:12:34Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T01:41:55Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-network-security"
   },
   "ts-bridge-resource": {
     "parent": "ts-phase1-substrate",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Bridge script packaging: res/raw + Gradle copy + version constant",
     "description": "Create tools/termux-bridge/closepaw_bridge.py as canonical source with BRIDGE_VERSION = \"1\" at top. Add Gradle copy task to package it as app/src/main/res/raw/closepaw_bridge_py. The copy task ensures the raw resource is always byte-identical to the canonical source. Version constant appears in /v1/health response and is checked by TermuxBridgeManager for re-deploy decisions.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -871,8 +873,9 @@
       "bridge"
     ],
     "created": "2026-05-02T01:12:43Z",
-    "updated": "2026-05-02T01:23:28Z",
-    "worktree": "termux-shell"
+    "updated": "2026-05-02T01:41:55Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-bridge-resource"
   },
   "ts-substrate-tests": {
     "parent": "ts-phase1-substrate",

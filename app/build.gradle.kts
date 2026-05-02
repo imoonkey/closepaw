@@ -72,6 +72,20 @@ android {
     }
 }
 
+val copyClosePawBridge by tasks.registering(Copy::class) {
+    val bridgeSource = rootProject.layout.projectDirectory.file("tools/termux-bridge/closepaw_bridge.py")
+    val rawResourceDir = layout.projectDirectory.dir("src/main/res/raw")
+
+    from(bridgeSource)
+    into(rawResourceDir)
+    rename { "closepaw_bridge_py" }
+    outputs.upToDateWhen { false }
+}
+
+tasks.named("preBuild") {
+    dependsOn(copyClosePawBridge)
+}
+
 // Kotlin 2.3.0 compilerOptions DSL (replaces deprecated kotlinOptions)
 kotlin {
     compilerOptions {
