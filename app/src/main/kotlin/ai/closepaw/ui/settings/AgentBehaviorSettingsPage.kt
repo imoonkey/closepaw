@@ -201,17 +201,17 @@ private val TermuxBridgeStatus.subtitle: String
             TermuxBridgeStatus.NotInstalled -> "Install Termux from F-Droid"
             is TermuxBridgeStatus.NeedsSetup -> reason.toDisplayText()
             TermuxBridgeStatus.SetupInProgress -> "This may take a minute"
-            TermuxBridgeStatus.Ready -> "Termux bridge running"
+            TermuxBridgeStatus.Ready -> "Termux bridge running — tap to restart"
             TermuxBridgeStatus.Disabled -> "Toggle to enable"
         }
 
 private fun NeedsSetupReason.toDisplayText(): String =
     when (this) {
-        NeedsSetupReason.PERMISSION_MISSING -> "Permission missing — grant RUN_COMMAND"
-        NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING -> "Allow external apps disabled in Termux"
-        NeedsSetupReason.PACKAGES_MISSING -> "Missing packages (python/git/ripgrep)"
-        NeedsSetupReason.BRIDGE_OUTDATED -> "Bridge daemon out of date"
-        NeedsSetupReason.HEALTH_TIMEOUT -> "Bridge unreachable"
+        NeedsSetupReason.PERMISSION_MISSING -> "Permission missing — tap to grant RUN_COMMAND"
+        NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING -> "Allow external apps disabled in Termux — tap to retry"
+        NeedsSetupReason.PACKAGES_MISSING -> "Missing packages — tap to install python/git/ripgrep"
+        NeedsSetupReason.BRIDGE_OUTDATED -> "Bridge daemon out of date — tap to update"
+        NeedsSetupReason.HEALTH_TIMEOUT -> "Bridge unreachable — tap to retry setup"
         NeedsSetupReason.PORT_IN_USE -> "Port 18422 in use by another process"
-        NeedsSetupReason.UNKNOWN -> "Setup error"
+        NeedsSetupReason.UNKNOWN -> "Setup error — tap to retry"
     }

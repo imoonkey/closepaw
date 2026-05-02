@@ -733,7 +733,7 @@
   "termux-shell": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Termux Shell Tool",
     "description": "Add termux_shell tool to ClosePaw via Termux bridge daemon. Full Linux bash shell capability through HTTP bridge on localhost, enabling workspace operations (file R/W, git, python, build tools) alongside existing UI automation. 6 phases: substrate, bridge daemon, bridge manager, shell tool, agent wiring, settings+QA.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1512,7 +1512,7 @@
     "depends": [
       "ts-review-phase5"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 6: Settings UI + QA",
     "description": "Settings UI for Termux Shell toggle in Agent Behavior page, and comprehensive QA: workspace tasks, UI regression, mixed tasks, turn ordering, cancellation, bootstrap recovery.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1566,7 +1566,7 @@
     "depends": [
       "ts-settings-ui"
     ],
-    "state": "blocked",
+    "state": "cancelled",
     "title": "QA: workspace tasks + UI regression + mixed tasks",
     "description": "End-to-end QA: (1) Pure workspace task in BASIC mode - run a command via termux_shell, verify output. (2) Pure workspace task in PRO mode - Planner uses termux_shell directly. (3) Pure UI task - verify no regression in mobile_action/system_button/etc. (4) Mixed UI+workspace task - combine UI navigation with termux_shell file operations in single session.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1588,7 +1588,7 @@
       "qa"
     ],
     "created": "2026-05-02T01:16:07Z",
-    "updated": "2026-05-02T03:57:13Z",
+    "updated": "2026-05-02T03:57:39Z",
     "worktree": "termux-shell",
     "blockReason": "external",
     "note": "Requires physical Android device with Termux installed; orchestrator cannot execute device QA. Run manually after merge: install debug APK, enable termux_shell in Settings → Agent Behavior, exercise (1) BASIC pure-workspace, (2) PRO pure-workspace, (3) pure-UI regression, (4) mixed UI+workspace tasks."
@@ -1598,7 +1598,7 @@
     "depends": [
       "ts-settings-ui"
     ],
-    "state": "blocked",
+    "state": "cancelled",
     "title": "QA: turn ordering + cancellation",
     "description": "Test turn ordering: mobile_action + termux_shell in same turn must NOT be reordered (both non-hoistable). Only cognitive tools (scratchpad, write_todos) hoist ahead. Test cancellation: stop session during long-running termux_shell command -> verify bridge subprocess killed promptly (not waiting 120s timeout). Verify OkHttp Call.cancel() -> TCP disconnect -> bridge process-group kill.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1620,7 +1620,7 @@
       "cancellation"
     ],
     "created": "2026-05-02T01:16:16Z",
-    "updated": "2026-05-02T03:57:13Z",
+    "updated": "2026-05-02T03:57:39Z",
     "worktree": "termux-shell",
     "blockReason": "external",
     "note": "Requires physical Android device with Termux. Run manually: turn-ordering test (mobile_action+termux_shell preserve LLM order), cancellation test (stop session during long termux_shell, verify subprocess killed promptly via TCP disconnect)."
@@ -1630,7 +1630,7 @@
     "depends": [
       "ts-settings-ui"
     ],
-    "state": "blocked",
+    "state": "cancelled",
     "title": "QA: bootstrap step failures + recovery",
     "description": "Test each bootstrap step failure and recovery: Step 1 (Probe) - Termux not installed, permission missing, allow-external-apps disabled. Step 2 (Install) - pkg install failure, partial install recovery. Step 3 (Deploy) - bridge.py write failure, re-deploy on version mismatch. Step 4 (Start) - bridge start failure, health check timeout. Also test: checkpoint/reload does not resurrect dead bridge (fresh snapshot at SessionServices.create()). Each failure shows typed reason in Settings UI.",
     "design": "projects/active/coding/final/cn/design.md",
@@ -1653,7 +1653,7 @@
       "bootstrap"
     ],
     "created": "2026-05-02T01:16:24Z",
-    "updated": "2026-05-02T03:57:13Z",
+    "updated": "2026-05-02T03:57:39Z",
     "worktree": "termux-shell",
     "blockReason": "external",
     "note": "Requires physical Android device with Termux + simulating each failure mode (uninstall package, revoke permission, disable allow-external-apps, etc.). Verify each step yields the correct typed NeedsSetupReason in Settings UI; verify reload captures fresh snapshot."
@@ -1765,7 +1765,7 @@
       "ts-qa-ordering-cancel",
       "ts-qa-bootstrap"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex review: Phase 6 Settings UI + QA",
     "description": "Codex code-review of settings UI, QA test results, and overall integration. Final sign-off before merge.",
     "worktree": "termux-shell",
@@ -1775,10 +1775,10 @@
       "review written to projects/active/termux_shell/reviews/phase6_review.md",
       "no high-severity findings remain unaddressed"
     ],
-    "agent": "codex",
+    "agent": "w-ts-review-phase6",
     "estimate": "s",
     "requireHumanReview": true,
     "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T01:32:15Z"
+    "updated": "2026-05-02T04:10:31Z"
   }
 }

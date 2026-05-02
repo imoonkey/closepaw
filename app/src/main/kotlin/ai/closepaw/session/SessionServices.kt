@@ -24,6 +24,7 @@ import ai.closepaw.platform.AndroidPlatform
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionLlmConfig
 import ai.closepaw.termux.TermuxBridgeManager
+import ai.closepaw.termux.TermuxBridgeStatus
 import ai.closepaw.termux.TermuxCapabilitySnapshot
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.tool.PolicyEngine
@@ -37,7 +38,23 @@ import ai.closepaw.tool.impl.DefaultBrowserScriptCapabilityGate
 import ai.closepaw.tool.impl.RememberExperienceTool
 import ai.closepaw.trace.TraceRecorder
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
+
+internal interface TermuxSessionBridge {
+    suspend fun healthCheck(): TermuxBridgeStatus
+    fun snapshot(enabled: Boolean): TermuxCapabilitySnapshot
+}
+
+private class TermuxBridgeManagerSessionBridge(
+        private val manager: TermuxBridgeManager
+) : TermuxSessionBridge {
+    override suspend fun healthCheck(): TermuxBridgeStatus = manager.healthCheck()
+
+    override fun snapshot(enabled: Boolean): TermuxCapabilitySnapshot = manager.snapshot(enabled)
+}
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
@@ -87,6 +104,7 @@ class SessionServices internal constructor(
 ) {
     companion object {
         private const val TAG = "SessionServices"
+        private const val TERMUX_HEALTH_CHECK_TIMEOUT_MS = 2_000L
 
         /**
          * Create a new SessionServices container with all services initialized.
@@ -122,8 +140,11 @@ class SessionServices internal constructor(
             val agentSkillManager = AgentSkillManager(skillsDir)
             val settingsStore = AppSettingsStore(context)
             val persistentAllowList = settingsStore.loadPersistentAllowList()
-            val termuxSnapshot = TermuxBridgeManager.get(context)
-                .snapshot(settingsStore.loadTermuxShellEnabled())
+            val termuxManager = TermuxBridgeManager.get(context)
+            val termuxSnapshot = captureTermuxSnapshot(
+                    bridge = TermuxBridgeManagerSessionBridge(termuxManager),
+                    termuxShellEnabled = settingsStore.termuxShellEnabled.value
+            )
             val tooling = SessionToolingBootstrapper.create(
                 approvalMode = config.approvalMode,
                 appClassifier = classifier,
@@ -183,6 +204,24 @@ class SessionServices internal constructor(
                     memoryStore = memoryStore,
                     memoryRecaller = memoryRecaller
             )
+        }
+
+        internal fun captureTermuxSnapshot(
+                bridge: TermuxSessionBridge,
+                termuxShellEnabled: Boolean,
+                timeoutMs: Long = TERMUX_HEALTH_CHECK_TIMEOUT_MS
+        ): TermuxCapabilitySnapshot {
+            runCatching {
+                runBlocking(Dispatchers.IO) {
+                    withTimeoutOrNull(timeoutMs) {
+                        bridge.healthCheck()
+                    }
+                }
+            }.onFailure { error ->
+                Log.w(TAG, "Termux health probe before session snapshot failed", error)
+            }
+
+            return bridge.snapshot(termuxShellEnabled)
         }
 
         internal fun installBundledAgentSkills(context: Context, skillsDir: java.io.File) {
