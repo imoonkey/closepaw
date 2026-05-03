@@ -16,8 +16,15 @@ import ai.closepaw.browser.cdp.shizuku.ShizukuChromeDevtoolsBridge
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeRunningProbe
 import ai.closepaw.browser.cdp.shizuku.ShizukuStatusAdapter
 import ai.closepaw.browser.cdp.shizuku.ShizukuUserServiceProvider
+import ai.closepaw.browser.cdp.shizuku.UserServiceTransport
+import ai.closepaw.browser.cdp.wireless.AdbCryptoKeyStore
+import ai.closepaw.browser.cdp.wireless.AdbPairingClient
+import ai.closepaw.browser.cdp.wireless.AdbWireProtocolClient
+import ai.closepaw.browser.cdp.wireless.AdbWirelessManager
+import ai.closepaw.browser.cdp.wireless.WirelessAdbSelfPairTransport
 import ai.closepaw.trace.TraceRecorder
 import java.io.Closeable
+import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
@@ -271,6 +278,23 @@ class BrowserSessionManager(
     companion object {
         private fun createDefaultBridge(context: Context): ShizukuChromeDevtoolsBridge {
             val userServiceProvider = ShizukuUserServiceProvider(context)
+            val keyStoreDir = File(context.applicationContext.filesDir, "adb_self_pair")
+            val keyStore = AdbCryptoKeyStore(keyStoreDir)
+            val pairingClient = AdbPairingClient(keyStore)
+            val wireClient = AdbWireProtocolClient(keyStore)
+            val wirelessManager = AdbWirelessManager(
+                binderProvider = {
+                    val transport = userServiceProvider.obtain() as? UserServiceTransport
+                        ?: error("UserServiceProvider returned non-UserServiceTransport")
+                    transport.binder
+                }
+            )
+            val wirelessTransport = WirelessAdbSelfPairTransport(
+                wirelessManager = wirelessManager,
+                keyStore = keyStore,
+                pairingClient = pairingClient,
+                wireClient = wireClient,
+            )
             return ShizukuChromeDevtoolsBridge(
                 status = ShizukuStatusAdapter(),
                 diagnostics = DefaultDevtoolsDiagnostics(
@@ -278,6 +302,7 @@ class BrowserSessionManager(
                 ),
                 appProcessTransport = AppProcessLocalSocketTransport(),
                 userServiceProvider = userServiceProvider,
+                wirelessAdbSelfPairTransport = wirelessTransport,
                 hostMediatedRelayTransport = HostMediatedCdpRelayTransport(),
             )
         }

@@ -128,7 +128,7 @@ class AppProcessLocalSocketTransport : DevtoolsSocketTransport {
  * cancellation.
  */
 class UserServiceTransport(
-    private val binder: IChromeDevtoolsUserService,
+    val binder: IChromeDevtoolsUserService,
 ) : DevtoolsSocketTransport {
 
     override val label: TransportLabel = TransportLabel.USER_SERVICE

@@ -85,6 +85,22 @@ sealed class DevtoolsSetupError(
         cause = cause,
     )
 
+    /**
+     * Wireless-ADB self-pair transport could not bring up its in-device path. Distinct from
+     * Shizuku-missing because the failure here is post-Shizuku: we have the binder, but
+     * IAdbManager rejected `allowWirelessDebugging` / `enablePairingByQrCode`, or the device
+     * has no Wi-Fi BSSID (AdbDebuggingManager refuses to enable wireless adb without one), or
+     * the embedded TLS-PSK / mTLS handshake itself failed.
+     */
+    class WirelessAdbSelfPairUnavailable(cause: Throwable?) : DevtoolsSetupError(
+        code = "wireless_adb_self_pair_unavailable",
+        message = "Wireless-ADB self-pair could not be brought up on this device. " +
+            "Verify (a) Shizuku is granted, (b) the device is on a Wi-Fi network, " +
+            "(c) IAdbManager AIDL is reachable from the shell uid (com.android.shell " +
+            "must hold MANAGE_DEBUGGING — true on stock AOSP and most OEM builds).",
+        cause = cause,
+    )
+
     class MalformedResponse(detail: String, cause: Throwable? = null) : DevtoolsSetupError(
         code = "malformed_response",
         message = "Chrome DevTools returned a malformed HTTP/WebSocket response: $detail",

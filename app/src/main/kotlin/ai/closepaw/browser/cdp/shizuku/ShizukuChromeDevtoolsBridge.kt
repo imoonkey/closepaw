@@ -1,5 +1,6 @@
 package ai.closepaw.browser.cdp.shizuku
 
+import ai.closepaw.browser.cdp.wireless.WirelessAdbRelayHost
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,6 +29,7 @@ class ShizukuChromeDevtoolsBridge(
     private val diagnostics: DevtoolsDiagnostics,
     private val appProcessTransport: DevtoolsSocketTransport,
     private val userServiceProvider: UserServiceProvider? = null,
+    private val wirelessAdbSelfPairTransport: DevtoolsSocketTransport? = null,
     private val hostMediatedRelayTransport: DevtoolsSocketTransport? = null,
     private val chromeTcpLoopbackTransport: DevtoolsSocketTransport? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -41,6 +43,10 @@ class ShizukuChromeDevtoolsBridge(
         require(chromeTcpLoopbackTransport == null ||
                 chromeTcpLoopbackTransport.label == TransportLabel.CHROME_TCP_LOOPBACK) {
             "chromeTcpLoopbackTransport must declare TransportLabel.CHROME_TCP_LOOPBACK"
+        }
+        require(wirelessAdbSelfPairTransport == null ||
+                wirelessAdbSelfPairTransport.label == TransportLabel.WIRELESS_ADB_SELF_PAIR) {
+            "wirelessAdbSelfPairTransport must declare TransportLabel.WIRELESS_ADB_SELF_PAIR"
         }
         require(hostMediatedRelayTransport == null ||
                 hostMediatedRelayTransport.label == TransportLabel.HOST_MEDIATED_RELAY) {
@@ -105,6 +111,11 @@ class ShizukuChromeDevtoolsBridge(
                 val port = transport.ensureRelayPortSuspend()
                 "127.0.0.1:$port"
             }
+            TransportLabel.WIRELESS_ADB_SELF_PAIR -> {
+                val transport = wirelessAdbSelfPairTransport as? WirelessAdbRelayHost
+                    ?: return@withContext null
+                transport.ensureWebSocketRelayPort()?.let { "127.0.0.1:$it" }
+            }
             TransportLabel.HOST_MEDIATED_RELAY -> {
                 val transport = hostMediatedRelayTransport as? HostMediatedCdpRelayTransport
                     ?: return@withContext null
@@ -117,6 +128,7 @@ class ShizukuChromeDevtoolsBridge(
     /** Release any Shizuku UserService binding owned by this bridge. */
     fun close() {
         userServiceProvider?.close()
+        (wirelessAdbSelfPairTransport as? AutoCloseable)?.let { runCatching { it.close() } }
     }
 
     private suspend fun httpGet(path: String): String {
@@ -154,7 +166,29 @@ class ShizukuChromeDevtoolsBridge(
             userError = userResponse.exceptionOrNull()
         }
 
-        // 3. Host-mediated relay — when the user has run scripts/setup-cdp-relay.sh, ADB has
+        // 3. Wireless-ADB self-pair — autonomous in-device path. Shizuku spawns a shell-uid
+        //    helper that calls IAdbManager AIDL to enable wireless adb + open a pair port with
+        //    our chosen PSK; the app then runs an in-process TLS-PSK pair + mTLS adb client to
+        //    A_OPEN(localabstract:chrome_devtools_remote) through adbd. No PC, no root. Works
+        //    on locked OEM devices (e.g. nubia P0110) where the in-band UserService LocalSocket
+        //    path (2) is denied by SELinux but adbd retains its mlstrustedsubject grant.
+        val wireless = wirelessAdbSelfPairTransport
+        var wirelessError: Throwable? = null
+        if (wireless != null) {
+            val wirelessResponse = runCatching {
+                DevtoolsHttpProtocol.parseHttpBody(
+                    wireless.exchange(request, requestTimeoutMs)
+                )
+            }
+            wirelessResponse.getOrNull()?.let {
+                lastSuccessfulTransport = TransportLabel.WIRELESS_ADB_SELF_PAIR
+                return it
+            }
+            wirelessError = wirelessResponse.exceptionOrNull()
+            if (wirelessError is DevtoolsSetupError) throw wirelessError
+        }
+
+        // 4. Host-mediated relay — when the user has run scripts/setup-cdp-relay.sh, ADB has
         //    forward+reverse tunnels chaining device 127.0.0.1:<port> back through host adbd
         //    into Chrome's abstract socket. Works on any device that can attach to a host
         //    over ADB, including the locked OEM builds where (2) is blocked.
@@ -179,7 +213,7 @@ class ShizukuChromeDevtoolsBridge(
             }
         }
 
-        // 4. Phase 2 chrome --remote-debugging-port=N path. Empirically broken on stock
+        // 5. Phase 2 chrome --remote-debugging-port=N path. Empirically broken on stock
         //    Chrome (per-profile chrome://flags toggle is required and cannot be set
         //    programmatically); kept wired only for hosts that opt in by passing the
         //    transport explicitly. Production wiring leaves this null.
@@ -210,8 +244,11 @@ class ShizukuChromeDevtoolsBridge(
             throw DevtoolsSetupError.AppProcessSocketInaccessible(appError)
         }
 
-        // Shizuku was tried and failed; the relay either wasn't wired or its probe came up
-        // empty. Surface the relay error since that is the user-actionable one.
+        // Shizuku was tried and failed. Prefer the most actionable error among the wireless
+        // self-pair (autonomous) and host-mediated relay (needs PC).
+        if (wireless != null) {
+            throw DevtoolsSetupError.WirelessAdbSelfPairUnavailable(wirelessError ?: userError)
+        }
         if (relay != null) {
             throw DevtoolsSetupError.HostMediatedRelayUnreachable(relayUnreachable ?: userError)
         }
@@ -239,14 +276,15 @@ class ShizukuChromeDevtoolsBridge(
             }
         }
 
-        // At least one transport path must be available. Shizuku is no longer mandatory: the
-        // host-mediated relay works without it on devices whose SELinux denies the shell
-        // domain connectto. We probe each path and only fail closed if NONE are usable.
-        val shizukuPathOk = userServiceProvider != null &&
-            status.isAvailable() && status.hasPermission()
+        // At least one transport path must be available. Shizuku alone is enough when paired
+        // with either the UserService LocalSocket (stock AOSP) or the wireless self-pair
+        // (locked OEMs). Host-mediated relay is the no-Shizuku fallback.
+        val shizukuOk = status.isAvailable() && status.hasPermission()
+        val shizukuPathOk = userServiceProvider != null && shizukuOk
+        val wirelessSelfPairOk = wirelessAdbSelfPairTransport != null && shizukuOk
         val relayReachable = hostMediatedRelayTransport?.isReachable() == true
 
-        if (shizukuPathOk || relayReachable) return
+        if (shizukuPathOk || wirelessSelfPairOk || relayReachable) return
 
         // Choose the most actionable error to surface back to the gate.
         if (hostMediatedRelayTransport != null) {
@@ -308,4 +346,4 @@ interface DevtoolsSocketTransport {
     suspend fun isReachable(): Boolean = true
 }
 
-enum class TransportLabel { APP_PROCESS, USER_SERVICE, HOST_MEDIATED_RELAY, CHROME_TCP_LOOPBACK }
+enum class TransportLabel { APP_PROCESS, USER_SERVICE, WIRELESS_ADB_SELF_PAIR, HOST_MEDIATED_RELAY, CHROME_TCP_LOOPBACK }
