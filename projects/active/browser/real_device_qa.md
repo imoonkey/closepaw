@@ -9,6 +9,7 @@
 | Shizuku UserService (root context) | emulator-5554 (Phase 1) | Works on AOSP/userdebug + any device where Shizuku ends up in `u:r:su:s0`. |
 | **Wireless-ADB self-pair (Phase 4) — autonomous in-device** | **nubia P0110 (locked OEM, no root, no PC)** | Shizuku-spawned shell-uid helper drives `IAdbManager.allowWirelessDebugging` + `enablePairingByQrCode` with our own PSK; embedded TLS pair client registers our RSA pubkey into adb_keys; embedded mTLS adb client A_OPENs `localabstract:chrome_devtools_remote` through adbd (which holds both `connectto`-allow and `mlstrustedsubject`). Zero host plumbing on the data path; only persistent requirement is one-time Shizuku grant. |
 | **WS relay stress (Phase 5) — multi-iteration leak check** | **nubia P0110 (PASS)** | 10 sequential `browser_script` agent sessions over the same ClosePaw process. Asserted per-iter (iter 1 → iter N) `socket_fd_delta <= +2` and `fd_delta <= +20`, pid stable, zero `EMFILE` lines, every iter showed `browser_script outcome=SUCCESS` + `GOAL_ACHIEVED` + WIRELESS_ADB_SELF_PAIR relay opened. Result on 2026-05-03 (round 4, post-rebase onto pair-once main): per-iter socket_fd_delta=0, per-iter fd_delta=-2, all 10 iterations GOAL_ACHIEVED via WIRELESS_ADB_SELF_PAIR. Driven by `scripts/ws-relay-stress.sh` + `WirelessAdbSelfPairTransportRelayStressTest`. |
+| **Phase 5 mid-gate (post-cleanup regression check)** | **nubia P0110 (PASS, soft)** | Two cold sessions on a clean install after pair-once + deleted-transport collapse + spike-harden + adb_keys prune + WS relay stress all merged. Both sessions return `document.title is "Example Domain"`; cascade is exactly USER_SERVICE → WIRELESS_ADB_SELF_PAIR with zero references to APP_PROCESS / HOST_MEDIATED_RELAY / CHROME_TCP_LOOPBACK in active logcat. Pair-once skip not observable on this OEM (shell uid denied read of `/data/misc/adb/adb_keys` — known per-OEM constraint, not Phase 5 regression). See "Phase 5 mid-gate" section. |
 
 The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but **Phase 4 routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`), without needing a host PC.**
 
@@ -255,6 +256,93 @@ original round-1 evidence. All addressed:
   UserService context) is denied read access to `/data/misc/adb/adb_keys`. Each
   iteration re-runs the TLS-PSK SPAKE2 pair handshake; adbd treats re-pair as
   idempotent so this is harmless to the relay leak check (and to functionality).
+
+---
+
+## Phase 5 mid-gate — regression check on nubia P0110 — PASS
+
+### Purpose
+
+Cleanup gate run after the Phase-5 series of merges (`f4e662af` pair-once,
+`1516206c`/`a0a8c866` deleted-transport collapse, `445362ca`/`ff873f25`
+single-flight + refcounted UserServiceProvider, `78ed9245`/`fa59f520` emulator
+row, `9226e9e7`/`095228ff` adb_keys prune helper, `88998bf4`/`9778209f` WS relay
+stress harness). Question: did any of these cleanups regress the Phase 4
+end-to-end path on nubia?
+
+### Setup
+
+- Device: nubia P0110, Android 16, OEM build, serial `100.64.43.95:5555`.
+- `ANDROID_SERIAL=100.64.43.95:5555 ./scripts/setup.sh` (re-installs APK, restarts Shizuku
+  if needed, re-grants overlay + accessibility, launches MainActivity).
+- `adb -s … shell run-as ai.closepaw rm -rf files/adb_self_pair` to force a fresh
+  pair on session 1.
+- `adb -s … forward --remove-all && adb -s … reverse --remove-all` (host plumbing
+  empty — proven by `forward --list` returning empty).
+- `wc -l /data/misc/adb/adb_keys` from `adb shell` returns `Permission denied`
+  (shell uid cannot read this file on this OEM — same constraint that defeats
+  pair-once skip; observable only via Shizuku-side IAdbManager calls).
+
+### Sessions
+
+Both runs invoked with:
+`ANDROID_SERIAL=100.64.43.95:5555 DEBUG_AUTO_APPROVE=true ./scripts/debug-run.sh "Use browser_script to fetch document.title from open https://example.com"`
+
+| Session | Run dir | Outcome | Pair markers |
+|---|---|---|---|
+| 1 (cold pair) | `debug-output/run_20260503_154101/` | `complete_task` returns `document.title for https://example.com is: Example Domain` (4 turns) | `wireless-adb pairing complete; future runs reuse persisted key` (fresh pair) |
+| 2 (no `rm`)   | `debug-output/run_20260503_160613/` | `complete_task` returns `document.title is: Example Domain` (4 turns)                   | `wireless-adb pairing complete` again — pair-once skip path **NOT** observable on this OEM (see below) |
+
+### Pair-once on nubia — known limitation, not a regression
+
+Session 2 logcat shows `ChromeDevtoolsUS: could not read /data/misc/adb/adb_keys:
+EACCES (Permission denied)` from inside the Shizuku-spawned UserService, even
+though that service runs in shell uid. This is the same OEM-side restriction
+called out in the Phase 5 caveats above and matches the diag note in
+`diag_20260503_phase4_handoff.md`. The fallback is a benign re-pair (adbd treats
+duplicate-key registration as idempotent), so the second session still completes
+end-to-end. Pair-once *was* validated on the AOSP emulator path
+(`fa59f520`) where the file is readable — this is a per-OEM read-policy issue,
+not an issue with the pair-once code.
+
+### Deleted-transport invariant — clean
+
+`grep -E "APP_PROCESS|HOST_MEDIATED_RELAY|CHROME_TCP_LOOPBACK"` against both
+`logcat_full.log` returns zero matches. The cascade exercised on nubia is
+exactly USER_SERVICE → WIRELESS_ADB_SELF_PAIR (USER_SERVICE throws
+`IOException: Permission denied` at `ChromeDevtoolsUserService.exchange:56`
+because `untrusted_app` socket is unreachable from shell, then the wireless
+self-pair leg succeeds). UserService records show `version=3` (the bump from
+`a0a8c866`).
+
+### Build — PASS, with a one-line hygiene fix in this branch
+
+`./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint` is green at
+this commit (1494 unit tests, 0 failures, 0 errors, 2m 40s wall on a quiet
+Gradle daemon). The default test JVM heap of `-Xmx512m` chosen by AGP OOMs once
+the Phase 5 test suite runs (Conscrypt + BouncyCastle + the OpenAI SDK +
+MockWebServer harnesses + the new `WirelessAdbSelfPairTransportRelayStressTest`
+all push past 512MB on the same worker). This branch raises the unit-test
+worker to `-Xmx2g` in `app/build.gradle.kts` `testOptions.unitTests.all { … }`.
+With that single one-line bump, the suite passes deterministically — without it
+the OOM is reproducible (`MockWebServer TaskRunner` and
+`DefaultDispatcher-worker-N` throw `OutOfMemoryError` from the
+`UncaughtExceptionHandler`).
+
+### Verdict — Phase 5 mid-gate
+
+**PASS** (SOFT — pair-once skip not observable on nubia per documented
+OEM constraint, not a Phase 5 regression). End-to-end `browser_script` works on
+nubia P0110 with all Phase 5 cleanups merged; no references to deleted
+transport labels in active logcat; build green at HEAD with the test-heap
+hygiene fix.
+
+### Evidence
+
+- `debug-output/run_20260503_154101/` — session 1 (cold pair).
+- `debug-output/run_20260503_160613/` — session 2 (re-pair, OEM perm denial logged).
+- Build log: `BUILD SUCCESSFUL in 2m 40s` (`./gradlew :app:assembleDebug
+  :app:testDebugUnitTest :app:lint --rerun-tasks`).
 
 ---
 

@@ -69,6 +69,11 @@ android {
         unitTests {
             isReturnDefaultValues = true
             isIncludeAndroidResources = true
+            all {
+                // Default test JVM heap (512m) OOMs once the suite includes Robolectric +
+                // bundled Conscrypt/BouncyCastle + the OpenAI SDK + MockWebServer harnesses.
+                it.maxHeapSize = "2g"
+            }
         }
     }
 }
