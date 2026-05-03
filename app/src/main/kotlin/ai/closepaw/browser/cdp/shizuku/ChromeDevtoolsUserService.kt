@@ -13,6 +13,8 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketTimeoutException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -119,6 +121,27 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         // which is idempotent on adbd's side.
         Log.w(TAG, "could not read $ADB_KEYS_PATH: ${e.message}")
         null
+    }
+
+    override fun writeAdbKeys(content: String): Boolean = try {
+        // adbd watches /data/misc/adb (directory) for IN_MOVED_TO; in-place truncate+rewrite
+        // is invisible to it. Write a sibling tmp + atomic rename so the new key set takes
+        // effect on the next handshake without an adbd restart.
+        val target = File(ADB_KEYS_PATH)
+        val parent = target.parentFile
+            ?: throw IOException("$ADB_KEYS_PATH has no parent directory")
+        val tmp = File(parent, "adb_keys.closepaw.tmp")
+        tmp.writeText(content, Charsets.US_ASCII)
+        Files.move(
+            tmp.toPath(),
+            target.toPath(),
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.ATOMIC_MOVE,
+        )
+        true
+    } catch (e: Exception) {
+        Log.w(TAG, "writeAdbKeys failed: ${e.message}", e)
+        false
     }
 
     private fun runShellCapture(script: String): String = try {

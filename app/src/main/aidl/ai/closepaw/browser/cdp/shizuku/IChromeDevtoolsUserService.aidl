@@ -63,4 +63,12 @@ interface IChromeDevtoolsUserService {
      * whether the device already trusts us and pairing can be skipped.
      */
     String readAdbKeys();
+
+    /**
+     * Atomically replaces `/data/misc/adb/adb_keys` with [content] (write tmp → rename) so
+     * adbd's directory inotify watch fires IN_MOVED_TO and reloads the key set. Returns true
+     * on success, false on IO failure. Caller is responsible for ensuring [content] preserves
+     * any non-ClosePaw entries that should remain trusted.
+     */
+    boolean writeAdbKeys(String content);
 }

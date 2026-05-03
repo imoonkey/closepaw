@@ -75,6 +75,27 @@ class AdbWirelessManager(
         return content.contains(pubkeyBase64)
     }
 
+    /**
+     * Removes accumulated `ClosePaw@*` entries from `/data/misc/adb/adb_keys`, retaining
+     * exactly one — the line whose pubkey equals [retainPubkeyBase64] (the current keypair).
+     * Non-ClosePaw lines are preserved verbatim.
+     *
+     * Returns true if the file was rewritten, false if there was nothing to prune (no extra
+     * ClosePaw entries), if adb_keys is unreadable, or if [retainPubkeyBase64] is not present
+     * (defensive: never delete the only ClosePaw entry we cannot verify is current).
+     *
+     * Cleanup of historical accumulation from before pair-once landed; cheap and idempotent
+     * after the first call. Caller is expected to invoke at most once per cold session.
+     */
+    suspend fun pruneAdbKeys(retainPubkeyBase64: String): Boolean {
+        require(retainPubkeyBase64.isNotEmpty()) { "retainPubkeyBase64 must not be empty" }
+        val content = onBinder { it.readAdbKeys() } ?: return false
+        if (!content.contains(retainPubkeyBase64)) return false
+        val pruned = pruneClosePawEntries(content, retainPubkeyBase64)
+        if (pruned == content) return false
+        return onBinder { it.writeAdbKeys(pruned) }
+    }
+
     private suspend inline fun <T> onBinder(crossinline block: (IChromeDevtoolsUserService) -> T): T {
         val binder = binderProvider()
         return try {
@@ -87,5 +108,36 @@ class AdbWirelessManager(
 
     companion object {
         private const val TAG = "AdbWirelessManager"
+        private const val CLOSEPAW_NAME_PREFIX = "ClosePaw@"
+
+        /**
+         * Pure prune of `adb_keys` content: drop blank lines and any `ClosePaw@*`-named line
+         * whose pubkey is not [retainPubkeyBase64]. The first surviving `retainPubkeyBase64`
+         * line is kept once; any duplicate copies are dropped. Non-ClosePaw lines pass through
+         * unchanged.
+         *
+         * Caller filters by `pruned == content` to decide whether a write-back is needed.
+         */
+        internal fun pruneClosePawEntries(content: String, retainPubkeyBase64: String): String {
+            val out = StringBuilder()
+            var keptCurrent = false
+            for (raw in content.split('\n')) {
+                val line = raw.trimEnd('\r')
+                if (line.isBlank()) continue
+                val firstSpace = line.indexOf(' ')
+                val pubkey = if (firstSpace >= 0) line.substring(0, firstSpace) else line
+                val name = if (firstSpace >= 0) line.substring(firstSpace + 1) else ""
+                val isClosePaw = name.startsWith(CLOSEPAW_NAME_PREFIX) || pubkey == retainPubkeyBase64
+                if (isClosePaw) {
+                    if (pubkey == retainPubkeyBase64 && !keptCurrent) {
+                        out.append(line).append('\n')
+                        keptCurrent = true
+                    }
+                } else {
+                    out.append(line).append('\n')
+                }
+            }
+            return out.toString()
+        }
     }
 }

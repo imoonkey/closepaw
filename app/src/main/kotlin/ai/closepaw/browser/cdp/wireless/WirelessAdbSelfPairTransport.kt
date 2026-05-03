@@ -43,6 +43,7 @@ class WirelessAdbSelfPairTransport(
 
     private val bootstrapLock = Mutex()
     @Volatile private var cachedTlsPort: Int = -1
+    @Volatile private var prunedThisSession = false
 
     private val relayLock = Any()
     private var relayServer: ServerSocket? = null
@@ -143,6 +144,7 @@ class WirelessAdbSelfPairTransport(
         val pubkeyBase64 = keyStore.androidPubkeyBase64()
         if (keyStore.isPersisted() && wirelessManager.isPubkeyAuthorized(pubkeyBase64)) {
             Log.i(TAG, "wireless-adb pair skipped: pubkey already authorized")
+            pruneStaleAdbKeysOnce(pubkeyBase64)
             return
         }
 
@@ -157,6 +159,21 @@ class WirelessAdbSelfPairTransport(
         // adbd's adb_keys reload is event-driven (file watch) but isn't strictly synchronous —
         // give it a beat before mTLS so the freshly-paired key is in adbd's accepted set.
         runInterruptible(ioDispatcher) { Thread.sleep(POST_PAIR_SETTLE_MS) }
+    }
+
+    /**
+     * One-shot cleanup of historical `ClosePaw@*` accumulation in `/data/misc/adb/adb_keys`
+     * (pre-pair-once each cold session appended a fresh entry). Best-effort: failures here are
+     * non-fatal — the existing tunnel keeps working, the file just stays slightly larger.
+     */
+    private suspend fun pruneStaleAdbKeysOnce(pubkeyBase64: String) {
+        if (prunedThisSession) return
+        prunedThisSession = true
+        runCatching { wirelessManager.pruneAdbKeys(pubkeyBase64) }
+            .onSuccess { pruned ->
+                if (pruned) Log.i(TAG, "wireless-adb pruned stale ClosePaw entries from adb_keys")
+            }
+            .onFailure { Log.w(TAG, "wireless-adb adb_keys prune failed (non-fatal)", it) }
     }
 
     private fun randomPsk(): String {

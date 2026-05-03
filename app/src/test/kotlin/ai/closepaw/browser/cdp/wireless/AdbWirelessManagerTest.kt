@@ -149,4 +149,95 @@ class AdbWirelessManagerTest {
         assertThat(manager.isPubkeyAuthorized("")).isFalse()
         verify(exactly = 0) { binder.readAdbKeys() }
     }
+
+    @Test
+    fun pruneAdbKeys_removes_extra_closepaw_entries_keeps_current_and_others() = runTest {
+        val current = "AAAA_CURRENT_KEY"
+        val before = listOf(
+            "OTHER_KEY alice@host",
+            "STALE_CLOSEPAW_1 ClosePaw@P0110",
+            "STALE_CLOSEPAW_2 ClosePaw@P0110",
+            "$current ClosePaw@P0110",
+            "STALE_CLOSEPAW_3 ClosePaw@P0110",
+            "BOB_KEY bob@host",
+        ).joinToString("\n", postfix = "\n")
+        every { binder.readAdbKeys() } returns before
+        every { binder.writeAdbKeys(any()) } returns true
+
+        val pruned = manager.pruneAdbKeys(current)
+
+        assertThat(pruned).isTrue()
+        val expected = listOf(
+            "OTHER_KEY alice@host",
+            "$current ClosePaw@P0110",
+            "BOB_KEY bob@host",
+        ).joinToString("\n", postfix = "\n")
+        verify { binder.writeAdbKeys(expected) }
+    }
+
+    @Test
+    fun pruneAdbKeys_noop_when_only_current_closepaw_present() = runTest {
+        val current = "AAAA_CURRENT_KEY"
+        val content = "OTHER_KEY alice@host\n$current ClosePaw@P0110\n"
+        every { binder.readAdbKeys() } returns content
+
+        assertThat(manager.pruneAdbKeys(current)).isFalse()
+        verify(exactly = 0) { binder.writeAdbKeys(any()) }
+    }
+
+    @Test
+    fun pruneAdbKeys_noop_when_no_closepaw_entries() = runTest {
+        every { binder.readAdbKeys() } returns "OTHER_KEY alice@host\nBOB_KEY bob@host\n"
+
+        assertThat(manager.pruneAdbKeys("AAAA_CURRENT_KEY")).isFalse()
+        verify(exactly = 0) { binder.writeAdbKeys(any()) }
+    }
+
+    @Test
+    fun pruneAdbKeys_skips_when_current_key_missing_from_file() = runTest {
+        // Defensive: never delete the only ClosePaw entry we cannot verify is current.
+        every { binder.readAdbKeys() } returns "STALE_CLOSEPAW_1 ClosePaw@P0110\n"
+
+        assertThat(manager.pruneAdbKeys("AAAA_CURRENT_KEY")).isFalse()
+        verify(exactly = 0) { binder.writeAdbKeys(any()) }
+    }
+
+    @Test
+    fun pruneAdbKeys_returns_false_when_adb_keys_unreadable() = runTest {
+        every { binder.readAdbKeys() } returns null
+
+        assertThat(manager.pruneAdbKeys("AAAA_CURRENT_KEY")).isFalse()
+        verify(exactly = 0) { binder.writeAdbKeys(any()) }
+    }
+
+    @Test
+    fun pruneAdbKeys_returns_false_when_writeback_fails() = runTest {
+        val current = "AAAA_CURRENT_KEY"
+        every { binder.readAdbKeys() } returns
+            "STALE_CLOSEPAW ClosePaw@P0110\n$current ClosePaw@P0110\n"
+        every { binder.writeAdbKeys(any()) } returns false
+
+        assertThat(manager.pruneAdbKeys(current)).isFalse()
+    }
+
+    @Test
+    fun pruneAdbKeys_drops_blank_lines_and_strips_cr() = runTest {
+        val current = "AAAA_CURRENT_KEY"
+        val before = "OTHER alice\r\n\nSTALE ClosePaw@P0110\r\n$current ClosePaw@P0110\n\n"
+        every { binder.readAdbKeys() } returns before
+        every { binder.writeAdbKeys(any()) } returns true
+
+        assertThat(manager.pruneAdbKeys(current)).isTrue()
+        verify { binder.writeAdbKeys("OTHER alice\n$current ClosePaw@P0110\n") }
+    }
+
+    @Test
+    fun pruneAdbKeys_rejects_blank_retain_pubkey() = runTest {
+        try {
+            manager.pruneAdbKeys("")
+            throw AssertionError("expected IllegalArgumentException")
+        } catch (e: IllegalArgumentException) {
+            assertThat(e.message).contains("retainPubkeyBase64")
+        }
+    }
 }
