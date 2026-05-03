@@ -179,25 +179,38 @@ Verified only on nubia P0110 (Android 16, OEM build with stripped Wireless Debug
 - `WirelessAdbSelfPairTransport.kt:73` — the retry-once on cached-port-rotation is defensive; if observed in production, log the rate.
 - `AdbPairingClient.kt` — uses LGPL spake2-android via JitPack. License-clean for a proprietary app (dynamic linking) but if license policy ever tightens, port BoringSSL `spake25519.c` to Apache-2.0 (~600 lines of crypto).
 
-### 7. Delete the host-mediated relay path entirely
+### 7. Delete the host-mediated relay path entirely (and APP_PROCESS, and Phase 2)
 
-`HOST_MEDIATED_RELAY` (`scripts/setup-cdp-relay.sh` + `HostMediatedCdpRelayTransport`) was the only working transport on locked OEMs *before* Phase 4. It's no longer a production path: it requires the user's PC to keep ADB attached, which contradicts the entire point of an in-device autonomous agent. With Phase 4 PASS on nubia, the cascade should be:
+`HOST_MEDIATED_RELAY` (`scripts/setup-cdp-relay.sh` + `HostMediatedCdpRelayTransport`) was the only working transport on locked OEMs *before* Phase 4. It's no longer a production path: it requires the user's PC to keep ADB attached, which contradicts the entire point of an in-device autonomous agent. With Phase 4 PASS on nubia, the cascade should collapse to:
 
 ```
-APP_PROCESS → USER_SERVICE → WIRELESS_ADB_SELF_PAIR → (fail loudly)
+USER_SERVICE → WIRELESS_ADB_SELF_PAIR → (fail loudly)
 ```
+
+Three transports to remove, in order of confidence:
+
+**a. `APP_PROCESS` (`AppProcessLocalSocketTransport`) — never works on stock Android.**
+
+ClosePaw (`untrusted_app` SELinux domain) connecting to another app's abstract socket fails BOTH the TE allow check (no `allow untrusted_app appdomain unix_stream_socket connectto` rule exists in any standard policy) AND the MLS check (different apps have different MLS categories, neither side is `mlstrustedsubject`). The code's own comment says "Will typically fail under SELinux / package isolation" — that's being polite. No phase of QA ever observed it succeed: Phase 1 succeeded via USER_SERVICE, nubia via WIRELESS_ADB_SELF_PAIR, neither via APP_PROCESS. Keeping it costs one socket connect + one log line per `httpGet` for zero positive value.
+
+**b. `HOST_MEDIATED_RELAY` (`HostMediatedCdpRelayTransport`) — needs PC-side `adb forward`/`reverse`, contradicts in-device autonomy.**
 
 Files to delete:
+- `app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/AppProcessLocalSocketTransport.kt` (the `AppProcessLocalSocketTransport` class — `UserServiceTransport` lives in the same file and stays; split or move it).
 - `app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/HostMediatedCdpRelayTransport.kt`
 - `app/src/test/kotlin/ai/closepaw/browser/cdp/shizuku/HostMediatedCdpRelayTransportTest.kt`
-- `scripts/setup-cdp-relay.sh` (and any docs that reference it)
-- `DevtoolsSetupError.HostMediatedRelayUnreachable` and `HostMediatedRelayUnreachableException`
-- `hostMediatedRelayTransport` constructor parameter on `ShizukuChromeDevtoolsBridge`, all related cascade legs in `httpGet`, all related branches in `resolveWebSocketHost` / preflight / final-error block
-- `BrowserSessionManager.createDefaultBridge()` reference to `HostMediatedCdpRelayTransport()`
-- The `host_mediated_relay_unreachable` user-facing error code (replace surfacing with `WirelessAdbSelfPairUnavailable` or a new "no transport viable" code)
-- `real_device_qa.md` Phase 3 section can become a historical note ("documented for archaeology, removed in commit X")
+- `scripts/setup-cdp-relay.sh` and any docs that reference it.
+- `DevtoolsSetupError.HostMediatedRelayUnreachable` and `HostMediatedRelayUnreachableException`.
+- `DevtoolsSetupError.AppProcessSocketInaccessible` (only emitted by APP_PROCESS).
+- `appProcessTransport` and `hostMediatedRelayTransport` constructor parameters on `ShizukuChromeDevtoolsBridge`; the cascade legs in `httpGet`; the resolveWebSocketHost branches; the preflight checks; the final-error-block prioritization.
+- `BrowserSessionManager.createDefaultBridge()` references.
+- `TransportLabel.APP_PROCESS` and `TransportLabel.HOST_MEDIATED_RELAY` enum entries.
+- `host_mediated_relay_unreachable` and `app_process_socket_inaccessible` user-facing error codes.
+- `real_device_qa.md` Phase 1 / Phase 3 sections become a historical note ("preserved for archaeology, removed in commit X — was always sub-optimal").
 
-Cleanup will also let `ShizukuChromeDevtoolsBridge` lose two of its three optional transport slots — it can collapse to `(appProcess, userService, wirelessSelfPair)` triple, and the cascade-end-block error logic gets ~30 lines simpler.
+**c. `CHROME_TCP_LOOPBACK` (`ChromeRemoteDebugPortTransport`, the Phase 2 attempt)** — empirically blocked by chrome's per-profile flag requirement, kept "wired but null in production." Same removal logic — see #8 for details.
+
+After all three deletions, `ShizukuChromeDevtoolsBridge`'s constructor goes from 4 transport slots to 1, the cascade in `httpGet` goes from ~80 lines to ~25, the end-block error prioritization goes from 5 paths to 1, and `DevtoolsSetupError` shrinks from 9 sealed subtypes to ~4 (`ShizukuUnavailable`, `ShizukuPermissionMissing`, `ChromeNotRunning`, `DevtoolsSocketMissing`, `WirelessAdbSelfPairUnavailable`, `MalformedResponse`).
 
 ### 8. Full review + simplification of the entire `browser_script` implementation
 
