@@ -3,6 +3,7 @@ package ai.closepaw.browser.cdp
 import ai.closepaw.browser.cdp.shizuku.PageTarget
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
@@ -21,7 +22,15 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class ChromeCdpClient(
     private val connectionFactory: CdpConnectionFactory,
-    private val commandTimeoutMs: Long = 10_000,
+    /**
+     * Per-CDP-command timeout. Each `cdp(method, ...)` from the agent script is wrapped in
+     * `withTimeout(commandTimeoutMs)`; the script's outer `timeout_ms` is a separate, larger
+     * budget for the whole script. Default is generous because real-device transports
+     * (host-mediated relay, USB chained ADB) add latency on top of Chrome's response time —
+     * 10s was empirically too tight on nubia P0110, where `Page.loadEventFired` for a
+     * cellular network-fetched page can run >10s.
+     */
+    private val commandTimeoutMs: Long = DEFAULT_COMMAND_TIMEOUT_MS,
     private val onTransportFailure: (Throwable) -> Unit = {},
 ) {
     private val nextId = AtomicInteger(1)
@@ -187,7 +196,18 @@ class ChromeCdpClient(
                 markTransportBroken(transportError)
                 throw transportError
             }
-            return withTimeout(commandTimeoutMs) { deferred.await() }
+            return try {
+                withTimeout(commandTimeoutMs) { deferred.await() }
+            } catch (e: TimeoutCancellationException) {
+                // Surface the offending CDP method + the actual cap so the agent (and trace)
+                // can see exactly what blew the budget, instead of the bare kotlinx.coroutines
+                // "Timed out waiting for X ms" which leaks no context.
+                throw CdpException(
+                    -1,
+                    "CDP command '$method' timed out after ${commandTimeoutMs}ms " +
+                        "(per-command cap; script-level timeout_ms is a separate, larger budget)",
+                )
+            }
         } finally {
             pending.remove(id)
         }
@@ -242,4 +262,17 @@ class ChromeCdpClient(
 
     private fun isStaleSessionError(e: CdpException): Boolean =
         "Session with given id not found" in e.message
+
+    companion object {
+        /**
+         * Default per-CDP-command cap. Picked to comfortably cover real-device transports:
+         * the host-mediated CDP relay chains every CDP frame through `adb reverse` ->
+         * host adbd -> `adb forward` -> Chrome, which adds USB/network latency on top of
+         * Chrome's own response time. Empirically 10s was too tight on nubia P0110 for
+         * `Page.loadEventFired` waiting on a fresh page navigation; 30s leaves headroom for
+         * cellular page loads through the chained relay without making transient hangs
+         * invisible.
+         */
+        const val DEFAULT_COMMAND_TIMEOUT_MS: Long = 30_000L
+    }
 }

@@ -45,6 +45,14 @@ class BrowserSessionManager(
     context: Context,
     sessionScope: CoroutineScope,
     @Suppress("unused") private val traceRecorder: TraceRecorder,
+    /**
+     * Per-CDP-command timeout passed to [ChromeCdpClient]. The script's outer `timeout_ms` is
+     * a separate, larger budget for the whole script; this cap fires when a single CDP method
+     * (most importantly `Page.loadEventFired { awaitEvent: true }`) blocks longer than the
+     * cap. Defaults to [ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS] (30s) which leaves headroom
+     * for cellular page loads through the host-mediated CDP relay.
+     */
+    private val cdpCommandTimeoutMs: Long = ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS,
     private val bridgeFactory: () -> BrowserDevtoolsBridge = {
         ShizukuBrowserDevtoolsBridge(
             createDefaultBridge(context.applicationContext)
@@ -53,7 +61,11 @@ class BrowserSessionManager(
     private val cdpConnectionFactory: CdpConnectionFactory = OkHttpCdpConnectionFactory(),
     private val cdpClientFactory: (CdpConnectionFactory, (Throwable) -> Unit) -> ChromeCdpClient =
         { factory, onTransportFailure ->
-            ChromeCdpClient(factory, onTransportFailure = onTransportFailure)
+            ChromeCdpClient(
+                connectionFactory = factory,
+                commandTimeoutMs = cdpCommandTimeoutMs,
+                onTransportFailure = onTransportFailure,
+            )
         },
     private val runnerFactory: (Context, ChromeCdpClient) -> BrowserScriptExecutor = { ctx, client ->
         val runner = BrowserScriptRunner(ctx, client)

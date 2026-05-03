@@ -126,10 +126,13 @@ class BrowserScriptBridgeTest {
         h.fake.responder = { _ -> null }
 
         h.bridge.handleSend("""{"id":1,"method":"Page.navigate","params":{},"options":{"sessionId":"s1"}}""")
-        advanceUntilIdle()
+        // Advance just enough to register the in-flight CDP request without hitting the
+        // per-command timeout cap (which would otherwise convert this test from "cancelled
+        // by user" to "timed out by client" and call back into JS via __cdpReject).
+        runCurrent()
 
         h.bridge.cancelPending("user-cancelled")
-        advanceUntilIdle()
+        runCurrent()
 
         val r = h.bridge.awaitResult() as ScriptResult.Cancelled
         assertThat(r.reason).contains("user-cancelled")

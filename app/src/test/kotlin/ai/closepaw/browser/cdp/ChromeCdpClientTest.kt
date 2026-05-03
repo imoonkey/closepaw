@@ -368,6 +368,34 @@ class ChromeCdpClientTest {
         assertThat(ChromeCdpTarget.isRealPage("service_worker", "https://example.com")).isFalse()
     }
 
+    @Test
+    fun `command timeout surfaces method name and cap in CdpException`() = runTest {
+        // Configure the client with a short cap and never inject a response so the wait
+        // hits the timeout. The error should name the offending method + cap so the
+        // browser_script tool can hand the agent an actionable error instead of the bare
+        // kotlinx "Timed out waiting for X ms".
+        val conn = FakeCdpConnection()
+        conn.responder = { null }  // hold every request open until the timeout fires
+        val client = ChromeCdpClient(conn.factory(), commandTimeoutMs = 50)
+        client.connect("ws://test")
+
+        try {
+            client.send("Browser.getVersion")  // browser-level, no session needed
+            fail("expected timeout to throw CdpException")
+        } catch (e: CdpException) {
+            assertThat(e.message).contains("Browser.getVersion")
+            assertThat(e.message).contains("50ms")
+            assertThat(e.message).contains("per-command cap")
+        }
+    }
+
+    @Test
+    fun `default command timeout is generous enough for relay-based transports`() {
+        // Lock the published default in. nubia P0110 + host-mediated CDP relay empirically
+        // needs >10s for Page.loadEventFired on a fresh navigation; 30s is the agreed cap.
+        assertThat(ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS).isAtLeast(30_000L)
+    }
+
     // -- test infrastructure --
 
     private suspend fun setupSession(
