@@ -25,10 +25,10 @@ class ChromeCdpClient(
     /**
      * Per-CDP-command timeout. Each `cdp(method, ...)` from the agent script is wrapped in
      * `withTimeout(commandTimeoutMs)`; the script's outer `timeout_ms` is a separate, larger
-     * budget for the whole script. Default is generous because real-device transports
-     * (host-mediated relay, USB chained ADB) add latency on top of Chrome's response time —
-     * 10s was empirically too tight on nubia P0110, where `Page.loadEventFired` for a
-     * cellular network-fetched page can run >10s.
+     * budget for the whole script. Default is generous because the wireless-ADB self-pair
+     * relay adds adbd-loopback latency on top of Chrome's response time — 10s was empirically
+     * too tight on nubia P0110, where `Page.loadEventFired` for a cellular network-fetched
+     * page can run >10s.
      */
     private val commandTimeoutMs: Long = DEFAULT_COMMAND_TIMEOUT_MS,
     private val onTransportFailure: (Throwable) -> Unit = {},
@@ -265,13 +265,12 @@ class ChromeCdpClient(
 
     companion object {
         /**
-         * Default per-CDP-command cap. Picked to comfortably cover real-device transports:
-         * the host-mediated CDP relay chains every CDP frame through `adb reverse` ->
-         * host adbd -> `adb forward` -> Chrome, which adds USB/network latency on top of
-         * Chrome's own response time. Empirically 10s was too tight on nubia P0110 for
-         * `Page.loadEventFired` waiting on a fresh page navigation; 30s leaves headroom for
-         * cellular page loads through the chained relay without making transient hangs
-         * invisible.
+         * Default per-CDP-command cap. Picked to comfortably cover the wireless-ADB self-pair
+         * relay: every CDP frame goes through our in-app TCP relay → adbd → Chrome's abstract
+         * socket, which adds adbd-loopback latency on top of Chrome's own response time.
+         * Empirically 10s was too tight on nubia P0110 for `Page.loadEventFired` waiting on a
+         * fresh page navigation; 30s leaves headroom for cellular page loads without making
+         * transient hangs invisible.
          */
         const val DEFAULT_COMMAND_TIMEOUT_MS: Long = 30_000L
     }

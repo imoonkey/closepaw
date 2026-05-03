@@ -37,7 +37,7 @@ The device-policy block documented in the original "nubia FAIL" diagnostic is st
 
 ### Steps (per `app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/`)
 
-1. `WirelessAdbSelfPairTransport.exchange()` invoked by the bridge cascade after APP_PROCESS and USER_SERVICE both fail (SELinux denies `shell→untrusted_app` `connectto` for chrome_devtools_remote on this build).
+1. `WirelessAdbSelfPairTransport.exchange()` invoked by the bridge cascade after USER_SERVICE fails (SELinux denies `shell→untrusted_app` `connectto` for chrome_devtools_remote on this build).
 2. `AdbWirelessManager.enableWirelessDebugging()` → Shizuku UserService → `IAdbManager.allowWirelessDebugging(true, currentBssid)` via reflection in shell-uid context (com.android.shell holds MANAGE_DEBUGGING).
 3. `AdbWirelessManager.getAdbWirelessPort()` returns the live TLS adb port (41089 in this run).
 4. `AdbWirelessManager.openPairPort("ClosePaw", randomPsk)` → `IAdbManager.enablePairingByQrCode` → discovers pair port via `/proc/net/tcp` LISTEN-set diff.

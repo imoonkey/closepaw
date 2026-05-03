@@ -11,14 +11,13 @@ import kotlinx.coroutines.CancellationException
  * 1. Reject early when the experimental browser-automation flag is off, so we never spin up
  *    transport probes for a disabled feature.
  * 2. Surface the most actionable [DevtoolsSetupError] for whichever transport state the
- *    bridge reports during preflight (Chrome socket missing, Shizuku unavailable, host-mediated
- *    relay unreachable). The bridge owns the cascade and per-transport probe logic; the gate
- *    just turns that verdict into a stable code/reason string the agent and UI can render.
+ *    bridge reports during preflight (Chrome socket missing, Shizuku unavailable, wireless-ADB
+ *    self-pair unable to bring up its in-device path). The bridge owns the cascade
+ *    (USER_SERVICE → WIRELESS_ADB_SELF_PAIR) and per-transport probe logic; the gate just
+ *    turns that verdict into a stable code/reason string the agent and UI can render.
  *
- * Shizuku is no longer mandatory: the host-mediated relay path works without it on devices
- * whose SELinux denies the shell-domain connectto, so the gate intentionally does NOT short-
- * circuit on Shizuku availability. That decision lives inside the bridge's preflight, which
- * knows which transports are actually wired.
+ * Both supported transports require Shizuku, so the bridge's preflight short-circuits on
+ * Shizuku availability before either transport is attempted.
  *
  * Dependencies are injected as functional seams so the gate has zero Android coupling and
  * the wiring (AppSettingsStore, ShizukuChromeDevtoolsBridge.preflight, BrowserScriptRunner.run)

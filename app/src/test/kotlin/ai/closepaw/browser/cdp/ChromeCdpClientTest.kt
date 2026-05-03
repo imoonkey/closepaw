@@ -391,8 +391,9 @@ class ChromeCdpClientTest {
 
     @Test
     fun `default command timeout is generous enough for relay-based transports`() {
-        // Lock the published default in. nubia P0110 + host-mediated CDP relay empirically
-        // needs >10s for Page.loadEventFired on a fresh navigation; 30s is the agreed cap.
+        // Lock the published default in. nubia P0110 + wireless-ADB self-pair adbd loopback
+        // empirically needs >10s for Page.loadEventFired on a fresh navigation; 30s is the
+        // agreed cap.
         assertThat(ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS).isAtLeast(30_000L)
     }
 

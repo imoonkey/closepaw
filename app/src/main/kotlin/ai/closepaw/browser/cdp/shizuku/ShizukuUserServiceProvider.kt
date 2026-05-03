@@ -15,9 +15,9 @@ import kotlinx.coroutines.withTimeout
 import rikka.shizuku.Shizuku
 
 /**
- * Owns the lifecycle of the second-leg [DevtoolsSocketTransport]. The bridge calls [obtain]
- * lazily — only after the app-process transport has failed — so on devices where the app UID
- * can already reach `chrome_devtools_remote` we never spawn a Shizuku helper process.
+ * Owns the lifecycle of the Shizuku-backed [DevtoolsSocketTransport]. The bridge calls
+ * [obtain] lazily on the first httpGet so we don't spawn a Shizuku helper process before
+ * `browser_script` is actually invoked.
  */
 interface UserServiceProvider {
     /** Lazily produce a transport. Idempotent: subsequent calls return the same instance. */
@@ -201,7 +201,11 @@ class ShizukuUserServiceProvider internal constructor(
     }
 
     companion object {
-        const val USER_SERVICE_VERSION = 1
+        // Bump whenever IChromeDevtoolsUserService.aidl changes shape. Shizuku keys cached
+        // user-service processes on (ComponentName, version), so an unchanged version + a
+        // changed AIDL would let the new client transact against an old stub via shifted
+        // transaction IDs — silently calling the wrong method.
+        const val USER_SERVICE_VERSION = 2
         const val DEFAULT_PROCESS_SUFFIX = "chrome_devtools"
         const val DEFAULT_BIND_TIMEOUT_MS = 10_000L
     }
