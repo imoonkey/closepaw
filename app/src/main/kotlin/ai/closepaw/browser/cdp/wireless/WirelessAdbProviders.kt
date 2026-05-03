@@ -44,9 +44,13 @@ internal object WirelessAdbProviders {
     }
 
     private fun installConscrypt() {
-        val existing = Security.getProvider(CONSCRYPT_PROVIDER_NAME)
-        if (existing == null) {
-            Security.insertProviderAt(Conscrypt.newProvider(), 1)
+        // Conscrypt requires its native lib; skip silently in host-JVM unit tests where
+        // conscrypt_jni isn't present (the keystore tests don't need TLS).
+        runCatching {
+            val existing = Security.getProvider(CONSCRYPT_PROVIDER_NAME)
+            if (existing == null) {
+                Security.insertProviderAt(Conscrypt.newProvider(), 1)
+            }
         }
     }
 

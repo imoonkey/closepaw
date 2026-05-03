@@ -34,7 +34,7 @@ class AdbWireProtocolClient(
         request: ByteArray,
         timeoutMs: Int = 10_000,
     ): ByteArray = runInterruptible(Dispatchers.IO) {
-        val socket = AdbTlsClient.connect(host, tlsPort, keyStore, timeoutMs)
+        val socket = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, timeoutMs)
         try {
             runExchange(socket.inputStream, socket.outputStream, destination, request)
         } finally {
@@ -48,7 +48,7 @@ class AdbWireProtocolClient(
         destination: String,
         timeoutMs: Int = 10_000,
     ): AdbStream = runInterruptible(Dispatchers.IO) {
-        val socket = AdbTlsClient.connect(host, tlsPort, keyStore, timeoutMs)
+        val socket = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, timeoutMs)
         try {
             val (remoteId, maxPayload) = handshakeAndOpen(socket.inputStream, socket.outputStream, destination)
             AdbStream(socket, LOCAL_ID, remoteId, maxPayload)

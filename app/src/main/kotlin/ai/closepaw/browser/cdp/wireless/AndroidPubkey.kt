@@ -37,8 +37,12 @@ object AndroidPubkey {
     }
 
     fun encodeWithName(publicKey: RSAPublicKey, name: String): ByteArray {
+        // Format: "<base64-pubkey> <name>" — NO trailing newline. Inside PeerInfo we rely on the
+        // surrounding zero-padding for NUL termination; AdbDebuggingManager appends its own
+        // newline when persisting to adb_keys (a trailing \n here would create a blank entry
+        // that adbd later flags as "Invalid base64 key ").
         val b64 = Base64.getEncoder().encodeToString(encode(publicKey))
-        return "$b64 $name\n".toByteArray(Charsets.US_ASCII)
+        return "$b64 $name".toByteArray(Charsets.US_ASCII)
     }
 
     private fun toLittleEndianFixed(value: BigInteger, size: Int): ByteArray {
