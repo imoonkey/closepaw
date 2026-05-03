@@ -3,6 +3,8 @@ package ai.closepaw.browser.cdp.wireless
 import com.google.common.truth.Truth.assertThat
 import java.io.File
 import java.nio.file.Files
+import java.security.interfaces.RSAPublicKey
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Before
@@ -35,24 +37,36 @@ class AdbCryptoKeyStoreTest {
     }
 
     @Test
-    fun `second load returns same fingerprint`() {
+    fun `androidPubkeyBase64 equals base64 of AndroidPubkey encode`() {
         val store = AdbCryptoKeyStore(dir)
-        val fp1 = store.loadOrCreate().let { store.fingerprint() }
-        val fp2 = AdbCryptoKeyStore(dir).loadOrCreate().let { AdbCryptoKeyStore(dir).fingerprint() }
-        assertThat(fp1).isEqualTo(fp2)
+        val material = store.loadOrCreate()
+        val expected = Base64.getEncoder()
+            .encodeToString(AndroidPubkey.encode(material.keyPair.public as RSAPublicKey))
+
+        assertThat(store.androidPubkeyBase64()).isEqualTo(expected)
     }
 
     @Test
-    fun `reset regenerates a new fingerprint`() {
+    fun `androidPubkeyBase64 is stable across reloads from disk`() {
+        // Confirms the pubkey blob serializes deterministically across PKCS8 round-trips —
+        // the pair-once optimisation depends on this exact string matching what adbd has in
+        // /data/misc/adb/adb_keys after the previous run.
+        val first = AdbCryptoKeyStore(dir).androidPubkeyBase64()
+        val second = AdbCryptoKeyStore(dir).androidPubkeyBase64()
+        assertThat(first).isEqualTo(second)
+    }
+
+    @Test
+    fun `reset regenerates a new pubkey`() {
         val store = AdbCryptoKeyStore(dir)
         store.loadOrCreate()
-        val fp1 = store.fingerprint()
+        val first = store.androidPubkeyBase64()
 
         store.reset()
         assertThat(store.isPersisted()).isFalse()
 
-        val fp2 = AdbCryptoKeyStore(dir).fingerprint()
-        assertThat(fp1).isNotEqualTo(fp2)
+        val second = AdbCryptoKeyStore(dir).androidPubkeyBase64()
+        assertThat(first).isNotEqualTo(second)
     }
 
     @Test

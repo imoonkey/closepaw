@@ -111,18 +111,14 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         adbManager.disablePairing()
     }
 
-    override fun isPubkeyInAdbKeys(fingerprintBase64: String): Boolean {
-        if (fingerprintBase64.isBlank()) return false
-        // Best-effort: query IAdbManager.getPairedDevices() and look for the fingerprint
-        // either as a Map key or inside any value's string form. The PairDevice object's
-        // fields differ across OEM builds, so we do a substring match instead of guessing
-        // the field name. Returns false on uncertainty — caller will re-pair (idempotent).
-        val devices = adbManager.getPairedDevicesRaw() ?: return false
-        for ((k, v) in devices) {
-            if (k?.toString()?.contains(fingerprintBase64) == true) return true
-            if (v?.toString()?.contains(fingerprintBase64) == true) return true
-        }
-        return false
+    override fun readAdbKeys(): String? = try {
+        File(ADB_KEYS_PATH).readText(Charsets.US_ASCII)
+    } catch (e: Exception) {
+        // Shell uid is normally in the `adb` group and can read 0640 adb_keys, but some OEM
+        // builds tighten this. Returning null tells the caller "uncertain" → it re-pairs,
+        // which is idempotent on adbd's side.
+        Log.w(TAG, "could not read $ADB_KEYS_PATH: ${e.message}")
+        null
     }
 
     @Synchronized
@@ -330,6 +326,7 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         const val CHROME_DEVTOOLS_SOCKET = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET
         const val CHROME_COMMAND_LINE_PATH = "/data/local/tmp/chrome-command-line"
         const val CHROME_PACKAGE = "com.android.chrome"
+        const val ADB_KEYS_PATH = "/data/misc/adb/adb_keys"
         private const val BUFFER = 4096
         private const val TAG = "ChromeDevtoolsUS"
         private const val MIN_PSK_LENGTH = 6

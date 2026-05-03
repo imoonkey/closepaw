@@ -74,9 +74,10 @@ interface IChromeDevtoolsUserService {
     void disablePairing();
 
     /**
-     * Best-effort check whether a pubkey with the given fingerprint is already authorized
-     * on this device, so the caller can skip pairing on the second run. Returns false when
-     * uncertain — re-pairing is idempotent on the adbd side.
+     * Returns the contents of `/data/misc/adb/adb_keys` (the file adbd consults to decide
+     * which pubkeys are pre-authorized) or null if the file is unreadable / missing. Each line
+     * is `<base64-pubkey> <name>` — caller substring-matches its own pubkey base64 to decide
+     * whether the device already trusts us and pairing can be skipped.
      */
-    boolean isPubkeyInAdbKeys(String fingerprintBase64);
+    String readAdbKeys();
 }

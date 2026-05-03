@@ -60,8 +60,20 @@ class AdbWirelessManager(
         onBinder { it.disablePairing() }
     }
 
-    suspend fun isPubkeyAuthorized(fingerprintBase64: String): Boolean =
-        onBinder { it.isPubkeyInAdbKeys(fingerprintBase64) }
+    /**
+     * True iff our [pubkeyBase64] (the base64 of the 524-byte AOSP `android_pubkey` blob) is
+     * already present in `/data/misc/adb/adb_keys`. Lets the caller skip pairing on the second
+     * cold session. Returns false when adb_keys is unreadable or the pubkey is missing —
+     * caller re-pairs, which is idempotent on adbd.
+     *
+     * The substring match is safe: a 524-byte pubkey base64 is ~700 chars; collisions across
+     * distinct RSA-2048 keys are cryptographically impossible.
+     */
+    suspend fun isPubkeyAuthorized(pubkeyBase64: String): Boolean {
+        if (pubkeyBase64.isEmpty()) return false
+        val content = onBinder { it.readAdbKeys() } ?: return false
+        return content.contains(pubkeyBase64)
+    }
 
     private suspend inline fun <T> onBinder(crossinline block: (IChromeDevtoolsUserService) -> T): T {
         val binder = binderProvider()

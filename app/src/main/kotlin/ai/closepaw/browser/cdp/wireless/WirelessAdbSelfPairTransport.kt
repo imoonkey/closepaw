@@ -149,9 +149,9 @@ class WirelessAdbSelfPairTransport(
     }
 
     private suspend fun ensurePaired(tlsPort: Int) {
-        val fingerprint = keyStore.fingerprint()
-        if (keyStore.isPersisted() && wirelessManager.isPubkeyAuthorized(fingerprint)) {
-            Log.i(TAG, "wireless-adb pair skipped: pubkey already authorized (fp=${fingerprint.take(16)}…)")
+        val pubkeyBase64 = keyStore.androidPubkeyBase64()
+        if (keyStore.isPersisted() && wirelessManager.isPubkeyAuthorized(pubkeyBase64)) {
+            Log.i(TAG, "wireless-adb pair skipped: pubkey already authorized")
             return
         }
 
@@ -159,7 +159,7 @@ class WirelessAdbSelfPairTransport(
         val pairPort = wirelessManager.openPairPort(name = PAIR_NAME, psk = psk.toByteArray(Charsets.UTF_8))
         try {
             pairingClient.pair(host = LOCALHOST, port = pairPort, psk = psk.toByteArray(Charsets.UTF_8))
-            Log.i(TAG, "wireless-adb pairing complete (fp=${fingerprint.take(16)}…); future runs reuse persisted key")
+            Log.i(TAG, "wireless-adb pairing complete; future runs reuse persisted key")
         } finally {
             runCatching { wirelessManager.closePairPort() }
         }

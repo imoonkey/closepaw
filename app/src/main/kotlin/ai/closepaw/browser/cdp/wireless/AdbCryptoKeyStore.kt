@@ -8,12 +8,12 @@ import java.nio.file.StandardCopyOption
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
-import java.security.MessageDigest
 import java.security.SecureRandom
-import java.security.Security
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
+import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
+import java.util.Base64
 import java.util.Date
 import javax.security.auth.x500.X500Principal
 import org.bouncycastle.asn1.x509.BasicConstraints
@@ -49,10 +49,16 @@ class AdbCryptoKeyStore(private val baseDir: File) {
         return material
     }
 
-    fun fingerprint(): String {
-        val pub = loadOrCreate().keyPair.public.encoded
-        val digest = MessageDigest.getInstance("SHA-256").digest(pub)
-        return digest.joinToString("") { "%02x".format(it) }
+    /**
+     * Base64-encoded 524-byte AOSP `android_pubkey` blob for our RSA-2048 key.
+     *
+     * adbd writes lines of `<base64-pubkey> <name>` into `/data/misc/adb/adb_keys` after a
+     * successful pair, where `<base64-pubkey>` is exactly the value returned here. Substring-
+     * matching the file against this string is how we decide whether re-pairing is needed.
+     */
+    fun androidPubkeyBase64(): String {
+        val pub = loadOrCreate().keyPair.public as RSAPublicKey
+        return Base64.getEncoder().encodeToString(AndroidPubkey.encode(pub))
     }
 
     fun isPersisted(): Boolean =

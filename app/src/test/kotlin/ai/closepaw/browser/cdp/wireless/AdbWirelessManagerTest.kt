@@ -121,11 +121,32 @@ class AdbWirelessManagerTest {
     }
 
     @Test
-    fun isPubkeyAuthorized_returns_binder_value() = runTest {
-        every { binder.isPubkeyInAdbKeys("fp123") } returns true
-        assertThat(manager.isPubkeyAuthorized("fp123")).isTrue()
+    fun isPubkeyAuthorized_true_when_pubkey_present_in_adb_keys() = runTest {
+        val pubkey = "AAAA_OUR_PUBKEY_BASE64_BLOB_AAAA"
+        every { binder.readAdbKeys() } returns
+            "OTHER_KEY_BASE64 alice@host\n$pubkey ClosePaw@P0110\nYET_ANOTHER bob@host\n"
 
-        every { binder.isPubkeyInAdbKeys("missing") } returns false
-        assertThat(manager.isPubkeyAuthorized("missing")).isFalse()
+        assertThat(manager.isPubkeyAuthorized(pubkey)).isTrue()
+    }
+
+    @Test
+    fun isPubkeyAuthorized_false_when_pubkey_missing() = runTest {
+        every { binder.readAdbKeys() } returns "OTHER_KEY_BASE64 alice@host\n"
+
+        assertThat(manager.isPubkeyAuthorized("MY_KEY_BASE64")).isFalse()
+    }
+
+    @Test
+    fun isPubkeyAuthorized_false_when_adb_keys_unreadable() = runTest {
+        every { binder.readAdbKeys() } returns null
+
+        assertThat(manager.isPubkeyAuthorized("MY_KEY_BASE64")).isFalse()
+    }
+
+    @Test
+    fun isPubkeyAuthorized_false_for_blank_input() = runTest {
+        // Empty input must not match an empty file (or worse: a non-empty file via String.contains).
+        assertThat(manager.isPubkeyAuthorized("")).isFalse()
+        verify(exactly = 0) { binder.readAdbKeys() }
     }
 }

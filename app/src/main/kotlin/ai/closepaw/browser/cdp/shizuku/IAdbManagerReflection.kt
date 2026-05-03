@@ -63,20 +63,6 @@ internal class IAdbManagerReflection {
         true
     }
 
-    /**
-     * Returns the value of `IAdbManager.getPairedDevices()` as a Map<String, PairDevice>, or null
-     * when the call is unavailable on this build / the call throws. The caller decides what to do
-     * with absence (typically: assume not authorized, re-pair).
-     */
-    fun getPairedDevicesRaw(): Map<*, *>? = try {
-        val p = proxy()
-        val m = p.method("getPairedDevices")
-        m.invoke(p.target) as? Map<*, *>
-    } catch (t: Throwable) {
-        Log.w(TAG, "getPairedDevices failed", t.cause ?: t)
-        null
-    }
-
     private inline fun safe(name: String, block: () -> Boolean): Boolean = try {
         block()
     } catch (t: Throwable) {

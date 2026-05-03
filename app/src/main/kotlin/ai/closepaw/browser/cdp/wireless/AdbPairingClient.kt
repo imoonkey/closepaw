@@ -19,7 +19,7 @@ import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.generators.HKDFBytesGenerator
 import org.bouncycastle.crypto.params.HKDFParameters
 
-data class PairingResult(val authorizedFingerprint: String, val peerGuid: String?)
+data class PairingResult(val authorizedPubkeyBase64: String, val peerGuid: String?)
 
 class AdbPairingClient(
     private val keyStore: AdbCryptoKeyStore,
@@ -62,7 +62,7 @@ class AdbPairingClient(
                 val peerPlain = aesGcmDecrypt(secretKey, counterIv(0), peerInfoFrame.payload)
                 val peerGuid = parsePeerGuid(peerPlain)
 
-                return PairingResult(authorizedFingerprint = keyStore.fingerprint(), peerGuid = peerGuid)
+                return PairingResult(authorizedPubkeyBase64 = keyStore.androidPubkeyBase64(), peerGuid = peerGuid)
             } finally {
                 runCatching { spake.destroy() }
             }
