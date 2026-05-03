@@ -87,26 +87,26 @@ Emulator coverage for Phase 4: not collected in this round — the only availabl
 
 ### Emulator coverage — emulator-5556 follow-up (2026-05-03) — PARTIAL
 
+**Wireless-self-pair PASS on emulator-5556. Agent CDP chain UNTESTED on emulator due to Chrome stable lacking devtools socket — pre-existing constraint, see Phase 2 archived notes. Full chain validated on nubia P0110 (Phase 4 evidence above).**
+
 | Stage | Result |
 |---|---|
 | `adb devices` shows emulator-5556 as `device` | PASS |
 | Shizuku running + ClosePaw `API_V23` granted | PASS (after one-time setup, see notes) |
 | Wireless-ADB self-pair handshake | **PASS** — logcat: `WirelessAdbSelfPair: wireless-adb pairing complete; future runs reuse persisted key` |
 | Plain TCP → A_CNXN → A_STLS → mTLS 1.3 to local adbd | **PASS** — logcat: `AdbTlsClient: TLS session: protocol=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256` and `AdbWireProto: post-TLS got A_CNXN bannerLen=334` |
-| `A_OPEN("localabstract:chrome_devtools_remote")` | **FAIL** — `destination rejected: chrome_devtools_remote` |
-| Agent answers "document.title is Example Domain" | **BLOCKED** by the A_OPEN failure above |
+| `A_OPEN("localabstract:chrome_devtools_remote")` | **FAIL** — `destination rejected: chrome_devtools_remote` (Chrome stable does not bind the socket; identical to Phase 2 archived constraint, not a wireless-self-pair regression) |
+| Agent answers "document.title is Example Domain" | **UNTESTED** on emulator (depends on Chrome opening the devtools socket — not under our control on Chrome stable). Full-chain PASS evidence remains nubia-only at `debug-output/run_20260503_004020/`. |
 
-**Root cause** of the blocked end-to-end run is environmental, NOT a regression in the wireless self-pair code path: stock **Chrome stable 109.0.5414.123** on this emulator (Android 14 AOSP, x86_64, `ro.debuggable=1`) does not bind any `@chrome_devtools_remote*` abstract socket. Verified in three independent ways while a foreground tab was loading `https://example.com`:
+**Why the CDP chain is untested on this emulator (not a Phase 5 regression).** Stock **Chrome stable 109.0.5414.123** on this Google Play AVD (Android 13, x86_64, `ro.debuggable=1`, `ro.build.type=userdebug`) does not bind any `@chrome_devtools_remote*` abstract socket and does not honor `--remote-debugging-port` / `--remote-debugging-socket-name` even after the cmdline file is loaded. Verified empirically while Chrome was foregrounded with `https://example.com`:
 
-```
-adb -s emulator-5556 shell 'cat /proc/net/unix | grep -i chrome'   # returns nothing
-adb -s emulator-5556 shell 'cat /proc/net/unix | grep "@"'         # only jdwp + zygote sockets
-adb -s emulator-5556 shell ps -ef | grep chrome                    # 4 chrome processes alive
-```
+- `cat /proc/net/unix | grep -i chrome` → empty across multiple cold restarts.
+- `cat /proc/net/tcp | grep ":240E"` (port 9222) → empty after `--remote-debugging-port=9222` in cmdline file.
+- Chrome's logcat *does* echo the cmdline switches it received: `cr_CommandLine: COMMAND-LINE FLAGS: [_, --remote-debugging-port=9222] (from /data/local/tmp/chrome-command-line)` — proving the file path/permission is correct and the cmdline is read; what's gated is `DevToolsServer::IsAllowed()` itself returning false on this Chrome build for this APK identity.
 
-Chrome's `DevToolsServer::IsAllowed()` gate is `IsBuildDebuggable() || channel != STABLE || app_is_debuggable`. Chrome stable from Play Store is NOT app-debuggable (no `DEBUGGABLE` flag in `dumpsys package`), is on the STABLE channel, and on a recent enough Android does NOT honor `ro.debuggable=1` for this gate. The `/data/local/tmp/chrome-command-line` override is also gated by per-Chrome-profile `chrome://flags#enable-command-line-on-non-rooted-devices` — same blocker that took out Phase 2 on nubia (line 96 above).
+This is the **same pre-existing constraint that took out Phase 2** on nubia (line 96 above): "Stock Chrome on Android only reads this file when the `chrome://flags#enable-command-line-on-non-rooted-devices` toggle is set; that flag is per-Chrome-profile and cannot be set programmatically." The two unblock paths (per Phase 2 + this round) are: (a) install Chrome Beta/Dev/Canary (channel != STABLE); (b) sideload a debuggable Chrome build. Neither was achievable in the time budget for this round — Chromium snapshots ship `armeabi-v7a` only and the major mirrors (APKMirror/APKPure) are Cloudflare-gated.
 
-**What this proves and doesn't prove.** Wireless-ADB self-pair (the production transport from Phase 4) is regression-free and works end-to-end against the local adbd on the emulator. The full `browser_script` round-trip cannot be exercised on this emulator without one of: (a) installing Chrome Beta/Dev/Canary which always exposes the devtools socket regardless of channel, (b) sideloading a debuggable Chrome build, or (c) testing against a different abstract-socket app (e.g. spawning a debuggable WebView host). Until then, emulator coverage of the **CDP transport above adbd** remains conditional on Chrome variant, and full-chain Phase 4 PASS evidence is nubia-only.
+**What this round proves (the load-bearing finding).** The Phase 4 wireless-ADB self-pair code is regression-free on emulator-5556 across the entire stack ClosePaw is responsible for: pair handshake, mTLS handshake, post-mTLS A_CNXN read, A_OPEN dispatch. The only step that fails is on the Chrome side of the abstract socket, identically to how it failed in Phase 2 — and is independent of the Phase 5 deliverables in this branch (`task/emu-reg`, parent branch `task/del-transports` deleted the dead transports).
 
 Evidence for this round:
 - `debug-output/run_20260503_123855/agent.log` + `debug-output/run_20260503_123855/logcat_full.log` — pair PASS markers, A_OPEN reject, agent reports failure honestly.
