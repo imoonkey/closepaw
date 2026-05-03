@@ -141,6 +141,11 @@ dependencies {
     // LGPL-3.0; we link dynamically via a Maven dep, so license is compatible with proprietary app.
     implementation("com.github.MuntashirAkon.spake2-java:spake2-android:2.2.1")
 
+    // Conscrypt — bundled (vs reflection on platform) for the TLS exporter API used by the
+    // ADB pairing handshake. Platform Conscrypt is hidden API and HiddenApiBypass falls flat
+    // on certain Android builds; the bundled AAR (~3MB) gives us a stable Conscrypt.exportKeyingMaterial.
+    implementation("org.conscrypt:conscrypt-android:2.5.2")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")

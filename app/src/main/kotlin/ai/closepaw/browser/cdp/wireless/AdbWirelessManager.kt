@@ -1,6 +1,7 @@
 package ai.closepaw.browser.cdp.wireless
 
 import ai.closepaw.browser.cdp.shizuku.IChromeDevtoolsUserService
+import android.util.Log
 import java.io.IOException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +65,15 @@ class AdbWirelessManager(
 
     private suspend inline fun <T> onBinder(crossinline block: (IChromeDevtoolsUserService) -> T): T {
         val binder = binderProvider()
-        return runInterruptible(ioDispatcher) { block(binder) }
+        return try {
+            runInterruptible(ioDispatcher) { block(binder) }
+        } catch (t: Throwable) {
+            Log.w(TAG, "binder call failed: ${t.javaClass.simpleName}: ${t.message}", t)
+            throw t
+        }
+    }
+
+    companion object {
+        private const val TAG = "AdbWirelessManager"
     }
 }

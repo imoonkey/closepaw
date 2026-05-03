@@ -1,58 +1,26 @@
 package ai.closepaw.browser.cdp.wireless
 
 import java.io.IOException
-import java.lang.reflect.Method
 import javax.net.ssl.SSLSocket
-import org.lsposed.hiddenapibypass.HiddenApiBypass
+import org.conscrypt.Conscrypt
 
+/**
+ * Wraps Conscrypt's RFC 5705 TLS exporter. We bundle org.conscrypt:conscrypt-android as a
+ * dependency rather than reflect at the platform Conscrypt: HiddenApiBypass is unreliable
+ * on some Android builds (the class loader can't see hidden API bytecode at all on certain
+ * vendors), and the bundled AAR is ~3 MB — small price for a stable handshake.
+ */
 internal object TlsExporter {
 
-    @Volatile private var cachedMethod: Method? = null
-    @Volatile private var exemptionApplied = false
-
     fun export(socket: SSLSocket, label: String, context: ByteArray?, length: Int): ByteArray {
-        val method = resolveMethod()
         return try {
-            method.invoke(null, socket, label, context, length) as ByteArray
+            Conscrypt.exportKeyingMaterial(socket, label, context, length)
         } catch (t: Throwable) {
             throw IOException(
-                "TLS exporter call failed — platform Conscrypt rejected the SSLSocket. " +
-                    "Cause: ${t.cause?.message ?: t.message}",
+                "TLS exporter call failed: ${t.message}. SSLSocket impl=${socket.javaClass.name}; " +
+                    "Conscrypt.isConscrypt=${runCatching { Conscrypt.isConscrypt(socket) }.getOrNull()}",
                 t,
             )
         }
-    }
-
-    private fun resolveMethod(): Method {
-        cachedMethod?.let { return it }
-        synchronized(this) {
-            cachedMethod?.let { return it }
-            applyHiddenApiExemption()
-            val method = try {
-                val cls = Class.forName("org.conscrypt.Conscrypt")
-                cls.getDeclaredMethod(
-                    "exportKeyingMaterial",
-                    SSLSocket::class.java,
-                    String::class.java,
-                    ByteArray::class.java,
-                    Int::class.javaPrimitiveType,
-                )
-            } catch (t: Throwable) {
-                throw IOException(
-                    "TLS exporter not available — platform Conscrypt missing or hidden-API blocked. " +
-                        "Bundle org.conscrypt:conscrypt-android as a fallback. Cause: ${t.message}",
-                    t,
-                )
-            }
-            method.isAccessible = true
-            cachedMethod = method
-            return method
-        }
-    }
-
-    private fun applyHiddenApiExemption() {
-        if (exemptionApplied) return
-        runCatching { HiddenApiBypass.addHiddenApiExemptions("Lorg/conscrypt/") }
-        exemptionApplied = true
     }
 }

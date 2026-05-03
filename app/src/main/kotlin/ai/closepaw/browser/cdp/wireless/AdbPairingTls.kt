@@ -31,9 +31,9 @@ internal object AdbPairingTls {
     private const val EPHEMERAL_ALIAS = "adb-pair-ephemeral"
 
     fun connect(host: String, port: Int, timeoutMs: Int): SSLSocket {
-        ensureBouncyCastle()
+        WirelessAdbProviders.ensure()
         val ephemeral = generateEphemeralMaterial()
-        val sslContext = SSLContext.getInstance("TLSv1.3").apply {
+        val sslContext = SSLContext.getInstance("TLSv1.3", "Conscrypt").apply {
             init(
                 arrayOf<KeyManager>(SingleCertKeyManager(ephemeral.first, ephemeral.second)),
                 arrayOf<TrustManager>(TrustAllManager()),
@@ -79,9 +79,7 @@ internal object AdbPairingTls {
 
     @Synchronized
     private fun ensureBouncyCastle() {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.addProvider(BouncyCastleProvider())
-        }
+        WirelessAdbProviders.ensure()
     }
 
     private class SingleCertKeyManager(

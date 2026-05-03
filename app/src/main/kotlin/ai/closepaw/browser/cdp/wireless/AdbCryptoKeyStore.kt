@@ -170,9 +170,7 @@ class AdbCryptoKeyStore(private val baseDir: File) {
 
         @Synchronized
         private fun ensureBouncyCastle() {
-            if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-                Security.addProvider(BouncyCastleProvider())
-            }
+            WirelessAdbProviders.ensure()
         }
     }
 }

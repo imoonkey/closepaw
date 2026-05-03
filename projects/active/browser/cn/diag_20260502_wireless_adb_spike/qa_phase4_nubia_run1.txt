@@ -1,0 +1,30 @@
+[0;34m> Debug output: /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_194601[0m
+[0;34m> Using LLM backend: openai[0m
+[0;34m> Using main model: gpt-5.4[0m
+[0;34m> Using execution mode: basic[0m
+[0;34m> Using perception mode: accessibility_only[0m
+[0;34m> Using platform mode: accessibility[0m
+[0;34m> Using approval mode: AUTO_APPROVE[0m
+[0;34m> Using browser_script enabled override: true[0m
+[1;33m! Multiple devices detected; using 100.64.43.95:5555[0m
+[0;32m✓ Selected physical device: 100.64.43.95:5555[0m
+[0;34m> Starting agent with goal: Use browser_script to fetch the document.title of the currently open https://example.com tab in Chrome and report it[0m
+[0;32m✓ Agent started[0m
+
+[0;34m> Monitoring turns (max 80 captured turn-start events)...[0m
+[0;34m> Max wait before auto-stop: 900s (set DEBUG_MAX_WAIT_SECONDS to override)[0m
+
+  Turn 1 captured (#1) -> /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_194601/turn_001_n1.png
+  Turn 2 captured (#2) -> /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_194601/turn_002_n2.png
+  Turn 3 captured (#3) -> /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_194601/turn_003_n3.png
+  Turn 4 captured (#4) -> /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_194601/turn_004_n4.png
+  Turn 5 captured (#5) -> /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_194601/turn_005_n5.png
+  Turn 6 captured (#6) -> /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_194601/turn_006_n6.png
+  Turn 7 captured (#7) -> /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_194601/turn_007_n7.png
+
+[0;32m✓ Task completed![0m
+
+[0;34m> Saving full agent log...[0m
+[0;34m> Saving full system log...[0m
+[0;34m> Pulling LLM screenshots...[0m
+[0;34m> Pulling trace artifacts...[0m

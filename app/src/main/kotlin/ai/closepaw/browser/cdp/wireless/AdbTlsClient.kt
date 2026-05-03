@@ -19,12 +19,13 @@ import javax.net.ssl.X509TrustManager
  */
 internal object AdbTlsClient {
     fun connect(host: String, port: Int, keyStore: AdbCryptoKeyStore, timeoutMs: Int): SSLSocket {
+        WirelessAdbProviders.ensure()
         val material = keyStore.loadOrCreate()
         val plain = Socket()
         plain.tcpNoDelay = true
         plain.connect(InetSocketAddress(host, port), timeoutMs)
 
-        val context = SSLContext.getInstance("TLSv1.3")
+        val context = SSLContext.getInstance("TLS", "Conscrypt")
         context.init(
             arrayOf(SingleCertKeyManager(material.keyPair.private, material.certificate)),
             arrayOf<javax.net.ssl.TrustManager>(TrustAllManager),
@@ -32,7 +33,8 @@ internal object AdbTlsClient {
         )
         val tls = context.socketFactory.createSocket(plain, host, port, /* autoClose = */ true) as SSLSocket
         tls.useClientMode = true
-        tls.enabledProtocols = arrayOf("TLSv1.3")
+        // Don't restrict enabledProtocols — let Conscrypt negotiate. adbd pins TLS 1.3 since
+        // Android 11; older devices fall back to TLS 1.2 which Conscrypt also supports.
         tls.soTimeout = timeoutMs
         tls.startHandshake()
         return tls

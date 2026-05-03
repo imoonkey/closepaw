@@ -59,28 +59,33 @@ class WirelessAdbSelfPairTransport(
     }.getOrDefault(false)
 
     override suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray {
-        val tlsPort = ensureBootstrapped()
         return try {
-            wireClient.exchange(
-                host = LOCALHOST,
-                tlsPort = tlsPort,
-                destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
-                request = request,
-                timeoutMs = timeoutMs,
-            )
+            val tlsPort = ensureBootstrapped()
+            try {
+                wireClient.exchange(
+                    host = LOCALHOST,
+                    tlsPort = tlsPort,
+                    destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
+                    request = request,
+                    timeoutMs = timeoutMs,
+                )
+            } catch (t: Throwable) {
+                Log.w(TAG, "wireless-adb exchange failed; invalidating cached port and retrying once", t)
+                cachedTlsPort = -1
+                val fresh = ensureBootstrapped()
+                wireClient.exchange(
+                    host = LOCALHOST,
+                    tlsPort = fresh,
+                    destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
+                    request = request,
+                    timeoutMs = timeoutMs,
+                )
+            }
         } catch (t: Throwable) {
-            // adbd may have rotated its TLS port (reboot / wireless-adb toggle). Invalidate
-            // cache and retry once with a fresh port lookup.
-            Log.w(TAG, "wireless-adb exchange failed; invalidating cached port and retrying", t)
-            cachedTlsPort = -1
-            val fresh = ensureBootstrapped()
-            wireClient.exchange(
-                host = LOCALHOST,
-                tlsPort = fresh,
-                destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
-                request = request,
-                timeoutMs = timeoutMs,
-            )
+            // The bridge wraps us in runCatching but does not log; surface the actual cause
+            // here so logcat carries the diagnosis. Re-throw so the cascade falls through.
+            Log.e(TAG, "wireless-adb transport failed: ${t.javaClass.simpleName}: ${t.message}", t)
+            throw t
         }
     }
 
@@ -112,17 +117,24 @@ class WirelessAdbSelfPairTransport(
     }
 
     private suspend fun bootstrapBlocking(): Int {
+        Log.i(TAG, "wireless-adb bootstrap: starting")
         // (a) Enable wireless adb (idempotent on adbd; no-op if already on).
         val enable = wirelessManager.enableWirelessDebugging()
-        enable.exceptionOrNull()?.let { throw IOException("allowWirelessDebugging failed", it) }
+        enable.exceptionOrNull()?.let {
+            Log.w(TAG, "wireless-adb bootstrap step (a) enableWirelessDebugging failed", it)
+            throw IOException("allowWirelessDebugging failed", it)
+        }
+        Log.i(TAG, "wireless-adb bootstrap: (a) enableWirelessDebugging ok")
 
         // (b) Discover the TLS adb port. If wireless adb wasn't on a moment ago this may be
         //     -1; retry a couple of times to give AdbDebuggingManager its property-poller window.
         val tlsPort = pollTlsPort(retries = 5, intervalMs = 250)
             ?: throw IOException("getAdbWirelessPort returned -1 after enableWirelessDebugging")
+        Log.i(TAG, "wireless-adb bootstrap: (b) tls port = $tlsPort")
 
         // (c) Pair-once. Skip if our key is already authorized.
         ensurePaired(tlsPort)
+        Log.i(TAG, "wireless-adb bootstrap: complete")
         return tlsPort
     }
 
@@ -151,6 +163,9 @@ class WirelessAdbSelfPairTransport(
         } finally {
             runCatching { wirelessManager.closePairPort() }
         }
+        // adbd's adb_keys reload is event-driven (file watch) but isn't strictly synchronous —
+        // give it a beat before mTLS so the freshly-paired key is in adbd's accepted set.
+        runInterruptible(ioDispatcher) { Thread.sleep(POST_PAIR_SETTLE_MS) }
     }
 
     private fun randomPsk(): String {
@@ -229,6 +244,7 @@ class WirelessAdbSelfPairTransport(
     companion object {
         private const val LOCALHOST = "127.0.0.1"
         private const val PAIR_NAME = "ClosePaw"
+        private const val POST_PAIR_SETTLE_MS = 500L
         private const val TAG = "WirelessAdbSelfPair"
     }
 }
