@@ -31,7 +31,7 @@ interface UserServiceProvider {
  * Real Shizuku-backed [UserServiceProvider]. Binds [ChromeDevtoolsUserService] through
  * `Shizuku.bindUserService` and wraps the resulting binder as a [UserServiceTransport].
  *
- * Lifecycle hardening (review HIGH round 3):
+ * Lifecycle hardening (review HIGH round 3 + round 4):
  *
  * - [obtain] guards the bind with [withTimeout] so a Shizuku helper that never delivers a
  *   binder cannot suspend the caller forever. Default [DEFAULT_BIND_TIMEOUT_MS] is 10s.
@@ -40,6 +40,16 @@ interface UserServiceProvider {
  *   [ServiceConnection.onServiceDisconnected] before connect, [ServiceConnection.onNullBinding],
  *   and [ServiceConnection.onBindingDied] — instead of silently waiting for an
  *   onServiceConnected that never comes.
+ * - Each bind cycle is tagged with a monotonic [bindGeneration]. Every callback verifies its
+ *   generation matches the current one (and that the provider is not [closed]) before
+ *   mutating state. Stale callbacks from prior bind cycles — those that fire after a
+ *   timeout, [close], or an earlier failure callback — are silently ignored. This prevents
+ *   a delayed framework callback from corrupting state or resuming a newer pending
+ *   [obtain].
+ * - Every terminal failure callback (disconnect-before-connect, onNullBinding,
+ *   onBindingDied) clears connection state AND calls [Binder.unbind] before propagating
+ *   the error. Without this, a failed bind would leak the helper process until the
+ *   provider was closed.
  * - [close] is idempotent and resumes a pending bind with `UserServiceSocketInaccessible`
  *   instead of leaking the continuation. All state transitions are guarded by an internal
  *   monitor so concurrent obtain/close calls never resume a continuation twice.
@@ -67,6 +77,13 @@ class ShizukuUserServiceProvider internal constructor(
     private var connection: ServiceConnection? = null
     private var transport: DevtoolsSocketTransport? = null
     private var pendingCont: CancellableContinuation<DevtoolsSocketTransport>? = null
+
+    /**
+     * Monotonically increases on every new bind attempt and on every terminal event
+     * (failure callback, cancellation, [close]). A captured value identifies a single
+     * bind cycle: callbacks that no longer match the current generation are stale.
+     */
+    private var bindGeneration: Long = 0L
     private var closed = false
 
     override suspend fun obtain(): DevtoolsSocketTransport {
@@ -87,12 +104,17 @@ class ShizukuUserServiceProvider internal constructor(
 
     private suspend fun bindAndAwait(): DevtoolsSocketTransport =
         suspendCancellableCoroutine { cont ->
-            val conn = createConnection()
+            var capturedConn: ServiceConnection? = null
+            var capturedGen: Long = 0L
             val rejected = synchronized(lock) {
                 if (closed) {
                     true
                 } else {
-                    connection = conn
+                    val gen = ++bindGeneration
+                    val c = createConnection(gen)
+                    capturedConn = c
+                    capturedGen = gen
+                    connection = c
                     pendingCont = cont
                     false
                 }
@@ -101,22 +123,33 @@ class ShizukuUserServiceProvider internal constructor(
                 cont.resumeWithException(closedError())
                 return@suspendCancellableCoroutine
             }
+            val conn = capturedConn!!
+            val gen = capturedGen
             cont.invokeOnCancellation {
-                synchronized(lock) {
-                    if (pendingCont === cont) pendingCont = null
+                val shouldUnbind = synchronized(lock) {
+                    if (bindGeneration == gen) {
+                        if (pendingCont === cont) pendingCont = null
+                        connection = null
+                        bindGeneration++ // invalidate any in-flight stale callbacks
+                        true
+                    } else {
+                        false
+                    }
                 }
-                runCatching { binder.unbind(conn, true) }
+                if (shouldUnbind) runCatching { binder.unbind(conn, true) }
             }
             try {
                 binder.bind(conn)
             } catch (t: Throwable) {
                 val ours = synchronized(lock) {
-                    val mine = pendingCont === cont
-                    if (mine) {
+                    if (bindGeneration == gen && pendingCont === cont) {
                         pendingCont = null
                         connection = null
+                        bindGeneration++
+                        true
+                    } else {
+                        false
                     }
-                    mine
                 }
                 if (ours && cont.isActive) {
                     cont.resumeWithException(
@@ -126,14 +159,18 @@ class ShizukuUserServiceProvider internal constructor(
             }
         }
 
-    private fun createConnection(): ServiceConnection = object : ServiceConnection {
+    private fun createConnection(generation: Long): ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             if (service == null) {
-                completeWithError(IllegalStateException("UserService connected with null binder"))
+                handleFailure(
+                    generation, this,
+                    IllegalStateException("UserService connected with null binder"),
+                )
                 return
             }
             val tr = UserServiceTransport(IChromeDevtoolsUserService.Stub.asInterface(service))
             val cont = synchronized(lock) {
+                if (closed || bindGeneration != generation) return
                 transport = tr
                 val c = pendingCont
                 pendingCont = null
@@ -143,35 +180,58 @@ class ShizukuUserServiceProvider internal constructor(
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            synchronized(lock) { transport = null }
-            completeWithError(IOException("UserService disconnected before binder was delivered"))
+            handleFailure(
+                generation, this,
+                IOException("UserService disconnected before binder was delivered"),
+            )
         }
 
         override fun onBindingDied(name: ComponentName?) {
-            synchronized(lock) { transport = null }
-            completeWithError(IOException("UserService binding died before binder was delivered"))
+            handleFailure(
+                generation, this,
+                IOException("UserService binding died before binder was delivered"),
+            )
         }
 
         override fun onNullBinding(name: ComponentName?) {
-            completeWithError(IllegalStateException("UserService.onBind returned null"))
+            handleFailure(
+                generation, this,
+                IllegalStateException("UserService.onBind returned null"),
+            )
         }
     }
 
-    private fun completeWithError(cause: Throwable) {
+    /**
+     * Process a terminal failure for a specific bind cycle. Stale callbacks (those whose
+     * generation no longer matches, or that arrive after [close]) are silently dropped so
+     * they cannot corrupt state or resume a newer pending [obtain]. For current-generation
+     * callbacks: clear connection state, bump generation to invalidate any subsequent
+     * callbacks for the same cycle, release the binding via [Binder.unbind], and resume
+     * any pending continuation with the error.
+     */
+    private fun handleFailure(generation: Long, conn: ServiceConnection, cause: Throwable) {
         val cont = synchronized(lock) {
+            if (closed || bindGeneration != generation) return
             val c = pendingCont
             pendingCont = null
+            connection = null
+            transport = null
+            bindGeneration++
             c
-        } ?: return
-        if (cont.isActive) cont.resumeWithException(
-            DevtoolsSetupError.UserServiceSocketInaccessible(cause)
-        )
+        }
+        runCatching { binder.unbind(conn, true) }
+        if (cont != null && cont.isActive) {
+            cont.resumeWithException(
+                DevtoolsSetupError.UserServiceSocketInaccessible(cause)
+            )
+        }
     }
 
     override fun close() {
         val (conn, cont) = synchronized(lock) {
             if (closed) return
             closed = true
+            bindGeneration++ // invalidate any in-flight callbacks
             val c = connection
             val p = pendingCont
             connection = null
