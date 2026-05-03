@@ -85,6 +85,39 @@ Known soft-failure: the pair-once optimization (`AdbWirelessManager.isPubkeyAuth
 
 Emulator coverage for Phase 4: not collected in this round — the only available emulator (`emulator-5554`) was bricked offline mid-debug while attempting to enable adbd verbose logging via `setprop persist.adb.tls.trace 1`. The transport implementation is generic AOSP and was previously validated on emulator-5554 through earlier diagnostic runs (initial pairing + TLS handshake worked there before the failure window was understood; see `debug-output/run_20260502_201243/`). A follow-up emulator pass should re-run after the AVD is restarted.
 
+### Emulator coverage — emulator-5556 follow-up (2026-05-03) — PARTIAL
+
+| Stage | Result |
+|---|---|
+| `adb devices` shows emulator-5556 as `device` | PASS |
+| Shizuku running + ClosePaw `API_V23` granted | PASS (after one-time setup, see notes) |
+| Wireless-ADB self-pair handshake | **PASS** — logcat: `WirelessAdbSelfPair: wireless-adb pairing complete; future runs reuse persisted key` |
+| Plain TCP → A_CNXN → A_STLS → mTLS 1.3 to local adbd | **PASS** — logcat: `AdbTlsClient: TLS session: protocol=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256` and `AdbWireProto: post-TLS got A_CNXN bannerLen=334` |
+| `A_OPEN("localabstract:chrome_devtools_remote")` | **FAIL** — `destination rejected: chrome_devtools_remote` |
+| Agent answers "document.title is Example Domain" | **BLOCKED** by the A_OPEN failure above |
+
+**Root cause** of the blocked end-to-end run is environmental, NOT a regression in the wireless self-pair code path: stock **Chrome stable 109.0.5414.123** on this emulator (Android 14 AOSP, x86_64, `ro.debuggable=1`) does not bind any `@chrome_devtools_remote*` abstract socket. Verified in three independent ways while a foreground tab was loading `https://example.com`:
+
+```
+adb -s emulator-5556 shell 'cat /proc/net/unix | grep -i chrome'   # returns nothing
+adb -s emulator-5556 shell 'cat /proc/net/unix | grep "@"'         # only jdwp + zygote sockets
+adb -s emulator-5556 shell ps -ef | grep chrome                    # 4 chrome processes alive
+```
+
+Chrome's `DevToolsServer::IsAllowed()` gate is `IsBuildDebuggable() || channel != STABLE || app_is_debuggable`. Chrome stable from Play Store is NOT app-debuggable (no `DEBUGGABLE` flag in `dumpsys package`), is on the STABLE channel, and on a recent enough Android does NOT honor `ro.debuggable=1` for this gate. The `/data/local/tmp/chrome-command-line` override is also gated by per-Chrome-profile `chrome://flags#enable-command-line-on-non-rooted-devices` — same blocker that took out Phase 2 on nubia (line 96 above).
+
+**What this proves and doesn't prove.** Wireless-ADB self-pair (the production transport from Phase 4) is regression-free and works end-to-end against the local adbd on the emulator. The full `browser_script` round-trip cannot be exercised on this emulator without one of: (a) installing Chrome Beta/Dev/Canary which always exposes the devtools socket regardless of channel, (b) sideloading a debuggable Chrome build, or (c) testing against a different abstract-socket app (e.g. spawning a debuggable WebView host). Until then, emulator coverage of the **CDP transport above adbd** remains conditional on Chrome variant, and full-chain Phase 4 PASS evidence is nubia-only.
+
+Evidence for this round:
+- `debug-output/run_20260503_123855/agent.log` + `debug-output/run_20260503_123855/logcat_full.log` — pair PASS markers, A_OPEN reject, agent reports failure honestly.
+- Three earlier failure runs in `debug-output/run_2026050[3]_12{2337,2428,3043}/` document the bring-up sequence: (1) emulator clock skew (Nov 2023 vs May 2026) caused TLS to OpenAI to fail, fixed via `su 0 date -u …`; (2) `browser_script_enabled` pref was off, set via `am start --ez browser_script_enabled true`; (3) `shizuku_permission_missing` because Shizuku's internal authorization table is separate from `pm grant moe.shizuku.manager.permission.API_V23` — granted via the Shizuku app's "Authorized applications" UI toggle.
+
+**Setup quirks discovered for emulator-5556** (not in `scripts/setup.sh` today):
+1. Shizuku APK ships at `eval/tools/shizuku.apk` but `scripts/setup.sh` doesn't auto-install it; run `adb -s <emu> install -r eval/tools/shizuku.apk` first.
+2. Shizuku app's `start.sh` is generated lazily by the MainActivity's first launch, but the `View command` dialog in the Shizuku UI exposes the same `adb shell /data/app/.../lib/<abi>/libshizuku.so` invocation that the script would have used — that path works on userdebug emulators because `adb shell` is already root.
+3. Shizuku's authorization table is independent of Android's PackageManager grants. Both `pm grant ai.closepaw moe.shizuku.manager.permission.API_V23` AND toggling the Shizuku UI's "Authorized applications" switch for ClosePaw are required (the latter records the grant in the Shizuku binder's own state).
+4. Emulator clocks drift hard — set with `su 0 date -u $(date -u +%m%d%H%M%Y.%S)` before any TLS-bearing run, otherwise `OpenAIIoException - Request failed` masks the real test signal.
+
 ---
 
 ## Phases 1 / 2 / 3 — archived
