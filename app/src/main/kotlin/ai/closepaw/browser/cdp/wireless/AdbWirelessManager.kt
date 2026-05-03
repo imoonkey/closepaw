@@ -82,7 +82,8 @@ class AdbWirelessManager(
      *
      * Returns true if the file was rewritten, false if there was nothing to prune (no extra
      * ClosePaw entries), if adb_keys is unreadable, or if [retainPubkeyBase64] is not present
-     * (defensive: never delete the only ClosePaw entry we cannot verify is current).
+     * as a first-token pubkey in any line (defensive: never delete the only ClosePaw entry
+     * we cannot verify is current).
      *
      * Cleanup of historical accumulation from before pair-once landed; cheap and idempotent
      * after the first call. Caller is expected to invoke at most once per cold session.
@@ -90,10 +91,10 @@ class AdbWirelessManager(
     suspend fun pruneAdbKeys(retainPubkeyBase64: String): Boolean {
         require(retainPubkeyBase64.isNotEmpty()) { "retainPubkeyBase64 must not be empty" }
         val content = onBinder { it.readAdbKeys() } ?: return false
-        if (!content.contains(retainPubkeyBase64)) return false
-        val pruned = pruneClosePawEntries(content, retainPubkeyBase64)
-        if (pruned == content) return false
-        return onBinder { it.writeAdbKeys(pruned) }
+        val result = pruneClosePawEntries(content, retainPubkeyBase64)
+        if (!result.foundCurrent) return false
+        if (!result.changed) return false
+        return onBinder { it.writeAdbKeys(result.content) }
     }
 
     private suspend inline fun <T> onBinder(crossinline block: (IChromeDevtoolsUserService) -> T): T {
@@ -106,9 +107,18 @@ class AdbWirelessManager(
         }
     }
 
+    internal data class PruneResult(
+        val content: String,
+        val foundCurrent: Boolean,
+        val changed: Boolean,
+    )
+
     companion object {
         private const val TAG = "AdbWirelessManager"
         private const val CLOSEPAW_NAME_PREFIX = "ClosePaw@"
+        // adb_keys is whitespace-tokenized in AOSP (daemon/auth.cpp), not space-only — split
+        // on the first run of \s+ to honor tab-separated entries from other writers.
+        private val WHITESPACE = Regex("\\s+")
 
         /**
          * Pure prune of `adb_keys` content: drop blank lines and any `ClosePaw@*`-named line
@@ -116,28 +126,36 @@ class AdbWirelessManager(
          * line is kept once; any duplicate copies are dropped. Non-ClosePaw lines pass through
          * unchanged.
          *
-         * Caller filters by `pruned == content` to decide whether a write-back is needed.
+         * Caller filters by `foundCurrent && changed` to decide whether a write-back is needed.
          */
-        internal fun pruneClosePawEntries(content: String, retainPubkeyBase64: String): String {
+        internal fun pruneClosePawEntries(
+            content: String,
+            retainPubkeyBase64: String,
+        ): PruneResult {
             val out = StringBuilder()
             var keptCurrent = false
+            var foundCurrent = false
             for (raw in content.split('\n')) {
                 val line = raw.trimEnd('\r')
                 if (line.isBlank()) continue
-                val firstSpace = line.indexOf(' ')
-                val pubkey = if (firstSpace >= 0) line.substring(0, firstSpace) else line
-                val name = if (firstSpace >= 0) line.substring(firstSpace + 1) else ""
+                val tokens = line.split(WHITESPACE, limit = 2)
+                val pubkey = tokens[0]
+                val name = if (tokens.size > 1) tokens[1] else ""
                 val isClosePaw = name.startsWith(CLOSEPAW_NAME_PREFIX) || pubkey == retainPubkeyBase64
                 if (isClosePaw) {
-                    if (pubkey == retainPubkeyBase64 && !keptCurrent) {
-                        out.append(line).append('\n')
-                        keptCurrent = true
+                    if (pubkey == retainPubkeyBase64) {
+                        foundCurrent = true
+                        if (!keptCurrent) {
+                            out.append(line).append('\n')
+                            keptCurrent = true
+                        }
                     }
                 } else {
                     out.append(line).append('\n')
                 }
             }
-            return out.toString()
+            val outStr = out.toString()
+            return PruneResult(outStr, foundCurrent, changed = outStr != content)
         }
     }
 }

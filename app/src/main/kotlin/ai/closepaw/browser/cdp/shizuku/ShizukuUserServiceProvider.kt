@@ -318,7 +318,7 @@ class ShizukuUserServiceProvider internal constructor(
         // user-service processes on (ComponentName, version), so an unchanged version + a
         // changed AIDL would let the new client transact against an old stub via shifted
         // transaction IDs — silently calling the wrong method.
-        const val USER_SERVICE_VERSION = 2
+        const val USER_SERVICE_VERSION = 3
         const val DEFAULT_PROCESS_SUFFIX = "chrome_devtools"
         const val DEFAULT_BIND_TIMEOUT_MS = 10_000L
     }

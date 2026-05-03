@@ -65,10 +65,14 @@ interface IChromeDevtoolsUserService {
     String readAdbKeys();
 
     /**
-     * Atomically replaces `/data/misc/adb/adb_keys` with [content] (write tmp → rename) so
-     * adbd's directory inotify watch fires IN_MOVED_TO and reloads the key set. Returns true
-     * on success, false on IO failure. Caller is responsible for ensuring [content] preserves
-     * any non-ClosePaw entries that should remain trusted.
+     * Atomically replaces `/data/misc/adb/adb_keys` with [content] (write tmp + fsync →
+     * best-effort metadata restore → rename). adbd reads the file at every auth handshake
+     * (libadbd_auth iterates lines from disk per A_AUTH SIGNATURE), so the new key set takes
+     * effect on the next adb connection without an adbd restart.
+     *
+     * Returns true on success, false on any IO failure (including non-root environments
+     * where shell uid cannot reach the path at all). Caller is responsible for ensuring
+     * [content] preserves any non-ClosePaw entries that should remain trusted.
      */
     boolean writeAdbKeys(String content);
 }

@@ -4,10 +4,13 @@ import ai.closepaw.browser.cdp.wireless.ProcNetTcpListeners
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.os.SystemClock
+import android.system.Os
+import android.system.OsConstants
 import android.util.Log
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -124,23 +127,72 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
     }
 
     override fun writeAdbKeys(content: String): Boolean = try {
-        // adbd watches /data/misc/adb (directory) for IN_MOVED_TO; in-place truncate+rewrite
-        // is invisible to it. Write a sibling tmp + atomic rename so the new key set takes
-        // effect on the next handshake without an adbd restart.
+        // Atomic-rename for crash safety only — adbd reads /data/misc/adb/adb_keys at every
+        // auth (libadbd_auth iterates the file when a peer sends A_AUTH SIGNATURE), so the new
+        // key set takes effect on the next handshake without an adbd restart. Best-effort
+        // metadata restore: we capture the existing file's mode/uid/gid/SELinux context and
+        // try to put them back on the new inode. Several of those steps need root or
+        // CAP_CHOWN, so we log + continue on failure rather than aborting — the file is
+        // recoverable (the framework re-writes it via AdbDebuggingManager on the next pair).
         val target = File(ADB_KEYS_PATH)
         val parent = target.parentFile
             ?: throw IOException("$ADB_KEYS_PATH has no parent directory")
+        val targetStat = try {
+            Os.stat(target.absolutePath)
+        } catch (e: Exception) {
+            Log.w(TAG, "writeAdbKeys: stat($ADB_KEYS_PATH) failed: ${e.message}")
+            return false
+        }
         val tmp = File(parent, "adb_keys.closepaw.tmp")
-        tmp.writeText(content, Charsets.US_ASCII)
-        Files.move(
-            tmp.toPath(),
-            target.toPath(),
-            StandardCopyOption.REPLACE_EXISTING,
-            StandardCopyOption.ATOMIC_MOVE,
-        )
-        true
+        try {
+            RandomAccessFile(tmp, "rw").use { raf ->
+                raf.setLength(0)
+                raf.write(content.toByteArray(Charsets.US_ASCII))
+                raf.fd.sync()
+            }
+            // st_mode includes file-type bits; mask to permission bits.
+            runCatching { Os.chmod(tmp.absolutePath, targetStat.st_mode and 0xfff) }
+                .onFailure { Log.w(TAG, "writeAdbKeys: chmod failed: ${it.message}") }
+            runCatching { Os.chown(tmp.absolutePath, targetStat.st_uid, targetStat.st_gid) }
+                .onFailure {
+                    // Expected on non-root: shell uid lacks CAP_CHOWN. The dir's policy still
+                    // labels new files with adb_keys_file:s0 so adbd can read either way.
+                    Log.i(TAG, "writeAdbKeys: chown to ${targetStat.st_uid}:${targetStat.st_gid} failed (expected as non-root): ${it.message}")
+                }
+            runCatching { restoreSelinuxContext(tmp.absolutePath) }
+                .onFailure { Log.w(TAG, "writeAdbKeys: restorecon failed: ${it.message}") }
+            Files.move(
+                tmp.toPath(),
+                target.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE,
+            )
+            // fsync parent dir so the rename itself is durable across crash.
+            runCatching {
+                val dirFd = Os.open(parent.absolutePath, OsConstants.O_RDONLY, 0)
+                try { Os.fsync(dirFd) } finally { Os.close(dirFd) }
+            }.onFailure { Log.w(TAG, "writeAdbKeys: parent dir fsync failed: ${it.message}") }
+            true
+        } finally {
+            // If rename succeeded the tmp is gone; if it didn't, drop the orphan.
+            runCatching { if (tmp.exists()) tmp.delete() }
+        }
     } catch (e: Exception) {
         Log.w(TAG, "writeAdbKeys failed: ${e.message}", e)
+        false
+    }
+
+    /**
+     * Hidden-API call to `android.os.SELinux.restorecon(String)`; relabels [path] back to the
+     * default file context for its directory. HiddenApiBypass is engaged process-wide so this
+     * resolves on Android P+. Returns true when relabel applied, false when restorecon
+     * couldn't (no fcontext entry, or shell lacks the relabel domain transition).
+     */
+    private fun restoreSelinuxContext(path: String): Boolean = try {
+        val cls = Class.forName("android.os.SELinux")
+        val m = cls.getMethod("restorecon", String::class.java)
+        m.invoke(null, path) as Boolean
+    } catch (e: ReflectiveOperationException) {
         false
     }
 

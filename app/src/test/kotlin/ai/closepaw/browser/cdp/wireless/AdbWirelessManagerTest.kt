@@ -232,6 +232,41 @@ class AdbWirelessManagerTest {
     }
 
     @Test
+    fun pruneAdbKeys_handles_tab_separated_entries() = runTest {
+        // adbd's auth.cpp tokenizes adb_keys on \s+, so an entry written by another tool with
+        // a tab separator is still a valid ClosePaw line — and must be matched/pruned.
+        val current = "AAAA_CURRENT_KEY"
+        val before = "STALE_KEY\tClosePaw@P0110\n$current\tClosePaw@P0110\n"
+        every { binder.readAdbKeys() } returns before
+        every { binder.writeAdbKeys(any()) } returns true
+
+        assertThat(manager.pruneAdbKeys(current)).isTrue()
+        verify { binder.writeAdbKeys("$current\tClosePaw@P0110\n") }
+    }
+
+    @Test
+    fun pruneAdbKeys_skips_when_current_first_token_only_appears_substring() = runTest {
+        // Defensive: a name field that happens to contain the current-key bytes must not be
+        // mistaken for a real authorization. Only first-token equality counts.
+        val current = "AAAA_CURRENT_KEY"
+        every { binder.readAdbKeys() } returns "OTHER_KEY $current-suffix-in-name\n"
+
+        assertThat(manager.pruneAdbKeys(current)).isFalse()
+        verify(exactly = 0) { binder.writeAdbKeys(any()) }
+    }
+
+    @Test
+    fun pruneAdbKeys_drops_duplicate_copies_of_current_key() = runTest {
+        val current = "AAAA_CURRENT_KEY"
+        every { binder.readAdbKeys() } returns
+            "$current ClosePaw@P0110\n$current ClosePaw@P0110\nOTHER alice@host\n"
+        every { binder.writeAdbKeys(any()) } returns true
+
+        assertThat(manager.pruneAdbKeys(current)).isTrue()
+        verify { binder.writeAdbKeys("$current ClosePaw@P0110\nOTHER alice@host\n") }
+    }
+
+    @Test
     fun pruneAdbKeys_rejects_blank_retain_pubkey() = runTest {
         try {
             manager.pruneAdbKeys("")
