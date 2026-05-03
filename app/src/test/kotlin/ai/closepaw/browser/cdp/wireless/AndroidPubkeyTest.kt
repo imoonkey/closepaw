@@ -29,7 +29,7 @@ class AndroidPubkeyTest {
         val pk = generateKey().public as RSAPublicKey
         val line = AndroidPubkey.encodeWithName(pk, "test@example").toString(Charsets.US_ASCII)
 
-        assertThat(line).endsWith(" test@example\n")
+        assertThat(line).endsWith(" test@example")
         val b64 = line.substringBefore(' ')
         val decoded = Base64.getDecoder().decode(b64)
         assertThat(decoded.size).isEqualTo(AndroidPubkey.ENCODED_SIZE)

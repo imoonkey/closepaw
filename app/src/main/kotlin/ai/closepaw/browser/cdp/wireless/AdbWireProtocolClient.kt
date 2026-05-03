@@ -11,7 +11,6 @@ import java.io.Closeable
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-import javax.net.ssl.SSLSocket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
 
@@ -34,11 +33,11 @@ class AdbWireProtocolClient(
         request: ByteArray,
         timeoutMs: Int = 10_000,
     ): ByteArray = runInterruptible(Dispatchers.IO) {
-        val socket = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, timeoutMs)
+        val channel = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, timeoutMs)
         try {
-            runExchange(socket.inputStream, socket.outputStream, destination, request)
+            runExchange(channel.inputStream, channel.outputStream, destination, request)
         } finally {
-            runCatching { socket.close() }
+            runCatching { channel.close() }
         }
     }
 
@@ -48,12 +47,12 @@ class AdbWireProtocolClient(
         destination: String,
         timeoutMs: Int = 10_000,
     ): AdbStream = runInterruptible(Dispatchers.IO) {
-        val socket = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, timeoutMs)
+        val channel = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, timeoutMs)
         try {
-            val (remoteId, maxPayload) = handshakeAndOpen(socket.inputStream, socket.outputStream, destination)
-            AdbStream(socket, LOCAL_ID, remoteId, maxPayload)
+            val (remoteId, maxPayload) = handshakeAndOpen(channel.inputStream, channel.outputStream, destination)
+            AdbStream(channel, LOCAL_ID, remoteId, maxPayload)
         } catch (t: Throwable) {
-            runCatching { socket.close() }
+            runCatching { channel.close() }
             throw t
         }
     }
@@ -72,11 +71,20 @@ class AdbWireProtocolClient(
     }
 
     private fun handshakeAndOpen(input: InputStream, out: OutputStream, destination: String): Pair<Int, Int> {
-        val cnxn = AdbProtocol.cnxn()
-        AdbProtocol.Message.write(out, cnxn.command, cnxn.arg0, cnxn.arg1, cnxn.payload)
-
+        // After mTLS handshake the adbd daemon SPEAKS FIRST: its `adbd_wifi_secure_connect`
+        // calls `send_connect()` which writes an A_CNXN to us. We must NOT pre-emptively send
+        // our own A_CNXN — adbd's `handle_packet` for a duplicate A_CNXN runs `handle_offline`,
+        // which fires the connection's disconnect callback and sends another A_STLS. That's
+        // why earlier attempts failed with "unexpected reply to OPEN: cmd=0x534c5453" (STLS).
+        // (See AOSP daemon/adb_wifi.cpp adbd_wifi_secure_connect; adb.cpp handle_new_connection.)
         val peerCnxn = readExpecting(input, A_CNXN, allowAuth = false)
+        android.util.Log.i(TAG, "post-TLS got A_CNXN bannerLen=${peerCnxn.payload.size}")
         val maxPayload = minOf(A_MAX_PAYLOAD, peerCnxn.arg1.takeIf { it > 0 } ?: A_MAX_PAYLOAD)
+
+        // Tiny settle so adbd finishes attaching the transport (registering with the asocket
+        // service map) before we OPEN. Without this, the OPEN can race adbd's
+        // post-send_connect setup and the local-abstract proxy never starts forwarding.
+        Thread.sleep(POST_CNXN_SETTLE_MS)
 
         val open = AdbProtocol.openLocalAbstract(LOCAL_ID, destination)
         AdbProtocol.Message.write(out, open.command, open.arg0, open.arg1, open.payload)
@@ -87,6 +95,7 @@ class AdbWireProtocolClient(
                 if (reply.arg1 != LOCAL_ID) {
                     throw IOException("OKAY localId mismatch: got=${reply.arg1} expected=$LOCAL_ID")
                 }
+                android.util.Log.i(TAG, "A_OPEN(\"$destination\") -> OKAY remoteId=${reply.arg0}")
                 return reply.arg0 to maxPayload
             }
             A_CLSE -> throw IOException("destination rejected: $destination")
@@ -155,16 +164,18 @@ class AdbWireProtocolClient(
     companion object {
         const val LOCAL_ID = 1
         private val EMPTY = ByteArray(0)
+        private const val TAG = "AdbWireProto"
+        private const val POST_CNXN_SETTLE_MS = 200L
     }
 }
 
 /**
  * Bidirectional byte channel over a single ADB local-abstract stream. Reads and writes are
- * serialized through the underlying SSLSocket from a single reader thread; concurrent writes
+ * serialized through the underlying TLS channel from a single reader thread; concurrent writes
  * from multiple threads are not supported.
  */
 class AdbStream internal constructor(
-    private val socket: SSLSocket,
+    private val socket: AdbTlsClient.TlsChannel,
     private val localId: Int,
     private val remoteId: Int,
     private val negotiatedMaxPayload: Int,
