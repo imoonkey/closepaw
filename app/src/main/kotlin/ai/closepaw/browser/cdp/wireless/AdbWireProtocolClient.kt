@@ -65,7 +65,7 @@ class AdbWireProtocolClient(
     ): ByteArray {
         val (remoteId, maxPayload) = handshakeAndOpen(input, out, destination)
         sendChunked(input, out, LOCAL_ID, remoteId, request, maxPayload)
-        val response = readUntilClose(input, out, LOCAL_ID, remoteId)
+        val response = readUntilHttpComplete(input, out, LOCAL_ID, remoteId)
         runCatching { AdbProtocol.Message.write(out, A_CLSE, LOCAL_ID, remoteId, EMPTY) }
         return response
     }
@@ -95,8 +95,13 @@ class AdbWireProtocolClient(
                 if (reply.arg1 != LOCAL_ID) {
                     throw IOException("OKAY localId mismatch: got=${reply.arg1} expected=$LOCAL_ID")
                 }
-                android.util.Log.i(TAG, "A_OPEN(\"$destination\") -> OKAY remoteId=${reply.arg0}")
-                return reply.arg0 to maxPayload
+                val remoteId = reply.arg0
+                android.util.Log.i(TAG, "A_OPEN(\"$destination\") -> OKAY remoteId=$remoteId")
+                // Mirror host adb: ack the daemon's OKAY before sending data. Not strictly
+                // required (adbd's A_OPEN handler already calls s->ready(s)), but matches the
+                // canonical client side and keeps us out of any future flow-control corner.
+                AdbProtocol.Message.write(out, A_OKAY, LOCAL_ID, remoteId, EMPTY)
+                return remoteId to maxPayload
             }
             A_CLSE -> throw IOException("destination rejected: $destination")
             else -> throw IOException("unexpected reply to OPEN: cmd=0x${"%08x".format(reply.command)}")
@@ -142,8 +147,20 @@ class AdbWireProtocolClient(
         }
     }
 
-    private fun readUntilClose(input: InputStream, out: OutputStream, localId: Int, remoteId: Int): ByteArray {
+    /**
+     * Drain incoming A_WRTE frames until the embedded HTTP/1.1 response is complete or the peer
+     * closes. Chrome's `/json/version` handler ignores `Connection: close` and leaves the socket
+     * idle after responding, so adbd never sees chrome's EOF and never sends A_CLSE; falling back
+     * to Content-Length lets us return as soon as we've read the full body — same instant host
+     * adb's curl gets the response and tears its side down.
+     *
+     * Generic adb streams should use [openLocalAbstract] / [AdbStream]; this path is intended
+     * for the synchronous DevTools HTTP request/response only.
+     */
+    private fun readUntilHttpComplete(input: InputStream, out: OutputStream, localId: Int, remoteId: Int): ByteArray {
         val sink = ByteArrayOutputStream()
+        var headerEnd = -1
+        var contentLength = -1
         while (true) {
             val msg = AdbProtocol.Message.read(input)
             when (msg.command) {
@@ -153,12 +170,47 @@ class AdbWireProtocolClient(
                     }
                     sink.write(msg.payload)
                     AdbProtocol.Message.write(out, A_OKAY, localId, remoteId, EMPTY)
+                    val current = sink.toByteArray()
+                    if (headerEnd < 0) {
+                        headerEnd = findHeaderEnd(current)
+                        if (headerEnd >= 0) {
+                            contentLength = parseContentLength(current, headerEnd)
+                        }
+                    }
+                    if (headerEnd >= 0 && contentLength >= 0 && current.size >= headerEnd + 4 + contentLength) {
+                        return current
+                    }
                 }
                 A_CLSE -> return sink.toByteArray()
                 A_OKAY -> Unit
                 else -> throw IOException("unexpected cmd in read loop: 0x${"%08x".format(msg.command)}")
             }
         }
+    }
+
+    private fun findHeaderEnd(buf: ByteArray): Int {
+        // Look for CRLF CRLF separator. Returns the index of the first \r in that sequence,
+        // so caller computes body offset as headerEnd + 4.
+        if (buf.size < 4) return -1
+        for (i in 0..buf.size - 4) {
+            if (buf[i] == 0x0D.toByte() && buf[i + 1] == 0x0A.toByte() &&
+                buf[i + 2] == 0x0D.toByte() && buf[i + 3] == 0x0A.toByte()
+            ) return i
+        }
+        return -1
+    }
+
+    private fun parseContentLength(buf: ByteArray, headerEnd: Int): Int {
+        val headerText = String(buf, 0, headerEnd, Charsets.ISO_8859_1)
+        for (line in headerText.split("\r\n")) {
+            val idx = line.indexOf(':')
+            if (idx <= 0) continue
+            val name = line.substring(0, idx).trim()
+            if (name.equals("Content-Length", ignoreCase = true)) {
+                return line.substring(idx + 1).trim().toIntOrNull() ?: -1
+            }
+        }
+        return -1
     }
 
     companion object {

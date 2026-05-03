@@ -39,16 +39,19 @@ class AdbWireProtocolClientTest {
         assertThat(String(response, Charsets.UTF_8)).isEqualTo("PONG-PART-1PONG-PART-2")
 
         val client2Server = parseFrames(server.clientWroteBytes())
-        // Post-mTLS the daemon SPEAKS FIRST (sends A_CNXN). Client only sends OPEN.
+        // Post-mTLS the daemon SPEAKS FIRST (sends A_CNXN). Client sends OPEN, then a "ready"
+        // OKAY (mandatory — without it adbd's local_socket never enables FDE_READ on the chrome
+        // side and stalls), then WRTE.
         assertThat(client2Server[0].command).isEqualTo(AdbProtocol.A_OPEN)
-        assertThat(client2Server[1].command).isEqualTo(AdbProtocol.A_WRTE)
-        assertThat(String(client2Server[1].payload, Charsets.UTF_8))
+        assertThat(client2Server[1].command).isEqualTo(AdbProtocol.A_OKAY)
+        assertThat(client2Server[2].command).isEqualTo(AdbProtocol.A_WRTE)
+        assertThat(String(client2Server[2].payload, Charsets.UTF_8))
             .isEqualTo("GET /json HTTP/1.1\r\n\r\n")
         // After receiving each server WRTE, client must OKAY back. The trailing A_CLSE the
         // production runExchange sends is wrapped in runCatching - it's best-effort cleanup
         // after we've already seen the peer's A_CLSE, so we don't assert on it (in this in-
         // process pipe setup the worker has already exited and the pipe is broken).
-        val tailCommands = client2Server.drop(2).map { it.command }
+        val tailCommands = client2Server.drop(3).map { it.command }
         assertThat(tailCommands).containsAtLeastElementsIn(
             listOf(AdbProtocol.A_OKAY, AdbProtocol.A_OKAY)
         ).inOrder()
@@ -142,6 +145,13 @@ class AdbWireProtocolClientTest {
                 }
                 val remoteId = 42
                 AdbProtocol.Message.write(toClientSrc, AdbProtocol.A_OKAY, remoteId, open.arg0, ByteArray(0))
+
+                // Client must send a "ready" OKAY back so adbd's local_socket calls peer->ready()
+                // and starts reading from chrome's local-abstract socket. Consume it before WRTE.
+                val readyOkay = AdbProtocol.Message.read(fromClientReader)
+                check(readyOkay.command == AdbProtocol.A_OKAY) {
+                    "expected post-OPEN ready OKAY, got 0x${"%08x".format(readyOkay.command)}"
+                }
 
                 // Read client WRTE -> ack
                 val wrte = AdbProtocol.Message.read(fromClientReader)

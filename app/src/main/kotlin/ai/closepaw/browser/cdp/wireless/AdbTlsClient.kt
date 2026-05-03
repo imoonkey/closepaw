@@ -51,13 +51,18 @@ internal object AdbTlsClient {
         plain.connect(InetSocketAddress(host, port), timeoutMs)
         plain.soTimeout = timeoutMs
 
-        // Step 1: pre-TLS A_CNXN -> A_STLS handshake (plaintext).
+        // Step 1: pre-TLS A_CNXN -> A_STLS handshake (plaintext). Banner advertises only the
+        // features we actually implement on the wire. Notably we do NOT advertise `delayed_ack`:
+        // with delayed_ack negotiated, every A_OKAY must carry a 4-byte `acked_bytes` payload
+        // (see AOSP packages/modules/adb/sockets.cpp `local_socket_ack`), and our minimal client
+        // sends bare A_OKAYs. Mismatched delayed-ack state would silently no-op the ack on the
+        // daemon side. Listing common features keeps the banner shape adbd expects.
         AdbProtocol.Message.write(
             plain.getOutputStream(),
             AdbProtocol.A_CNXN,
             AdbProtocol.A_VERSION_SKIP_CHECKSUM,
             AdbProtocol.A_MAX_PAYLOAD,
-            "host:: ".toByteArray(Charsets.UTF_8),
+            "host::features=shell_v2,cmd,stat_v2,fixed_push_mkdir,apex,abb_exec,sendrecv_v2 ".toByteArray(Charsets.UTF_8),
         )
         plain.getOutputStream().flush()
 

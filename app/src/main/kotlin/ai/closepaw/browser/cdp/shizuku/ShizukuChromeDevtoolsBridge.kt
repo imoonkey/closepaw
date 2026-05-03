@@ -306,7 +306,7 @@ class ShizukuChromeDevtoolsBridge(
         const val CHROME_DEVTOOLS_SOCKET = "chrome_devtools_remote"
         const val JSON_VERSION_PATH = "/json/version"
         const val JSON_LIST_PATH = "/json/list"
-        const val DEFAULT_TIMEOUT_MS = 4_000
+        const val DEFAULT_TIMEOUT_MS = 30_000
     }
 }
 
