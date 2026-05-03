@@ -199,7 +199,7 @@ Setup steps:
 
 Run command identical to Phase A modulo `ANDROID_SERIAL=100.64.43.95:5555`.
 
-Result (second attempt, `run_20260502_165040` — first attempt timed out because Chrome had no real page; documented for future QA runs):
+Result (`run_20260502_165040`):
 - `browser_script` outcome: **`ok`**, `duration_ms: 2867`.
 - Tool result body: `Success: {"product":"Chrome/147.0.7727.137","title":"Example Domain"}`.
 - Trace metadata (`run_20260502_165040/trace/artifacts/browser_script/144_browser_script_call_58OQAJAXep0jghaRFk3JNZZr.json`):
@@ -210,9 +210,18 @@ Result (second attempt, `run_20260502_165040` — first attempt timed out becaus
 - Agent final answer: `The page title is: Example Domain` → `outcome: SUCCESS`.
 - Transport label = `HOST_MEDIATED_RELAY` confirmed: APP_PROCESS denied at `19:53:39.529` and `19:53:39.873` (`avc: denied { connectto } ... chrome_devtools_remote`) for the two `/json/version` and `/json/list` probes, no `ai.closepaw:chrome_devtools` UserService spawn for this run (the bridge skips USER_SERVICE on nubia because the SELinux block makes it always fail, and the relay-reachability probe in preflight succeeded first), and CDP traffic completed in 2.9s through the host-mediated relay on port 9222.
 
+Caveat on the original `run_20260502_165040` framing: the first two `browser_script` attempts in that run actually failed with `Error: Timed out waiting for 10000 ms`, and the agent only reached the success above after rescuing itself via `mobile_action` in the omnibox and then running a no-navigate read-only script. Root cause was a hardcoded 10s per-CDP-command cap in `ChromeCdpClient.commandTimeoutMs` — too tight for the host-mediated relay's chained-ADB latency on a real device. Fixed in commit `35e89026` (default bumped to 30s, made configurable via `BrowserSessionManager(cdpCommandTimeoutMs = ...)`, timeout error message now names the offending CDP method, e.g. `CDP command 'Page.loadEventFired' timed out after 30000ms (per-command cap; script-level timeout_ms is a separate, larger budget)`).
+
+Re-verification after the fix — `run_20260502_180153` (re-run with identical prompt and ANDROID_SERIAL):
+- Turn 3 first navigating `browser_script` ran `Page.navigate` + `Page.loadEventFired` and got back `Error: 'Page.loadEventFired' wasn't found` — a script-author bug (it's an event, not a command), but proves the CDP transport itself returned in well under 30s; no timeout was hit.
+- Turn 4 `browser_script` used `Page.navigate` + `setTimeout(4000)` + `Runtime.evaluate('document.title')` and returned `Success: {"readyState":"complete","title":"Example Domain","url":"https://example.com/"}` cleanly through the host-mediated relay.
+- Agent final answer: `The page title is: Example Domain` → `outcome: SUCCESS`.
+- Total turns: 5. The `open_app(Chrome)` + `mobile_action click index=9` in turns 1–2 dismissed a Chinese "打开" (Open) system dialog over Chrome — NOT the omnibox-typing rescue from the prior run.
+
 Evidence:
-- Run root: `debug-output/run_20260502_165040/`.
+- Run root: `debug-output/run_20260502_165040/` (original).
 - Browser script trace: `.../trace/artifacts/browser_script/144_browser_script_call_58OQAJAXep0jghaRFk3JNZZr.json`.
+- Post-fix re-run: `debug-output/run_20260502_180153/` (turn 4 succeeds via Page.navigate + waitForLoad pattern, no a11y rescue path needed for the CDP call).
 
 ### Honest framing of the relay path
 
