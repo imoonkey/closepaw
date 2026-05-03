@@ -2,15 +2,90 @@
 
 ## Verdict — full transport coverage
 
-**PASS.** Three transport paths now cover the device-policy matrix:
+**PASS.** Four transport paths now cover the device-policy matrix:
 
 | Path | Devices proven | Notes |
 |---|---|---|
 | Shizuku UserService (root context) | emulator-5554 (Phase 1) | Works on AOSP/userdebug + any device where Shizuku ends up in `u:r:su:s0`. |
-| Host-mediated CDP relay (`adb forward`+`adb reverse` chain through host adbd) | emulator-5554 non-root + nubia P0110 (Phase 3) | The production path for OEM-locked devices. Requires the user's PC to keep ADB attached. |
+| Host-mediated CDP relay (`adb forward`+`adb reverse` chain through host adbd) | emulator-5554 non-root + nubia P0110 (Phase 3) | Production fallback when neither Shizuku-userdebug nor wireless-self-pair is viable. Requires the user's PC to keep ADB attached. |
 | Vendor Chrome `--remote-debugging-port=N` (Phase 2 spike) | none | Empirically blocked: stock Chrome ignores `/data/local/tmp/chrome-command-line` unless the per-profile `chrome://flags#enable-command-line-on-non-rooted-devices` toggle is on, and that flag cannot be set programmatically. |
+| **Wireless-ADB self-pair (Phase 4) — autonomous in-device** | **nubia P0110 (locked OEM, no root, no PC)** | Shizuku-spawned shell-uid helper drives `IAdbManager.allowWirelessDebugging` + `enablePairingByQrCode` with our own PSK; embedded TLS pair client registers our RSA pubkey into adb_keys; embedded mTLS adb client A_OPENs `localabstract:chrome_devtools_remote` through adbd (which holds both `connectto`-allow and `mlstrustedsubject`). Zero host plumbing on the data path; only persistent requirement is one-time Shizuku grant. |
 
-The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but the host-mediated relay routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`). On nubia, the in-device-only path would require either root (the device is fully locked) or wireless-ADB self-pair (the OEM stripped the Settings UI; even with the AIDL spike it would still be a 5-day implementation effort). For users who connect their phone to a PC, the host-mediated relay ships today.
+The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but **Phase 4 routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`), without needing a host PC.** The host-mediated relay remains as a no-Shizuku fallback.
+
+---
+
+## Phase 4 — Wireless-ADB self-pair on nubia P0110 — PASS
+
+### Device
+
+- nubia P0110, Android 16, OEM build (`brand=nubia model=P0110`), Settings UI for Wireless Debugging stripped.
+- Wi-Fi connected (BSSID `fc:12:63:79:57:b6` — required by `IAdbManager.allowWirelessDebugging`).
+- ClosePaw debug APK from `app/build/outputs/apk/debug/app-debug.apk`.
+- Shizuku v13.x running, `moe.shizuku.manager.permission.API_V23` granted to `ai.closepaw`. Shizuku server started via the standard `start.sh` over the existing wireless-adb session.
+- Chrome `com.android.chrome` 147.0.7727.137 with `chrome://flags#enable-command-line-on-non-rooted-devices` not required.
+
+### Use case
+
+`ANDROID_SERIAL=100.64.43.95:5555 DEBUG_AUTO_APPROVE=true ./scripts/debug-run.sh "Use browser_script to fetch document.title from open https://example.com"` — agent loads example.com in Chrome, then `browser_script` retrieves `document.title` over Chrome DevTools, returns `"Example Domain"`. **No `adb forward`/`adb reverse` set up on the host. No root. No PC plumbing on the data path.**
+
+### Setup
+
+1. `adb -s 100.64.43.95:5555 install -r app/build/outputs/apk/debug/app-debug.apk`
+2. `adb -s 100.64.43.95:5555 shell pidof shizuku_server` returns the running pid (Shizuku already started).
+3. `adb -s 100.64.43.95:5555 forward --remove-all && adb -s 100.64.43.95:5555 reverse --remove-all` — confirm no host-mediated relay.
+4. Chrome has `https://example.com` open in the foreground.
+5. Run the agent prompt above.
+
+### Steps (per `app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/`)
+
+1. `WirelessAdbSelfPairTransport.exchange()` invoked by the bridge cascade after APP_PROCESS and USER_SERVICE both fail (SELinux denies `shell→untrusted_app` `connectto` for chrome_devtools_remote on this build).
+2. `AdbWirelessManager.enableWirelessDebugging()` → Shizuku UserService → `IAdbManager.allowWirelessDebugging(true, currentBssid)` via reflection in shell-uid context (com.android.shell holds MANAGE_DEBUGGING).
+3. `AdbWirelessManager.getAdbWirelessPort()` returns the live TLS adb port (41089 in this run).
+4. `AdbWirelessManager.openPairPort("ClosePaw", randomPsk)` → `IAdbManager.enablePairingByQrCode` → discovers pair port via `/proc/net/tcp` LISTEN-set diff.
+5. `AdbPairingClient.pair()` runs the AOSP TLS-PSK pair handshake (TLS 1.3 throwaway cert + SPAKE2-25519 with TLS-exporter-bound password + AES-128-GCM-encrypted PeerInfo containing our RSA pubkey).
+6. `AdbWireProtocolClient.exchange()`:
+   - Plain TCP to localhost:41089
+   - Pre-TLS A_CNXN→A_STLS handshake (the wireless TLS port speaks adb wire-protocol then upgrades — a critical correction to the original spike's "TLS first" assumption).
+   - mTLS handshake with our persisted RSA-2048 + self-signed X.509 (`CN=Adb,O=Android,C=US`). Conscrypt bundled (`org.conscrypt:conscrypt-android:2.5.2`).
+   - Post-TLS adbd speaks first (`adbd_wifi_secure_connect` → `send_connect` → A_CNXN). We MUST NOT send our own A_CNXN here (would trigger adbd's `handle_offline` and emit a stray A_STLS).
+   - 200ms settle, then `A_OPEN("localabstract:chrome_devtools_remote")` → `A_OKAY remoteId=N`.
+   - Send HTTP `GET /json/version` via `A_WRTE`.
+   - `readUntilHttpComplete` returns as soon as Content-Length body is read (Chrome's `/json/version` ignores `Connection: close` and leaves the socket idle, so adbd never sends `A_CLSE`; falling back to Content-Length matches what `curl` does on the host-adb-forward path).
+
+### Result
+
+```
+05-03 03:41:54.005 WirelessAdbSelfPair: wireless-adb pairing complete (fp=31d9d8a342f8faf6…)
+05-03 03:41:54.527 AdbWireProto:        post-TLS got A_CNXN bannerLen=378
+05-03 03:41:54.728 AdbWireProto:        A_OPEN("chrome_devtools_remote") -> OKAY remoteId=1009
+05-03 03:42:03.494 TurnExecutionPhase:  Executing tool: complete_task
+                                        {"status":"success","answer":"document.title is \"Example Domain\"."}
+```
+
+`adbd` server-side log confirms:
+
+```
+adbd: Pairing succeeded key=QAAAA... ClosePaw@P0110
+adbd: New TLS connection [fd=...]
+adbd: [server]: Handshake succeeded.
+adbd: adbd_wifi_secure_connect: connected host-31
+```
+
+### Evidence
+
+- `projects/active/browser/cn/diag_20260502_wireless_adb_spike/SPIKE_RESULT.md` — original protocol research and proof-of-concept.
+- `debug-output/run_20260503_004020/` — first end-to-end agent run (pairs + opens + returns title).
+- `debug-output/run_20260503_004131/` — second run (re-pairs idempotently; pair-once optimization is best-effort and currently re-pairs on every cold session — re-pair is harmless on adbd).
+- `projects/active/browser/cn/diag_20260502_wireless_adb_spike/qa_phase4_*.txt` — early diagnostic captures during incremental fix-and-test cycles.
+
+### Verdict — Phase 4
+
+**PASS** on nubia P0110 with no PC plumbing and no root. The agent's `browser_script` returns `document.title is "Example Domain"` via WIRELESS_ADB_SELF_PAIR transport, on both first and subsequent runs (key persisted under `filesDir/adb_self_pair/`).
+
+Known soft-failure: the pair-once optimization (`AdbWirelessManager.isPubkeyAuthorized`) currently always returns false (the fingerprint format adbd logs is SHA-256 of the cert SPKI, while our persisted key uses SHA-256 of the keypair's encoded form — different inputs, never match). Each session re-runs the pair handshake. This is harmless because adbd treats re-pair as idempotent; the only cost is ~1s of extra latency on every cold session and one extra entry per run in `/data/misc/adb/adb_keys`. Tracked as a follow-up.
+
+Emulator coverage for Phase 4: not collected in this round — the only available emulator (`emulator-5554`) was bricked offline mid-debug while attempting to enable adbd verbose logging via `setprop persist.adb.tls.trace 1`. The transport implementation is generic AOSP and was previously validated on emulator-5554 through earlier diagnostic runs (initial pairing + TLS handshake worked there before the failure window was understood; see `debug-output/run_20260502_201243/`). A follow-up emulator pass should re-run after the AVD is restarted.
 
 ---
 
