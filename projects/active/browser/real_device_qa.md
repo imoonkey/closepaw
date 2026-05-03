@@ -1,17 +1,15 @@
 # Browser CDP Real-Device QA
 
-## Verdict — full transport coverage
+## Verdict — production transport coverage
 
-**PASS.** Four transport paths now cover the device-policy matrix:
+**PASS.** Two transport paths cover the device-policy matrix:
 
 | Path | Devices proven | Notes |
 |---|---|---|
 | Shizuku UserService (root context) | emulator-5554 (Phase 1) | Works on AOSP/userdebug + any device where Shizuku ends up in `u:r:su:s0`. |
-| Host-mediated CDP relay (`adb forward`+`adb reverse` chain through host adbd) | emulator-5554 non-root + nubia P0110 (Phase 3) | Production fallback when neither Shizuku-userdebug nor wireless-self-pair is viable. Requires the user's PC to keep ADB attached. |
-| Vendor Chrome `--remote-debugging-port=N` (Phase 2 spike) | none | Empirically blocked: stock Chrome ignores `/data/local/tmp/chrome-command-line` unless the per-profile `chrome://flags#enable-command-line-on-non-rooted-devices` toggle is on, and that flag cannot be set programmatically. |
 | **Wireless-ADB self-pair (Phase 4) — autonomous in-device** | **nubia P0110 (locked OEM, no root, no PC)** | Shizuku-spawned shell-uid helper drives `IAdbManager.allowWirelessDebugging` + `enablePairingByQrCode` with our own PSK; embedded TLS pair client registers our RSA pubkey into adb_keys; embedded mTLS adb client A_OPENs `localabstract:chrome_devtools_remote` through adbd (which holds both `connectto`-allow and `mlstrustedsubject`). Zero host plumbing on the data path; only persistent requirement is one-time Shizuku grant. |
 
-The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but **Phase 4 routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`), without needing a host PC.** The host-mediated relay remains as a no-Shizuku fallback.
+The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but **Phase 4 routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`), without needing a host PC.**
 
 ---
 
@@ -89,227 +87,37 @@ Emulator coverage for Phase 4: not collected in this round — the only availabl
 
 ---
 
-## Phase 1 — AOSP emulator (emulator-5554) — PASS
+## Phases 1 / 2 / 3 — archived
 
-### Device
+The original 2026-04…05 transport spike worked through three intermediate paths before the
+Phase 4 wireless self-pair landed:
 
-- Emulator: `emulator-5554`, `google/sdk_gphone64_x86_64/emu64x:13/TE1A.240213.009/12342917:userdebug/dev-keys`.
-- Android 13, kernel `6.6.56-android15-8 #1 SMP PREEMPT`.
-- `ro.debuggable=1`, `getenforce=Enforcing`.
-- Chrome: `com.android.chrome` versionName `109.0.5414.123` (versionCode 541412337).
-- Shizuku: `moe.shizuku.privileged.api` 13.5, `shizuku_server` running as `u:r:su:s0` (root via `adb root` bootstrap; standard Shizuku startup path on `userdebug` builds).
-- ClosePaw: debug APK from `app/build/outputs/apk/debug/app-debug.apk` (versionName 1.0, includes the new TCP-relay UserService and HTTP Content-Length-aware reader).
+- **Phase 1** — Shizuku UserService over `LocalSocket` (AOSP/userdebug emulator).
+- **Phase 2** — `chrome --remote-debugging-port=N` via `/data/local/tmp/chrome-command-line`.
+  Empirically blocked: stock Chrome ignores the file unless the per-profile
+  `chrome://flags#enable-command-line-on-non-rooted-devices` toggle is on, and that flag
+  cannot be set programmatically.
+- **Phase 3** — Host-mediated CDP relay (PC-side `adb forward` + `adb reverse` chain through
+  the host's adbd into Chrome's abstract socket). Worked on locked OEMs but contradicts
+  the in-device autonomy goal — required the user's PC to keep ADB attached.
 
-### Use case
-
-Run one complete agent-driven `browser_script` call through the production Shizuku Chrome DevTools transport to open `https://example.com` and return the page `title`, with **no debug TCP fallback** and **no host-side `adb forward`**.
-
-### Setup
-
-1. `adb -s emulator-5554 install -r -t app/build/outputs/apk/debug/app-debug.apk` — installed.
-2. Enabled accessibility service for `ai.closepaw/.app.AgentService` (was already enabled).
-3. `pm grant ai.closepaw moe.shizuku.manager.permission.API_V23` — Android-level grant.
-4. Chrome had no `chrome_devtools_remote` socket by default. Wrote `/data/local/tmp/chrome-command-line` with `chrome --remote-debugging-socket-name=chrome_devtools_remote --enable-remote-debugging --no-first-run --disable-fre --no-default-browser-check`. On `userdebug` Chrome reads this file without the per-profile `enable-command-line-on-non-rooted-devices` flag.
-5. `adb -s emulator-5554 install -r -t eval/tools/shizuku.apk` — Shizuku 13.5 installed.
-6. Bootstrapped Shizuku as the standard adb-root flow does (the official `start.sh` invokes `libshizuku.so`, which in turn execs `app_process moe.shizuku.starter.ServiceStarter`):
-   ```
-   adb shell /data/app/.../moe.shizuku.privileged.api-.../lib/x86_64/libshizuku.so
-   ```
-   `shizuku_server pid=...` confirmed in `u:r:su:s0`.
-7. Granted ClosePaw via Shizuku's UI dialog ("Allow all the time"). Shizuku app showed `Authorized 1 application`.
-8. Ran `adb -s emulator-5554 forward --list` — empty. **No host involvement.**
-
-### Steps
-
-1. Ran:
-   ```
-   ANDROID_SERIAL=emulator-5554 \
-   DEBUG_AUTO_APPROVE=true \
-   DEBUG_BROWSER_SCRIPT_ENABLED=true \
-   DEBUG_BROWSER_TCP_FALLBACK=false \
-   DEBUG_MAX_WAIT_SECONDS=180 \
-   ./scripts/debug-run.sh --basic --accessibility-only \
-     "Use the browser_script tool to open https://example.com and tell me the page title. Return the title in your final answer."
-   ```
-2. Turn 1: agent took a screenshot of the previous chat.
-3. Turn 2: LLM emitted `browser_script` with a script that called `Browser.getVersion`, `Target.getTargets`, `Target.attachToTarget`, `Page.enable`, `Runtime.enable`, `Page.navigate('https://example.com')`, `Runtime.evaluate('document.title')`.
-4. The bridge ran the production transport path:
-   - `AppProcessLocalSocketTransport` failed (app context denied — expected; AVC `scontext=u:r:untrusted_app:s0:c195,...` `tcontext=u:r:untrusted_app:s0:c125,...` `connectto unix_stream_socket`).
-   - `ShizukuUserServiceProvider.bindUserService` spawned `ai.closepaw:chrome_devtools` in `u:r:su:s0`.
-   - `UserServiceTransport.exchange` round-tripped `GET /json/version` and `GET /json/list` over the abstract socket — returned valid JSON.
-   - The bridge called `UserServiceTransport.ensureRelayPortSuspend()` → UserService bound `127.0.0.1:37903` and started accept loop (`I ChromeDevtoolsUS: TCP relay started on 127.0.0.1:37903`).
-   - `BrowserSessionManager.rewriteHost` rewrote Chrome's `webSocketDebuggerUrl` (port-less `ws://localhost/devtools/...`) to `ws://127.0.0.1:37903/devtools/...`.
-   - OkHttp opened the WebSocket against the relay; UserService accepted, opened a second `LocalSocket` to `@chrome_devtools_remote`, and pumped bytes both ways.
-   - CDP commands flowed through the relay; `Page.navigate` opened `https://example.com`, `Runtime.evaluate('document.title')` returned `Example Domain`.
-5. Turn 3: LLM called `complete_task` with `The page title is: Example Domain`.
-
-### Result
-
-- **`browser_script` outcome: `ok`**, `duration_ms: 7685`.
-- **Tool result body:** `Success: {"title":"Example Domain"}`.
-- **Trace metadata:** `{"call_id":"call_1gPZcWNk9Hq9IEeQXeRQfUp6","outcome":"ok","raw_result_json":"{\"kind\":\"ok\",\"result_json\":\"{\\\"title\\\":\\\"Example Domain\\\"}\"}"}`.
-- **Agent outcome:** `Task completed: outcome: GOAL_ACHIEVED`, agent answer `The page title is: Example Domain`.
-- **Title was read by `browser_script`** (real CDP), not by screen scraping.
-- **No screenshot or tab-switch was needed for the verdict** — the goal was specifically the title via `browser_script`.
-
-### Evidence
-
-- Run root: `debug-output/run_20260501_211519/`.
-- Snapshot copy of artifacts: `projects/active/browser/cn/aosp_emulator_pass_20260501/`.
-- Key files in the snapshot:
-  - `30_turn_2_browser_script_call_1gPZcWNk9Hq9IEeQXeRQfUp6_result.txt` — raw tool result body.
-  - `29_browser_script_call_1gPZcWNk9Hq9IEeQXeRQfUp6.json` — outcome metadata (`outcome:"ok"`).
-  - `key_log_lines.txt` — every `browser_script`, `UserServiceManager`, `TCP relay`, and final outcome line from agent.log + logcat.
-  - `processes.txt` — confirms `shizuku_server` and `ai.closepaw:chrome_devtools` UserService context.
-  - `proc_net_unix.txt` — confirms `@chrome_devtools_remote` socket bound.
-  - `adb_forward_list.txt` — empty (proves no host involvement).
-  - `chrome_command_line.txt` — the flag file used to expose Chrome's CDP socket.
-  - `chrome_version.txt` — `109.0.5414.123`.
-  - `closepaw_shizuku_perm.txt` — `moe.shizuku.manager.permission.API_V23: granted=true`.
-  - `device_buildinfo.txt` — `userdebug/dev-keys`, Enforcing.
-
-### Code changes that made this PASS possible
-
-- `app/src/main/aidl/.../IChromeDevtoolsUserService.aidl` — added `int startTcpRelay()`.
-- `app/src/main/kotlin/.../ChromeDevtoolsUserService.kt` — implemented:
-  - HTTP Content-Length-aware reader (`readHttpResponse`); Chrome's `net::HttpServer` ignores `Connection: close` on the abstract socket and never EOFs after a single response, so reading until EOF hangs.
-  - Removed `shutdownOutput()`; on this build it triggers an immediate connection RST with no response.
-  - Device-side TCP relay: `startTcpRelay()` binds a free 127.0.0.1 port, spawns an accept loop, and bidirectionally pumps each accepted TCP connection to a fresh abstract socket. Idempotent; one relay per UserService process; tears down with the process.
-- `app/src/main/kotlin/.../AppProcessLocalSocketTransport.kt` — same HTTP-aware reader; added `UserServiceTransport.ensureRelayPortSuspend()`.
-- `app/src/main/kotlin/.../ShizukuChromeDevtoolsBridge.kt` — added `resolveWebSocketHost()` that returns `127.0.0.1:<relayPort>`.
-- `app/src/main/kotlin/.../BrowserSessionManager.kt` — added `rewriteHost(...)` and called it before opening the OkHttp WebSocket so CDP traffic tunnels through the relay.
-
-### Known limitation (Phase 2 scope)
-
-When `shizuku_server` runs in `u:r:shell:s0` (the regular non-root ADB bootstrap, e.g. on locked production devices), the same SELinux denial documented for the nubia P0110 below blocks the UserService from connecting to `chrome_devtools_remote`. Verified on this same emulator after `adb unroot` + restart of `shizuku_server` in shell context: AVC `connectto` denial with `scontext=u:r:shell:s0` `tcontext=u:r:untrusted_app:s0:c125,...`. Phase 2 is the workaround for shell-context Shizuku on locked devices.
-
-### Verdict — Phase 1
-
-PASS — production Shizuku UserService transport drove an end-to-end `browser_script` round-trip on AOSP emulator-5554 with no host involvement and no debug TCP fallback.
-
----
-
-## Phase 2 — vendor Chrome `--remote-debugging-port=N` — empirically blocked
-
-The `ChromeRemoteDebugPortTransport` (still in the codebase under `app/src/main/kotlin/.../shizuku/ChromeRemoteDebugPortTransport.kt`, no longer wired into the default bridge) was an attempt to route around the Phase 1 SELinux block by asking the Shizuku UserService to write `--remote-debugging-port=9222` into `/data/local/tmp/chrome-command-line` and force-restart Chrome so it binds a TCP port the app can connect to without `connectto` rights.
-
-It does not work on stock Chrome. Chrome reads `/data/local/tmp/chrome-command-line` only when the per-Chrome-profile flag at `chrome://flags#enable-command-line-on-non-rooted-devices` is enabled, and that flag cannot be set programmatically. When the flag is off, Chrome silently ignores the file and continues to bind only the abstract socket.
-
-Verified empirically on nubia P0110 in `projects/active/browser/cn/diag_20260501_finalpath/`:
-
-- `chrome_cmdline_current.txt` — file written with `--remote-debugging-port=9222`.
-- `proc_net_unix_devtools.txt` after Chrome force-restart — only `@chrome_devtools_remote` bound, no `:::9222` listener.
-
-The transport surfaces `DevtoolsSetupError.ChromeRemoteDebuggingFlagNotEnabled` with one-line user instructions, so if a user does enable the flag we still fall through correctly. But because the flag cannot be set without manual user action and is per-profile, this transport is not part of the production cascade.
-
-### Verdict — Phase 2
-
-EMPIRICALLY BLOCKED — kept in the source tree as documentation; not wired into the default bridge. The host-mediated relay (Phase 3) supersedes this path on every device class.
-
----
-
-## Phase 3 — Host-mediated CDP relay — PASS on both targets
-
-This is the production fallback for the SELinux block documented in Phase 1's "Known limitation" and in the nubia diagnostic below: when Shizuku is bootstrapped in `u:r:shell:s0` (the regular non-root flow on production devices), the kernel denies the UserService's `connectto` on `chrome_devtools_remote`. Only `adbd` retains both `connectto appdomain` and `mlstrustedsubject`, so the only way to reach Chrome's CDP socket from inside an untrusted_app is to chain back through ADB:
+All three transports (`AppProcessLocalSocketTransport`, `HostMediatedCdpRelayTransport`,
+`ChromeRemoteDebugPortTransport`) plus `scripts/setup-cdp-relay.sh` and the Phase-2-only
+AIDL surface (`ensureChromeRemoteDebugPort`) were removed from the production cascade in
+the `task/del-transports` commit (parent: `abcc06972`). After deletion the cascade is:
 
 ```
-ClosePaw (untrusted_app, app UID)
-  -> connect 127.0.0.1:9222
-    -> device adbd reverse-tunnel listener
-      -> host adbd over USB/network
-        -> adb forward
-          -> @chrome_devtools_remote
+USER_SERVICE → WIRELESS_ADB_SELF_PAIR
 ```
 
-Established once per session by `scripts/setup-cdp-relay.sh` on the host, which runs:
-
-```
-adb forward tcp:9222 localabstract:chrome_devtools_remote
-adb reverse tcp:9222 tcp:9222
-```
-
-The `HostMediatedCdpRelayTransport` (added in this change set) probes the configured port range (default 9222..9230) on first use, caches the live port, and tunnels CDP HTTP+WebSocket round-trips through it. The bridge rewrites Chrome's port-less `webSocketDebuggerUrl` (Chrome reflects the inbound `Host: localhost` header) onto `127.0.0.1:<port>` so OkHttp connects through the same chain.
-
-Spike provenance: `projects/active/browser/cn/diag_20260502_wireless_adb_spike/step5c_chained_retry.txt` proved the chain end-to-end on nubia P0110 — a device-side curl from `untrusted_app` got Chrome's full `/json/version` payload (including the `webSocketDebuggerUrl` once the Host header was set correctly).
-
-### Phase 3 — emulator-5554 (non-root, shell-context Shizuku) — PASS
-
-Setup gotchas worth recording:
-- Started from the Phase 1 environment, then `adb -s emulator-5554 unroot`. The previous `shizuku_server` (root context) survived `unroot`; killed it via `adb root` → `killall shizuku_server` → `adb unroot`, then re-bootstrapped Shizuku as shell with the standard `libshizuku.so` invocation. Result: `shizuku_server` is now `u:r:shell:s0` with PID owner `shell`, matching the regular production path.
-- Accessibility service had to be re-enabled after the unroot toggle: `settings put secure enabled_accessibility_services ai.closepaw/.app.AgentService` + `settings put secure accessibility_enabled 1`.
-- Emulator shell has no `curl`. `setup-cdp-relay.sh` falls back to host-side verification through the forward leg (sufficient — the reverse leg failure surfaces cleanly through the agent's own probe).
-
-Run:
-```
-ANDROID_SERIAL=emulator-5554 \
-DEBUG_AUTO_APPROVE=true \
-DEBUG_BROWSER_SCRIPT_ENABLED=true \
-DEBUG_MAX_WAIT_SECONDS=300 \
-./scripts/debug-run.sh --basic --accessibility-only \
-  "Use the browser_script tool to open https://example.com and tell me the page title. Return the title in your final answer."
-```
-
-Result:
-- `browser_script` outcome: **`ok`**, `duration_ms: 8040`.
-- Tool result body: `Success: {"title":"Example Domain"}`.
-- Trace metadata (`run_20260502_163719/trace/artifacts/browser_script/47_browser_script_call_l1jJdLf6O1qA2Bjt7Xrwidvt.json`):
-  ```json
-  {"outcome":"ok",
-   "raw_result_json":"{\"kind\":\"ok\",\"result_json\":\"{\\\"title\\\":\\\"Example Domain\\\"}\"}"}
-  ```
-- Agent final answer: `The page title is: Example Domain` → `outcome: GOAL_ACHIEVED`.
-- Transport label = `HOST_MEDIATED_RELAY` confirmed by elimination: APP_PROCESS denied (`avc: denied { connectto } scontext=u:r:untrusted_app:... tcontext=u:r:untrusted_app:... chrome_devtools_remote`), USER_SERVICE bound but threw `java.io.IOException: Permission denied` at `ChromeDevtoolsUserService.kt:50` (the same shell-context block documented in Phase 1's "Known limitation"), and OkHttp connected the WebSocket on `127.0.0.1:9222` via the rewritten URL. Zero `port 80` connection errors after the `resolveWebSocketHost` rewrite landed.
-
-Evidence:
-- Run root: `debug-output/run_20260502_163719/`.
-- Browser script trace: `.../trace/artifacts/browser_script/47_browser_script_call_l1jJdLf6O1qA2Bjt7Xrwidvt.json`.
-
-### Phase 3 — nubia P0110 (`100.64.43.95:5555`, shell-context Shizuku, OEM-locked) — PASS
-
-Setup steps:
-- Reinstalled the new debug APK, re-granted `moe.shizuku.manager.permission.API_V23`.
-- Confirmed accessibility service was already enabled from prior runs.
-- Chrome was restarted onto `https://example.com` to ensure a real page target existed (an earlier session had left it on `chrome://flags`).
-- nubia shell HAS curl, so `setup-cdp-relay.sh` verified the bridge end-to-end through the device-side reverse leg.
-
-Run command identical to Phase A modulo `ANDROID_SERIAL=100.64.43.95:5555`.
-
-Result (`run_20260502_165040`):
-- `browser_script` outcome: **`ok`**, `duration_ms: 2867`.
-- Tool result body: `Success: {"product":"Chrome/147.0.7727.137","title":"Example Domain"}`.
-- Trace metadata (`run_20260502_165040/trace/artifacts/browser_script/144_browser_script_call_58OQAJAXep0jghaRFk3JNZZr.json`):
-  ```json
-  {"outcome":"ok",
-   "raw_result_json":"{\"kind\":\"ok\",\"result_json\":\"{\\\"product\\\":\\\"Chrome\\/147.0.7727.137\\\",\\\"title\\\":\\\"Example Domain\\\"}\"}"}
-  ```
-- Agent final answer: `The page title is: Example Domain` → `outcome: SUCCESS`.
-- Transport label = `HOST_MEDIATED_RELAY` confirmed: APP_PROCESS denied at `19:53:39.529` and `19:53:39.873` (`avc: denied { connectto } ... chrome_devtools_remote`) for the two `/json/version` and `/json/list` probes, no `ai.closepaw:chrome_devtools` UserService spawn for this run (the bridge skips USER_SERVICE on nubia because the SELinux block makes it always fail, and the relay-reachability probe in preflight succeeded first), and CDP traffic completed in 2.9s through the host-mediated relay on port 9222.
-
-Caveat on the original `run_20260502_165040` framing: the first two `browser_script` attempts in that run actually failed with `Error: Timed out waiting for 10000 ms`, and the agent only reached the success above after rescuing itself via `mobile_action` in the omnibox and then running a no-navigate read-only script. Root cause was a hardcoded 10s per-CDP-command cap in `ChromeCdpClient.commandTimeoutMs` — too tight for the host-mediated relay's chained-ADB latency on a real device. Fixed in commit `35e89026` (default bumped to 30s, made configurable via `BrowserSessionManager(cdpCommandTimeoutMs = ...)`, timeout error message now names the offending CDP method, e.g. `CDP command 'Page.loadEventFired' timed out after 30000ms (per-command cap; script-level timeout_ms is a separate, larger budget)`).
-
-Re-verification after the fix — `run_20260502_180153` (re-run with identical prompt and ANDROID_SERIAL):
-- Turn 3 first navigating `browser_script` ran `Page.navigate` + `Page.loadEventFired` and got back `Error: 'Page.loadEventFired' wasn't found` — a script-author bug (it's an event, not a command), but proves the CDP transport itself returned in well under 30s; no timeout was hit.
-- Turn 4 `browser_script` used `Page.navigate` + `setTimeout(4000)` + `Runtime.evaluate('document.title')` and returned `Success: {"readyState":"complete","title":"Example Domain","url":"https://example.com/"}` cleanly through the host-mediated relay.
-- Agent final answer: `The page title is: Example Domain` → `outcome: SUCCESS`.
-- Total turns: 5. The `open_app(Chrome)` + `mobile_action click index=9` in turns 1–2 dismissed a Chinese "打开" (Open) system dialog over Chrome — NOT the omnibox-typing rescue from the prior run.
-
-Evidence:
-- Run root: `debug-output/run_20260502_165040/` (original).
-- Browser script trace: `.../trace/artifacts/browser_script/144_browser_script_call_58OQAJAXep0jghaRFk3JNZZr.json`.
-- Post-fix re-run: `debug-output/run_20260502_180153/` (turn 4 succeeds via Page.navigate + waitForLoad pattern, no a11y rescue path needed for the CDP call).
-
-### Honest framing of the relay path
-
-The host-mediated relay requires the user's PC to keep ADB attached and the forward+reverse rules in place. It is a real production transport for users who connect their phone to a PC (the same audience that already uses Shizuku via `adb` bootstrap), but it is NOT a fully autonomous in-device path. The fully-in-device alternatives we evaluated:
-
-- **Root.** Trivially works (Phase 1) but the device must be userdebug or rooted.
-- **Wireless-ADB self-pair** (the wireless-ADB spike, `projects/active/browser/cn/diag_20260502_wireless_adb_spike/SPIKE_RESULT.md`). The framework AIDL is intact on every Android 11+ device including nubia, but implementing the embedded TLS-PSK pair client + embedded mTLS adb client is a 3–5 day engineering effort. It is the long-term answer for users who never connect to a PC; the host-mediated relay is the short-term answer that ships today.
-
-### Verdict — Phase 3
-
-PASS on both target devices. The host-mediated CDP relay carries the full agent → LLM → `browser_script` → Chrome CDP round-trip end-to-end on:
-- emulator-5554 in non-root mode (Shizuku in `u:r:shell:s0`, AOSP-style block on `connectto`)
-- nubia P0110 OEM-locked Android 16 (the same shell-context block plus stripped wireless-debug Settings UI)
+with USER_SERVICE retained as the primary path on devices where Shizuku ends up in
+`u:r:su:s0` (Phase 1's territory) and WIRELESS_ADB_SELF_PAIR as the only fallback when the
+shell-context UserService is denied `connectto` on the abstract socket (Phase 4's
+territory). The detailed Phase 1 / 2 / 3 evidence and code references that previously lived
+here remain reachable via `git log -p` on this file before that commit, and the original
+spike narrative lives at
+`projects/active/browser/cn/diag_20260502_wireless_adb_spike/SPIKE_RESULT.md` and
+`projects/active/browser/cn/diag_20260503_phase4_handoff.md`.
 
 ---
 

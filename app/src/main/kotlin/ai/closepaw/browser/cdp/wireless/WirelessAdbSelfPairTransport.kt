@@ -49,15 +49,6 @@ class WirelessAdbSelfPairTransport(
     @Volatile private var relayPort: Int = 0
     private val relayStopped = AtomicBoolean(false)
 
-    /** Cheap probe used by preflight: don't tear up TLS, just confirm Shizuku binder is reachable. */
-    override suspend fun isReachable(): Boolean = runCatching {
-        runInterruptible(ioDispatcher) {
-            // bssid query is a fast `dumpsys wifi` shell-out; failure here means no Wi-Fi or
-            // shell-uid binder is missing — both terminal for this transport.
-        }
-        wirelessManager.currentBssid() != null
-    }.getOrDefault(false)
-
     override suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray {
         return try {
             val tlsPort = ensureBootstrapped()

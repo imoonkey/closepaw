@@ -84,16 +84,16 @@ class DefaultBrowserScriptCapabilityGateTest {
     }
 
     @Test
-    fun `preflight HostMediatedRelayUnreachable surfaces actionable setup hint`() = runTest {
+    fun `preflight WirelessAdbSelfPairUnavailable surfaces precise code`() = runTest {
         val gate = DefaultBrowserScriptCapabilityGate(
             isExperimentalEnabled = { true },
-            preflight = { throw DevtoolsSetupError.HostMediatedRelayUnreachable(null) },
+            preflight = { throw DevtoolsSetupError.WirelessAdbSelfPairUnavailable(null) },
             invokerFactory = { error("not reached") },
         )
 
         val u = gate.acquire() as BrowserScriptCapabilityGate.Outcome.Unavailable
-        assertThat(u.code).isEqualTo("host_mediated_relay_unreachable")
-        assertThat(u.reason).contains("scripts/setup-cdp-relay.sh")
+        assertThat(u.code).isEqualTo("wireless_adb_self_pair_unavailable")
+        assertThat(u.reason).contains("Wi-Fi")
     }
 
     @Test

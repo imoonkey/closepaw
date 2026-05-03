@@ -6,11 +6,9 @@ import ai.closepaw.browser.cdp.CdpConnectionFactory
 import ai.closepaw.browser.cdp.CdpConnectionClosedException
 import ai.closepaw.browser.cdp.ChromeCdpClient
 import ai.closepaw.browser.cdp.ChromeCdpTarget
-import ai.closepaw.browser.cdp.shizuku.AppProcessLocalSocketTransport
 import ai.closepaw.browser.cdp.shizuku.DefaultDevtoolsDiagnostics
 import ai.closepaw.browser.cdp.shizuku.DevtoolsSetupError
 import ai.closepaw.browser.cdp.shizuku.DevtoolsVersion
-import ai.closepaw.browser.cdp.shizuku.HostMediatedCdpRelayTransport
 import ai.closepaw.browser.cdp.shizuku.PageTarget
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeDevtoolsBridge
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeRunningProbe
@@ -57,7 +55,7 @@ class BrowserSessionManager(
      * a separate, larger budget for the whole script; this cap fires when a single CDP method
      * (most importantly `Page.loadEventFired { awaitEvent: true }`) blocks longer than the
      * cap. Defaults to [ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS] (30s) which leaves headroom
-     * for cellular page loads through the host-mediated CDP relay.
+     * for cellular page loads through the wireless-ADB self-pair relay.
      */
     private val cdpCommandTimeoutMs: Long = ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS,
     private val bridgeFactory: () -> BrowserDevtoolsBridge = {
@@ -300,10 +298,8 @@ class BrowserSessionManager(
                 diagnostics = DefaultDevtoolsDiagnostics(
                     chromeRunningProbe = ShizukuChromeRunningProbe(),
                 ),
-                appProcessTransport = AppProcessLocalSocketTransport(),
                 userServiceProvider = userServiceProvider,
                 wirelessAdbSelfPairTransport = wirelessTransport,
-                hostMediatedRelayTransport = HostMediatedCdpRelayTransport(),
             )
         }
     }
