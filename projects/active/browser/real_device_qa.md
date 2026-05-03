@@ -8,6 +8,7 @@
 |---|---|---|
 | Shizuku UserService (root context) | emulator-5554 (Phase 1) | Works on AOSP/userdebug + any device where Shizuku ends up in `u:r:su:s0`. |
 | **Wireless-ADB self-pair (Phase 4) — autonomous in-device** | **nubia P0110 (locked OEM, no root, no PC)** | Shizuku-spawned shell-uid helper drives `IAdbManager.allowWirelessDebugging` + `enablePairingByQrCode` with our own PSK; embedded TLS pair client registers our RSA pubkey into adb_keys; embedded mTLS adb client A_OPENs `localabstract:chrome_devtools_remote` through adbd (which holds both `connectto`-allow and `mlstrustedsubject`). Zero host plumbing on the data path; only persistent requirement is one-time Shizuku grant. |
+| **WS relay stress (Phase 5) — multi-iteration leak check** | **nubia P0110 (PASS)** | 10 sequential `browser_script` agent sessions over the same ClosePaw process. Asserted `socket_fd_after - socket_fd_before <= +2` and zero `EMFILE` / `Too many open files` lines in logcat. Result on 2026-05-03: socket_fd 21→20 (Δ=-1), pid stable, all 10 iterations GOAL_ACHIEVED via WIRELESS_ADB_SELF_PAIR. Driven by `scripts/ws-relay-stress.sh` + `WirelessAdbSelfPairTransportRelayStressTest`. |
 
 The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but **Phase 4 routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`), without needing a host PC.**
 
@@ -117,6 +118,84 @@ Evidence for this round:
 2. Shizuku app's `start.sh` is generated lazily by the MainActivity's first launch, but the `View command` dialog in the Shizuku UI exposes the same `adb shell /data/app/.../lib/<abi>/libshizuku.so` invocation that the script would have used — that path works on userdebug emulators because `adb shell` is already root.
 3. Shizuku's authorization table is independent of Android's PackageManager grants. Both `pm grant ai.closepaw moe.shizuku.manager.permission.API_V23` AND toggling the Shizuku UI's "Authorized applications" switch for ClosePaw are required (the latter records the grant in the Shizuku binder's own state).
 4. Emulator clocks drift hard — set with `su 0 date -u $(date -u +%m%d%H%M%Y.%S)` before any TLS-bearing run, otherwise `OpenAIIoException - Request failed` masks the real test signal.
+
+---
+
+## Phase 5 — WebSocket relay stress (fd-leak check) — PASS
+
+### Device & harness
+
+- nubia P0110 (`100.64.43.95:5555`), same configuration as Phase 4 PASS.
+- Stress harness: `scripts/ws-relay-stress.sh -n 10` — 10 sequential
+  `debug-run.sh` agent sessions on the same ClosePaw process, each ending in one
+  successful `browser_script` round-trip through the wireless-ADB self-pair transport.
+- JVM control-plane coverage: `WirelessAdbSelfPairTransportRelayStressTest` exercises
+  the `ServerSocket` accept loop, single-flight bootstrap, and per-connection thread
+  cleanup with a mocked `AdbWireProtocolClient`.
+
+### Pass / fail criteria
+
+- `socket_fd_after - socket_fd_before <= 2` (allowance: relay's `ServerSocket` +1, +1 slack).
+- Zero `EMFILE` / `Too many open files` lines in `logcat -d` after the run.
+- Each iteration's `browser_script` outcome = SUCCESS with `Example Domain` answer.
+- ClosePaw process pid held across all iterations (no Android background-killer eviction).
+
+### Result — 2026-05-03 11:25–11:33 PDT, agent-driven
+
+```
+Run dir:   debug-output/ws-stress-20260503_112535/
+PID:       30125 → 30125          (held across all 10 iterations)
+fd:        328   → 279   (Δ=-49)  (negative — class-loader caches GC'd between iters)
+socket_fd: 21    → 20    (Δ=-1)   (well under +2 allowance)
+EMFILE / Too many open files lines in post-run logcat: 0
+```
+
+Per-iteration `socket_fd` snapshot — flat at 20 from iteration 1 onward, no
+monotonic growth:
+
+```
+Baseline    socket_fd=21
+Iter  1     socket_fd=20
+Iter  2..10 socket_fd=20  (every iteration)
+```
+
+Iteration outcomes — all 10 logged `browser_script outcome=SUCCESS` and
+`Task completed: outcome: GOAL_ACHIEVED`. Per-iter agent dirs:
+`debug-output/run_20260503_11{2604,2703,2753,2842,2932,3022,3110,3157,3245}/`
+plus the iteration that took the second wireless slot in `_112604`.
+
+Wireless transport active in every iteration (each `logcat_full.log` carries
+`WirelessAdbSelfPair: wireless-adb WS relay on 127.0.0.1:<port>`).
+
+### Verdict — Phase 5
+
+**PASS** — the in-process WebSocket relay does not leak file descriptors or threads
+across 10 sequential `browser_script` sessions on a fresh ClosePaw process. The
+`-1` socket_fd delta indicates the relay actually frees its `ServerSocket` and
+underlying `AdbStream` cleanly when each `BrowserSessionManager` closes.
+
+JVM control-plane assertions (`WirelessAdbSelfPairTransportRelayStressTest`):
+green — bootstrap is single-flight under 20 concurrent callers, the relay is
+idempotent across 50 sequential `ensureWebSocketRelayPort()` calls, and the
+accept loop survives 20 connect-disconnect cycles on both success and failure
+paths without thread leak.
+
+### Caveats
+
+- Each `debug-run.sh` invocation creates a fresh `BrowserSessionManager` (because
+  `fresh_session=true`), so the test stresses the cold-session-cycle path. A
+  single-session, multi-script flow (where the same `BrowserSessionManager`
+  reuses one WebSocket across N scripts) is dominated by `ChromeCdpClient`
+  resource accounting, not the wireless transport — that path is left to per-call
+  CDP tests.
+- `/proc/<pid>/fd` is not readable from `adb shell` on this OEM (kernel returns
+  `Permission denied`); the harness uses `run-as ai.closepaw` which runs as the
+  app's own UID. Requires a debuggable APK — the production wireless path always
+  ships with one.
+- nubia P0110 silently wipes `enabled_accessibility_services` after some activity
+  events; the harness re-arms a11y via `cmd settings put` before each iteration.
+  Without this guard, iteration 2+ would route to the AccessibilitySettings page
+  instead of starting the agent and the stress test would stall.
 
 ---
 
