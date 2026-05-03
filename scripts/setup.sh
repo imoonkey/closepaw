@@ -131,6 +131,40 @@ log "Installing APK..."
 adb install -r "$APK_PATH" || err "Installation failed"
 ok "APK installed successfully"
 
+# 5. Ensure Shizuku server is running
+#    Wireless-ADB self-pair (and the in-band Shizuku UserService transport) both need the
+#    privileged shell-uid binder published by `shizuku_server`. The Shizuku APP (UI) being
+#    installed is not the same as the server running — after a reboot, after `adb install -r`
+#    that drops the cached binder, or any time the user opens the Shizuku app and sees
+#    "Shizuku is not running", the server is dead until restarted via the standard start.sh.
+log "Checking Shizuku server..."
+SHIZUKU_PKG="moe.shizuku.privileged.api"
+SHIZUKU_PID=$(adb shell pidof shizuku_server 2>/dev/null | tr -d '\r ')
+if [[ -n "$SHIZUKU_PID" ]]; then
+    ok "Shizuku server already running (pid $SHIZUKU_PID)"
+else
+    SHIZUKU_START="/sdcard/Android/data/${SHIZUKU_PKG}/start.sh"
+    if adb shell "[ -f $SHIZUKU_START ]" 2>/dev/null; then
+        log "Starting Shizuku server via $SHIZUKU_START..."
+        adb shell "sh $SHIZUKU_START" >/dev/null 2>&1 || true
+        sleep 2
+        SHIZUKU_PID=$(adb shell pidof shizuku_server 2>/dev/null | tr -d '\r ')
+        if [[ -n "$SHIZUKU_PID" ]]; then
+            ok "Shizuku server started (pid $SHIZUKU_PID)"
+        else
+            warn "start.sh ran but shizuku_server is still not detected. Open the Shizuku app and start it manually before invoking debug-run.sh."
+        fi
+    else
+        warn "Shizuku not installed (no $SHIZUKU_START). Install Shizuku from Play Store / GitHub and start it before browser_script will work."
+    fi
+fi
+
+# Verify ClosePaw has Shizuku's signature permission (granted via Shizuku UI, not pm grant).
+SHIZUKU_GRANT=$(adb shell dumpsys package "$PACKAGE" 2>/dev/null | grep -E 'API_V23.*granted=true' | head -n 1)
+if [[ -z "$SHIZUKU_GRANT" ]]; then
+    warn "ClosePaw doesn't yet hold moe.shizuku.manager.permission.API_V23. Open the Shizuku app and grant it before testing wireless-ADB self-pair."
+fi
+
 # 5. Grant Overlay permission
 log "Granting Overlay permission..."
 adb shell appops set "$PACKAGE" SYSTEM_ALERT_WINDOW allow 2>/dev/null
