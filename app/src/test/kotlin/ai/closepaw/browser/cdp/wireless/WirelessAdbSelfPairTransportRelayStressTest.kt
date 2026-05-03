@@ -10,10 +10,18 @@ import java.io.IOException
 import java.io.OutputStream
 import java.net.ConnectException
 import java.net.Socket
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -53,7 +61,7 @@ class WirelessAdbSelfPairTransportRelayStressTest {
         coEvery { wirelessManager.enableWirelessDebugging() } returns Result.success(Unit)
         coEvery { wirelessManager.getAdbWirelessPort() } returns FAKE_TLS_PORT
         coEvery { wirelessManager.isPubkeyAuthorized(any()) } returns true
-        every { keyStore.fingerprint() } returns "deadbeefcafe1234"
+        every { keyStore.androidPubkeyBase64() } returns "QAAAAdeadbeefcafe1234"
         every { keyStore.isPersisted() } returns true
 
         transport = WirelessAdbSelfPairTransport(
@@ -85,45 +93,81 @@ class WirelessAdbSelfPairTransportRelayStressTest {
     }
 
     @Test
-    fun `bootstrap is single-flight under 20 concurrent ensureWebSocketRelayPort callers`() = runBlocking {
-        val ports = coroutineScope {
-            (0 until 20).map { async { transport.ensureWebSocketRelayPort() } }.awaitAll()
+    fun `bootstrap is single-flight under 20 truly concurrent callers (barrier-gated)`() = runBlocking {
+        // Barrier-gated single-flight assertion. The previous shape (20 immediate `async` blocks
+        // with non-suspending mocks) passed even if `bootstrapBlocking` had run 20 times in
+        // sequence — `runBlocking`'s default dispatcher serializes by default, so "concurrent"
+        // wasn't really concurrent. Here we:
+        //   1. Suspend bootstrap inside a CompletableDeferred barrier.
+        //   2. Launch 20 callers on Dispatchers.Default (real worker threads).
+        //   3. Wait until at least one caller has entered bootstrap (counter > 0) and the
+        //      remaining callers have piled up on the bootstrapLock Mutex.
+        //   4. Assert the counter is still 1 — proving 19 callers parked on the lock.
+        //   5. Release the barrier; assert all 20 return the same port and the counter is
+        //      still 1 (the late callers find cachedTlsPort populated and skip bootstrap).
+        val barrier = CompletableDeferred<Unit>()
+        val callCounter = AtomicInteger(0)
+
+        coEvery { wirelessManager.enableWirelessDebugging() } coAnswers {
+            callCounter.incrementAndGet()
+            barrier.await()
+            Result.success(Unit)
         }
-        assertThat(ports.distinct()).hasSize(1)
-        assertThat(ports.first()).isNotNull()
-        coVerify(exactly = 1) { wirelessManager.enableWirelessDebugging() }
+
+        val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        try {
+            val deferred = (0 until 20).map {
+                scope.async { transport.ensureWebSocketRelayPort() }
+            }
+
+            // Wait for the first caller to enter bootstrap (counter goes 0 -> 1) and let the
+            // remaining 19 settle on the bootstrapLock Mutex.
+            withTimeout(2_000) {
+                while (callCounter.get() == 0) yield()
+            }
+            delay(200) // give the other 19 a generous moment to pile up on the lock
+
+            // Single-flight invariant: only one caller is inside bootstrap right now.
+            assertThat(callCounter.get()).isEqualTo(1)
+
+            // Release the barrier; all 20 callers should now complete with the same port.
+            barrier.complete(Unit)
+            val ports = deferred.awaitAll()
+
+            assertThat(ports.distinct()).hasSize(1)
+            assertThat(ports.first()).isNotNull()
+            // Still 1 — the 19 latecomers found cachedTlsPort populated and skipped bootstrap.
+            assertThat(callCounter.get()).isEqualTo(1)
+            coVerify(exactly = 1) { wirelessManager.enableWirelessDebugging() }
+        } finally {
+            scope.cancel()
+        }
     }
 
     @Test
-    fun `close releases the underlying ServerSocket so further connects fail`() = runBlocking {
+    fun `close releases ServerSocket, clears port, and rejects further calls`() = runBlocking {
         val port = transport.ensureWebSocketRelayPort()!!
         // Sanity-check the relay is up.
         Socket("127.0.0.1", port).close()
 
         transport.close()
 
-        // After close, the previously-bound port is no longer accepting connections (or the
-        // OS recycled the ephemeral port to another listener — either way, the relay's own
-        // listener is gone, which is the leak-relevant invariant).
-        var connectFailed = false
-        try {
-            Socket("127.0.0.1", port).close()
-        } catch (_: ConnectException) {
-            connectFailed = true
-        }
-        // We can't tell connect-success-because-OS-rebound from connect-success-because-leak
-        // from outside the JVM, so the strict assertion is "no thread/socket should still be
-        // referenced by a wireless-adb-* daemon thread".
+        // After close, ensureWebSocketRelayPort returns null — no stale port is replayed.
+        // (Pre-fix the early `if (relayPort != 0) return relayPort` returned the dead port.)
+        assertThat(transport.ensureWebSocketRelayPort()).isNull()
+
+        // No live wireless-adb-* daemon threads left over.
         val leftover = Thread.getAllStackTraces().keys
             .count { it.name.startsWith("wireless-adb-") && it.isAlive }
         assertThat(leftover).isAtMost(MAX_TRANSIENT_THREADS)
 
-        // Bookkeeping: the connect attempt should usually fail (no other JVM thread re-bound
-        // the ephemeral port within the test). Logged for diagnostic clarity, not asserted —
-        // a flaky port reuse here would create test flakiness without proving a real leak.
-        if (!connectFailed) {
-            // Best-effort signal in CI logs; no failure.
+        // Bookkeeping: the port should usually be unbound. Logged for diagnostic clarity, not
+        // asserted — a flaky port reuse here would create test flakiness without proving a leak.
+        try {
+            Socket("127.0.0.1", port).close()
             println("note: post-close port $port still accepted a connection (OS port reuse likely)")
+        } catch (_: ConnectException) {
+            // Expected.
         }
     }
 

@@ -84,10 +84,11 @@ class WirelessAdbSelfPairTransport(
     override suspend fun ensureWebSocketRelayPort(): Int? {
         // WebSocket relay needs the bootstrapped tunnel; if bootstrap hasn't happened yet
         // (caller invoked WS resolution before any HTTP exchange), do it now.
+        if (relayStopped.get()) return null
         ensureBootstrapped()
         synchronized(relayLock) {
-            if (relayPort != 0) return relayPort
             if (relayStopped.get()) return null
+            if (relayPort != 0) return relayPort
             val server = ServerSocket()
             server.reuseAddress = true
             server.bind(InetSocketAddress(InetAddress.getByName(LOCALHOST), 0), 16)
@@ -245,8 +246,11 @@ class WirelessAdbSelfPairTransport(
 
     override fun close() {
         if (!relayStopped.compareAndSet(false, true)) return
-        runCatching { relayServer?.close() }
-        relayServer = null
+        synchronized(relayLock) {
+            runCatching { relayServer?.close() }
+            relayServer = null
+            relayPort = 0
+        }
     }
 
     companion object {

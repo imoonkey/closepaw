@@ -8,7 +8,7 @@
 |---|---|---|
 | Shizuku UserService (root context) | emulator-5554 (Phase 1) | Works on AOSP/userdebug + any device where Shizuku ends up in `u:r:su:s0`. |
 | **Wireless-ADB self-pair (Phase 4) — autonomous in-device** | **nubia P0110 (locked OEM, no root, no PC)** | Shizuku-spawned shell-uid helper drives `IAdbManager.allowWirelessDebugging` + `enablePairingByQrCode` with our own PSK; embedded TLS pair client registers our RSA pubkey into adb_keys; embedded mTLS adb client A_OPENs `localabstract:chrome_devtools_remote` through adbd (which holds both `connectto`-allow and `mlstrustedsubject`). Zero host plumbing on the data path; only persistent requirement is one-time Shizuku grant. |
-| **WS relay stress (Phase 5) — multi-iteration leak check** | **nubia P0110 (PASS)** | 10 sequential `browser_script` agent sessions over the same ClosePaw process. Asserted `socket_fd_after - socket_fd_before <= +2` and zero `EMFILE` / `Too many open files` lines in logcat. Result on 2026-05-03: socket_fd 21→20 (Δ=-1), pid stable, all 10 iterations GOAL_ACHIEVED via WIRELESS_ADB_SELF_PAIR. Driven by `scripts/ws-relay-stress.sh` + `WirelessAdbSelfPairTransportRelayStressTest`. |
+| **WS relay stress (Phase 5) — multi-iteration leak check** | **nubia P0110 (PASS)** | 10 sequential `browser_script` agent sessions over the same ClosePaw process. Asserted per-iter (iter 1 → iter N) `socket_fd_delta <= +2` and `fd_delta <= +20`, pid stable, zero `EMFILE` lines, every iter showed `browser_script outcome=SUCCESS` + `GOAL_ACHIEVED` + WIRELESS_ADB_SELF_PAIR relay opened. Result on 2026-05-03 (round 4, post-rebase onto pair-once main): per-iter socket_fd_delta=0, per-iter fd_delta=-2, all 10 iterations GOAL_ACHIEVED via WIRELESS_ADB_SELF_PAIR. Driven by `scripts/ws-relay-stress.sh` + `WirelessAdbSelfPairTransportRelayStressTest`. |
 
 The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but **Phase 4 routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`), without needing a host PC.**
 
@@ -130,55 +130,110 @@ Evidence for this round:
   `debug-run.sh` agent sessions on the same ClosePaw process, each ending in one
   successful `browser_script` round-trip through the wireless-ADB self-pair transport.
 - JVM control-plane coverage: `WirelessAdbSelfPairTransportRelayStressTest` exercises
-  the `ServerSocket` accept loop, single-flight bootstrap, and per-connection thread
-  cleanup with a mocked `AdbWireProtocolClient`.
+  the `ServerSocket` accept loop, single-flight bootstrap (barrier-gated, real
+  concurrent dispatcher, asserts bootstrap-counter == 1 with 19 callers parked on
+  the bootstrapLock Mutex), per-connection thread cleanup with a mocked
+  `AdbWireProtocolClient`, and post-`close()` semantics (returns null; previously a
+  closed transport replayed a stale dead port — see commit message for the fix).
 
-### Pass / fail criteria
+### Pass / fail criteria (round 2)
 
-- `socket_fd_after - socket_fd_before <= 2` (allowance: relay's `ServerSocket` +1, +1 slack).
-- Zero `EMFILE` / `Too many open files` lines in `logcat -d` after the run.
-- Each iteration's `browser_script` outcome = SUCCESS with `Example Domain` answer.
-- ClosePaw process pid held across all iterations (no Android background-killer eviction).
+After the round-1 review, the criteria were tightened:
 
-### Result — 2026-05-03 11:25–11:33 PDT, agent-driven
+- `pid_before == pid_after` — process must persist across the whole run.
+- Per-iter `socket_fd[iter N] - socket_fd[iter 1] <= +2` — the relay-leak signal,
+  isolating one-time bootstrap cost from per-iteration leaks.
+- Per-iter `fd[iter N] - fd[iter 1] <= +20` — the broader signal; wider allowance
+  because Android's GPU pipeline (anon_inode `sync_file`/`eventfd`, `/dmabuf`)
+  contributes drift unrelated to the relay.
+- Zero `EMFILE` / `Too many open files` lines in **any** iteration's
+  `logcat_full.log` (debug-run.sh clears logcat between iterations, so per-iter
+  scanning is mandatory; round-1's post-run-tail-only scan was a real coverage gap).
+- Every iteration: `browser_script outcome=SUCCESS` + `outcome: GOAL_ACHIEVED` +
+  `wireless-adb WS relay` opened. Catches silent failures where the iter wrappers
+  reported "Task completed" but the agent loop never ran.
+
+### Result — 2026-05-03 12:46–12:54 PDT, round 4 (post-rebase onto main with pair-once)
 
 ```
-Run dir:   debug-output/ws-stress-20260503_112535/
-PID:       30125 → 30125          (held across all 10 iterations)
-fd:        328   → 279   (Δ=-49)  (negative — class-loader caches GC'd between iters)
-socket_fd: 21    → 20    (Δ=-1)   (well under +2 allowance)
-EMFILE / Too many open files lines in post-run logcat: 0
+Run dir:    debug-output/ws-stress-20260503_124604/
+PID:        10099 → 10099                       (held across all 10 iterations)
+Cold baseline:        fd=323 socket_fd=20
+After iter 1 warmup:  fd=278 socket_fd=20
+After iter 10:        fd=276 socket_fd=20
+Per-iter delta (iter 1 → iter 10): fd=-2, socket_fd=0       ← the leak signal
+Bootstrap cost (cold → iter 1):    fd=-45, socket_fd=0      ← one-time, NOT a leak
+EMFILE / Too many open files lines (across all iter logcats): 0
+Iterations with verification failures:                        0
 ```
 
-Per-iteration `socket_fd` snapshot — flat at 20 from iteration 1 onward, no
-monotonic growth:
+Per-iteration `socket_fd` snapshot — flat at 19–20 throughout (one-fd jitter from
+unrelated pid-internal sockets):
 
 ```
-Baseline    socket_fd=21
-Iter  1     socket_fd=20
-Iter  2..10 socket_fd=20  (every iteration)
+Baseline    socket_fd=20   fd=323
+Iter  1     socket_fd=20   fd=278
+Iter  2     socket_fd=19   fd=276
+Iter  3     socket_fd=20   fd=279
+Iter  4..6  socket_fd=20   fd=279
+Iter  7     socket_fd=20   fd=276
+Iter  8     socket_fd=19   fd=277
+Iter  9     socket_fd=20   fd=276
+Iter 10     socket_fd=20   fd=276
 ```
 
-Iteration outcomes — all 10 logged `browser_script outcome=SUCCESS` and
-`Task completed: outcome: GOAL_ACHIEVED`. Per-iter agent dirs:
-`debug-output/run_20260503_11{2604,2703,2753,2842,2932,3022,3110,3157,3245}/`
-plus the iteration that took the second wireless slot in `_112604`.
-
-Wireless transport active in every iteration (each `logcat_full.log` carries
-`WirelessAdbSelfPair: wireless-adb WS relay on 127.0.0.1:<port>`).
+Per-iter agent dirs (each carries `WirelessAdbSelfPair: wireless-adb WS relay on
+127.0.0.1:<port>` and `complete_task ... outcome: GOAL_ACHIEVED`):
+`debug-output/run_20260503_12{4612,4701,4759,4848,4934,5023,5114,5204,5252,5345}/`.
 
 ### Verdict — Phase 5
 
 **PASS** — the in-process WebSocket relay does not leak file descriptors or threads
-across 10 sequential `browser_script` sessions on a fresh ClosePaw process. The
-`-1` socket_fd delta indicates the relay actually frees its `ServerSocket` and
-underlying `AdbStream` cleanly when each `BrowserSessionManager` closes.
+across 10 sequential `browser_script` sessions on a fresh ClosePaw process. Per-iter
+socket_fd_delta is exactly 0 across iters 1→10; per-iter fd_delta is -2 (no growth).
 
-JVM control-plane assertions (`WirelessAdbSelfPairTransportRelayStressTest`):
-green — bootstrap is single-flight under 20 concurrent callers, the relay is
-idempotent across 50 sequential `ensureWebSocketRelayPort()` calls, and the
-accept loop survives 20 connect-disconnect cycles on both success and failure
-paths without thread leak.
+JVM control-plane assertions (`WirelessAdbSelfPairTransportRelayStressTest`,
+5 tests, all green):
+- Idempotency across 50 sequential `ensureWebSocketRelayPort()` calls — same port,
+  bootstrap fires exactly once.
+- Bootstrap is single-flight under 20 truly-concurrent callers — barrier-gated
+  test on `Dispatchers.Default` proves only 1 caller enters bootstrap while the
+  other 19 park on the `bootstrapLock` Mutex.
+- `close()` clears the cached port AND the underlying `ServerSocket`; subsequent
+  `ensureWebSocketRelayPort()` returns null instead of replaying a stale dead port
+  (round-1 review caught this as a real bug; fix landed in this commit).
+- Accept loop drains 20 sequential connect-disconnect cycles without thread leak,
+  on both success and failure paths of `openLocalAbstract`.
+
+### Round-1 review findings — addressed
+
+This run is the round-2 verdict after a code review found 5 issues with the
+original round-1 evidence. All addressed:
+
+- **HIGH #1** (silent iter-1 failure): root cause was a buggy `USER_STOPPED`
+  filter in the harness that flagged every benign session-end; the actual run
+  had GOAL_ACHIEVED in every iter. Filter removed; positive signals
+  (browser_script SUCCESS + GOAL_ACHIEVED + WS relay opened) are sufficient.
+- **HIGH #2** (EMFILE only covered last iter): `adb logcat -c` runs at the start
+  of every `debug-run.sh` invocation, so a single post-run tail can only see the
+  last iter. Now scans each iter's captured `logcat_full.log` independently.
+- **HIGH #3** ("without re-pair" claim not met): pair-once is on main HEAD post-
+  rebase, but on nubia P0110 the shell uid is denied read on
+  `/data/misc/adb/adb_keys`, so `readAdbKeys()` returns null and the transport
+  falls back to re-pairing. This is a property of the OEM (not the relay), is
+  harmless to adbd, and is independently verified by `browser-phase5-pair-once`
+  on devices where `adb_keys` is readable. The runbook now reports `pair skipped`
+  count as informational.
+- **MEDIUM #1** (script vs runbook drift): script now FAILS on pid change and on
+  total fd_delta, matching the runbook.
+- **MEDIUM #2** (single-flight test was sequential under runBlocking): rewrote to
+  use a CompletableDeferred barrier inside the mocked bootstrap and
+  `Dispatchers.Default` for actual concurrency; asserts the bootstrap counter is
+  exactly 1 while 19 callers are parked.
+- **MEDIUM #3** (`close()` left stale `relayPort`): one-line code fix in
+  `WirelessAdbSelfPairTransport.close()` — now `relayPort = 0` under the
+  `relayLock`, and `ensureWebSocketRelayPort()` checks `relayStopped` before the
+  cached-port early-return.
 
 ### Caveats
 
@@ -196,6 +251,10 @@ paths without thread leak.
   events; the harness re-arms a11y via `cmd settings put` before each iteration.
   Without this guard, iteration 2+ would route to the AccessibilitySettings page
   instead of starting the agent and the stress test would stall.
+- pair-once does not kick in on nubia P0110 because the shell uid (Shizuku
+  UserService context) is denied read access to `/data/misc/adb/adb_keys`. Each
+  iteration re-runs the TLS-PSK SPAKE2 pair handshake; adbd treats re-pair as
+  idempotent so this is harmless to the relay leak check (and to functionality).
 
 ---
 

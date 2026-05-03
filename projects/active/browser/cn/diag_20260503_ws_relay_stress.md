@@ -57,9 +57,15 @@ Outputs land in `debug-output/ws-stress-<timestamp>/`:
   subsequent iterations skip pairing (key already in adb_keys).
 - `adb forward --remove-all && adb reverse --remove-all` are run before iteration 1 to prove
   no host-mediated relay is masking the wireless path.
-- `socket_fd_count` is what we assert on (filtered to fds backed by `socket:` inodes). Total
-  `fd_count` drifts ±1–2 with JIT/tracing artifacts and is reported for context, not the
-  pass/fail check.
+- `socket_fd_count` is the high-signal column (filtered to fds backed by `socket:`
+  inodes — relay leaks live here). Total `fd_count` drifts a bit with JIT/GC artifacts,
+  but is also asserted (same allowance) so a non-socket fd leak still surfaces.
+- Per-iteration verification scans the iteration's own `logcat_full.log` for
+  `EMFILE` / `Too many open files`, `USER_STOPPED`, `browser_script outcome=SUCCESS`,
+  `outcome: GOAL_ACHIEVED`, and the wireless relay open. `debug-run.sh` calls
+  `adb logcat -c` at the start of every invocation so a single post-run `logcat -d`
+  would only see the last iteration's tail — per-iter scanning is the only way to
+  catch e.g. an iteration-3 EMFILE.
 
 ---
 
@@ -69,13 +75,26 @@ The run is **PASS** iff every condition holds:
 
 | Condition | Why |
 |---|---|
-| `socket_fd_after - socket_fd_before <= 2` | The relay's `ServerSocket` is +1, the bridge's persisted Shizuku UserService binder is +1 in worst-case re-bind. Anything beyond +2 indicates per-iteration leak. |
-| `pid_before == pid_after` | A process restart invalidates the fd comparison; if Android killed and re-spawned ClosePaw mid-run the run is inconclusive. |
-| Zero `EMFILE` / `Too many open files` lines in logcat | These are the symptom users would see in the wild. |
-| Each iteration's `iter_NN.log` shows `complete_task` with `outcome` = `success`/`SUCCESS` and `Example Domain` in the answer | Confirms the WebSocket actually carried CDP traffic each time, not just opened-and-failed. |
+| `pid_before == pid_after` | A process restart invalidates the fd comparison; if Android killed and re-spawned ClosePaw mid-run the run is inconclusive. **FAIL on mismatch.** |
+| `socket_fd[iter N] - socket_fd[iter 1] <= 2` | Per-iteration leak signal. The cold-baseline → iter 1 jump includes one-time bootstrap cost (relay `ServerSocket`, persistent binders, OkHttp client init); comparing iter N back to iter 1 isolates the per-iteration delta. The relay's own `ServerSocket` is +1, +1 slack. Override via `STRESS_ALLOWED_SOCK_DELTA`. |
+| `fd[iter N] - fd[iter 1] <= 20` | Same shape, but for total fds (catches non-socket leaks: pipes, eventfds, open files). The wider allowance accounts for Android's GPU pipeline (anon_inode `sync_file`/`eventfd`, `/dmabuf:qcom,system`) churn that scales with the per-session UI re-renders the agent does — verified empirically by `ls -l /proc/<pid>/fd`. Override via `STRESS_ALLOWED_FD_DELTA`. |
+| Zero `EMFILE` / `Too many open files` lines in **any** iteration's `logcat_full.log` | The symptom users would see in the wild. Scanned per-iter, not just the post-run tail (debug-run.sh clears logcat between iterations). |
+| Every iteration shows: `browser_script outcome=SUCCESS` + `outcome: GOAL_ACHIEVED` + `wireless-adb WS relay` opened | Confirms the WebSocket actually carried CDP traffic each time. Catches silent failures where the app launched but the agent loop never ran (a11y wiped, AgentService DEAD, network unreachable, etc.). The `Session completed: ... reason: USER_STOPPED` line is benign — debug-run.sh broadcasts STOP_AGENT after task completion so every successful iter logs it. |
+| Iterations 2..N show `wireless-adb pair skipped` (informational only) | After pair-once landed (commit `f4e662af`), every iteration past the first should reuse the persisted key — *if* the shell uid can read `/data/misc/adb/adb_keys`. Some OEMs (e.g. nubia P0110) deny this read; the transport falls back to re-pairing, which is harmless to the relay leak check. Reported in the summary; not asserted as FAIL since pair-once is independently verified by `browser-phase5-pair-once`. |
 
-`STRESS_ALLOWED_FD_DELTA` overrides the +2 allowance (e.g. for a 50-iteration run where some
-slack from the agent's screenshot caches is acceptable).
+`STRESS_ALLOWED_SOCK_DELTA` (default 2) and `STRESS_ALLOWED_FD_DELTA` (default 20)
+override the per-iter allowances.
+
+### Why iter-1 baseline, not cold baseline?
+
+The cold-baseline → iter 1 jump on nubia P0110 is roughly:
+- `socket_fd: +5` (relay `ServerSocket`, OkHttp WebSocket client + pool, persistent
+  Shizuku binder socket, `chrome_devtools_remote` AdbStream socket pair, ...)
+- `fd: +85` (class loaders, JIT cache, dex prefetch, inspection-trace files, ...)
+
+These are amortized one-time costs of the first browser_script call, not a per-call
+leak. A leak is "fds added by iter K that aren't released by the end of iter K and
+that scale with K". Iter-N - iter-1 is exactly that signal.
 
 ---
 
@@ -122,33 +141,39 @@ adb -s $SERIAL logcat -d | grep -E 'EMFILE|Too many open files|wireless-adb|Wire
 
 ## What "good" looks like in `stress.log`
 
-This is from the actual PASS run on nubia P0110 at 2026-05-03 11:25–11:33 PDT
-(`debug-output/ws-stress-20260503_112535/`):
+This is from the round-2 PASS run on nubia P0110 at 2026-05-03 12:46–12:54 PDT
+(`debug-output/ws-stress-20260503_124604/`):
 
 ```
-[11:25:43] Baseline: pid=30125 fd=328 socket_fd=21
-[11:25:43] Iteration 1 / 10
-[11:26:04]   pid=30125 fd=525 socket_fd=20
-[11:26:04] Iteration 2 / 10
-[11:27:02]   pid=30125 fd=281 socket_fd=20
+[12:46:11] Baseline: pid=10099 fd=323 socket_fd=20
+[12:46:11] Iteration 1 / 10
+[12:47:01]   pid=10099 fd=278 socket_fd=20
+[12:47:01] Iteration 2 / 10
+[12:47:58]   pid=10099 fd=276 socket_fd=19
 ...
-[11:32:44] Iteration 10 / 10
-[11:33:31]   pid=30125 fd=279 socket_fd=20
-[11:33:36] Summary
-[11:33:36]   pid_before=30125 fd_before=328 socket_fd_before=21
-[11:33:36]   pid_after=30125  fd_after=279  socket_fd_after=20
-[11:33:36]   fd_delta=-49  socket_fd_delta=-1
-[11:33:36]   EMFILE/Too-many-open-files lines: 0
-[11:33:36] PASS: socket fd delta=-1, no EMFILE
+[12:53:45] Iteration 10 / 10
+[12:54:37]   pid=10099 fd=276 socket_fd=20
+[12:54:43] Summary
+[12:54:43]   pid_before=10099 pid_after=10099
+[12:54:43]   Cold baseline (no agent yet):  fd=323 socket_fd=20
+[12:54:43]   After iter 1 (warmed up):      fd=278 socket_fd=20
+[12:54:43]   After iter 10:               fd=276 socket_fd=20
+[12:54:43]   Per-iteration deltas (iter 1 -> iter 10, the leak signal):
+[12:54:43]       fd_delta=-2  socket_fd_delta=0
+[12:54:43]   Bootstrap cost (cold -> iter 1, one-time, NOT a leak):
+[12:54:43]       fd=-45  socket_fd=0
+[12:54:43]   EMFILE/Too-many-open-files lines (across all iter logcats): 0
+[12:54:43]   Iterations with verification failures: 0
+[12:54:43] PASS: pid stable, per-iter socket_fd_delta=0, per-iter fd_delta=-2, EMFILE=0, all 10 iterations verified
 ```
 
 Notable points:
-- `socket_fd` went from 21 to 20 — *negative* delta. The relay's `ServerSocket` is
-  bound and freed cleanly per session; the net `-1` is one pre-existing socket
-  unrelated to the relay closing during the run.
-- Iteration 1's raw `fd=525` is class-loader / JIT cache loading (not relay-related).
-  By iteration 2 it falls to ~280 and stays flat, confirming the wireless transport
-  itself is not the source of the spike.
+- `socket_fd` is **flat at 19-20** through every iteration. The relay's
+  `ServerSocket` is bound and freed cleanly per session; one-fd jitter is
+  unrelated sockets opening/closing during the iter.
+- The per-iter `fd_delta` of `-2` is *negative* — total fds actually went DOWN
+  across iterations 1→10 (Android's GPU pipeline frees `dmabuf`/`sync_file`
+  handles between sessions faster than they're created in this workload).
 - `socket_fd` is the high-signal column. Track it iteration-by-iteration; if it
   starts climbing monotonically that's a leak.
 
