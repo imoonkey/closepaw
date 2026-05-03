@@ -179,11 +179,50 @@ Verified only on nubia P0110 (Android 16, OEM build with stripped Wireless Debug
 - `WirelessAdbSelfPairTransport.kt:73` — the retry-once on cached-port-rotation is defensive; if observed in production, log the rate.
 - `AdbPairingClient.kt` — uses LGPL spake2-android via JitPack. License-clean for a proprietary app (dynamic linking) but if license policy ever tightens, port BoringSSL `spake25519.c` to Apache-2.0 (~600 lines of crypto).
 
+### 7. Delete the host-mediated relay path entirely
+
+`HOST_MEDIATED_RELAY` (`scripts/setup-cdp-relay.sh` + `HostMediatedCdpRelayTransport`) was the only working transport on locked OEMs *before* Phase 4. It's no longer a production path: it requires the user's PC to keep ADB attached, which contradicts the entire point of an in-device autonomous agent. With Phase 4 PASS on nubia, the cascade should be:
+
+```
+APP_PROCESS → USER_SERVICE → WIRELESS_ADB_SELF_PAIR → (fail loudly)
+```
+
+Files to delete:
+- `app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/HostMediatedCdpRelayTransport.kt`
+- `app/src/test/kotlin/ai/closepaw/browser/cdp/shizuku/HostMediatedCdpRelayTransportTest.kt`
+- `scripts/setup-cdp-relay.sh` (and any docs that reference it)
+- `DevtoolsSetupError.HostMediatedRelayUnreachable` and `HostMediatedRelayUnreachableException`
+- `hostMediatedRelayTransport` constructor parameter on `ShizukuChromeDevtoolsBridge`, all related cascade legs in `httpGet`, all related branches in `resolveWebSocketHost` / preflight / final-error block
+- `BrowserSessionManager.createDefaultBridge()` reference to `HostMediatedCdpRelayTransport()`
+- The `host_mediated_relay_unreachable` user-facing error code (replace surfacing with `WirelessAdbSelfPairUnavailable` or a new "no transport viable" code)
+- `real_device_qa.md` Phase 3 section can become a historical note ("documented for archaeology, removed in commit X")
+
+Cleanup will also let `ShizukuChromeDevtoolsBridge` lose two of its three optional transport slots — it can collapse to `(appProcess, userService, wirelessSelfPair)` triple, and the cascade-end-block error logic gets ~30 lines simpler.
+
+### 8. Full review + simplification of the entire `browser_script` implementation
+
+In the same spirit as #7 — this implementation grew through several rounds of "spike → assumption → discover assumption was wrong → patch around it". The cumulative result is correct but carries scars from intermediate wrong-turns that should be cleaned up before this code stops being shippable-but-fresh and starts being shippable-but-encrusted.
+
+Specific things to re-examine:
+- **`ChromeRemoteDebugPortTransport` (Phase 2)** — empirically blocked (per `real_device_qa.md`); kept "wired but null in production." Same removal argument as #7 — delete the class, the AIDL methods (`ensureChromeRemoteDebugPort`), the `chrome-command-line` writing, the AIDL passthrough, the `ChromeRemoteDebuggingFlagNotEnabled` error variant.
+- **`ShizukuChromeDevtoolsBridge`** — multi-step cascade with try/catch/runCatching layering, three optional transport slots, end-block error-priority logic that touches `appError` / `userError` / `wirelessError` / `relayUnreachable` separately. Once #7 + Phase 2 removal lands, the cascade is `app → user → wireless` and the error logic collapses to "first thing that produced a `DevtoolsSetupError` wins, otherwise WirelessAdbSelfPairUnavailable."
+- **`DevtoolsSetupError`** — 9 sealed subclasses today; after deletions it should be 4-5. Audit for dead error codes the agent / UI / capability gate no longer need to surface.
+- **Diagnostic logging** added during the bug-cascade debug — `WirelessAdbSelfPairTransport.exchange`'s outer try/catch with `Log.e` re-throw was added because the bridge's `runCatching` swallowed exceptions; re-evaluate whether this is still needed once the cascade is simpler.
+- **`WirelessAdbSelfPairTransport` `isReachable()`** — currently does a `currentBssid()` shell-out via Shizuku binder *during preflight*, which is non-trivially expensive. After #7, preflight no longer needs to compare three transports' reachability — collapse to a single check.
+- **`AdbWirelessManager.isPubkeyAuthorized`** — the always-returns-false function. Either fix it (#1) or delete it.
+- **Bridge's 200ms `POST_CNXN_SETTLE_MS` and 500ms `POST_PAIR_SETTLE_MS`** — defensive sleeps added during debug. Re-evaluate whether they're still needed; if so, document why; if not, delete.
+- **`UserServiceTransport.binder` made public** in commit `ec4d2e92` to expose the Shizuku binder to `AdbWirelessManager`. Either keep with a real internal contract (e.g., named accessor with comment) or refactor `AdbWirelessManager` to take the same `UserServiceProvider` the bridge uses.
+- **`ShizukuChromeDevtoolsBridge.DEFAULT_TIMEOUT_MS`** bumped 4_000 → 30_000 because chrome's `/json/version` doesn't EOF. With `readUntilHttpComplete` this isn't needed for the wireless path; restore 4s as the per-step default and let the script-level timeout cap the outer budget.
+- **Tests** — `AdbWireProtocolClientTest`'s in-process `FakeAdbd` mirrors the post-mTLS contract perfectly. Add an integration-shape test for `readUntilHttpComplete` covering: Content-Length response, no-Content-Length response, A_CLSE before headers complete, A_CLSE after partial body.
+- **Comments + docs** — several files have multi-paragraph comments documenting "why this is the way it is" referencing AOSP source line numbers. Keep the load-bearing ones, prune the ones that just narrate. Per project CLAUDE.md: "Default to writing no comments. Only add one when the WHY is non-obvious."
+
+Suggested cadence: do #7 first (delete host-mediated), then Phase 2 removal, then a single `refactor(browser): simplify CDP cascade` commit that collapses the bridge's error block + slot count + redundant transports + dead errors. Then a second pass that re-evaluates the diagnostic noise. Should be ~200-300 lines of NET deletion.
+
 ---
 
 ## Pre-flight requirements for testing
 
-For both the existing host-mediated relay path and the new wireless self-pair path:
+For both the (legacy, scheduled-for-deletion) host-mediated relay path and the new wireless self-pair path:
 
 1. ClosePaw debug APK installed (`./scripts/setup.sh` handles this — also auto-starts Shizuku and verifies API_V23 grant since commit `530d63ae`).
 2. Shizuku app installed AND `shizuku_server` process running (`adb shell pidof shizuku_server` must return a pid).
@@ -191,7 +230,7 @@ For both the existing host-mediated relay path and the new wireless self-pair pa
 4. Wi-Fi connected (any network — BSSID just needs to be queryable via `dumpsys wifi`).
 5. Chrome stable (`com.android.chrome`) installed.
 
-For wireless self-pair specifically, no further setup is required — the path discovers everything else dynamically. For host-mediated relay, the user must run `scripts/setup-cdp-relay.sh` on the host.
+For wireless self-pair specifically, no further setup is required — the path discovers everything else dynamically. The host-mediated relay (still wired today, slated for removal in outstanding item #7) requires running `scripts/setup-cdp-relay.sh` on the host.
 
 ---
 
