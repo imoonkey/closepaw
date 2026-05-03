@@ -6,19 +6,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Bridge that resolves Chrome's DevTools traffic to a working transport:
- *
- * 1. Validate Shizuku binder + permission.
- * 2. Probe whether Chrome's `chrome_devtools_remote` abstract socket is bound and Chrome is
- *    actually running. Distinguish "DevTools socket missing" vs "Chrome not running" only when
- *    the probes are *certain*; defer to the transport otherwise so we never lie about state.
- * 3. Try the Shizuku UserService transport (LocalSocket from the shell UID).
- * 4. Fall back to the wireless-ADB self-pair transport (in-app TLS-PSK pair + mTLS adb wire
- *    protocol) for OEM builds where step 3 is denied by SELinux.
- * 5. Speak strict HTTP/1.1 over the chosen transport and parse `/json/version` and `/json/list`.
- *
- * Every failure mode surfaces as a distinct [DevtoolsSetupError] so the BrowserScriptTool layer
- * can hand the user an actionable next step rather than a generic "couldn't connect".
+ * Bridge from CDP traffic to a working device-side transport. Cascade is
+ * USER_SERVICE → WIRELESS_ADB_SELF_PAIR; failures map to distinct [DevtoolsSetupError] codes
+ * so the capability gate can render an actionable reason instead of a generic IOException.
  */
 class ShizukuChromeDevtoolsBridge(
     private val status: ShizukuStatusProvider,
@@ -38,12 +28,9 @@ class ShizukuChromeDevtoolsBridge(
 
     /**
      * Tracks which transport satisfied the most recent successful HTTP fetch so
-     * [resolveWebSocketHost] can pick the right WS URL transformation.
-     *
-     * Both supported transports terminate on a Unix-domain abstract socket with no port concept,
-     * so Chrome reflects the inbound `Host: localhost` request header into a port-less
-     * `ws://localhost/devtools/...`. We must rewrite that onto the device-side TCP relay each
-     * transport exposes on demand.
+     * [resolveWebSocketHost] can pick the right WS URL transformation. Both transports terminate
+     * on Chrome's port-less abstract socket; the bridge rewrites `webSocketDebuggerUrl`'s host
+     * onto a transport-specific TCP relay so OkHttp can reach it from the app UID.
      */
     @Volatile
     private var lastSuccessfulTransport: TransportLabel? = null
@@ -64,12 +51,9 @@ class ShizukuChromeDevtoolsBridge(
     suspend fun preflight(): Unit = withContext(ioDispatcher) { runPreflight() }
 
     /**
-     * Resolve the host:port the CDP WebSocket should connect to.
-     *
-     * Chrome reflects the inbound HTTP request's `Host` header into the `webSocketDebuggerUrl`
-     * payload. The bridge always builds requests with `Host: localhost`, so the resulting URL
-     * has no port (which OkHttp then defaults to 80, unreachable). For each transport we point
-     * the WS at the device-side TCP relay it owns.
+     * Resolve the host:port the CDP WebSocket should connect to. Chrome reflects our
+     * `Host: localhost` request header verbatim, so the WS URL has no port — point it at the
+     * transport-owned device-side TCP relay instead.
      */
     suspend fun resolveWebSocketHost(): String? = withContext(ioDispatcher) {
         when (lastSuccessfulTransport) {
@@ -98,9 +82,8 @@ class ShizukuChromeDevtoolsBridge(
         runPreflight()
         val request = DevtoolsHttpProtocol.buildGet(path)
 
-        // 1. Shizuku UserService — works on AOSP/userdebug + properly-bootstrapped Shizuku.
-        //    Some OEM builds (e.g. nubia P0110) deny shell-domain connectto on appdomain
-        //    abstract sockets, so the call returns IOException("Permission denied").
+        // Some OEM builds (e.g. nubia P0110) deny shell-domain connectto on appdomain abstract
+        // sockets, so the UserService leg can fail; the wireless leg routes through adbd instead.
         val userResponse = runCatching {
             DevtoolsHttpProtocol.parseHttpBody(
                 userServiceProvider.obtain().exchange(request, requestTimeoutMs)
@@ -111,17 +94,10 @@ class ShizukuChromeDevtoolsBridge(
             return it
         }
         val userError = userResponse.exceptionOrNull()
-
-        // 2. Wireless-ADB self-pair — autonomous in-device path. Shizuku spawns a shell-uid
-        //    helper that calls IAdbManager AIDL to enable wireless adb + open a pair port with
-        //    our chosen PSK; the app then runs an in-process TLS-PSK pair + mTLS adb client to
-        //    A_OPEN(localabstract:chrome_devtools_remote) through adbd. No PC, no root.
         val wireless = wirelessAdbSelfPairTransport
             ?: throw toUserServiceError(userError)
         val wirelessResponse = runCatching {
-            DevtoolsHttpProtocol.parseHttpBody(
-                wireless.exchange(request, requestTimeoutMs)
-            )
+            DevtoolsHttpProtocol.parseHttpBody(wireless.exchange(request, requestTimeoutMs))
         }
         wirelessResponse.getOrNull()?.let {
             lastSuccessfulTransport = TransportLabel.WIRELESS_ADB_SELF_PAIR
@@ -138,9 +114,8 @@ class ShizukuChromeDevtoolsBridge(
     }
 
     private suspend fun runPreflight() {
-        // Chrome's DevTools socket has to actually be bound for any transport to succeed.
-        // We surface DevtoolsSocketMissing / ChromeNotRunning only when the diagnostics are
-        // CERTAIN — Unknown means defer to the transport's own error.
+        // Distinguish "DevTools socket missing" vs "Chrome not running" only when the probes are
+        // *certain* — Unknown means defer to the transport so we never lie about device state.
         val socketProbe = diagnostics.isDevtoolsSocketBound()
         if (socketProbe == SocketProbeResult.NotBound) {
             when (diagnostics.isChromeRunning()) {
@@ -150,7 +125,6 @@ class ShizukuChromeDevtoolsBridge(
             }
         }
 
-        // Both supported transports require Shizuku.
         if (!status.isAvailable()) throw DevtoolsSetupError.ShizukuUnavailable
         if (!status.hasPermission()) throw DevtoolsSetupError.ShizukuPermissionMissing
     }
@@ -159,7 +133,7 @@ class ShizukuChromeDevtoolsBridge(
         const val CHROME_DEVTOOLS_SOCKET = "chrome_devtools_remote"
         const val JSON_VERSION_PATH = "/json/version"
         const val JSON_LIST_PATH = "/json/list"
-        const val DEFAULT_TIMEOUT_MS = 30_000
+        const val DEFAULT_TIMEOUT_MS = 4_000
     }
 }
 
@@ -171,9 +145,8 @@ interface ShizukuStatusProvider {
 
 /**
  * Side-channel diagnostics so the bridge can distinguish "Chrome not running" from "DevTools
- * socket missing" without depending on `connect()` failure modes (which collapse both into
- * `ECONNREFUSED`). Both probes return a tri-state — Bound/NotBound/Unknown and
- * Running/NotRunning/Unknown — so we never claim certainty we don't have.
+ * socket missing" without depending on `connect()`'s `ECONNREFUSED` ambiguity. Tri-state
+ * results so we never claim certainty we don't have.
  */
 interface DevtoolsDiagnostics {
     fun isDevtoolsSocketBound(): SocketProbeResult

@@ -9,14 +9,10 @@ import kotlinx.coroutines.runInterruptible
 
 /**
  * App-side facade for the wireless-ADB management calls exposed by [IChromeDevtoolsUserService].
- *
  * The binder runs in the Shizuku-spawned shell-UID process which holds MANAGE_DEBUGGING; from
  * the app UID these IAdbManager calls would all SecurityException. [binderProvider] is supplied
  * by the caller (typically wired to [ShizukuUserServiceProvider]) so binding only happens when
- * the manager is actually used — and so unit tests can hand in a fake binder.
- *
- * All binder calls run on [ioDispatcher] via [runInterruptible] — coroutine cancellation
- * interrupts the IO thread carrying the binder transaction, mirroring [UserServiceTransport].
+ * the manager is actually used.
  */
 class AdbWirelessManager(
     private val binderProvider: suspend () -> IChromeDevtoolsUserService,
@@ -26,10 +22,9 @@ class AdbWirelessManager(
     suspend fun currentBssid(): String? = onBinder { it.getCurrentBssid() }
 
     /**
-     * Looks up the current Wi-Fi BSSID then asks the shell-UID service to call
-     * `IAdbManager.allowWirelessDebugging(true, bssid)`. Returns failure when no BSSID is
-     * available (Wi-Fi off, or device on cellular only) — wireless ADB is BSSID-scoped on
-     * Android 14+.
+     * Looks up the current Wi-Fi BSSID then calls
+     * `IAdbManager.allowWirelessDebugging(true, bssid)` via the shell-UID service. Wireless ADB
+     * is BSSID-scoped on Android 14+, so a missing BSSID (Wi-Fi off, cellular only) is fatal.
      */
     suspend fun enableWirelessDebugging(): Result<Unit> = runCatching {
         val bssid = currentBssid()
@@ -42,11 +37,9 @@ class AdbWirelessManager(
     suspend fun getAdbWirelessPort(): Int = onBinder { it.getAdbWirelessPort() }
 
     /**
-     * Asks the shell-UID service to call `IAdbManager.enablePairingByQrCode(name, psk)` then
-     * discover the listening pair port via `/proc/net/tcp` diff. Throws on failure.
-     *
-     * `psk` is taken as bytes here (caller may use a binary PSK); we render it as the same
-     * string adb expects (UTF-8 text — adb's TLS-PSK pairing accepts any 6+ char string).
+     * Calls `IAdbManager.enablePairingByQrCode(name, psk)` then discovers the listening pair
+     * port via `/proc/net/tcp` diff. `psk` is taken as bytes (caller may use a binary PSK) and
+     * rendered as the UTF-8 string adb's TLS-PSK pairing accepts.
      */
     suspend fun openPairPort(name: String, psk: ByteArray): Int {
         require(psk.isNotEmpty()) { "psk must not be empty" }
@@ -61,13 +54,10 @@ class AdbWirelessManager(
     }
 
     /**
-     * True iff our [pubkeyBase64] (the base64 of the 524-byte AOSP `android_pubkey` blob) is
-     * already present in `/data/misc/adb/adb_keys`. Lets the caller skip pairing on the second
-     * cold session. Returns false when adb_keys is unreadable or the pubkey is missing —
-     * caller re-pairs, which is idempotent on adbd.
-     *
-     * The substring match is safe: a 524-byte pubkey base64 is ~700 chars; collisions across
-     * distinct RSA-2048 keys are cryptographically impossible.
+     * True iff [pubkeyBase64] (base64 of the 524-byte AOSP `android_pubkey` blob) is present in
+     * `/data/misc/adb/adb_keys`. Substring match is safe — RSA-2048 base64 is ~700 chars and
+     * collisions across distinct keys are cryptographically impossible. Returns false on
+     * unreadable adb_keys; caller re-pairs (idempotent on adbd).
      */
     suspend fun isPubkeyAuthorized(pubkeyBase64: String): Boolean {
         if (pubkeyBase64.isEmpty()) return false
@@ -77,16 +67,12 @@ class AdbWirelessManager(
 
     /**
      * Removes accumulated `ClosePaw@*` entries from `/data/misc/adb/adb_keys`, retaining
-     * exactly one — the line whose pubkey equals [retainPubkeyBase64] (the current keypair).
-     * Non-ClosePaw lines are preserved verbatim.
+     * exactly one — the line whose pubkey equals [retainPubkeyBase64]. Non-ClosePaw lines pass
+     * through unchanged.
      *
-     * Returns true if the file was rewritten, false if there was nothing to prune (no extra
-     * ClosePaw entries), if adb_keys is unreadable, or if [retainPubkeyBase64] is not present
-     * as a first-token pubkey in any line (defensive: never delete the only ClosePaw entry
-     * we cannot verify is current).
-     *
-     * Cleanup of historical accumulation from before pair-once landed; cheap and idempotent
-     * after the first call. Caller is expected to invoke at most once per cold session.
+     * Returns true iff the file was actually rewritten. Returns false defensively when the
+     * current pubkey isn't found as a first-token in any line — never delete the only ClosePaw
+     * entry we cannot verify is current.
      */
     suspend fun pruneAdbKeys(retainPubkeyBase64: String): Boolean {
         require(retainPubkeyBase64.isNotEmpty()) { "retainPubkeyBase64 must not be empty" }
@@ -116,17 +102,15 @@ class AdbWirelessManager(
     companion object {
         private const val TAG = "AdbWirelessManager"
         private const val CLOSEPAW_NAME_PREFIX = "ClosePaw@"
-        // adb_keys is whitespace-tokenized in AOSP (daemon/auth.cpp), not space-only — split
-        // on the first run of \s+ to honor tab-separated entries from other writers.
+        // adbd's auth.cpp tokenizes adb_keys on \s+ (not space-only), so honor tab-separated
+        // entries from other writers when matching/preserving lines.
         private val WHITESPACE = Regex("\\s+")
 
         /**
-         * Pure prune of `adb_keys` content: drop blank lines and any `ClosePaw@*`-named line
-         * whose pubkey is not [retainPubkeyBase64]. The first surviving `retainPubkeyBase64`
-         * line is kept once; any duplicate copies are dropped. Non-ClosePaw lines pass through
-         * unchanged.
-         *
-         * Caller filters by `foundCurrent && changed` to decide whether a write-back is needed.
+         * Drop blank lines and any `ClosePaw@*`-named line whose pubkey is not
+         * [retainPubkeyBase64]. The first surviving copy of [retainPubkeyBase64] is kept once;
+         * duplicates are dropped. Non-ClosePaw lines pass through unchanged. Caller filters by
+         * `foundCurrent && changed` to decide whether a write-back is needed.
          */
         internal fun pruneClosePawEntries(
             content: String,

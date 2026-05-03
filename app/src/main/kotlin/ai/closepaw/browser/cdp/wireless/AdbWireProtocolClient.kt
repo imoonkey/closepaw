@@ -15,13 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
 
 /**
- * Minimal mTLS client for the AOSP wireless ADB protocol after pairing. Speaks just enough
- * of the wire protocol to open one local-abstract stream — enough to relay DevTools traffic
- * to `chrome_devtools_remote`.
- *
- * The connection is single-stream by design (localId always 1). Re-open per call rather than
- * pool: adb's per-connection handshake is cheap (~2 RTT after TLS) and pooling adds locking
- * we don't need yet.
+ * Minimal mTLS client for the AOSP wireless ADB protocol after pairing. Speaks just enough of
+ * the wire protocol to open one local-abstract stream — enough to relay DevTools traffic to
+ * `chrome_devtools_remote`. Single-stream by design (localId always 1); re-open per call.
  */
 class AdbWireProtocolClient(
     private val keyStore: AdbCryptoKeyStore,
@@ -71,19 +67,17 @@ class AdbWireProtocolClient(
     }
 
     private fun handshakeAndOpen(input: InputStream, out: OutputStream, destination: String): Pair<Int, Int> {
-        // After mTLS handshake the adbd daemon SPEAKS FIRST: its `adbd_wifi_secure_connect`
-        // calls `send_connect()` which writes an A_CNXN to us. We must NOT pre-emptively send
-        // our own A_CNXN — adbd's `handle_packet` for a duplicate A_CNXN runs `handle_offline`,
-        // which fires the connection's disconnect callback and sends another A_STLS. That's
-        // why earlier attempts failed with "unexpected reply to OPEN: cmd=0x534c5453" (STLS).
-        // (See AOSP daemon/adb_wifi.cpp adbd_wifi_secure_connect; adb.cpp handle_new_connection.)
+        // Post-mTLS the daemon SPEAKS FIRST: adbd_wifi_secure_connect calls send_connect() which
+        // writes A_CNXN to us. We must NOT pre-emptively send our own A_CNXN — adbd's
+        // handle_packet for a duplicate runs handle_offline, fires the disconnect callback, and
+        // emits A_STLS over the encrypted channel ("unexpected reply to OPEN: cmd=0x534c5453").
         val peerCnxn = readExpecting(input, A_CNXN, allowAuth = false)
         android.util.Log.i(TAG, "post-TLS got A_CNXN bannerLen=${peerCnxn.payload.size}")
         val maxPayload = minOf(A_MAX_PAYLOAD, peerCnxn.arg1.takeIf { it > 0 } ?: A_MAX_PAYLOAD)
 
-        // Tiny settle so adbd finishes attaching the transport (registering with the asocket
-        // service map) before we OPEN. Without this, the OPEN can race adbd's
-        // post-send_connect setup and the local-abstract proxy never starts forwarding.
+        // Settle so adbd finishes attaching the transport (registering with the asocket service
+        // map) before we OPEN — otherwise the OPEN can race adbd's post-send_connect setup and
+        // the local-abstract proxy never starts forwarding.
         Thread.sleep(POST_CNXN_SETTLE_MS)
 
         val open = AdbProtocol.openLocalAbstract(LOCAL_ID, destination)
@@ -97,9 +91,8 @@ class AdbWireProtocolClient(
                 }
                 val remoteId = reply.arg0
                 android.util.Log.i(TAG, "A_OPEN(\"$destination\") -> OKAY remoteId=$remoteId")
-                // Mirror host adb: ack the daemon's OKAY before sending data. Not strictly
-                // required (adbd's A_OPEN handler already calls s->ready(s)), but matches the
-                // canonical client side and keeps us out of any future flow-control corner.
+                // Mirror host adb: ack the daemon's OKAY before sending data so adbd's
+                // local_socket calls peer->ready() and engages FDE_READ on the chrome side.
                 AdbProtocol.Message.write(out, A_OKAY, LOCAL_ID, remoteId, EMPTY)
                 return remoteId to maxPayload
             }
@@ -149,13 +142,13 @@ class AdbWireProtocolClient(
 
     /**
      * Drain incoming A_WRTE frames until the embedded HTTP/1.1 response is complete or the peer
-     * closes. Chrome's `/json/version` handler ignores `Connection: close` and leaves the socket
-     * idle after responding, so adbd never sees chrome's EOF and never sends A_CLSE; falling back
-     * to Content-Length lets us return as soon as we've read the full body — same instant host
-     * adb's curl gets the response and tears its side down.
+     * closes. Chrome's `/json/version` ignores `Connection: close` and leaves the socket idle
+     * after responding, so adbd never sees chrome's EOF and never sends A_CLSE; falling back to
+     * Content-Length lets us return as soon as the body is fully drained — same as host adb's
+     * curl behavior.
      *
-     * Generic adb streams should use [openLocalAbstract] / [AdbStream]; this path is intended
-     * for the synchronous DevTools HTTP request/response only.
+     * Synchronous DevTools HTTP only; streaming clients should use [openLocalAbstract] /
+     * [AdbStream].
      */
     private fun readUntilHttpComplete(input: InputStream, out: OutputStream, localId: Int, remoteId: Int): ByteArray {
         val sink = ByteArrayOutputStream()
@@ -189,8 +182,6 @@ class AdbWireProtocolClient(
     }
 
     private fun findHeaderEnd(buf: ByteArray): Int {
-        // Look for CRLF CRLF separator. Returns the index of the first \r in that sequence,
-        // so caller computes body offset as headerEnd + 4.
         if (buf.size < 4) return -1
         for (i in 0..buf.size - 4) {
             if (buf[i] == 0x0D.toByte() && buf[i + 1] == 0x0A.toByte() &&

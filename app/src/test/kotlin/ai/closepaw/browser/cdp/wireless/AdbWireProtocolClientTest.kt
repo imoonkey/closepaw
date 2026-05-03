@@ -89,14 +89,112 @@ class AdbWireProtocolClientTest {
         }
     }
 
+    @Test
+    fun `runExchange returns at Content-Length boundary without waiting for A_CLSE`() {
+        // Chrome's /json/version ignores Connection: close — adbd never sees EOF and never sends
+        // A_CLSE. The client must return as soon as the Content-Length body is fully drained.
+        val body = "{\"ok\":true}"
+        val response = httpResponse(body, withContentLength = true)
+        val server = FakeAdbd(
+            responseChunks = listOf(response.toByteArray()),
+            sendCloseAtEnd = false,
+        )
+
+        val out = client.runExchange(
+            input = server.toClient(),
+            out = server.fromClient(),
+            destination = "chrome_devtools_remote",
+            request = "GET /json/version HTTP/1.1\r\n\r\n".toByteArray(),
+        )
+
+        assertThat(String(out, Charsets.UTF_8)).isEqualTo(response)
+        assertThat(String(out, Charsets.UTF_8)).contains(body)
+    }
+
+    @Test
+    fun `runExchange returns on A_CLSE when response has no Content-Length`() {
+        // Pre-HTTP/1.1 or chunked-stripped responses leave us no choice but to read until peer
+        // close. The drain loop must accept that path.
+        val response = "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nbody-without-cl"
+        val server = FakeAdbd(
+            responseChunks = listOf(response.toByteArray()),
+            sendCloseAtEnd = true,
+        )
+
+        val out = client.runExchange(
+            input = server.toClient(),
+            out = server.fromClient(),
+            destination = "chrome_devtools_remote",
+            request = "GET / HTTP/1.1\r\n\r\n".toByteArray(),
+        )
+
+        assertThat(String(out, Charsets.UTF_8)).isEqualTo(response)
+    }
+
+    @Test
+    fun `runExchange returns partial bytes when peer closes mid-headers`() {
+        // Partial header (no CRLF CRLF yet) followed by A_CLSE — return what we have rather
+        // than block waiting for headers that will never arrive.
+        val partial = "HTTP/1.1 200 OK\r\nContent-Le"
+        val server = FakeAdbd(
+            responseChunks = listOf(partial.toByteArray()),
+            sendCloseAtEnd = true,
+        )
+
+        val out = client.runExchange(
+            input = server.toClient(),
+            out = server.fromClient(),
+            destination = "chrome_devtools_remote",
+            request = "GET / HTTP/1.1\r\n\r\n".toByteArray(),
+        )
+
+        assertThat(String(out, Charsets.UTF_8)).isEqualTo(partial)
+    }
+
+    @Test
+    fun `runExchange returns partial body when peer closes after headers but before Content-Length satisfied`() {
+        // Content-Length: 100 but only 5 body bytes arrive before A_CLSE — return what we have.
+        val response = "HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nshort"
+        val server = FakeAdbd(
+            responseChunks = listOf(response.toByteArray()),
+            sendCloseAtEnd = true,
+        )
+
+        val out = client.runExchange(
+            input = server.toClient(),
+            out = server.fromClient(),
+            destination = "chrome_devtools_remote",
+            request = "GET / HTTP/1.1\r\n\r\n".toByteArray(),
+        )
+
+        assertThat(String(out, Charsets.UTF_8)).isEqualTo(response)
+    }
+
+    private fun httpResponse(body: String, withContentLength: Boolean): String {
+        val bytes = body.toByteArray()
+        val header = buildString {
+            append("HTTP/1.1 200 OK\r\n")
+            append("Content-Type: application/json\r\n")
+            if (withContentLength) append("Content-Length: ${bytes.size}\r\n")
+            append("Connection: close\r\n\r\n")
+        }
+        return header + body
+    }
+
     /**
      * In-process fake adbd, post-mTLS view: the daemon speaks first by sending A_CNXN. After
-     * receiving the client's A_OPEN it replies A_OKAY + two A_WRTE chunks + A_CLSE. The
-     * pre-mTLS A_CNXN/A_STLS dance is handled by [AdbTlsClient] (not exercised here).
+     * receiving the client's A_OPEN it replies A_OKAY, then writes [responseChunks] one frame at
+     * a time (acking each client OKAY), then optionally A_CLSE. The pre-mTLS A_CNXN/A_STLS
+     * dance is handled by [AdbTlsClient] (not exercised here).
      */
     private class FakeAdbd(
         private val rejectOpen: Boolean = false,
         private val sendAuthInsteadOfCnxn: Boolean = false,
+        private val responseChunks: List<ByteArray> = listOf(
+            "PONG-PART-1".toByteArray(),
+            "PONG-PART-2".toByteArray(),
+        ),
+        private val sendCloseAtEnd: Boolean = true,
     ) {
         private val toClientSrc = PipedOutputStream()
         private val toClientSink = PipedInputStream(toClientSrc, 64 * 1024)
@@ -135,7 +233,6 @@ class AdbWireProtocolClientTest {
                     "device::test".toByteArray() + 0.toByte(),
                 )
 
-                // Read client OPEN
                 val open = AdbProtocol.Message.read(fromClientReader)
                 check(open.command == AdbProtocol.A_OPEN)
 
@@ -153,24 +250,24 @@ class AdbWireProtocolClientTest {
                     "expected post-OPEN ready OKAY, got 0x${"%08x".format(readyOkay.command)}"
                 }
 
-                // Read client WRTE -> ack
+                // Read the client's request WRTE, ack it.
                 val wrte = AdbProtocol.Message.read(fromClientReader)
                 check(wrte.command == AdbProtocol.A_WRTE)
                 AdbProtocol.Message.write(toClientSrc, AdbProtocol.A_OKAY, remoteId, open.arg0, ByteArray(0))
 
-                // Server emits two payload frames, expecting OKAY for each
-                AdbProtocol.Message.write(
-                    toClientSrc, AdbProtocol.A_WRTE, remoteId, open.arg0, "PONG-PART-1".toByteArray(),
-                )
-                val ack1 = AdbProtocol.Message.read(fromClientReader)
-                check(ack1.command == AdbProtocol.A_OKAY)
-                AdbProtocol.Message.write(
-                    toClientSrc, AdbProtocol.A_WRTE, remoteId, open.arg0, "PONG-PART-2".toByteArray(),
-                )
-                val ack2 = AdbProtocol.Message.read(fromClientReader)
-                check(ack2.command == AdbProtocol.A_OKAY)
+                // Server emits each response frame, expecting OKAY back. If the client returns
+                // mid-stream (e.g. Content-Length satisfied), the second-frame write may block
+                // on the pipe; that's OK — the surrounding test does not rely on the worker
+                // completing in those cases.
+                for (chunk in responseChunks) {
+                    AdbProtocol.Message.write(toClientSrc, AdbProtocol.A_WRTE, remoteId, open.arg0, chunk)
+                    val ack = AdbProtocol.Message.read(fromClientReader)
+                    check(ack.command == AdbProtocol.A_OKAY)
+                }
 
-                AdbProtocol.Message.write(toClientSrc, AdbProtocol.A_CLSE, remoteId, open.arg0, ByteArray(0))
+                if (sendCloseAtEnd) {
+                    AdbProtocol.Message.write(toClientSrc, AdbProtocol.A_CLSE, remoteId, open.arg0, ByteArray(0))
+                }
             } catch (_: Throwable) {
                 // Pipe closed by client teardown - fine.
             } finally {

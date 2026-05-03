@@ -18,18 +18,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Wireless-ADB self-pair transport: drives the entire spike-proven path
+ * Wireless-ADB self-pair transport: drives the spike-proven path
  *   Shizuku → IAdbManager.allowWirelessDebugging → enablePairingByQrCode → embedded TLS-PSK pair
  *   → embedded mTLS adb client → A_OPEN(localabstract:chrome_devtools_remote) → CDP bytes.
  *
- * Lazy: nothing happens on construction. The first call to [exchange] (or [ensureWebSocketRelayPort]
- * for WebSocket) drives the bootstrap. The TLS adb port is cached; the RSA keypair is persisted
- * via [AdbCryptoKeyStore]'s sentinel pattern, so subsequent runs skip pairing entirely once the
- * device's `/data/misc/adb/adb_keys` already contains our pubkey.
- *
- * The TCP relay (for WebSocket) runs in this app process — no Shizuku boundary on the data path.
- * Once paired, the app UID can talk to localhost:tlsAdbPort, do mTLS with our cert, and let adbd
- * (which holds mlstrustedsubject) connect to chrome_devtools_remote on our behalf.
+ * Lazy: bootstrap is deferred to the first [exchange] / [ensureWebSocketRelayPort] call. The TLS
+ * adb port is cached; the RSA keypair is persisted via [AdbCryptoKeyStore], so subsequent runs
+ * skip pairing once `/data/misc/adb/adb_keys` already contains our pubkey.
  */
 class WirelessAdbSelfPairTransport(
     private val wirelessManager: AdbWirelessManager,
@@ -51,39 +46,32 @@ class WirelessAdbSelfPairTransport(
     private val relayStopped = AtomicBoolean(false)
 
     override suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray {
+        val tlsPort = ensureBootstrapped()
         return try {
-            val tlsPort = ensureBootstrapped()
-            try {
-                wireClient.exchange(
-                    host = LOCALHOST,
-                    tlsPort = tlsPort,
-                    destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
-                    request = request,
-                    timeoutMs = timeoutMs,
-                )
-            } catch (t: Throwable) {
-                Log.w(TAG, "wireless-adb exchange failed; invalidating cached port and retrying once", t)
-                cachedTlsPort = -1
-                val fresh = ensureBootstrapped()
-                wireClient.exchange(
-                    host = LOCALHOST,
-                    tlsPort = fresh,
-                    destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
-                    request = request,
-                    timeoutMs = timeoutMs,
-                )
-            }
+            wireClient.exchange(
+                host = LOCALHOST,
+                tlsPort = tlsPort,
+                destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
+                request = request,
+                timeoutMs = timeoutMs,
+            )
         } catch (t: Throwable) {
-            // The bridge wraps us in runCatching but does not log; surface the actual cause
-            // here so logcat carries the diagnosis. Re-throw so the cascade falls through.
-            Log.e(TAG, "wireless-adb transport failed: ${t.javaClass.simpleName}: ${t.message}", t)
-            throw t
+            // adbd may have rotated the TLS port (Wi-Fi flap, daemon restart) between bootstrap
+            // and now; invalidate the cached port and retry once with a fresh bootstrap.
+            Log.w(TAG, "wireless-adb exchange failed; invalidating cached port and retrying once", t)
+            cachedTlsPort = -1
+            val fresh = ensureBootstrapped()
+            wireClient.exchange(
+                host = LOCALHOST,
+                tlsPort = fresh,
+                destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
+                request = request,
+                timeoutMs = timeoutMs,
+            )
         }
     }
 
     override suspend fun ensureWebSocketRelayPort(): Int? {
-        // WebSocket relay needs the bootstrapped tunnel; if bootstrap hasn't happened yet
-        // (caller invoked WS resolution before any HTTP exchange), do it now.
         if (relayStopped.get()) return null
         ensureBootstrapped()
         synchronized(relayLock) {
@@ -111,7 +99,6 @@ class WirelessAdbSelfPairTransport(
 
     private suspend fun bootstrapBlocking(): Int {
         Log.i(TAG, "wireless-adb bootstrap: starting")
-        // (a) Enable wireless adb (idempotent on adbd; no-op if already on).
         val enable = wirelessManager.enableWirelessDebugging()
         enable.exceptionOrNull()?.let {
             Log.w(TAG, "wireless-adb bootstrap step (a) enableWirelessDebugging failed", it)
@@ -119,13 +106,12 @@ class WirelessAdbSelfPairTransport(
         }
         Log.i(TAG, "wireless-adb bootstrap: (a) enableWirelessDebugging ok")
 
-        // (b) Discover the TLS adb port. If wireless adb wasn't on a moment ago this may be
-        //     -1; retry a couple of times to give AdbDebuggingManager its property-poller window.
+        // AdbDebuggingManager publishes the TLS port via a property poller, so getAdbWirelessPort
+        // can briefly return -1 right after enable; retry a handful of times before giving up.
         val tlsPort = pollTlsPort(retries = 5, intervalMs = 250)
             ?: throw IOException("getAdbWirelessPort returned -1 after enableWirelessDebugging")
         Log.i(TAG, "wireless-adb bootstrap: (b) tls port = $tlsPort")
 
-        // (c) Pair-once. Skip if our key is already authorized.
         ensurePaired(tlsPort)
         Log.i(TAG, "wireless-adb bootstrap: complete")
         return tlsPort
@@ -157,15 +143,16 @@ class WirelessAdbSelfPairTransport(
         } finally {
             runCatching { wirelessManager.closePairPort() }
         }
-        // adbd's adb_keys reload is event-driven (file watch) but isn't strictly synchronous —
-        // give it a beat before mTLS so the freshly-paired key is in adbd's accepted set.
+        // adbd's adb_keys reload is event-driven (file watch) and not strictly synchronous with
+        // pair completion; settle briefly so the freshly-paired key is in adbd's accepted set
+        // before the immediately-following mTLS handshake.
         runInterruptible(ioDispatcher) { Thread.sleep(POST_PAIR_SETTLE_MS) }
     }
 
     /**
      * One-shot cleanup of historical `ClosePaw@*` accumulation in `/data/misc/adb/adb_keys`
      * (pre-pair-once each cold session appended a fresh entry). Best-effort: failures here are
-     * non-fatal — the existing tunnel keeps working, the file just stays slightly larger.
+     * non-fatal — the existing tunnel keeps working.
      */
     private suspend fun pruneStaleAdbKeysOnce(pubkeyBase64: String) {
         if (prunedThisSession) return
@@ -203,7 +190,6 @@ class WirelessAdbSelfPairTransport(
             client.tcpNoDelay = true
             val tlsPort = cachedTlsPort
             if (tlsPort <= 0) throw IOException("relay invoked before bootstrap")
-            // Block on a synchronous open — the relay accepts callers serially per Thread.
             stream = kotlinx.coroutines.runBlocking {
                 wireClient.openLocalAbstract(
                     host = LOCALHOST,
@@ -262,9 +248,8 @@ class WirelessAdbSelfPairTransport(
 }
 
 /**
- * Bridge integration hook: returned by [WirelessAdbSelfPairTransport] (and any future
- * wireless-self-pair variant) so the bridge's [ShizukuChromeDevtoolsBridge.resolveWebSocketHost]
- * can request the in-process TCP relay port without referencing the concrete class.
+ * Bridge integration hook for [WirelessAdbSelfPairTransport]'s in-process TCP relay so
+ * [ShizukuChromeDevtoolsBridge.resolveWebSocketHost] doesn't depend on the concrete class.
  */
 interface WirelessAdbRelayHost {
     suspend fun ensureWebSocketRelayPort(): Int?
