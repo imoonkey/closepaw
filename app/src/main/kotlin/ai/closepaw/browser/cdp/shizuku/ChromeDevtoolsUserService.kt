@@ -1,5 +1,6 @@
 package ai.closepaw.browser.cdp.shizuku
 
+import ai.closepaw.browser.cdp.wireless.ProcNetTcpListeners
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.os.SystemClock
@@ -67,6 +68,63 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         stopRelay()
     }
 
+    // ── Wireless ADB management ──────────────────────────────────────────────────
+
+    private val adbManager = IAdbManagerReflection()
+
+    override fun getCurrentBssid(): String? {
+        val out = runShellCapture(
+            "dumpsys wifi | grep -oE 'BSSID: [0-9a-f:]+' | head -1 | awk '{print \$2}'"
+        ).trim()
+        return out.takeIf { it.isNotEmpty() && it != "null" && it.contains(':') }
+    }
+
+    override fun enableWirelessDebugging(bssid: String): Boolean {
+        require(bssid.isNotBlank()) { "bssid must not be blank" }
+        return adbManager.allowWirelessDebugging(true, bssid)
+    }
+
+    override fun getAdbWirelessPort(): Int = adbManager.getAdbWirelessPort()
+
+    override fun enablePairingByQrCode(name: String, psk: String): Int {
+        require(name.isNotBlank()) { "name must not be blank" }
+        require(psk.length >= MIN_PSK_LENGTH) { "psk must be ≥$MIN_PSK_LENGTH chars" }
+        val before = ProcNetTcpListeners.snapshot()
+        val wirelessPort = adbManager.getAdbWirelessPort().takeIf { it > 0 } ?: 0
+        if (!adbManager.enablePairingByQrCode(name, psk)) return -1
+        val ignored = before + setOfNotNull(wirelessPort.takeIf { it > 0 }, ADBD_LEGACY_PORT)
+        val deadline = SystemClock.uptimeMillis() + PAIR_PORT_POLL_MS
+        while (SystemClock.uptimeMillis() < deadline) {
+            val now = ProcNetTcpListeners.snapshot()
+            val newPorts = now - ignored
+            if (newPorts.isNotEmpty()) {
+                // Pick the largest — adbd's pair port is typically a high ephemeral.
+                return newPorts.max()
+            }
+            Thread.sleep(PAIR_PORT_POLL_INTERVAL_MS)
+        }
+        Log.w(TAG, "pair port did not appear within ${PAIR_PORT_POLL_MS}ms; before=$before")
+        return -1
+    }
+
+    override fun disablePairing() {
+        adbManager.disablePairing()
+    }
+
+    override fun isPubkeyInAdbKeys(fingerprintBase64: String): Boolean {
+        if (fingerprintBase64.isBlank()) return false
+        // Best-effort: query IAdbManager.getPairedDevices() and look for the fingerprint
+        // either as a Map key or inside any value's string form. The PairDevice object's
+        // fields differ across OEM builds, so we do a substring match instead of guessing
+        // the field name. Returns false on uncertainty — caller will re-pair (idempotent).
+        val devices = adbManager.getPairedDevicesRaw() ?: return false
+        for ((k, v) in devices) {
+            if (k?.toString()?.contains(fingerprintBase64) == true) return true
+            if (v?.toString()?.contains(fingerprintBase64) == true) return true
+        }
+        return false
+    }
+
     @Synchronized
     override fun ensureChromeRemoteDebugPort(port: Int): Boolean {
         require(port in 1024..65535) { "port out of range: $port" }
@@ -118,6 +176,16 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         } catch (e: Exception) {
             Log.w(TAG, "Shell command failed: ${cmd.joinToString(" ")}", e)
         }
+    }
+
+    private fun runShellCapture(script: String): String = try {
+        val proc = ProcessBuilder("sh", "-c", script).redirectErrorStream(false).start()
+        val out = proc.inputStream.bufferedReader().use { it.readText() }
+        proc.waitFor()
+        out
+    } catch (e: Exception) {
+        Log.w(TAG, "shell capture failed: $script", e)
+        ""
     }
 
     @Volatile
@@ -264,6 +332,10 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         const val CHROME_PACKAGE = "com.android.chrome"
         private const val BUFFER = 4096
         private const val TAG = "ChromeDevtoolsUS"
+        private const val MIN_PSK_LENGTH = 6
+        private const val ADBD_LEGACY_PORT = 5555
+        private const val PAIR_PORT_POLL_MS = 5_000L
+        private const val PAIR_PORT_POLL_INTERVAL_MS = 100L
 
         private val CRLFCRLF = byteArrayOf(0x0d, 0x0a, 0x0d, 0x0a)
 

@@ -60,6 +60,7 @@ android {
             excludes += "META-INF/NOTICE.txt"
             excludes += "META-INF/notice.txt"
             excludes += "META-INF/ASL2.0"
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
     
@@ -130,7 +131,16 @@ dependencies {
     
     // Hidden API bypass — for InputEvent.setDisplayId(), ServiceManager access, etc.
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
-    
+
+    // BouncyCastle — X.509 self-signed cert generation for wireless ADB pairing
+    // (sun.security.x509 is not available on Android). "jdk18on" = JDK 1.8 onwards.
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+
+    // SPAKE2 — required for ADB pairing protocol (AOSP uses BoringSSL spake25519).
+    // LGPL-3.0; we link dynamically via a Maven dep, so license is compatible with proprietary app.
+    implementation("com.github.MuntashirAkon.spake2-java:spake2-android:2.2.1")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")

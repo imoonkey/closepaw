@@ -46,4 +46,37 @@ interface IChromeDevtoolsUserService {
 
     /** Tear down the user service process. */
     void destroy();
+
+    // ── Wireless ADB management (IAdbManager via reflection from shell UID) ─────
+    // The shell UID holds MANAGE_DEBUGGING, so these binder calls succeed without
+    // root. App UID cannot call IAdbManager directly: SecurityException.
+
+    /** Current Wi-Fi BSSID (lowercased hex like "aa:bb:cc:11:22:33") or null. */
+    String getCurrentBssid();
+
+    /**
+     * IAdbManager.allowWirelessDebugging(true, bssid). Returns true on success.
+     * Idempotent — safe to call when wireless ADB is already enabled for the same BSSID.
+     */
+    boolean enableWirelessDebugging(String bssid);
+
+    /** IAdbManager.getAdbWirelessPort(). Returns -1 when wireless ADB is not listening. */
+    int getAdbWirelessPort();
+
+    /**
+     * IAdbManager.enablePairingByQrCode(name, psk). Returns the pair port (discovered by
+     * diffing /proc/net/tcp before/after the call), or -1 if no new listening port appeared
+     * within 5s. Caller is expected to follow up with disablePairing() once paired.
+     */
+    int enablePairingByQrCode(String name, String psk);
+
+    /** IAdbManager.disablePairing(). Best-effort — errors are swallowed and logged. */
+    void disablePairing();
+
+    /**
+     * Best-effort check whether a pubkey with the given fingerprint is already authorized
+     * on this device, so the caller can skip pairing on the second run. Returns false when
+     * uncertain — re-pairing is idempotent on the adbd side.
+     */
+    boolean isPubkeyInAdbKeys(String fingerprintBase64);
 }
