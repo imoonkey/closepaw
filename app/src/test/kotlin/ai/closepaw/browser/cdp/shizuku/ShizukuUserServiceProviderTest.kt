@@ -7,8 +7,10 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
 import java.io.IOException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -287,6 +289,168 @@ class ShizukuUserServiceProviderTest {
             }
         }
 
+    /**
+     * Round 5 hardening (HIGH): two concurrent obtain() callers must share a single
+     * in-flight bind cycle. Without single-flight, the second caller would create a
+     * fresh ServiceConnection and overwrite the first cycle's connection field —
+     * leaving the first connection bound but unreachable through provider state.
+     * When the first caller later cancelled or timed out, the per-cycle generation
+     * check would skip unbind, and the helper process would leak until close().
+     */
+    @Test
+    fun concurrent_obtain_calls_share_a_single_bind_cycle() =
+        runTest(UnconfinedTestDispatcher()) {
+            supervisorScope {
+                val binder = ManualBinder()
+                val provider =
+                    ShizukuUserServiceProvider(binder = binder, bindTimeoutMs = 10_000L)
+
+                val deferred1 = async(start = CoroutineStart.UNDISPATCHED) {
+                    provider.obtain()
+                }
+                val conn1 = checkNotNull(binder.captured) { "first bind not started" }
+                assertThat(binder.bindCalls).isEqualTo(1)
+
+                // Second obtain arrives before any callback fires. Single-flight: must
+                // reuse the existing ServiceConnection rather than spawn a second
+                // bind cycle (which would leak conn1).
+                val deferred2 = async(start = CoroutineStart.UNDISPATCHED) {
+                    provider.obtain()
+                }
+                assertThat(binder.bindCalls).isEqualTo(1)
+                assertThat(binder.captured).isSameInstanceAs(conn1)
+
+                // The single in-flight ServiceConnection delivers a transport — both
+                // awaiters resume with the same instance.
+                val mockBinder = mockk<IBinder>(relaxed = true)
+                every { mockBinder.queryLocalInterface(any()) } returns null
+                conn1.onServiceConnected(componentName, mockBinder)
+
+                val t1 = deferred1.await()
+                val t2 = deferred2.await()
+                assertThat(t1).isSameInstanceAs(t2)
+                // No leaked binding: the helper is still bound (close() will unbind it).
+                assertThat(binder.unbinds).isEqualTo(0)
+
+                provider.close()
+                assertThat(binder.unbinds).isEqualTo(1)
+            }
+        }
+
+    /**
+     * Round 5 hardening (HIGH refcount path): when one of two concurrent awaiters
+     * cancels before delivery, the bind cycle MUST continue for the remaining
+     * awaiter. The cycle is only torn down when the last awaiter abandons it.
+     */
+    @Test
+    fun cancellation_of_one_awaiter_keeps_bind_alive_for_the_other() =
+        runTest(UnconfinedTestDispatcher()) {
+            supervisorScope {
+                val binder = ManualBinder()
+                val provider =
+                    ShizukuUserServiceProvider(binder = binder, bindTimeoutMs = 10_000L)
+
+                val deferred1 = async(start = CoroutineStart.UNDISPATCHED) {
+                    provider.obtain()
+                }
+                val deferred2 = async(start = CoroutineStart.UNDISPATCHED) {
+                    provider.obtain()
+                }
+                val conn = checkNotNull(binder.captured)
+                assertThat(binder.bindCalls).isEqualTo(1)
+
+                // Caller 1 walks away. Caller 2 is still waiting, so the bind must
+                // not be torn down.
+                deferred1.cancel()
+                assertThat(binder.unbinds).isEqualTo(0)
+
+                val mockBinder = mockk<IBinder>(relaxed = true)
+                every { mockBinder.queryLocalInterface(any()) } returns null
+                conn.onServiceConnected(componentName, mockBinder)
+
+                val transport = deferred2.await()
+                assertThat(transport).isInstanceOf(UserServiceTransport::class.java)
+                assertThat(binder.unbinds).isEqualTo(0)
+            }
+        }
+
+    /**
+     * Round 5 hardening (HIGH refcount terminal path): when ALL awaiters cancel
+     * before delivery, the bind cycle is torn down — no helper process is leaked
+     * waiting for callers that no longer exist.
+     */
+    @Test
+    fun bind_is_unbound_when_all_awaiters_cancel_before_delivery() =
+        runTest(UnconfinedTestDispatcher()) {
+            supervisorScope {
+                val binder = ManualBinder()
+                val provider =
+                    ShizukuUserServiceProvider(binder = binder, bindTimeoutMs = 10_000L)
+
+                val deferred1 = async(start = CoroutineStart.UNDISPATCHED) {
+                    provider.obtain()
+                }
+                val deferred2 = async(start = CoroutineStart.UNDISPATCHED) {
+                    provider.obtain()
+                }
+                checkNotNull(binder.captured)
+                assertThat(binder.bindCalls).isEqualTo(1)
+
+                deferred1.cancel()
+                assertThat(binder.unbinds).isEqualTo(0)
+                deferred2.cancel()
+                // Last awaiter gone: refcount hit 0 and the cycle was torn down.
+                assertThat(binder.unbinds).isEqualTo(1)
+            }
+        }
+
+    /**
+     * Round 5 hardening (MEDIUM): a cancellation that arrives AFTER
+     * onServiceConnected has delivered the transport must NOT unbind the now-active
+     * service. The old single-cont design had a race where the cancellation handler
+     * could pass the generation check (success path didn't bump it) and unbind the
+     * live connection while leaving `transport` cached — future obtain() would
+     * then return a transport backed by a dead binder.
+     *
+     * The single-flight design forecloses the race: the success path atomically
+     * transitions the cycle out of "in-flight" before completing the deferred,
+     * so any subsequent cancellation finds no inflight to tear down.
+     */
+    @Test
+    fun cancellation_after_delivery_does_not_unbind_active_transport() =
+        runTest(UnconfinedTestDispatcher()) {
+            val binder = ManualBinder()
+            val provider =
+                ShizukuUserServiceProvider(binder = binder, bindTimeoutMs = 10_000L)
+
+            val ownerJob = SupervisorJob()
+            val ownerScope = CoroutineScope(coroutineContext + ownerJob)
+            val deferred = ownerScope.async(start = CoroutineStart.UNDISPATCHED) {
+                provider.obtain()
+            }
+            val conn = checkNotNull(binder.captured)
+
+            val mockBinder = mockk<IBinder>(relaxed = true)
+            every { mockBinder.queryLocalInterface(any()) } returns null
+            conn.onServiceConnected(componentName, mockBinder)
+            val firstTransport = deferred.await()
+
+            // Cancel the owner scope AFTER delivery. The successful bind must not
+            // be torn down.
+            ownerJob.cancel()
+
+            assertThat(binder.unbinds).isEqualTo(0)
+            // Subsequent obtain returns the same cached transport — proves it was
+            // not silently invalidated by the cancellation.
+            val second = provider.obtain()
+            assertThat(second).isSameInstanceAs(firstTransport)
+            assertThat(binder.unbinds).isEqualTo(0)
+
+            // close() is still the only thing that unbinds a delivered transport.
+            provider.close()
+            assertThat(binder.unbinds).isEqualTo(1)
+        }
+
     private inline fun <reified E : Throwable> assertFails(block: () -> Unit): E {
         try {
             block()
@@ -303,11 +467,14 @@ class ShizukuUserServiceProviderTest {
 private class ManualBinder : ShizukuUserServiceProvider.Binder {
     var captured: ServiceConnection? = null
         private set
+    var bindCalls: Int = 0
+        private set
     var unbinds: Int = 0
         private set
 
     override fun bind(conn: ServiceConnection) {
         captured = conn
+        bindCalls++
     }
 
     override fun unbind(conn: ServiceConnection, remove: Boolean) {
