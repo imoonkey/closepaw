@@ -4,6 +4,7 @@ import ai.closepaw.browser.cdp.CdpConnection
 import ai.closepaw.browser.cdp.CdpConnectionClosedException
 import ai.closepaw.browser.cdp.CdpConnectionFactory
 import ai.closepaw.browser.cdp.ChromeCdpClient
+import ai.closepaw.trace.NoopTraceRecorder
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -38,7 +39,7 @@ class BrowserScriptRunnerInstrumentedTest {
         val cdpClient = ChromeCdpClient(fake)
         cdpClient.connect("ws://test")
 
-        val runner = BrowserScriptRunner(ctx, cdpClient)
+        val runner = BrowserScriptRunner(ctx, cdpClient, NoopTraceRecorder)
         val script = """
             const r = await cdp("Target.getTargets", {}, {});
             return r.targetInfos.length;

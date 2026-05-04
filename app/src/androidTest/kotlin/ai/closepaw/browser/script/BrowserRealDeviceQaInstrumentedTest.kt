@@ -130,7 +130,11 @@ class BrowserRealDeviceQaInstrumentedTest {
         const firstTab = await currentTab();
         const firstInfo = await pageInfo();
         const body = await pageJs("document.body ? document.body.innerText : ''");
+        // Helper-shaped screenshot: writes bytes via storeArtifact and returns metadata
+        // (path is null under NoopTraceRecorder, which this test uses).
         const shot = await screenshot({ full: false, maxDim: 1600, format: "png" });
+        // Raw bytes for the on-host PNG header assertion below.
+        const rawShot = await cdp("Page.captureScreenshot", { format: "png", fromSurface: true });
 
         const newTabId = await newTab("https://example.org");
         const secondLoaded = await waitForLoad({ timeoutMs: 20000, pollMs: 300 });
@@ -154,10 +158,10 @@ class BrowserRealDeviceQaInstrumentedTest {
             heightCss: shot.heightCss,
             devicePixelRatio: shot.devicePixelRatio,
             scale: shot.scale,
-            dataLength: shot.data.length,
-            dataPrefix: shot.data.slice(0, 16)
+            path: shot.path,
+            estimatedBytes: shot.estimatedBytes
           },
-          screenshotData: shot.data,
+          screenshotData: rawShot.data,
           secondLoaded,
           secondTab,
           secondPage: secondInfo,

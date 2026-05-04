@@ -49,7 +49,7 @@ import okhttp3.WebSocketListener
 class BrowserSessionManager(
     context: Context,
     sessionScope: CoroutineScope,
-    @Suppress("unused") private val traceRecorder: TraceRecorder,
+    private val traceRecorder: TraceRecorder,
     /**
      * Per-CDP-command timeout passed to [ChromeCdpClient]. The script's outer `timeout_ms` is
      * a separate, larger budget for the whole script; this cap fires when a single CDP method
@@ -73,7 +73,7 @@ class BrowserSessionManager(
             )
         },
     private val runnerFactory: (Context, ChromeCdpClient) -> BrowserScriptExecutor = { ctx, client ->
-        val runner = BrowserScriptRunner(ctx, client)
+        val runner = BrowserScriptRunner(ctx, client, traceRecorder)
         BrowserScriptExecutor { script, timeoutMs -> runner.run(script, timeoutMs) }
     },
 ) : Closeable {

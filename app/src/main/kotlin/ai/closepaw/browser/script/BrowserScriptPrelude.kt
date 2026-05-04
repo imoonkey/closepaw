@@ -37,6 +37,14 @@ object BrowserScriptPrelude {
         appendLine("    if (error && error.cause !== undefined) { e.cause = error.cause; }")
         appendLine("    pending.reject(e);")
         appendLine("  };")
+        appendLine("  globalThis.storeArtifact = function(kind, filenameHint, base64, mimeType) {")
+        appendLine("    return AndroidBrowserScript.storeArtifact(")
+        appendLine("      String(kind == null ? '' : kind),")
+        appendLine("      String(filenameHint == null ? '' : filenameHint),")
+        appendLine("      String(base64 == null ? '' : base64),")
+        appendLine("      mimeType == null ? null : String(mimeType)")
+        appendLine("    );")
+        appendLine("  };")
         appendLine("})();")
     }
 

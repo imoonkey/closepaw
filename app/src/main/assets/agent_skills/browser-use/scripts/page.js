@@ -195,13 +195,16 @@ async function screenshot({ full = false, maxDim = 1800, format = "png", quality
     params.quality = quality;
   }
   const result = await cdp("Page.captureScreenshot", params);
+  const fileName = `screenshot-${Date.now()}.${format}`;
+  const path = storeArtifact("browser-script", fileName, result.data, `image/${format}`);
   return {
-    data: result.data,
+    path,
     format,
     widthCss,
     heightCss,
     devicePixelRatio,
     scale,
-    estimatedMaxPixels: Math.ceil(maxPixels * scale)
+    estimatedMaxPixels: Math.ceil(maxPixels * scale),
+    estimatedBytes: Math.ceil(result.data.length * 3 / 4)
   };
 }

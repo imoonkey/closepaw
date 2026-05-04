@@ -1,6 +1,7 @@
 package ai.closepaw.browser.script
 
 import ai.closepaw.browser.cdp.ChromeCdpClient
+import ai.closepaw.trace.TraceRecorder
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference
 class BrowserScriptRunner(
     context: Context,
     private val cdpClient: ChromeCdpClient,
+    private val traceRecorder: TraceRecorder,
 ) {
     private val appContext: Context = context.applicationContext
 
@@ -70,7 +72,7 @@ class BrowserScriptRunner(
                 }
                 val theBridge = BrowserScriptBridge(cdpClient, evaluator, bridgeScope)
                 bridge = theBridge
-                val jsInterface = BrowserScriptJsInterface(theBridge)
+                val jsInterface = BrowserScriptJsInterface(theBridge, traceRecorder)
 
                 val pageReady = CompletableDeferred<Unit>()
                 mainHandler.post {
