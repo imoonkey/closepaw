@@ -1,7 +1,7 @@
 # SPAKE2-25519 alternatives — investigation result
 
-**Date**: 2026-05-04  
-**Task**: `browser-phase6-spake-replace` — drop `com.github.MuntashirAkon.spake2-java:spake2-android:2.2.1` (LGPL via JitPack, not a major library) and replace with a popular-lib equivalent.  
+**Date**: 2026-05-04
+**Task**: `browser-phase6-spake-replace` — drop `com.github.MuntashirAkon.spake2-java:spake2-android:2.2.1` (LGPL via JitPack, not a major library) and replace with a popular-lib equivalent.
 **Hard cap**: 30 min for investigation phase.
 
 ## Path 1 (BEST): popular lib with high-level SPAKE2-25519 wire-compat with AOSP
