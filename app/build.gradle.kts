@@ -142,9 +142,12 @@ dependencies {
     implementation("org.bouncycastle:bcpkix-jdk18on:1.84")
     implementation("org.bouncycastle:bcprov-jdk18on:1.84")
 
-    // SPAKE2 — required for ADB pairing protocol (AOSP uses BoringSSL spake25519).
-    // LGPL-3.0; we link dynamically via a Maven dep, so license is compatible with proprietary app.
-    implementation("com.github.MuntashirAkon.spake2-java:spake2-android:2.2.1")
+    // SPAKE2-25519 — required for ADB pairing protocol (AOSP uses BoringSSL spake25519).
+    // Pure-Kotlin implementation in `wireless/Spake25519.kt` over `net.i2p.crypto:eddsa`
+    // (CC0 / public domain, 25k+ Maven Central dependents) for Ed25519 group arithmetic.
+    // Replaces the previous LGPL-3.0 JitPack dep `com.github.MuntashirAkon.spake2-java:spake2-android`.
+    // See `projects/active/browser/cn/diag_20260504_spake_alternatives.md`.
+    implementation("net.i2p.crypto:eddsa:0.3.0")
 
     // Conscrypt — bundled (vs reflection on platform) for the TLS exporter API used by the
     // ADB pairing handshake. Platform Conscrypt is hidden API and HiddenApiBypass falls flat

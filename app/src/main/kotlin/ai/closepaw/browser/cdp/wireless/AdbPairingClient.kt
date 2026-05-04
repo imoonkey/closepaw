@@ -3,16 +3,13 @@
  * MuntashirAkon/libadb-android (Apache-2.0). Original Copyright (C) Muntashir Al-Islam.
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPAKE2 primitive provided by `com.github.MuntashirAkon.spake2-java:spake2-android` (LGPL-3.0)
- * via JitPack. Acceptable for ClosePaw: dynamically linked at runtime, not statically combined,
- * so LGPL §4(d) re-link allowance applies — license-clean for proprietary distribution. If
- * license policy ever tightens to disallow LGPL, port BoringSSL `spake25519.c` (~600 lines,
- * Apache-2.0) instead. See diag_20260503_phase4_handoff.md §6 for the rationale snapshot.
+ * SPAKE2-25519 primitive provided by `Spake25519` (in this package), a pure-Kotlin port of
+ * BoringSSL `spake25519.c` over `net.i2p.crypto:eddsa` (CC0). Replaces the previous LGPL-3.0
+ * JitPack dep `com.github.MuntashirAkon.spake2-java:spake2-android:2.2.1` — see
+ * `projects/active/browser/cn/diag_20260504_spake_alternatives.md` for rationale.
  */
 package ai.closepaw.browser.cdp.wireless
 
-import io.github.muntashirakon.crypto.spake2.Spake2Context
-import io.github.muntashirakon.crypto.spake2.Spake2Role
 import java.io.IOException
 import java.security.interfaces.RSAPublicKey
 import javax.crypto.Cipher
@@ -45,7 +42,7 @@ class AdbPairingClient(
             val exporter = TlsExporter.export(socket, EXPORTER_LABEL, null, EXPORTER_LENGTH)
             val password = psk + exporter
 
-            val spake = Spake2Context(Spake2Role.Alice, MY_NAME, THEIR_NAME)
+            val spake = Spake25519(Spake25519.Role.ALICE, MY_NAME, THEIR_NAME)
             val ourMsg = spake.generateMessage(password)
             try {
                 AdbPairingPacket.write(socket.outputStream, AdbPairingPacket.TYPE_SPAKE2_MSG, ourMsg)
@@ -54,7 +51,6 @@ class AdbPairingClient(
                     throw IOException("Expected SPAKE2_MSG, got type=${theirSpake.type}")
                 }
                 val keyMaterial = spake.processMessage(theirSpake.payload)
-                    ?: throw IOException("SPAKE2 processMessage returned null — wrong PSK?")
                 val secretKey = hkdfSha256(keyMaterial, HKDF_INFO, AES_KEY_BYTES)
 
                 val plainPeerInfo = buildPeerInfoPlaintext(material.keyPair.public as RSAPublicKey)

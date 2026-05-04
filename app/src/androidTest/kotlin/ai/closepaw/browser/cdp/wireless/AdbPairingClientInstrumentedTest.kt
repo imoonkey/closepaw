@@ -9,9 +9,13 @@ import org.junit.runner.RunWith
 class AdbPairingClientInstrumentedTest {
 
     @Test
-    fun spake2LibraryReachable() {
-        val cls = Class.forName("io.github.muntashirakon.crypto.spake2.Spake2Context")
+    fun spake25519Reachable() {
+        val cls = Class.forName("ai.closepaw.browser.cdp.wireless.Spake25519")
         assertNotNull(cls)
+        // Sanity check: the Ed25519 group element class from net.i2p.crypto:eddsa must also resolve
+        // (Spake25519 references it).
+        val ge = Class.forName("net.i2p.crypto.eddsa.math.GroupElement")
+        assertNotNull(ge)
     }
 
     @Test
