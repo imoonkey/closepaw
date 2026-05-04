@@ -58,6 +58,8 @@ class WirelessAdbSelfPairTransport(
         } catch (t: Throwable) {
             // adbd may have rotated the TLS port (Wi-Fi flap, daemon restart) between bootstrap
             // and now; invalidate the cached port and retry once with a fresh bootstrap.
+            // TODO: if this retry path fires more than rarely in production, wire a counter so
+            //  port-rotation rate becomes observable rather than silent.
             Log.w(TAG, "wireless-adb exchange failed; invalidating cached port and retrying once", t)
             cachedTlsPort = -1
             val fresh = ensureBootstrapped()

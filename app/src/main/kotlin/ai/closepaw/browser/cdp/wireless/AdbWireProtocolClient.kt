@@ -62,6 +62,9 @@ class AdbWireProtocolClient(
         val (remoteId, maxPayload) = handshakeAndOpen(input, out, destination)
         sendChunked(input, out, LOCAL_ID, remoteId, request, maxPayload)
         val response = readUntilHttpComplete(input, out, LOCAL_ID, remoteId)
+        // Best-effort: the response is already in hand and the TLS channel is about to close in
+        // the caller's `finally`. A failed A_CLSE here means the peer beat us to the teardown —
+        // no failure mode worth surfacing.
         runCatching { AdbProtocol.Message.write(out, A_CLSE, LOCAL_ID, remoteId, EMPTY) }
         return response
     }

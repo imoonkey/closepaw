@@ -2,6 +2,12 @@
  * SPAKE2 + AES-GCM peer-info exchange structurally adapted from
  * MuntashirAkon/libadb-android (Apache-2.0). Original Copyright (C) Muntashir Al-Islam.
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * SPAKE2 primitive provided by `com.github.MuntashirAkon.spake2-java:spake2-android` (LGPL-3.0)
+ * via JitPack. Acceptable for ClosePaw: dynamically linked at runtime, not statically combined,
+ * so LGPL §4(d) re-link allowance applies — license-clean for proprietary distribution. If
+ * license policy ever tightens to disallow LGPL, port BoringSSL `spake25519.c` (~600 lines,
+ * Apache-2.0) instead. See diag_20260503_phase4_handoff.md §6 for the rationale snapshot.
  */
 package ai.closepaw.browser.cdp.wireless
 
