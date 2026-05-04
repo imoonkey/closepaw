@@ -79,7 +79,7 @@ class BrowserScriptRunner(
                     if (cancelled.get()) return@post
                     try {
                         wv.addJavascriptInterface(jsInterface, BrowserScriptPrelude.BRIDGE_OBJECT_NAME)
-                        wv.webViewClient = ScriptHostWebViewClient(wv, script, pageReady)
+                        wv.webViewClient = ScriptHostWebViewClient(wv, script, pageReady, cancelled)
                         wv.loadDataWithBaseURL(
                             "about:blank",
                             "<!doctype html><html><head></head><body></body></html>",
@@ -167,6 +167,7 @@ class BrowserScriptRunner(
         private val webView: WebView,
         private val userScript: String,
         private val pageReady: CompletableDeferred<Unit>,
+        private val cancelled: AtomicBoolean,
     ) : WebViewClient() {
         private val initialLoaded = AtomicBoolean(false)
 
@@ -192,15 +193,45 @@ class BrowserScriptRunner(
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
-            if (!initialLoaded.compareAndSet(false, true)) return
-            webView.evaluateJavascript(BrowserScriptPrelude.PRELUDE) { _ ->
-                webView.evaluateJavascript(BrowserScriptPrelude.wrapScript(userScript), null)
-                pageReady.complete(Unit)
-            }
+            handlePageFinished(
+                cancelled = cancelled,
+                initialLoaded = initialLoaded,
+                userScript = userScript,
+                pageReady = pageReady,
+                evaluatePrelude = { onComplete ->
+                    webView.evaluateJavascript(BrowserScriptPrelude.PRELUDE) { _ -> onComplete() }
+                },
+                evaluateUserScript = { js -> webView.evaluateJavascript(js, null) },
+            )
         }
     }
 
     companion object {
         private const val TAG = "BrowserScriptRunner"
+    }
+}
+
+/**
+ * Page-load orchestration extracted for JVM-testable cancellation-guard coverage.
+ *
+ * Two guards close a race: a queued onPageFinished or prelude-eval callback can fire
+ * after run()'s finally block has set [cancelled] but before the WebView is destroyed.
+ * Without these checks, that window would inject the prelude (and then arbitrary user
+ * script) into a WebView that's about to be torn down.
+ */
+internal fun handlePageFinished(
+    cancelled: AtomicBoolean,
+    initialLoaded: AtomicBoolean,
+    userScript: String,
+    pageReady: CompletableDeferred<Unit>,
+    evaluatePrelude: (onComplete: () -> Unit) -> Unit,
+    evaluateUserScript: (String) -> Unit,
+) {
+    if (cancelled.get()) return
+    if (!initialLoaded.compareAndSet(false, true)) return
+    evaluatePrelude {
+        if (cancelled.get()) return@evaluatePrelude
+        evaluateUserScript(BrowserScriptPrelude.wrapScript(userScript))
+        pageReady.complete(Unit)
     }
 }
