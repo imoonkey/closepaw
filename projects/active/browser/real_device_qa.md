@@ -88,9 +88,15 @@ Known soft-failure: the pair-once optimization (`AdbWirelessManager.isPubkeyAuth
 
 Emulator coverage for Phase 4: not collected in this round — the only available emulator (`emulator-5554`) was bricked offline mid-debug while attempting to enable adbd verbose logging via `setprop persist.adb.tls.trace 1`. The transport implementation is generic AOSP and was previously validated on emulator-5554 through earlier diagnostic runs (initial pairing + TLS handshake worked there before the failure window was understood; see `debug-output/run_20260502_201243/`). A follow-up emulator pass should re-run after the AVD is restarted.
 
-### Emulator coverage — emulator-5556 follow-up (2026-05-03) — PARTIAL
+### Emulator coverage — emulator-5556 full-chain PASS (2026-05-03 second visit) — PASS
+
+**Full agent chain PASS on emulator-5556 via the Local-State flag-toggle unlock path — `browser_script` returns `document.title is "Example Domain"` on the open `https://example.com` tab in Chrome stable 109.0.5414.123, with the same Phase-4 wireless-ADB-self-pair transport that runs on nubia.** Procedure: edit `/data/data/com.android.chrome/app_chrome/Local State`, append `"enable-command-line-on-non-rooted-devices@1"` to `browser.enabled_labs_experiments` (chown + restorecon back to chrome's uid), drop `/data/local/tmp/chrome-command-line` with `--remote-debugging-socket-name=chrome_devtools_remote`, cold-launch Chrome. Procedure + evidence: `projects/active/browser/cn/diag_20260503_emu_chrome_devtools.md`. Trace: `debug-output/run_20260503_213022/` (4 turns: activate_skill → open_app(Chrome) → browser_script(CDP Runtime.evaluate) → complete_task). This supersedes the **PARTIAL** result from the earlier same-day visit below; that visit's blocker ("Chrome stable can't be programmatically unlocked") was incomplete — see diag for the corrected story.
+
+### Emulator coverage — emulator-5556 follow-up (2026-05-03 first visit) — PARTIAL (superseded)
 
 **Wireless-self-pair PASS on emulator-5556. Agent CDP chain UNTESTED on emulator due to Chrome stable lacking devtools socket — pre-existing constraint, see Phase 2 archived notes. Full chain validated on nubia P0110 (Phase 4 evidence above).**
+
+> **Update 2026-05-03 (second visit, same day): SUPERSEDED by the section above.** The "Chrome stable can't be unlocked programmatically" blocker turned out to be flippable via a 4-line `Local State` JSON edit on userdebug emulators. The unlock procedure and full-chain PASS are documented in the section above and in `projects/active/browser/cn/diag_20260503_emu_chrome_devtools.md`. The contents below are kept for context on why the second-visit path was needed, but the conclusion ("PARTIAL") no longer holds.
 
 | Stage | Result |
 |---|---|
