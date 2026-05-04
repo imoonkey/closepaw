@@ -30,24 +30,45 @@ object RelayAuthToken {
 
     /**
      * Read up to [HEADER_BUFFER_LIMIT] bytes from [input] looking for the end of HTTP headers
-     * (`\r\n\r\n`). On success, return the buffered bytes (so callers can replay them upstream)
-     * paired with the parsed value of [HEADER_NAME] — or null if absent. On EOF before the
-     * terminator or limit exceeded, return [Failure].
+     * (`\r\n\r\n`), bounded by a TOTAL [totalDeadlineMs] for the whole head — not a per-read
+     * idle timeout. On success, return the buffered bytes (so callers can replay them
+     * upstream) paired with the parsed value of [HEADER_NAME] — or null if absent. On EOF
+     * before the terminator or limit exceeded, return [Failure].
      *
-     * [SocketTimeoutException] from [input.read] propagates out so callers can write 408 — the
-     * relay sets a short pre-auth `soTimeout` on the client socket as a slowloris defense, and
-     * timing out is a different signal from a malformed-but-prompt request.
+     * The deadline is enforced by walking the per-read socket timeout DOWN as wall time
+     * elapses: before each read we compute `remaining = totalDeadlineMs - elapsed` and ask
+     * the caller (via [setReadTimeout]) to set the underlying socket's read timeout to that
+     * value, so a slow-dribble client that sends one byte every (deadline - 1) ms still
+     * trips the deadline once cumulative wall time crosses it. Without this, per-read
+     * `soTimeout` alone is defeatable: 1 byte every 4.99 s × 4 KiB ≈ 5+ hours of held thread
+     * + fd. [SocketTimeoutException] from `input.read` (or from the deadline check itself)
+     * propagates so the relay can write 408.
      */
     @Throws(SocketTimeoutException::class)
-    fun readHttpRequestHead(input: InputStream): ParseResult {
+    fun readHttpRequestHead(
+        input: InputStream,
+        totalDeadlineMs: Int,
+        setReadTimeout: (Int) -> Unit = {},
+    ): ParseResult {
+        require(totalDeadlineMs > 0) { "totalDeadlineMs must be > 0" }
+        val start = System.currentTimeMillis()
         val buf = ByteArray(HEADER_BUFFER_LIMIT)
         var size = 0
         var headerEnd = -1
         while (size < HEADER_BUFFER_LIMIT) {
+            val elapsed = System.currentTimeMillis() - start
+            val remaining = totalDeadlineMs - elapsed
+            if (remaining <= 0L) {
+                throw SocketTimeoutException(
+                    "pre-auth deadline exceeded after ${elapsed}ms (cap ${totalDeadlineMs}ms, read $size bytes)"
+                )
+            }
+            // Walk per-read soTimeout down with the budget so a dribble client can't restart
+            // the per-read clock by sending one byte just under the cap each iteration.
+            setReadTimeout(remaining.toInt().coerceAtLeast(1))
             val n = try {
                 input.read(buf, size, HEADER_BUFFER_LIMIT - size)
             } catch (e: SocketTimeoutException) {
-                // Slowloris signal — surface to caller so it can write 408 + close.
                 throw e
             } catch (e: Exception) {
                 return ParseResult.Failure("read failed: ${e.message}")
@@ -135,13 +156,14 @@ object RelayAuthToken {
     const val HEADER_BUFFER_LIMIT = 4096
 
     /**
-     * Pre-auth socket read timeout for [readHttpRequestHead]. A real WS Upgrade arrives in one
-     * TCP segment within milliseconds; 5s is generous enough for stalled networks but tight
-     * enough that a slowloris client can't hold a relay thread + fd open indefinitely. The
-     * relay restores `soTimeout = 0` (infinite) after auth so the long-lived proxied stream
+     * TOTAL pre-auth deadline for [readHttpRequestHead] — wall-clock budget covering the entire
+     * request line + headers, NOT a per-read idle timeout. A real WS Upgrade arrives in one TCP
+     * segment within ms; 5s is generous for stalled networks but tight enough that a slowloris
+     * client can't hold a relay thread + fd open by dribbling bytes just under a per-read cap.
+     * The relay restores `soTimeout = 0` (infinite) after auth so the long-lived proxied stream
      * isn't capped.
      */
-    const val PRE_AUTH_SO_TIMEOUT_MS = 5_000
+    const val PRE_AUTH_DEADLINE_MS = 5_000
 
     private val CRLFCRLF = byteArrayOf(0x0d, 0x0a, 0x0d, 0x0a)
 

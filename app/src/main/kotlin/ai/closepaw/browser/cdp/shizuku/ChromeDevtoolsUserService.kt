@@ -265,18 +265,23 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         val abstractSocket = LocalSocket()
         try {
             client.tcpNoDelay = true
-            // Slowloris defense: pre-auth read deadline. A real WS Upgrade arrives in one TCP
-            // segment within ms; without this cap, a local app could hold a relay thread + fd
-            // open indefinitely by dribbling 1 byte/sec. Restored to 0 (infinite) after auth so
-            // the long-lived proxied stream isn't capped.
-            client.soTimeout = RelayAuthToken.PRE_AUTH_SO_TIMEOUT_MS
+            // Slowloris defense: TOTAL wall-clock deadline for the WS Upgrade head. The helper
+            // walks per-read soTimeout down with the budget, so a 1-byte-per-tick dribbler trips
+            // the deadline once cumulative wall time crosses it (per-read soTimeout alone is
+            // defeatable by sending one byte just under the cap each iteration). Restored to 0
+            // (infinite) after auth so the long-lived proxied stream isn't capped.
+            client.soTimeout = RelayAuthToken.PRE_AUTH_DEADLINE_MS
             // Token gate: read the WS Upgrade request line + headers before connecting upstream.
             // A connection from any local app — or from this app over the wrong code path — is
             // 403'd here, never reaching Chrome's CDP.
             val parsed = try {
-                RelayAuthToken.readHttpRequestHead(client.getInputStream())
+                RelayAuthToken.readHttpRequestHead(
+                    input = client.getInputStream(),
+                    totalDeadlineMs = RelayAuthToken.PRE_AUTH_DEADLINE_MS,
+                    setReadTimeout = { client.soTimeout = it },
+                )
             } catch (e: java.net.SocketTimeoutException) {
-                Log.w(TAG, "relay token gate: pre-auth read timeout (slowloris?)")
+                Log.w(TAG, "relay token gate: pre-auth deadline exceeded (slowloris?): ${e.message}")
                 RelayAuthToken.write408(client.getOutputStream())
                 return
             }

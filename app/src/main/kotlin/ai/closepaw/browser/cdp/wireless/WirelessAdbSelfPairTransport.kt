@@ -202,13 +202,17 @@ class WirelessAdbSelfPairTransport(
         try {
             client.tcpNoDelay = true
             // Slowloris defense — see ChromeDevtoolsUserService.proxyConnection for rationale.
-            client.soTimeout = RelayAuthToken.PRE_AUTH_SO_TIMEOUT_MS
+            client.soTimeout = RelayAuthToken.PRE_AUTH_DEADLINE_MS
             // Token gate: read WS Upgrade headers before opening the upstream adb stream so a
             // rejected client never costs a remote socket round-trip.
             val parsed = try {
-                RelayAuthToken.readHttpRequestHead(client.getInputStream())
+                RelayAuthToken.readHttpRequestHead(
+                    input = client.getInputStream(),
+                    totalDeadlineMs = RelayAuthToken.PRE_AUTH_DEADLINE_MS,
+                    setReadTimeout = { client.soTimeout = it },
+                )
             } catch (e: java.net.SocketTimeoutException) {
-                Log.w(TAG, "wireless-adb relay token gate: pre-auth read timeout (slowloris?)")
+                Log.w(TAG, "wireless-adb relay token gate: pre-auth deadline exceeded (slowloris?): ${e.message}")
                 RelayAuthToken.write408(client.getOutputStream())
                 return
             }
