@@ -10,6 +10,7 @@
 | **Wireless-ADB self-pair (Phase 4) — autonomous in-device** | **nubia P0110 (locked OEM, no root, no PC)** | Shizuku-spawned shell-uid helper drives `IAdbManager.allowWirelessDebugging` + `enablePairingByQrCode` with our own PSK; embedded TLS pair client registers our RSA pubkey into adb_keys; embedded mTLS adb client A_OPENs `localabstract:chrome_devtools_remote` through adbd (which holds both `connectto`-allow and `mlstrustedsubject`). Zero host plumbing on the data path; only persistent requirement is one-time Shizuku grant. |
 | **WS relay stress (Phase 5) — multi-iteration leak check** | **nubia P0110 (PASS)** | 10 sequential `browser_script` agent sessions over the same ClosePaw process. Asserted per-iter (iter 1 → iter N) `socket_fd_delta <= +2` and `fd_delta <= +20`, pid stable, zero `EMFILE` lines, every iter showed `browser_script outcome=SUCCESS` + `GOAL_ACHIEVED` + WIRELESS_ADB_SELF_PAIR relay opened. Result on 2026-05-03 (round 4, post-rebase onto pair-once main): per-iter socket_fd_delta=0, per-iter fd_delta=-2, all 10 iterations GOAL_ACHIEVED via WIRELESS_ADB_SELF_PAIR. Driven by `scripts/ws-relay-stress.sh` + `WirelessAdbSelfPairTransportRelayStressTest`. |
 | **Phase 5 mid-gate (post-cleanup regression check)** | **nubia P0110 (PASS, soft)** | Two cold sessions on a clean install after pair-once + deleted-transport collapse + spike-harden + adb_keys prune + WS relay stress all merged. Both sessions return `document.title is "Example Domain"`; cascade is exactly USER_SERVICE → WIRELESS_ADB_SELF_PAIR with zero references to APP_PROCESS / HOST_MEDIATED_RELAY / CHROME_TCP_LOOPBACK in active logcat. Pair-once skip not observable on this OEM (shell uid denied read of `/data/misc/adb/adb_keys` — known per-OEM constraint, not Phase 5 regression). See "Phase 5 mid-gate" section. |
+| **Phase 5 final-gate (post-bridge-simplify regression check)** | **nubia P0110 (PASS, soft)** | Final gate on `task/qa-final` after `bridge-simplify` (httpGet body shrunk to 27 lines, `DEFAULT_TIMEOUT_MS=4000`, +4 wire-protocol unit tests, cause chained in user error) and three soft-TODO docs landed. Cold-pair + re-pair + 10-iter WS stress all green: `document.title is "Example Domain"` returned on both agent runs via WIRELESS_ADB_SELF_PAIR; stress harness reports per-iter `socket_fd_delta=0`, `fd_delta=2` (within +2 budget), pid stable, `EMFILE=0`, 10/10 iterations GOAL_ACHIEVED. Pair-once skip again not observable on this OEM (per qa-mid finding). See "Phase 5 final-gate" section. |
 
 The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but **Phase 4 routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`), without needing a host PC.**
 
@@ -343,6 +344,99 @@ hygiene fix.
 - `debug-output/run_20260503_160613/` — session 2 (re-pair, OEM perm denial logged).
 - Build log: `BUILD SUCCESSFUL in 2m 40s` (`./gradlew :app:assembleDebug
   :app:testDebugUnitTest :app:lint --rerun-tasks`).
+
+---
+
+## Phase 5 final-gate — regression check on nubia P0110 — PASS (soft)
+
+Final gate after `bridge-simplify` (`af4b8a98 fix(browser): bridge-simplify
+review fixes` and `55dea889 refactor(browser): simplify Shizuku bridge`) and
+three soft-TODO documentation comments (`e99d4cc3`) — both landed on top of the
+mid-gate green commit (`dd0632ea`). Goal: confirm none of those edits regressed
+the device cascade and that the cleanup invariants still hold at HEAD.
+
+### Cleanup invariants (verified at HEAD)
+
+- `grep -rn 'AppProcessLocalSocketTransport\|HostMediatedCdpRelayTransport\|ChromeRemoteDebugPortTransport' app/src/` → zero hits.
+- `ShizukuChromeDevtoolsBridge.httpGet` body = 27 lines (lines 82–108 of
+  `app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt`,
+  budget ≤ 30).
+- `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint` → `BUILD
+  SUCCESSFUL in 51s` (cache-warm; tests + lint + APK).
+
+### Cold-pair agent run — `debug-output/run_20260503_175805/`
+
+`ANDROID_SERIAL=100.64.43.95:5555 DEBUG_AUTO_APPROVE=true
+./scripts/debug-run.sh "Use browser_script to fetch document.title from open
+https://example.com"` after `adb run-as ai.closepaw rm -rf
+files/adb_self_pair && adb forward --remove-all && adb reverse --remove-all`.
+
+Result: agent completes in 4 turns (`open_app Chrome` → `mobile_action click`
+→ `browser_script` → `complete_task`) and returns:
+
+> `complete_task answer: "document.title for https://example.com is: Example Domain"`
+
+Cascade walk in logcat: UserService leg throws `JavaBinder` at
+`ChromeDevtoolsUserService.exchange:56` (the documented nubia-OEM `connectto`
+denial) → `WirelessAdbSelfPair: wireless-adb bootstrap: starting` → `(b) tls
+port = 41089` → `wireless-adb pairing complete; future runs reuse persisted
+key` → `wireless-adb WS relay on 127.0.0.1:38257` → `browser_script
+outcome=SUCCESS`. Exactly the post-cleanup
+`USER_SERVICE → WIRELESS_ADB_SELF_PAIR` cascade with no references to deleted
+transports.
+
+### Re-pair agent run — `debug-output/run_20260503_175919/`
+
+Re-ran the same `debug-run.sh` invocation immediately, leaving
+`files/adb_self_pair/{cert.x509.der, private.pkcs8.der}` in place. Agent again
+returns `Example Domain`. Logcat shows the WirelessAdbSelfPair bootstrap
+re-runs (`pairing complete; future runs reuse persisted key`) rather than
+emitting the `wireless-adb pair skipped` line — same OEM constraint as
+mid-gate: nubia denies shell-uid `read` of `/data/misc/adb/adb_keys`, so the
+`isPubkeyAuthorized` substring match never fires and the transport
+conservatively re-pairs. End-to-end behavior is correct; the skip is a perf
+optimization, not a correctness gate.
+
+### WS relay stress — `debug-output/ws-stress-20260503_180036/`
+
+`ANDROID_SERIAL=100.64.43.95:5555 bash scripts/ws-relay-stress.sh` (default
+`-n 10`). Result `PASS`:
+
+```
+Summary
+  pid_before=28104 pid_after=28104
+  Cold baseline (no agent yet):  fd=326 socket_fd=21
+  After iter 1 (warmed up):      fd=277 socket_fd=20
+  After iter 10:                 fd=279 socket_fd=20
+  Per-iteration deltas (iter 1 -> iter 10, the leak signal):
+      fd_delta=2  socket_fd_delta=0
+  EMFILE/Too-many-open-files lines (across all iter logcats): 0
+  Iterations with 'pair skipped': 0 / 10
+  Iterations with verification failures: 0
+PASS: pid stable, per-iter socket_fd_delta=0, per-iter fd_delta=2, EMFILE=0,
+all 10 iterations verified
+```
+
+`fd_delta=2` is at the +2 budget — same envelope as mid-gate (mid-gate
+reported `fd_delta=-2`, attributable to per-iter scheduler-side fd churn that
+nets out within ±2 either direction). `socket_fd_delta=0` is the load-bearing
+metric (the actual relay/accept-loop leak signal) and is clean.
+
+### Verdict — Phase 5 final-gate
+
+**PASS (SOFT — pair-once skip not observable on nubia, per documented OEM
+constraint inherited from mid-gate; not a Phase 5 regression).** Bridge
+simplify + soft-TODO docs are regression-free on the device cascade. Build
+green at HEAD; cleanup invariants verified; end-to-end `browser_script` works
+on cold-pair and re-pair; WS relay holds steady-state across 10 iterations.
+
+### Evidence
+
+- `debug-output/run_20260503_175805/` — cold-pair agent run (Example Domain).
+- `debug-output/run_20260503_175919/` — re-pair agent run (Example Domain).
+- `debug-output/ws-stress-20260503_180036/` — 10-iter WS relay stress (PASS).
+- Build log: `BUILD SUCCESSFUL in 51s` (`./gradlew :app:assembleDebug
+  :app:testDebugUnitTest :app:lint`).
 
 ---
 
