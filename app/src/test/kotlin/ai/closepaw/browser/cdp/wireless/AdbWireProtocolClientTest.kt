@@ -36,7 +36,9 @@ class AdbWireProtocolClientTest {
             request = "GET /json HTTP/1.1\r\n\r\n".toByteArray(),
         )
 
-        assertThat(String(response, Charsets.UTF_8)).isEqualTo("PONG-PART-1PONG-PART-2")
+        assertThat(String(response, Charsets.UTF_8)).isEqualTo(
+            "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nPONG-PART-1PONG-PART-2"
+        )
 
         val client2Server = parseFrames(server.clientWroteBytes())
         // Post-mTLS the daemon SPEAKS FIRST (sends A_CNXN). Client sends OPEN, then a "ready"
@@ -132,42 +134,51 @@ class AdbWireProtocolClientTest {
     }
 
     @Test
-    fun `runExchange returns partial bytes when peer closes mid-headers`() {
-        // Partial header (no CRLF CRLF yet) followed by A_CLSE — return what we have rather
-        // than block waiting for headers that will never arrive.
+    fun `runExchange throws on truncated headers when peer closes mid-headers`() {
+        // Partial header (no CRLF CRLF yet) followed by A_CLSE — fail loudly rather than hand
+        // back a half-baked response that the HTTP parser will misinterpret.
         val partial = "HTTP/1.1 200 OK\r\nContent-Le"
         val server = FakeAdbd(
             responseChunks = listOf(partial.toByteArray()),
             sendCloseAtEnd = true,
         )
 
-        val out = client.runExchange(
-            input = server.toClient(),
-            out = server.fromClient(),
-            destination = "chrome_devtools_remote",
-            request = "GET / HTTP/1.1\r\n\r\n".toByteArray(),
-        )
-
-        assertThat(String(out, Charsets.UTF_8)).isEqualTo(partial)
+        try {
+            client.runExchange(
+                input = server.toClient(),
+                out = server.fromClient(),
+                destination = "chrome_devtools_remote",
+                request = "GET / HTTP/1.1\r\n\r\n".toByteArray(),
+            )
+            error("expected IOException")
+        } catch (e: IOException) {
+            assertThat(e).hasMessageThat().contains("truncated HTTP response")
+            assertThat(e).hasMessageThat().contains("before headers complete")
+        }
     }
 
     @Test
-    fun `runExchange returns partial body when peer closes after headers but before Content-Length satisfied`() {
-        // Content-Length: 100 but only 5 body bytes arrive before A_CLSE — return what we have.
+    fun `runExchange throws on truncated body when peer closes before Content-Length satisfied`() {
+        // Content-Length: 100 but only 5 body bytes arrive before A_CLSE — caller would silently
+        // get a truncated JSON blob if we returned. Surface the truncation instead.
         val response = "HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nshort"
         val server = FakeAdbd(
             responseChunks = listOf(response.toByteArray()),
             sendCloseAtEnd = true,
         )
 
-        val out = client.runExchange(
-            input = server.toClient(),
-            out = server.fromClient(),
-            destination = "chrome_devtools_remote",
-            request = "GET / HTTP/1.1\r\n\r\n".toByteArray(),
-        )
-
-        assertThat(String(out, Charsets.UTF_8)).isEqualTo(response)
+        try {
+            client.runExchange(
+                input = server.toClient(),
+                out = server.fromClient(),
+                destination = "chrome_devtools_remote",
+                request = "GET / HTTP/1.1\r\n\r\n".toByteArray(),
+            )
+            error("expected IOException")
+        } catch (e: IOException) {
+            assertThat(e).hasMessageThat().contains("truncated HTTP body")
+            assertThat(e).hasMessageThat().contains("got 5 bytes, expected 100")
+        }
     }
 
     private fun httpResponse(body: String, withContentLength: Boolean): String {
@@ -191,7 +202,7 @@ class AdbWireProtocolClientTest {
         private val rejectOpen: Boolean = false,
         private val sendAuthInsteadOfCnxn: Boolean = false,
         private val responseChunks: List<ByteArray> = listOf(
-            "PONG-PART-1".toByteArray(),
+            "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nPONG-PART-1".toByteArray(),
             "PONG-PART-2".toByteArray(),
         ),
         private val sendCloseAtEnd: Boolean = true,

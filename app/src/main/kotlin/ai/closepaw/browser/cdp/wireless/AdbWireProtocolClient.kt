@@ -174,7 +174,20 @@ class AdbWireProtocolClient(
                         return current
                     }
                 }
-                A_CLSE -> return sink.toByteArray()
+                A_CLSE -> {
+                    val current = sink.toByteArray()
+                    if (headerEnd < 0) {
+                        throw IOException("truncated HTTP response: peer closed before headers complete (got ${current.size} bytes)")
+                    }
+                    if (contentLength >= 0) {
+                        val bodyBytes = current.size - (headerEnd + 4)
+                        if (bodyBytes < contentLength) {
+                            throw IOException("truncated HTTP body: got $bodyBytes bytes, expected $contentLength")
+                        }
+                    }
+                    // Headers complete + no Content-Length declared → close-delimited (HTTP/1.0 style).
+                    return current
+                }
                 A_OKAY -> Unit
                 else -> throw IOException("unexpected cmd in read loop: 0x${"%08x".format(msg.command)}")
             }

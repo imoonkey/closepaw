@@ -52,10 +52,10 @@ sealed class DevtoolsSetupError(
      */
     class WirelessAdbSelfPairUnavailable(cause: Throwable?) : DevtoolsSetupError(
         code = "wireless_adb_self_pair_unavailable",
-        message = "Wireless-ADB self-pair could not be brought up on this device. " +
-            "Verify (a) Shizuku is granted, (b) the device is on a Wi-Fi network, " +
-            "(c) IAdbManager AIDL is reachable from the shell uid (com.android.shell " +
-            "must hold MANAGE_DEBUGGING — true on stock AOSP and most OEM builds).",
+        // Inline the cause class+message because the capability gate / agent UI surfaces only
+        // [message] (not the chained stack), so SSLHandshakeException / SocketTimeoutException
+        // / IOException details would otherwise be invisible to the user.
+        message = buildWirelessAdbSelfPairMessage(cause),
         cause = cause,
     )
 
@@ -64,4 +64,17 @@ sealed class DevtoolsSetupError(
         message = "Chrome DevTools returned a malformed HTTP/WebSocket response: $detail",
         cause = cause,
     )
+}
+
+private const val WIRELESS_ADB_SELF_PAIR_BASE_MESSAGE: String =
+    "Wireless-ADB self-pair could not be brought up on this device. " +
+        "Verify (a) Shizuku is granted, (b) the device is on a Wi-Fi network, " +
+        "(c) IAdbManager AIDL is reachable from the shell uid (com.android.shell " +
+        "must hold MANAGE_DEBUGGING — true on stock AOSP and most OEM builds)."
+
+private fun buildWirelessAdbSelfPairMessage(cause: Throwable?): String {
+    if (cause == null) return WIRELESS_ADB_SELF_PAIR_BASE_MESSAGE
+    val detail = cause.message?.takeIf { it.isNotBlank() }
+        ?.let { ": $it" } ?: ""
+    return "$WIRELESS_ADB_SELF_PAIR_BASE_MESSAGE Underlying cause: ${cause.javaClass.simpleName}$detail"
 }
