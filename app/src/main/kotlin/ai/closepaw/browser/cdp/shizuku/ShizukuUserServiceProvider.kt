@@ -317,8 +317,10 @@ class ShizukuUserServiceProvider internal constructor(
         // Bump whenever IChromeDevtoolsUserService.aidl changes shape. Shizuku keys cached
         // user-service processes on (ComponentName, version), so an unchanged version + a
         // changed AIDL would let the new client transact against an old stub via shifted
-        // transaction IDs — silently calling the wrong method.
-        const val USER_SERVICE_VERSION = 3
+        // transaction IDs — silently calling the wrong method. v4 adds the authToken
+        // parameter to startTcpRelay; an upgraded client hitting a cached v3 stub would
+        // bypass token gating entirely.
+        const val USER_SERVICE_VERSION = 4
         const val DEFAULT_PROCESS_SUFFIX = "chrome_devtools"
         const val DEFAULT_BIND_TIMEOUT_MS = 10_000L
     }

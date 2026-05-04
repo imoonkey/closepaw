@@ -276,6 +276,19 @@ class WirelessAdbSelfPairTransportRelayStressTest {
         assertThat(forwarded).startsWith("GET /devtools/page/")
     }
 
+    @Test
+    fun `relay times out slowloris client (no bytes sent) with 408`() = runBlocking {
+        val port = transport.ensureWebSocketRelayPort()!!
+        Socket("127.0.0.1", port).use { sock ->
+            sock.soTimeout = 10_000
+            val start = System.currentTimeMillis()
+            val response = sock.getInputStream().readBytes().toString(Charsets.US_ASCII)
+            val elapsed = System.currentTimeMillis() - start
+            assertThat(response).startsWith("HTTP/1.1 408")
+            assertThat(elapsed).isLessThan(8_000L)
+        }
+    }
+
     private fun validUpgradeRequest(token: String, port: Int): ByteArray =
         ("GET /devtools/page/AAA HTTP/1.1\r\n" +
             "Host: 127.0.0.1:$port\r\n" +

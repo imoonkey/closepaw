@@ -92,4 +92,29 @@ class RelayAuthTokenTest {
         assertThat(out).contains("Content-Length: 0")
         assertThat(out).contains("Connection: close")
     }
+
+    @Test
+    fun `write408 emits a Request Timeout response`() {
+        val sink = ByteArrayOutputStream()
+        RelayAuthToken.write408(sink)
+        val out = sink.toString(Charsets.US_ASCII.name())
+        assertThat(out).startsWith("HTTP/1.1 408 Request Timeout")
+        assertThat(out).contains("Content-Length: 0")
+        assertThat(out).contains("Connection: close")
+    }
+
+    @Test
+    fun `readHttpRequestHead propagates SocketTimeoutException`() {
+        val timing = object : java.io.InputStream() {
+            override fun read(): Int = throw java.net.SocketTimeoutException("simulated")
+            override fun read(b: ByteArray, off: Int, len: Int): Int =
+                throw java.net.SocketTimeoutException("simulated")
+        }
+        try {
+            RelayAuthToken.readHttpRequestHead(timing)
+            throw AssertionError("expected SocketTimeoutException to propagate")
+        } catch (e: java.net.SocketTimeoutException) {
+            assertThat(e.message).contains("simulated")
+        }
+    }
 }

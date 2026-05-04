@@ -201,9 +201,17 @@ class WirelessAdbSelfPairTransport(
         var stream: AdbStream? = null
         try {
             client.tcpNoDelay = true
+            // Slowloris defense — see ChromeDevtoolsUserService.proxyConnection for rationale.
+            client.soTimeout = RelayAuthToken.PRE_AUTH_SO_TIMEOUT_MS
             // Token gate: read WS Upgrade headers before opening the upstream adb stream so a
             // rejected client never costs a remote socket round-trip.
-            val parsed = RelayAuthToken.readHttpRequestHead(client.getInputStream())
+            val parsed = try {
+                RelayAuthToken.readHttpRequestHead(client.getInputStream())
+            } catch (e: java.net.SocketTimeoutException) {
+                Log.w(TAG, "wireless-adb relay token gate: pre-auth read timeout (slowloris?)")
+                RelayAuthToken.write408(client.getOutputStream())
+                return
+            }
             if (parsed !is RelayAuthToken.ParseResult.Success) {
                 Log.w(TAG, "wireless-adb relay token gate: rejected (${(parsed as RelayAuthToken.ParseResult.Failure).reason})")
                 RelayAuthToken.write403(client.getOutputStream())
@@ -214,6 +222,8 @@ class WirelessAdbSelfPairTransport(
                 RelayAuthToken.write403(client.getOutputStream())
                 return
             }
+            // Auth OK — restore infinite read timeout for the long-lived proxied stream.
+            client.soTimeout = 0
             val tlsPort = cachedTlsPort
             if (tlsPort <= 0) throw IOException("relay invoked before bootstrap")
             stream = kotlinx.coroutines.runBlocking {

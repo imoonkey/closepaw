@@ -265,10 +265,21 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         val abstractSocket = LocalSocket()
         try {
             client.tcpNoDelay = true
+            // Slowloris defense: pre-auth read deadline. A real WS Upgrade arrives in one TCP
+            // segment within ms; without this cap, a local app could hold a relay thread + fd
+            // open indefinitely by dribbling 1 byte/sec. Restored to 0 (infinite) after auth so
+            // the long-lived proxied stream isn't capped.
+            client.soTimeout = RelayAuthToken.PRE_AUTH_SO_TIMEOUT_MS
             // Token gate: read the WS Upgrade request line + headers before connecting upstream.
             // A connection from any local app — or from this app over the wrong code path — is
             // 403'd here, never reaching Chrome's CDP.
-            val parsed = RelayAuthToken.readHttpRequestHead(client.getInputStream())
+            val parsed = try {
+                RelayAuthToken.readHttpRequestHead(client.getInputStream())
+            } catch (e: java.net.SocketTimeoutException) {
+                Log.w(TAG, "relay token gate: pre-auth read timeout (slowloris?)")
+                RelayAuthToken.write408(client.getOutputStream())
+                return
+            }
             if (parsed !is RelayAuthToken.ParseResult.Success) {
                 Log.w(TAG, "relay token gate: rejected (${(parsed as RelayAuthToken.ParseResult.Failure).reason})")
                 RelayAuthToken.write403(client.getOutputStream())
@@ -279,6 +290,9 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
                 RelayAuthToken.write403(client.getOutputStream())
                 return
             }
+            // Auth OK — restore the post-open idle behavior. The bidirectional pump runs until
+            // either side closes; capping it would chop long-running CDP sessions.
+            client.soTimeout = 0
             abstractSocket.connect(
                 LocalSocketAddress(CHROME_DEVTOOLS_SOCKET, LocalSocketAddress.Namespace.ABSTRACT)
             )

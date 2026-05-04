@@ -2,6 +2,7 @@ package ai.closepaw.browser.cdp
 
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.SocketTimeoutException
 import java.security.SecureRandom
 
 /**
@@ -30,11 +31,14 @@ object RelayAuthToken {
     /**
      * Read up to [HEADER_BUFFER_LIMIT] bytes from [input] looking for the end of HTTP headers
      * (`\r\n\r\n`). On success, return the buffered bytes (so callers can replay them upstream)
-     * paired with the parsed value of [HEADER_NAME] — or null if absent. On failure (EOF before
-     * end-of-headers, or limit exceeded), return [Failure].
+     * paired with the parsed value of [HEADER_NAME] — or null if absent. On EOF before the
+     * terminator or limit exceeded, return [Failure].
      *
-     * Constant-time comparison happens in [verify] — this method only parses.
+     * [SocketTimeoutException] from [input.read] propagates out so callers can write 408 — the
+     * relay sets a short pre-auth `soTimeout` on the client socket as a slowloris defense, and
+     * timing out is a different signal from a malformed-but-prompt request.
      */
+    @Throws(SocketTimeoutException::class)
     fun readHttpRequestHead(input: InputStream): ParseResult {
         val buf = ByteArray(HEADER_BUFFER_LIMIT)
         var size = 0
@@ -42,6 +46,9 @@ object RelayAuthToken {
         while (size < HEADER_BUFFER_LIMIT) {
             val n = try {
                 input.read(buf, size, HEADER_BUFFER_LIMIT - size)
+            } catch (e: SocketTimeoutException) {
+                // Slowloris signal — surface to caller so it can write 408 + close.
+                throw e
             } catch (e: Exception) {
                 return ParseResult.Failure("read failed: ${e.message}")
             }
@@ -81,6 +88,17 @@ object RelayAuthToken {
         }
     }
 
+    /**
+     * Write a minimal HTTP/1.1 408 Request Timeout + close. Best-effort. Used when the client
+     * dribbles bytes (or none) past the pre-auth slowloris timeout.
+     */
+    fun write408(output: OutputStream) {
+        runCatching {
+            output.write(HTTP_408_BYTES)
+            output.flush()
+        }
+    }
+
     private fun indexOfDoubleCrlf(buf: ByteArray, size: Int): Int {
         if (size < 4) return -1
         outer@ for (i in 0..size - 4) {
@@ -116,10 +134,26 @@ object RelayAuthToken {
      */
     const val HEADER_BUFFER_LIMIT = 4096
 
+    /**
+     * Pre-auth socket read timeout for [readHttpRequestHead]. A real WS Upgrade arrives in one
+     * TCP segment within milliseconds; 5s is generous enough for stalled networks but tight
+     * enough that a slowloris client can't hold a relay thread + fd open indefinitely. The
+     * relay restores `soTimeout = 0` (infinite) after auth so the long-lived proxied stream
+     * isn't capped.
+     */
+    const val PRE_AUTH_SO_TIMEOUT_MS = 5_000
+
     private val CRLFCRLF = byteArrayOf(0x0d, 0x0a, 0x0d, 0x0a)
 
     private val HTTP_403_BYTES = (
         "HTTP/1.1 403 Forbidden\r\n" +
+            "Content-Length: 0\r\n" +
+            "Connection: close\r\n" +
+            "\r\n"
+        ).toByteArray(Charsets.US_ASCII)
+
+    private val HTTP_408_BYTES = (
+        "HTTP/1.1 408 Request Timeout\r\n" +
             "Content-Length: 0\r\n" +
             "Connection: close\r\n" +
             "\r\n"
