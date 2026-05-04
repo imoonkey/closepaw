@@ -27,9 +27,9 @@ class AdbWireProtocolClient(
         tlsPort: Int,
         destination: String,
         request: ByteArray,
-        timeoutMs: Int = 10_000,
+        handshakeTimeoutMs: Int = 10_000,
     ): ByteArray = runInterruptible(Dispatchers.IO) {
-        val channel = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, timeoutMs)
+        val channel = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, handshakeTimeoutMs)
         try {
             runExchange(channel.inputStream, channel.outputStream, destination, request)
         } finally {
@@ -41,11 +41,22 @@ class AdbWireProtocolClient(
         host: String,
         tlsPort: Int,
         destination: String,
-        timeoutMs: Int = 10_000,
+        handshakeTimeoutMs: Int = 10_000,
     ): AdbStream = runInterruptible(Dispatchers.IO) {
-        val channel = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, timeoutMs)
-        try {
+        val channel = AdbTlsClient.connectWithStls(host, tlsPort, keyStore, handshakeTimeoutMs)
+        openOnChannel(channel, destination)
+    }
+
+    /**
+     * Test seam + post-handshake setup for long-lived streams. The handshake (A_CNXN read,
+     * A_OPEN/OKAY round-trip) inherits the channel's bounded handshake timeout. Once the
+     * stream is OPEN the timeout is cleared (0 = infinite) so idle CDP/WebSocket gaps —
+     * which can be tens of seconds between frames — don't kill the relay socket.
+     */
+    internal fun openOnChannel(channel: AdbTlsClient.TlsChannel, destination: String): AdbStream {
+        return try {
             val (remoteId, maxPayload) = handshakeAndOpen(channel.inputStream, channel.outputStream, destination)
+            channel.setIdleReadTimeoutMs(0)
             AdbStream(channel, LOCAL_ID, remoteId, maxPayload)
         } catch (t: Throwable) {
             runCatching { channel.close() }

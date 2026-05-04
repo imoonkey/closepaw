@@ -181,6 +181,63 @@ class AdbWireProtocolClientTest {
         }
     }
 
+    @Test
+    fun `openOnChannel resets idle read timeout to infinite after handshake`() {
+        // Long-lived CDP/WebSocket streams must clear the handshake-grade SO_TIMEOUT after the
+        // post-mTLS A_OPEN/OKAY round-trip — otherwise an idle gap longer than the handshake
+        // timeout (10s in production) tears down the relay socket.
+        val server = FakeAdbd(
+            expectClientWrte = false,
+            responseChunks = emptyList(),
+            sendCloseAtEnd = true,
+        )
+        val tracker = TrackingTlsChannel(server.toClient(), server.fromClient())
+        val stream = client.openOnChannel(tracker, "chrome_devtools_remote")
+        try {
+            assertThat(tracker.idleTimeoutMs).isEqualTo(0)
+        } finally {
+            stream.close()
+        }
+    }
+
+    @Test
+    fun `SocketChannel idle timeout reset survives long idle gap then receives a frame`() {
+        // Regression for `browser-phase6-ws-idle-timeout`: handshake-grade soTimeout was
+        // persisting after WS upgrade and killing idle CDP sockets at the 10s mark. After
+        // setIdleReadTimeoutMs(0) the read blocks indefinitely until the next frame arrives.
+        java.net.ServerSocket(0).use { server ->
+            val sock = java.net.Socket()
+            sock.connect(java.net.InetSocketAddress("127.0.0.1", server.localPort), 1_000)
+            sock.soTimeout = 100  // simulated handshake-grade timeout
+            val accepted = server.accept()
+            try {
+                val channel = AdbTlsClient.SocketChannel(sock)
+                channel.setIdleReadTimeoutMs(0)
+                Thread.sleep(200)  // > initial 100ms — would throw SocketTimeoutException without reset
+                val payload = byteArrayOf(0x42, 0x43)
+                accepted.getOutputStream().apply { write(payload); flush() }
+                val buf = ByteArray(2)
+                val n = channel.inputStream.read(buf)
+                assertThat(n).isEqualTo(2)
+                assertThat(buf).isEqualTo(payload)
+            } finally {
+                runCatching { accepted.close() }
+                runCatching { sock.close() }
+            }
+        }
+    }
+
+    private class TrackingTlsChannel(
+        override val inputStream: java.io.InputStream,
+        override val outputStream: java.io.OutputStream,
+    ) : AdbTlsClient.TlsChannel {
+        @Volatile var idleTimeoutMs: Int = -1
+            private set
+
+        override fun setIdleReadTimeoutMs(ms: Int) { idleTimeoutMs = ms }
+        override fun close() = Unit
+    }
+
     private fun httpResponse(body: String, withContentLength: Boolean): String {
         val bytes = body.toByteArray()
         val header = buildString {
@@ -206,6 +263,7 @@ class AdbWireProtocolClientTest {
             "PONG-PART-2".toByteArray(),
         ),
         private val sendCloseAtEnd: Boolean = true,
+        private val expectClientWrte: Boolean = true,
     ) {
         private val toClientSrc = PipedOutputStream()
         private val toClientSink = PipedInputStream(toClientSrc, 64 * 1024)
@@ -262,9 +320,11 @@ class AdbWireProtocolClientTest {
                 }
 
                 // Read the client's request WRTE, ack it.
-                val wrte = AdbProtocol.Message.read(fromClientReader)
-                check(wrte.command == AdbProtocol.A_WRTE)
-                AdbProtocol.Message.write(toClientSrc, AdbProtocol.A_OKAY, remoteId, open.arg0, ByteArray(0))
+                if (expectClientWrte) {
+                    val wrte = AdbProtocol.Message.read(fromClientReader)
+                    check(wrte.command == AdbProtocol.A_WRTE)
+                    AdbProtocol.Message.write(toClientSrc, AdbProtocol.A_OKAY, remoteId, open.arg0, ByteArray(0))
+                }
 
                 // Server emits each response frame, expecting OKAY back. If the client returns
                 // mid-stream (e.g. Content-Length satisfied), the second-frame write may block

@@ -53,7 +53,7 @@ class WirelessAdbSelfPairTransport(
                 tlsPort = tlsPort,
                 destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
                 request = request,
-                timeoutMs = timeoutMs,
+                handshakeTimeoutMs = timeoutMs,
             )
         } catch (t: Throwable) {
             // adbd may have rotated the TLS port (Wi-Fi flap, daemon restart) between bootstrap
@@ -68,7 +68,7 @@ class WirelessAdbSelfPairTransport(
                 tlsPort = fresh,
                 destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
                 request = request,
-                timeoutMs = timeoutMs,
+                handshakeTimeoutMs = timeoutMs,
             )
         }
     }

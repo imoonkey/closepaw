@@ -40,16 +40,27 @@ internal object AdbTlsClient {
     interface TlsChannel : Closeable {
         val inputStream: InputStream
         val outputStream: OutputStream
+        /**
+         * Reset the underlying socket's SO_TIMEOUT after the handshake completes. 0 = infinite.
+         * The handshake uses a short bounded timeout; long-lived streams (CDP WebSocket relay)
+         * must clear it so idle gaps between frames don't tear down the socket.
+         */
+        fun setIdleReadTimeoutMs(ms: Int)
     }
 
-    fun connectWithStls(host: String, port: Int, keyStore: AdbCryptoKeyStore, timeoutMs: Int): TlsChannel {
+    fun connectWithStls(
+        host: String,
+        port: Int,
+        keyStore: AdbCryptoKeyStore,
+        handshakeTimeoutMs: Int,
+    ): TlsChannel {
         WirelessAdbProviders.ensure()
         val material = keyStore.loadOrCreate()
 
         val plain = Socket()
         plain.tcpNoDelay = true
-        plain.connect(InetSocketAddress(host, port), timeoutMs)
-        plain.soTimeout = timeoutMs
+        plain.connect(InetSocketAddress(host, port), handshakeTimeoutMs)
+        plain.soTimeout = handshakeTimeoutMs
 
         // Step 1: pre-TLS A_CNXN -> A_STLS handshake (plaintext). Banner advertises only the
         // features we actually implement on the wire. Notably we do NOT advertise `delayed_ack`:
@@ -94,15 +105,16 @@ internal object AdbTlsClient {
         val tls = factory.createSocket(plain, host, port, /* autoClose = */ true) as SSLSocket
         tls.useClientMode = true
         tls.enabledProtocols = arrayOf("TLSv1.3")
-        tls.soTimeout = timeoutMs
+        tls.soTimeout = handshakeTimeoutMs
         tls.startHandshake()
         Log.i(TAG, "TLS session: protocol=${tls.session.protocol} cipher=${tls.session.cipherSuite}")
         return SocketChannel(tls)
     }
 
-    private class SocketChannel(private val socket: SSLSocket) : TlsChannel {
-        override val inputStream: InputStream get() = socket.inputStream
-        override val outputStream: OutputStream get() = socket.outputStream
+    internal class SocketChannel(private val socket: Socket) : TlsChannel {
+        override val inputStream: InputStream get() = socket.getInputStream()
+        override val outputStream: OutputStream get() = socket.getOutputStream()
+        override fun setIdleReadTimeoutMs(ms: Int) { socket.soTimeout = ms }
         override fun close() { runCatching { socket.close() } }
     }
 
