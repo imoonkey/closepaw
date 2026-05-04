@@ -26,8 +26,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * Runs inside a Shizuku-spawned host process under the shell UID and exposes a single
  * round-trip [exchange] over Chrome's `chrome_devtools_remote` abstract socket. The shell UID
- * is typically allowed to connect to that socket even when ClosePaw's app UID is blocked by
- * SELinux / package isolation.
+ * can usually reach that socket on AOSP-spec builds; locked OEM builds (e.g., nubia P0110)
+ * commonly deny it via SELinux, in which case the cascade falls back to
+ * [ai.closepaw.browser.cdp.wireless.WirelessAdbSelfPairTransport].
  *
  * Security: the abstract socket name is hard-wired to [CHROME_DEVTOOLS_SOCKET]; if it were a
  * parameter the app UID could use this user service as a proxy to reach arbitrary privileged

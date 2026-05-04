@@ -73,10 +73,26 @@ class AdbWirelessManager(
      * Returns true iff the file was actually rewritten. Returns false defensively when the
      * current pubkey isn't found as a first-token in any line — never delete the only ClosePaw
      * entry we cannot verify is current.
+     *
+     * Hard ceiling: if any single pubkey already appears > [MAX_DUPLICATE_PUBKEY_LINES] times
+     * the file is in pathological growth (typically the pair-once fallback firing every cold
+     * start on OEMs whose shell uid can't read adb_keys, see
+     * [WirelessAdbSelfPairTransport.ensurePaired]). The prune itself would still help, but
+     * silently churning the file masks the underlying bug — return false instead so logs surface
+     * the condition for manual investigation.
      */
     suspend fun pruneAdbKeys(retainPubkeyBase64: String): Boolean {
         require(retainPubkeyBase64.isNotEmpty()) { "retainPubkeyBase64 must not be empty" }
         val content = onBinder { it.readAdbKeys() } ?: return false
+        val maxRepeats = mostFrequentPubkeyCount(content)
+        if (maxRepeats > MAX_DUPLICATE_PUBKEY_LINES) {
+            Log.w(
+                TAG,
+                "pruneAdbKeys: skipping write — adb_keys has $maxRepeats copies of a single " +
+                    "pubkey (cap $MAX_DUPLICATE_PUBKEY_LINES); investigate pair-once fallback growth",
+            )
+            return false
+        }
         val result = pruneClosePawEntries(content, retainPubkeyBase64)
         if (!result.foundCurrent) return false
         if (!result.changed) return false
@@ -105,6 +121,27 @@ class AdbWirelessManager(
         // adbd's auth.cpp tokenizes adb_keys on \s+ (not space-only), so honor tab-separated
         // entries from other writers when matching/preserving lines.
         private val WHITESPACE = Regex("\\s+")
+        // Hard ceiling for [pruneAdbKeys] — see KDoc on that function.
+        internal const val MAX_DUPLICATE_PUBKEY_LINES = 10
+
+        /**
+         * Largest count of any single first-token pubkey across all non-blank lines. Matches
+         * adbd's `\s+` tokenization so tab-separated and space-separated entries collide as
+         * intended.
+         */
+        internal fun mostFrequentPubkeyCount(content: String): Int {
+            val counts = HashMap<String, Int>()
+            var max = 0
+            for (raw in content.split('\n')) {
+                val line = raw.trimEnd('\r')
+                if (line.isBlank()) continue
+                val pubkey = line.split(WHITESPACE, limit = 2)[0]
+                val next = (counts[pubkey] ?: 0) + 1
+                counts[pubkey] = next
+                if (next > max) max = next
+            }
+            return max
+        }
 
         /**
          * Drop blank lines and any `ClosePaw@*`-named line whose pubkey is not

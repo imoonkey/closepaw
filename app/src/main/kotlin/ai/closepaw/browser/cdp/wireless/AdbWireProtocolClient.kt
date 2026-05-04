@@ -235,6 +235,11 @@ class AdbWireProtocolClient(
         const val LOCAL_ID = 1
         private val EMPTY = ByteArray(0)
         private const val TAG = "AdbWireProto"
+        // Empirical worst-case for the post-mTLS A_CNXN→A_OPEN race described above. Production
+        // agent chain PASS recorded with this sleep on both emulator-5556 (Android 14) and
+        // nubia P0110; no per-device "comment-out" minimization has been done yet, so 200ms is
+        // a ceiling rather than a measured minimum. If shaving it later, re-validate on the
+        // slower of the two (nubia).
         private const val POST_CNXN_SETTLE_MS = 200L
     }
 }

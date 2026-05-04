@@ -93,9 +93,10 @@ internal object AdbTlsClient {
         )
         plain.getOutputStream().flush()
 
-        // Step 2: mTLS handshake. Mirrors libadb-android's SslUtils — bundled Conscrypt is
-        // installed as Provider #1 by [WirelessAdbProviders], so this resolves to Conscrypt.
-        val context = SSLContext.getInstance("TLSv1.3")
+        // Step 2: mTLS handshake. Mirrors libadb-android's SslUtils — provider-qualified to the
+        // bundled Conscrypt registered by [WirelessAdbProviders] (the platform's hidden Conscrypt
+        // can't export keying material on some vendor builds).
+        val context = SSLContext.getInstance("TLSv1.3", "Conscrypt")
         context.init(
             arrayOf(SingleCertKeyManager(material.keyPair.private, material.certificate)),
             arrayOf<javax.net.ssl.TrustManager>(TrustAllManager),

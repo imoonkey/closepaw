@@ -275,4 +275,29 @@ class AdbWirelessManagerTest {
             assertThat(e.message).contains("retainPubkeyBase64")
         }
     }
+
+    @Test
+    fun pruneAdbKeys_skips_write_when_any_pubkey_repeats_above_ceiling() = runTest {
+        // Pathological growth: 11 copies of the SAME pubkey trips the ceiling. Even though the
+        // prune logic would cleanly dedupe to 1, surfacing this case via a logged warning is
+        // more useful than silently churning the file every cold session.
+        val current = "AAAA_CURRENT_KEY"
+        val padded = (1..11).joinToString("") { "$current ClosePaw@P0110\n" }
+        every { binder.readAdbKeys() } returns padded
+
+        assertThat(manager.pruneAdbKeys(current)).isFalse()
+        verify(exactly = 0) { binder.writeAdbKeys(any()) }
+    }
+
+    @Test
+    fun pruneAdbKeys_writes_when_pubkey_repeats_at_ceiling() = runTest {
+        // Boundary: exactly 10 copies still gets pruned (ceiling is strict >).
+        val current = "AAAA_CURRENT_KEY"
+        val padded = (1..10).joinToString("") { "$current ClosePaw@P0110\n" }
+        every { binder.readAdbKeys() } returns padded
+        every { binder.writeAdbKeys(any()) } returns true
+
+        assertThat(manager.pruneAdbKeys(current)).isTrue()
+        verify { binder.writeAdbKeys("$current ClosePaw@P0110\n") }
+    }
 }
