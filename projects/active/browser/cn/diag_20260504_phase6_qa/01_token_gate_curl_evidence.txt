@@ -1,0 +1,28 @@
+=== Phase 6 final-gate live token-gate negative test ===
+Date: 2026-05-04
+Device: emulator-5556 (sdk_gphone64_x86_64, AOSP)
+Relay: ai.closepaw:chrome_devtools UserService process pid 26932, listening on 127.0.0.1:35079
+Forward: adb -s emulator-5556 forward tcp:8765 tcp:35079
+
+--- Test 1: NO X-ClosePaw-Token header (expect 403) ---
+$ curl -i -s --max-time 5 http://localhost:8765/devtools/page/AAA -H "Connection: close"
+HTTP/1.1 403 Forbidden
+Content-Length: 0
+Connection: close
+
+--- Test 2: WRONG X-ClosePaw-Token (expect 403) ---
+$ curl -i -s --max-time 5 http://localhost:8765/devtools/page/AAA -H "X-ClosePaw-Token: not-the-real-token" -H "Connection: close"
+HTTP/1.1 403 Forbidden
+Content-Length: 0
+Connection: close
+
+--- Test 3: SLOWLORIS (no end-of-headers, dribble, expect 408 within ~5s of PRE_AUTH_DEADLINE_MS) ---
+$ ( printf "GET /devtools/page/AAA HTTP/1.1\r\nHost: localhost\r\n"; sleep 8 ) | nc -q 8 localhost 8765 | head -5
+HTTP/1.1 408 Request Timeout
+Content-Length: 0
+Connection: close
+
+Conclusion: token-gate is enforced as designed.
+- No-token → 403 ✅
+- Wrong-token → 403 ✅
+- Slowloris (incomplete headers) → 408 ✅

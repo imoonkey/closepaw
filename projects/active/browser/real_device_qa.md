@@ -707,3 +707,58 @@ All under `projects/active/browser/cn/diag_20260501_finalpath/`:
 ## Verdict — PASS or FAIL, single line; if PASS, write the literal word PASS
 
 FAIL — production transport blocked by device SELinux policy; not a code bug.
+
+---
+
+## Phase 6 final-gate — 2026-05-04 — BLOCKED
+
+### Summary
+
+Phase 6 final QA gate run on `task/p6-qa` (worktree `.worktrees/p6-qa`, HEAD eada8cc4). Six of
+the seven local verifications pass and the agent → CDP → "Example Domain" full chain re-runs
+green on emulator-5556. The codex re-review (`projects/active/browser/cn/phase6_codex_review.md`)
+returned **REJECT** because item #4 (storeArtifact session quota, prior High finding) is
+implemented at the wrong scope: the `sessionDecodedBytes` counter lives on
+`BrowserScriptJsInterface`, which is instantiated fresh inside every `BrowserScriptRunner.run()`
+call (`BrowserScriptRunner.kt:75`). The runner is session-scoped, but the JsInterface — and
+therefore the byte counter — is per-call. The advertised 500 MiB session cap is therefore a
+500 MiB *per-`browser_script`-invocation* cap; sustained DoS via repeated browser_script calls
+within one agent session can still fill /sdcard. Per the gate criteria ("Phase 6 must close
+the prior Critical + High findings without introducing new ones"), this is a HARD FAIL.
+
+### Per-item results
+
+| # | Item | Result | Evidence |
+|---|---|---|---|
+| 1 | Token gate negative test | PASS | Live curl on running emulator-5556 relay (port 35079): `HTTP/1.1 403 Forbidden` for both no-token and wrong-token; `HTTP/1.1 408 Request Timeout` after slowloris dribble. Plus 16+9+6=31 unit tests across `RelayAuthTokenTest`, `WirelessAdbSelfPairTransportRelayStressTest`, `ChromeDevtoolsUserServiceRelayTest`. See `cn/diag_20260504_phase6_qa/01_token_gate_curl_evidence.txt`. |
+| 2 | WS handshake/idle separation | PASS | `AdbWireProtocolClientTest.openOnChannel resets idle read timeout to infinite after handshake` + `SocketChannel idle timeout reset survives long idle gap then receives a frame` (real localhost socket pair). 9 tests in suite, all green. |
+| 3 | CDP target switch | PASS | `ChromeCdpClientTest`: 7 dedicated cases on direct-WS swap atomicity, stale-callback rejection, in-flight cancel, concurrent switch, sendRaw fast-fail. 26 tests in suite, all green. |
+| 4 | storeArtifact DoS | **FAIL (REJECT)** | Per-call cap (50 MiB) enforced. **But** session cap is wrongly scoped: `BrowserScriptJsInterface` (which owns `sessionDecodedBytes` AtomicLong) is recreated in every `BrowserScriptRunner.run()` call. Counter resets between `browser_script` invocations within the same session. `BrowserScriptJsInterface.kt:18`, `BrowserScriptRunner.kt:75`. 9 unit tests pass but only exercise a single JsInterface instance — the multi-call session-scope behavior is not tested. |
+| 5 | BouncyCastle ≥ 1.84 | PASS | `:app:dependencies --configuration debugRuntimeClasspath`: `bcpkix-jdk18on:1.84`, `bcprov-jdk18on:1.84` (both transitive and direct). |
+| 6 | SPAKE2 / LGPL purge | PASS | 0 hits for `MuntashirAkon\|spake2-android` in `build.gradle.kts settings.gradle.kts`. Remaining matches in `app/` source are attribution / replacement-context comments. APK contains 0 `lib*spake*.so` files. New `Spake25519.kt` validated by 8 KAT-vector unit tests. |
+| 7 | Real-device chain | SOFT PASS (emulator) / BLOCKED (nubia) | EMU emulator-5556 returned `"The page title is: Example Domain"` via Shizuku UserService transport (run dir `debug-output/run_20260504_151121/`, GOAL_ACHIEVED at 22:12:16). NUBIA P0110 cold-pair attempt blocked by physical pocket-anti-mistouch lock (proximity-sensor hardware feature requiring user presence to dismiss); no code regression — the WIRELESS_ADB_SELF_PAIR path is exercised by `WirelessAdbSelfPairTransportRelayStressTest` + Phase 5 final-gate (PASS). |
+| 8 | Codex re-review | **REJECT** | `cn/phase6_codex_review.md`. Items 1, 2, 3, 5, 6 confirmed YES with file:line citations. Item 4 NO (above). New Critical: none. New High: storeArtifact quota scoping. Verdict: REJECT — make the artifact quota owned by session-scoped runtime state with atomic reservation semantics before shipping Phase 6. |
+
+### Build + lint + tests baseline
+
+`./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint` — `BUILD SUCCESSFUL in 6s` (29 actionable, 27 cached, 2 executed, 0 lint errors). Phase 6 unit-test suites (7 classes, 83 tests): 0 failures, 0 errors. See `cn/diag_20260504_phase6_qa/02_test_summary.txt`.
+
+### Gate verdict
+
+**BLOCKED.** Codex re-review surfaces a remaining High on the storeArtifact quota scope. Per
+gate acceptance ("HARD FAIL: codex re-review surfaces new Critical/High; HARD FAIL is
+non-shippable"), Phase 6 cannot ship as-is. Required fix: lift `sessionDecodedBytes` from
+`BrowserScriptJsInterface` (per-call) to `BrowserScriptRunner` or `BrowserSessionManager`
+(per-session), with atomic reservation (compare-and-add, not check-then-add). Add a unit test
+that drives multiple `BrowserScriptRunner.run()` calls and asserts the cumulative cap is
+honored across them.
+
+### Diagnostic artifacts
+
+All under `projects/active/browser/cn/diag_20260504_phase6_qa/`:
+
+- `01_token_gate_curl_evidence.txt` — live curl/nc against running relay
+- `02_test_summary.txt` — Phase 6 unit-test suite tally + item-to-test map
+- `03_emu_full_chain_evidence.txt` — emulator GOAL_ACHIEVED log lines
+
+Plus `projects/active/browser/cn/phase6_codex_review.md` for the codex verdict.

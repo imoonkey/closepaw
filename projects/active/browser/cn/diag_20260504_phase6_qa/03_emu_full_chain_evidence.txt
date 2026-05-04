@@ -1,0 +1,19 @@
+=== Phase 6 final-gate full agent → CDP → Example Domain on emulator-5556 ===
+Date: 2026-05-04
+Device: emulator-5556 (sdk_gphone64_x86_64, AOSP)
+APK: app/build/outputs/apk/debug/app-debug.apk (built fresh from task/p6-qa HEAD eada8cc4)
+Wipe: run-as ai.closepaw rm -rf files/adb_self_pair  (cold-pair start state, but on this AOSP
+      emulator the Shizuku transport short-circuits ahead of WirelessAdbSelfPair)
+Command: ANDROID_SERIAL=emulator-5556 DEBUG_AUTO_APPROVE=true ./scripts/debug-run.sh \
+         "Use browser_script to fetch https://example.com and report the page title text"
+Run dir: debug-output/run_20260504_151121/
+
+Key log lines:
+05-04 22:11:55.638 10867 10914 I UserServiceManager: New service record ai.closepaw:ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService (497a3b61-8810-4f7a-8ae2-8c9caaceebe9-1777932715635): version=4, daemon=false, apk=/data/app/~~MYZpGaQTSsMQ740AsX-sRw==/ai.closepaw-PG_vwCl4dwzmBQ6jrWF2_Q==/base.apk
+05-04 22:12:01.626 26750 26750 D AgentEventDispatcher: ActionExecuted: browser_script outcome=SUCCESS
+05-04 22:12:14.959 26750 26891 I OpenAIResponseClient: ║   - complete_task({"status":"success","answer":"The page title is: Example Domain"})
+05-04 22:12:15.839 26750 26750 D TurnExecutionPhase: Executing tool: complete_task with args: {"status":"success","answer":"The page title is: Example Domain"}
+05-04 22:12:15.840 26750 26750 D AgentEventDispatcher: ActionProposed: complete_task - Complete (success): The page title is: Example Domain
+05-04 22:12:16.263 26750 26750 I AgentSession: Task task-1777932687301 completed (outcome=GOAL_ACHIEVED). Session idle, awaiting follow-up.
+---
+Verdict: GOAL_ACHIEVED via Shizuku UserService transport.

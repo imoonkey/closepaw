@@ -1,0 +1,66 @@
+=== Phase 6 unit-test results (./gradlew :app:testDebugUnitTest) ===
+Date: 2026-05-04
+
+Suite                                                                            Tests Failures Errors
+-----                                                                            ----- -------- ------
+ai.closepaw.browser.cdp.RelayAuthTokenTest                                          16        0      0
+ai.closepaw.browser.cdp.wireless.WirelessAdbSelfPairTransportRelayStressTest         9        0      0
+ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserServiceRelayTest                   6        0      0
+ai.closepaw.browser.cdp.ChromeCdpClientTest                                         26        0      0
+ai.closepaw.browser.cdp.wireless.AdbWireProtocolClientTest                           9        0      0
+ai.closepaw.browser.script.BrowserScriptJsInterfaceTest                              9        0      0
+ai.closepaw.browser.cdp.wireless.Spake25519Test                                      8        0      0
+                                                                                ====
+                                                                                  83 (all green)
+
+Item-by-item coverage map:
+
+#1 token gate (security)
+  RelayAuthTokenTest: 16 cases including readHttpRequestHead deadline + wire-format 403/408.
+  WirelessAdbSelfPairTransportRelayStressTest: relay rejects connection without token with 403,
+    relay rejects connection with wrong token with 403, relay accepts connection with correct
+    token and proxies, relay times out slowloris client (no bytes sent) with 408.
+  ChromeDevtoolsUserServiceRelayTest: 6 cases over the Shizuku relay path.
+  Plus LIVE curl test on running emulator relay (see 01_token_gate_curl_evidence.txt).
+
+#2 WS handshake vs idle separation
+  AdbWireProtocolClientTest:
+    `openOnChannel resets idle read timeout to infinite after handshake`
+    `SocketChannel idle timeout reset survives long idle gap then receives a frame`
+  Plus 7 happy/error-path cases on runExchange.
+
+#3 CDP target switch
+  ChromeCdpClientTest:
+    `switching direct page targets closes previous WS, leaving exactly one active`
+    `closing previous WS on switch does not mark new connection broken`
+    `switching direct page target rejects in-flight requests on previous WS`
+    `stale onMessage on switched-away WS cannot complete a deferred on the new WS`
+    `concurrent switchDirectPageTarget calls do not orphan a freshly-opened WS`
+    `sendRaw on a connection that gets switched away rejects fast and never silent-times-out`
+    `direct page target option reconnects to target websocket`
+
+#4 storeArtifact DoS
+  BrowserScriptJsInterfaceTest:
+    `storeArtifact rejects payloads above per-call cap without decoding or storing`
+    `storeArtifact rejects when cumulative session bytes would exceed cap`
+    `storeArtifact does not consume session quota when recorder rejects the write`
+
+#5 BouncyCastle bump
+  ./gradlew :app:dependencies --configuration debugRuntimeClasspath:
+    +--- org.bouncycastle:bcpkix-jdk18on:1.84
+    |    \--- org.bouncycastle:bcutil-jdk18on:1.84
+    |         \--- org.bouncycastle:bcprov-jdk18on:1.84
+    +--- org.bouncycastle:bcprov-jdk18on:1.84
+  All ≥ 1.84 ✓
+
+#6 SPAKE2 LGPL purge
+  grep -rEn "MuntashirAkon|spake2-android" build.gradle.kts settings.gradle.kts → 0 hits
+  grep -rEn "MuntashirAkon|spake2-android" app/ → only attribution / replacement-context comments
+  unzip -l app-debug.apk | grep -i spake → 0 hits (no libspake2.so)
+  Spake25519Test: 8 cases including KAT vectors.
+
+#7 Real-device chain (full agent → CDP → Example Domain)
+  EMU emulator-5556: GOAL_ACHIEVED via Shizuku transport (UserService relay), see 03 below.
+  NUBIA P0110: BLOCKED by physical pocket-anti-mistouch lock (proximity-sensor hardware feature
+    requiring user presence to dismiss). Not a code regression — wireless ADB self-pair path
+    is exercised by the unit tests above + by Phase 5 final-gate (PASS, 2026-05-04 commit history).
