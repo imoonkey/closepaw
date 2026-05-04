@@ -35,6 +35,13 @@ class ChromeCdpClient(
 ) {
     private val nextId = AtomicInteger(1)
     private val recoveryMutex = Mutex()
+    /**
+     * Serializes the entire `switchDirectPageTarget` body — concurrent CDP calls with
+     * `targetId` set must not both capture the same `previous`, open two WS independently,
+     * and let last-write-to-`current` win (orphaning the loser). Without this, a tab-heavy
+     * script that issues parallel `cdp(..., {targetId: ...})` calls leaks WS+fds per race.
+     */
+    private val switchMutex = Mutex()
 
     val eventBuffer = ChromeCdpEventBuffer()
 
@@ -172,19 +179,21 @@ class ChromeCdpClient(
     }
 
     private suspend fun switchDirectPageTarget(targetId: String) {
-        val base = directPageWebSocketBase ?: return
-        if (targetId == activeTargetId) return
-        val previous = current
-        val wsUrl = "$base/$targetId"
-        // Open new first, then swap `current` so the previous connection's incoming callbacks
-        // observe `current !== this` and drop. closeQuietly then drains the previous pending
-        // map with CdpException("CDP connection switched") so any in-flight requests on the
-        // dead WS reject immediately rather than waiting commandTimeoutMs.
-        current = openConnection(wsUrl)
-        isBroken = false
-        activeTargetId = targetId
-        activeSessionId = null
-        previous?.closeQuietly("CDP connection switched")
+        switchMutex.withLock {
+            val base = directPageWebSocketBase ?: return@withLock
+            if (targetId == activeTargetId) return@withLock
+            val previous = current
+            val wsUrl = "$base/$targetId"
+            // Open new first, then swap `current` so the previous connection's incoming callbacks
+            // observe `current !== this` and drop. closeQuietly then drains the previous pending
+            // map with CdpException("CDP connection switched") so any in-flight requests on the
+            // dead WS reject immediately rather than waiting commandTimeoutMs.
+            current = openConnection(wsUrl)
+            isBroken = false
+            activeTargetId = targetId
+            activeSessionId = null
+            previous?.closeQuietly("CDP connection switched")
+        }
     }
 
     private suspend fun sendRaw(
@@ -195,7 +204,20 @@ class ChromeCdpClient(
         val live = current ?: throw CdpException(-1, "Not connected")
         val id = nextId.getAndIncrement()
         val deferred = CompletableDeferred<JsonElement>()
-        live.pending[id] = deferred
+        if (!live.addPending(id, deferred)) {
+            // Connection was closed (e.g., by a concurrent switchDirectPageTarget) before
+            // we could register. addPending already completed the deferred exceptionally
+            // so await() throws CdpException("CDP connection no longer active") here.
+            return deferred.await()
+        }
+        // Defense-in-depth: a switch may have completed between our `live = current` read
+        // and addPending — addPending succeeded only because closeQuietly hadn't yet flipped
+        // active. Skip the send so we don't issue a CDP frame on a soon-to-be-closed WS;
+        // closeQuietly will fail our deferred via its drain.
+        if (current !== live) {
+            live.pending.remove(id)
+            throw CdpException(-1, "CDP connection switched")
+        }
         try {
             val msg = buildCdpRequest(id, method, params, sessionId)
             try {
@@ -283,29 +305,57 @@ class ChromeCdpClient(
         "Session with given id not found" in e.message
 
     /**
-     * One CDP WebSocket plus its own pending-request map. The per-connection map is the
-     * atomicity boundary: a stale onMessage on a switched-away WS removes from THIS
-     * (already-drained) map and cannot complete a deferred owned by the new connection.
-     * `active` is read by callers as a hint for tests; correctness comes from the
-     * per-connection map plus the `current === source` checks in markTransportBroken /
-     * handleMessage(event).
+     * One CDP WebSocket plus its own pending-request map. The per-connection map plus the
+     * `lock`-guarded transition between "active, accepting" and "closed, drained" is the
+     * atomicity boundary: addPending and closeQuietly are mutually exclusive, so a sendRaw
+     * cannot register on a connection that has just been drained (would silently hang
+     * waiting for a response on a dead WS until commandTimeoutMs).
      */
     private class LiveConnection {
+        private val lock = Any()
+
         @Volatile var active: Boolean = true
+            private set
+
         @Volatile var raw: CdpConnection? = null
         val pending = ConcurrentHashMap<Int, CompletableDeferred<JsonElement>>()
 
+        /**
+         * Atomically registers `deferred` under `id` if the connection is still active.
+         * Returns true if registered; false if the connection was already closed (in which
+         * case `deferred` has already been completed exceptionally with a CdpException so
+         * the caller's `await()` will throw immediately).
+         */
+        fun addPending(id: Int, deferred: CompletableDeferred<JsonElement>): Boolean {
+            synchronized(lock) {
+                if (!active) {
+                    deferred.completeExceptionally(
+                        CdpException(-1, "CDP connection no longer active"),
+                    )
+                    return false
+                }
+                pending[id] = deferred
+                return true
+            }
+        }
+
         fun closeQuietly(reason: String) {
-            active = false
-            // Reject all in-flight requests on this dead WS so callers don't wait
-            // commandTimeoutMs for responses that will never arrive.
+            val toFail: List<CompletableDeferred<JsonElement>>
+            synchronized(lock) {
+                if (!active) return
+                active = false
+                // Snapshot under lock to guarantee no addPending can interleave between
+                // our drain and the active-flip. Complete the deferreds OUTSIDE the lock
+                // so caller continuations don't run under it.
+                toFail = pending.values.toList()
+                pending.clear()
+            }
             val err = CdpException(-1, reason)
-            pending.values.forEach { it.completeExceptionally(err) }
-            pending.clear()
+            toFail.forEach { it.completeExceptionally(err) }
             try {
                 raw?.close()
             } catch (_: Throwable) {
-                // Best-effort; the per-connection map drain above is what matters.
+                // Best-effort; the per-connection drain above is what matters.
             }
         }
     }
