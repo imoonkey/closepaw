@@ -34,7 +34,6 @@ class ChromeCdpClient(
     private val onTransportFailure: (Throwable) -> Unit = {},
 ) {
     private val nextId = AtomicInteger(1)
-    private val pending = ConcurrentHashMap<Int, CompletableDeferred<JsonElement>>()
     private val recoveryMutex = Mutex()
 
     val eventBuffer = ChromeCdpEventBuffer()
@@ -51,6 +50,7 @@ class ChromeCdpClient(
     var isBroken: Boolean = false
         private set
 
+    @Volatile
     private var current: LiveConnection? = null
     private var directPageWebSocketBase: String? = null
 
@@ -59,9 +59,13 @@ class ChromeCdpClient(
         get() = if (current?.active == true) 1 else 0
 
     suspend fun connect(wsUrl: String) {
+        // Unlink and close any existing connection BEFORE swapping in the new one so the old
+        // connection's callbacks see `current !== this` and drop without touching shared state.
+        val prev = current
+        current = null
+        prev?.closeQuietly("CDP connection replaced")
         isBroken = false
         directPageWebSocketBase = null
-        current?.closeQuietly()
         current = openConnection(wsUrl)
     }
 
@@ -150,11 +154,9 @@ class ChromeCdpClient(
     fun drainEvents(): List<CdpIncoming.Event> = eventBuffer.drain()
 
     fun close() {
-        current?.closeQuietly()
+        val prev = current
         current = null
-        val err = CdpException(-1, "Client closed")
-        pending.values.forEach { it.completeExceptionally(err) }
-        pending.clear()
+        prev?.closeQuietly("Client closed")
         eventBuffer.clear()
         activeSessionId = null
         activeTargetId = null
@@ -174,14 +176,15 @@ class ChromeCdpClient(
         if (targetId == activeTargetId) return
         val previous = current
         val wsUrl = "$base/$targetId"
+        // Open new first, then swap `current` so the previous connection's incoming callbacks
+        // observe `current !== this` and drop. closeQuietly then drains the previous pending
+        // map with CdpException("CDP connection switched") so any in-flight requests on the
+        // dead WS reject immediately rather than waiting commandTimeoutMs.
         current = openConnection(wsUrl)
         isBroken = false
         activeTargetId = targetId
         activeSessionId = null
-        // Swap first so the previous WS's onClosed (now suppressed by active=false) cannot
-        // mark the new connection broken or fail its in-flight pending requests. Switching
-        // is a normal operation, not a transport failure.
-        previous?.closeQuietly()
+        previous?.closeQuietly("CDP connection switched")
     }
 
     private suspend fun sendRaw(
@@ -189,17 +192,17 @@ class ChromeCdpClient(
         params: JsonObject,
         sessionId: String?,
     ): JsonElement {
+        val live = current ?: throw CdpException(-1, "Not connected")
         val id = nextId.getAndIncrement()
         val deferred = CompletableDeferred<JsonElement>()
-        pending[id] = deferred
+        live.pending[id] = deferred
         try {
             val msg = buildCdpRequest(id, method, params, sessionId)
-            val conn = current?.raw ?: throw CdpException(-1, "Not connected")
             try {
-                conn.send(msg)
+                live.raw!!.send(msg)
             } catch (t: Exception) {
                 val transportError = IOException("CDP transport send failed: ${t.message}", t)
-                markTransportBroken(transportError)
+                markTransportBroken(transportError, live)
                 throw transportError
             }
             return try {
@@ -215,37 +218,47 @@ class ChromeCdpClient(
                 )
             }
         } finally {
-            pending.remove(id)
+            live.pending.remove(id)
         }
     }
 
-    private fun onMessage(text: String) {
+    private fun handleMessage(source: LiveConnection, text: String) {
         when (val msg = parseCdpMessage(text)) {
             is CdpIncoming.Response -> {
-                val deferred = pending[msg.id] ?: return
+                // Per-connection pending map naturally isolates response handling — a stale
+                // response on a switched-away WS targets its own (already-drained) map and
+                // can never complete a deferred owned by the new connection.
+                val deferred = source.pending.remove(msg.id) ?: return
                 if (msg.error != null) {
                     deferred.completeExceptionally(CdpException(msg.error.code, msg.error.message))
                 } else {
                     deferred.complete(msg.result ?: JsonNull)
                 }
             }
-            is CdpIncoming.Event -> eventBuffer.add(msg)
+            is CdpIncoming.Event -> {
+                // Drop stale events from a switched-away WS so they cannot pollute the
+                // shared event buffer the agent script will drain.
+                if (current === source) eventBuffer.add(msg)
+            }
         }
     }
 
-    private fun onFailure(error: Throwable) {
-        markTransportBroken(error)
+    private fun handleFailure(source: LiveConnection, error: Throwable) {
+        markTransportBroken(error, source)
     }
 
-    private fun onClosed(error: CdpConnectionClosedException) {
-        markTransportBroken(error)
+    private fun handleClosed(source: LiveConnection, error: CdpConnectionClosedException) {
+        markTransportBroken(error, source)
     }
 
-    private fun markTransportBroken(error: Throwable) {
+    private fun markTransportBroken(error: Throwable, source: LiveConnection) {
+        // Stale failure from a switched-away WS — already drained by closeQuietly. Don't
+        // mark the new connection broken or invoke onTransportFailure for it.
+        if (current !== source) return
         val cdpError = CdpException(-1, error.message ?: "Connection failed")
         isBroken = true
-        pending.values.forEach { it.completeExceptionally(cdpError) }
-        pending.clear()
+        source.pending.values.forEach { it.completeExceptionally(cdpError) }
+        source.pending.clear()
         onTransportFailure(error)
     }
 
@@ -270,20 +283,29 @@ class ChromeCdpClient(
         "Session with given id not found" in e.message
 
     /**
-     * Wraps a raw [CdpConnection] with an `active` flag so intentional close (target switch,
-     * client close) does not leak through to the shared `onMessage`/`onFailure`/`onClosed`
-     * callbacks and corrupt state on the next connection.
+     * One CDP WebSocket plus its own pending-request map. The per-connection map is the
+     * atomicity boundary: a stale onMessage on a switched-away WS removes from THIS
+     * (already-drained) map and cannot complete a deferred owned by the new connection.
+     * `active` is read by callers as a hint for tests; correctness comes from the
+     * per-connection map plus the `current === source` checks in markTransportBroken /
+     * handleMessage(event).
      */
     private class LiveConnection {
         @Volatile var active: Boolean = true
         @Volatile var raw: CdpConnection? = null
+        val pending = ConcurrentHashMap<Int, CompletableDeferred<JsonElement>>()
 
-        fun closeQuietly() {
+        fun closeQuietly(reason: String) {
             active = false
+            // Reject all in-flight requests on this dead WS so callers don't wait
+            // commandTimeoutMs for responses that will never arrive.
+            val err = CdpException(-1, reason)
+            pending.values.forEach { it.completeExceptionally(err) }
+            pending.clear()
             try {
                 raw?.close()
             } catch (_: Throwable) {
-                // active=false is what guarantees no stray callback; close is best-effort.
+                // Best-effort; the per-connection map drain above is what matters.
             }
         }
     }
@@ -292,9 +314,9 @@ class ChromeCdpClient(
         val live = LiveConnection()
         live.raw = connectionFactory.connect(
             wsUrl,
-            { text -> if (live.active) onMessage(text) },
-            { error -> if (live.active) onFailure(error) },
-            { error -> if (live.active) onClosed(error) },
+            { text -> handleMessage(live, text) },
+            { error -> handleFailure(live, error) },
+            { error -> handleClosed(live, error) },
         )
         return live
     }

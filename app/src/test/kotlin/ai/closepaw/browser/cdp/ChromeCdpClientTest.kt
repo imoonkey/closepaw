@@ -174,6 +174,90 @@ class ChromeCdpClientTest {
     }
 
     @Test
+    fun `switching direct page target rejects in-flight requests on previous WS`() = runTest {
+        // Without per-connection pending isolation, in-flight requests on a switched-away WS
+        // would block for commandTimeoutMs awaiting a response that will never arrive. The
+        // switch must drain the previous WS's pending map with a CdpException so the agent
+        // gets an actionable error immediately.
+        val opened = mutableListOf<FakeCdpConnection>()
+        val factory = CdpConnectionFactory { url, onMsg, onFail, onClose ->
+            FakeCdpConnection().bind(url, onMsg, onFail, onClose).also { opened += it }
+        }
+        val client = ChromeCdpClient(factory, commandTimeoutMs = 60_000)
+        client.connect("ws://127.0.0.1:9222/devtools/page/page-1")
+        client.useDirectPageTarget("page-1", "ws://127.0.0.1:9222/devtools/page/page-1")
+
+        // Hold every request on the first WS open — the responses will never arrive.
+        // runCatching keeps the failure inside the async so it doesn't cancel the
+        // runTest scope before we get a chance to assert on it.
+        opened[0].responder = { null }
+        val req1 = async(start = CoroutineStart.UNDISPATCHED) {
+            runCatching { client.send("Page.enable") }
+        }
+        val req2 = async(start = CoroutineStart.UNDISPATCHED) {
+            runCatching { client.send("Runtime.enable") }
+        }
+        val req3 = async(start = CoroutineStart.UNDISPATCHED) {
+            runCatching { client.send("DOM.enable") }
+        }
+
+        // Switch to page-2. The new WS uses the default echo responder so the
+        // post-switch send completes. closeQuietly("CDP connection switched") must
+        // reject all 3 in-flight requests on the previous WS immediately.
+        client.send("Page.bringToFront", options = CdpOptions(targetId = "page-2"))
+
+        listOf("Page.enable" to req1, "Runtime.enable" to req2, "DOM.enable" to req3)
+            .forEach { (label, req) ->
+                val outcome = req.await()
+                assertThat(outcome.isFailure).isTrue()
+                val err = outcome.exceptionOrNull()
+                assertThat(err).isInstanceOf(CdpException::class.java)
+                assertThat(err!!.message).contains("CDP connection switched")
+                // Sanity: not a timeout — switch must reject FAST, not wait commandTimeoutMs.
+                assertThat(err.message).doesNotContain("timed out")
+                assertThat(label).isNotEmpty()
+            }
+        assertThat(client.isBroken).isFalse()
+        assertThat(client.activeTargetId).isEqualTo("page-2")
+    }
+
+    @Test
+    fun `stale onMessage on switched-away WS cannot complete a deferred on the new WS`() = runTest {
+        // Per-connection pending isolation: even if the dead connection emits a response
+        // whose id collides with one in-flight on the new connection, it routes to the
+        // dead connection's (drained) pending map and silently drops. The new connection's
+        // deferred is unaffected.
+        val opened = mutableListOf<FakeCdpConnection>()
+        val factory = CdpConnectionFactory { url, onMsg, onFail, onClose ->
+            FakeCdpConnection().bind(url, onMsg, onFail, onClose).also { opened += it }
+        }
+        val client = ChromeCdpClient(factory, commandTimeoutMs = 60_000)
+        client.connect("ws://127.0.0.1:9222/devtools/page/page-1")
+        client.useDirectPageTarget("page-1", "ws://127.0.0.1:9222/devtools/page/page-1")
+
+        // Switch to page-2; opened[0] becomes the dead WS.
+        client.send("Page.bringToFront", options = CdpOptions(targetId = "page-2"))
+
+        // Issue a request on the new WS (opened[1]) and hold it open by overriding
+        // its responder to never reply.
+        opened[1].responder = { null }
+        val realReq = async(start = CoroutineStart.UNDISPATCHED) { client.send("Page.enable") }
+        val realId = opened[1].lastSent()["id"]!!.jsonPrimitive.int
+
+        // Inject a stale response on the dead WS using the SAME id that's in-flight on
+        // the new WS. This must NOT complete realReq with the stale payload.
+        opened[0].injectResponse(realId, buildJsonObject { put("stale", true) })
+        assertThat(realReq.isCompleted).isFalse()
+
+        // Deliver the real response on the new WS — realReq must resolve to it cleanly.
+        opened[1].injectResponse(realId, buildJsonObject { put("real", true) })
+        val result = realReq.await()
+        assertThat(result.jsonObject["real"]?.jsonPrimitive?.boolean).isTrue()
+        assertThat(result.jsonObject["stale"]).isNull()
+        assertThat(client.isBroken).isFalse()
+    }
+
+    @Test
     fun `page domain without active session fails fast`() = runTest {
         val conn = FakeCdpConnection()
         val client = ChromeCdpClient(conn.factory())
