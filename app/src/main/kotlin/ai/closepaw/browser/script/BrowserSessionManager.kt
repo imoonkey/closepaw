@@ -24,6 +24,7 @@ import ai.closepaw.browser.cdp.wireless.WirelessAdbSelfPairTransport
 import ai.closepaw.trace.TraceRecorder
 import java.io.Closeable
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
@@ -82,15 +83,27 @@ class BrowserSessionManager(
                 onTransportFailure = onTransportFailure,
             )
         },
-    private val runnerFactory: (Context, ChromeCdpClient) -> BrowserScriptExecutor = { ctx, client ->
-        val runner = BrowserScriptRunner(ctx, client, traceRecorder)
-        BrowserScriptExecutor { script, timeoutMs -> runner.run(script, timeoutMs) }
-    },
+    private val runnerFactory: (Context, ChromeCdpClient, AtomicLong) -> BrowserScriptExecutor =
+        { ctx, client, counter ->
+            val runner = BrowserScriptRunner(ctx, client, traceRecorder, sessionDecodedBytes = counter)
+            BrowserScriptExecutor { script, timeoutMs -> runner.run(script, timeoutMs) }
+        },
 ) : Closeable {
     private val appContext = context.applicationContext
     private val runtimeJob = SupervisorJob(sessionScope.coroutineContext[Job])
     private val scriptLease = Mutex()
     private val resourceLock = Any()
+
+    /**
+     * Cumulative decoded-byte counter for storeArtifact within this session. Lives on the
+     * SessionManager (not the per-call JsInterface, not the per-bridge Runner) so that
+     * (a) repeated browser_script invocations within one session share the cap and (b) a
+     * forced CDP reconnect — which rebuilds the runner via [markBroken] — does not reset
+     * /sdcard pressure budget. The cap is enforced in [BrowserScriptJsInterface] via
+     * atomic CAS; see [BrowserScriptJsInterface.MAX_BYTES_PER_SESSION] for the value
+     * and rationale.
+     */
+    private val sessionDecodedBytes = AtomicLong(0L)
 
     @Volatile
     private var closed = false
@@ -163,7 +176,7 @@ class BrowserSessionManager(
             enableCoreDomains(client)
             val newResources = BrowserRuntimeResources(
                 cdpClient = client,
-                runner = runnerFactory(appContext, client),
+                runner = runnerFactory(appContext, client, sessionDecodedBytes),
             )
             synchronized(resourceLock) {
                 resources ?: newResources.also { resources = it }

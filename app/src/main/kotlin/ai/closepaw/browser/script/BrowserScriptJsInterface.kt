@@ -11,11 +11,18 @@ internal class BrowserScriptJsInterface(
     private val traceRecorder: TraceRecorder,
     private val maxBytesPerCall: Int = MAX_BYTES_PER_CALL,
     private val maxBytesPerSession: Long = MAX_BYTES_PER_SESSION,
+    /**
+     * Cumulative decoded-byte counter shared with the session-scoped owner
+     * (BrowserSessionManager). Atomic because the WebView dispatches
+     * @JavascriptInterface calls on its own worker thread, and because multiple
+     * BrowserScriptRunner.run() invocations within one session share this same
+     * counter — a per-instance counter would scope the cap to a single call
+     * and let a runaway script bypass the cap by issuing repeated browser_script
+     * tool calls. Defaults to a fresh counter so isolated unit tests need not
+     * thread one through.
+     */
+    private val sessionDecodedBytes: AtomicLong = AtomicLong(0L),
 ) {
-
-    // Atomic because the WebView dispatches @JavascriptInterface calls on its own
-    // worker thread and bridge.handleSend / cdp() helpers can re-enter this class.
-    private val sessionDecodedBytes = AtomicLong(0L)
 
     @JavascriptInterface
     fun send(message: String) {
@@ -45,22 +52,38 @@ internal class BrowserScriptJsInterface(
         }
         return runCatching {
             val bytes = Base64.decode(base64, Base64.DEFAULT)
-            val projected = sessionDecodedBytes.get() + bytes.size
-            if (projected > maxBytesPerSession) {
+            val byteCount = bytes.size.toLong()
+            // Atomic reserve: getAndAccumulate retries the lambda under contention so
+            // the read-and-add is one indivisible step. The earlier check-then-add
+            // pattern let two concurrent calls both observe `current+n <= cap` and
+            // both add, breaching the cap. Lambda returns `current` to refuse the
+            // reservation when it would exceed the cap.
+            val before = sessionDecodedBytes.getAndAccumulate(byteCount) { current, requested ->
+                if (current + requested > maxBytesPerSession) current else current + requested
+            }
+            if (before + byteCount > maxBytesPerSession) {
                 Log.w(
                     TAG,
-                    "storeArtifact rejected: session decoded bytes would reach $projected, cap $maxBytesPerSession",
+                    "storeArtifact rejected: session decoded bytes would reach ${before + byteCount}, cap $maxBytesPerSession",
                 )
                 return@runCatching null
             }
-            val ref = traceRecorder.storeBytes(
-                kind = kind.ifBlank { "browser-script" },
-                filenameHint = filenameHint.ifBlank { "artifact.bin" },
-                bytes = bytes,
-                mimeType = mimeType,
-                description = null,
-            ) ?: return@runCatching null
-            sessionDecodedBytes.addAndGet(bytes.size.toLong())
+            val ref = try {
+                traceRecorder.storeBytes(
+                    kind = kind.ifBlank { "browser-script" },
+                    filenameHint = filenameHint.ifBlank { "artifact.bin" },
+                    bytes = bytes,
+                    mimeType = mimeType,
+                    description = null,
+                )
+            } catch (t: Throwable) {
+                sessionDecodedBytes.addAndGet(-byteCount)
+                throw t
+            }
+            if (ref == null) {
+                sessionDecodedBytes.addAndGet(-byteCount)
+                return@runCatching null
+            }
             traceRecorder.runDirAbsolutePath?.let { "$it/${ref.path}" } ?: ref.path
         }.onFailure { Log.w(TAG, "storeArtifact failed: ${it.message}") }.getOrNull()
     }

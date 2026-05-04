@@ -12,6 +12,7 @@ import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import java.util.concurrent.atomic.AtomicLong
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -224,5 +225,54 @@ class BrowserScriptJsInterfaceTest {
 
         assertThat(rejected).isNull()
         assertThat(accepted).isEqualTo("/sdcard/trace/run-1/artifacts/ok.bin")
+    }
+
+    @Test
+    fun `session quota is shared across JsInterface instances within one session`() {
+        // Reproduces the P6 final-gate scope bug: BrowserScriptRunner builds a fresh
+        // JsInterface every run(), so the per-instance counter scoped the cap to a
+        // single browser_script call. With the shared session-scoped counter, a second
+        // JsInterface (next run() within the same session) sees the first call's bytes
+        // and rejects when cumulative exceeds the cap.
+        val recorder = mockk<TraceRecorder>(relaxed = true)
+        every { recorder.runDirAbsolutePath } returns "/sdcard/trace/run-1"
+        every {
+            recorder.storeBytes(any(), any(), any(), any(), any())
+        } returns TraceArtifactRef(
+            kind = "browser-script",
+            path = "artifacts/x.bin",
+            mimeType = null,
+            description = null,
+        )
+        val sharedCounter = AtomicLong(0L)
+        val sessionCap = 18L // < 24 (= 2 × "Hello World!" decoded)
+
+        val firstCallInterface = BrowserScriptJsInterface(
+            bridge = mockk(relaxed = true),
+            traceRecorder = recorder,
+            maxBytesPerCall = 1_024,
+            maxBytesPerSession = sessionCap,
+            sessionDecodedBytes = sharedCounter,
+        )
+        val secondCallInterface = BrowserScriptJsInterface(
+            bridge = mockk(relaxed = true),
+            traceRecorder = recorder,
+            maxBytesPerCall = 1_024,
+            maxBytesPerSession = sessionCap,
+            sessionDecodedBytes = sharedCounter,
+        )
+
+        val first = firstCallInterface.storeArtifact("k", "a.bin", "SGVsbG8gV29ybGQh", null)
+        val second = secondCallInterface.storeArtifact("k", "b.bin", "SGVsbG8gV29ybGQh", null)
+
+        assertThat(first).isEqualTo("/sdcard/trace/run-1/artifacts/x.bin")
+        assertThat(second).isNull()
+        // Counter advanced by the first call only; the second call's reservation was
+        // refused by the CAS accumulator (returned `current`), so no leftover bytes.
+        assertThat(sharedCounter.get()).isEqualTo(12L)
+        verify(exactly = 1) { recorder.storeBytes(any(), any(), any(), any(), any()) }
+        verify(atLeast = 1) {
+            Log.w(any<String>(), match<String> { it.contains("session decoded bytes") })
+        }
     }
 }

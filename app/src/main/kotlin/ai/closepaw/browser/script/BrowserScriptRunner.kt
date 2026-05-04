@@ -23,12 +23,23 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayInputStream
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class BrowserScriptRunner(
     context: Context,
     private val cdpClient: ChromeCdpClient,
     private val traceRecorder: TraceRecorder,
+    /**
+     * Cumulative decoded-byte counter shared with the session-scoped owner
+     * (BrowserSessionManager). Threaded through to [BrowserScriptJsInterface] so a
+     * runaway script issuing repeated browser_script tool calls cannot bypass
+     * [BrowserScriptJsInterface.MAX_BYTES_PER_SESSION] — a per-call counter would
+     * reset every run() and turn the documented 500 MiB session cap into a
+     * 500 MiB per-call cap. Defaults to a fresh counter so the androidTest
+     * harness (single-run) works without plumbing.
+     */
+    private val sessionDecodedBytes: AtomicLong = AtomicLong(0L),
 ) {
     private val appContext: Context = context.applicationContext
 
@@ -72,7 +83,11 @@ class BrowserScriptRunner(
                 }
                 val theBridge = BrowserScriptBridge(cdpClient, evaluator, bridgeScope)
                 bridge = theBridge
-                val jsInterface = BrowserScriptJsInterface(theBridge, traceRecorder)
+                val jsInterface = BrowserScriptJsInterface(
+                    bridge = theBridge,
+                    traceRecorder = traceRecorder,
+                    sessionDecodedBytes = sessionDecodedBytes,
+                )
 
                 val pageReady = CompletableDeferred<Unit>()
                 mainHandler.post {
