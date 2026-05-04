@@ -22,10 +22,18 @@ interface IChromeDevtoolsUserService {
      * cannot be fitted into the request/response `exchange` shape, and because
      * the WS URL Chrome returns has no port (defaults to 80, unreachable).
      *
-     * Idempotent: subsequent calls return the same port. Process death tears
-     * the relay down via the Shizuku UserService lifecycle.
+     * Token-gated: every accepted client connection must include the matching
+     * `X-ClosePaw-Token` header in the WS Upgrade request — see
+     * `ai.closepaw.browser.cdp.RelayAuthToken`. The relay binds 127.0.0.1, so
+     * any local app can dial the port; the token is the only thing keeping it
+     * out of Chrome's CDP. Token must be non-empty.
+     *
+     * Idempotent: subsequent calls with the same token return the same port.
+     * Calls with a different token throw SecurityException to signal a
+     * configuration bug rather than silently shadowing the original token.
+     * Process death tears the relay down via the Shizuku UserService lifecycle.
      */
-    int startTcpRelay();
+    int startTcpRelay(String authToken);
 
     /** Tear down the user service process. */
     void destroy();

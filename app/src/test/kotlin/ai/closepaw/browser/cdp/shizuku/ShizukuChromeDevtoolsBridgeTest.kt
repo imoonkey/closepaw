@@ -18,6 +18,10 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShizukuChromeDevtoolsBridgeTest {
 
+    private companion object {
+        const val TEST_RELAY_TOKEN = "test-relay-token-deadbeefcafebabe"
+    }
+
     private fun bridge(
         status: ShizukuStatusProvider = FakeStatus(available = true, permitted = true),
         diagnostics: DevtoolsDiagnostics = FakeDiagnostics(
@@ -33,6 +37,7 @@ class ShizukuChromeDevtoolsBridgeTest {
         diagnostics = diagnostics,
         userServiceProvider = userServiceProvider,
         wirelessAdbSelfPairTransport = wirelessAdbSelfPairTransport,
+        relayAuthToken = TEST_RELAY_TOKEN,
         ioDispatcher = UnconfinedTestDispatcher(),
     )
 
@@ -317,6 +322,7 @@ class ShizukuChromeDevtoolsBridgeTest {
                     transport = FakeTransport(TransportLabel.USER_SERVICE),
                 ),
                 wirelessAdbSelfPairTransport = FakeTransport(TransportLabel.USER_SERVICE),
+                relayAuthToken = TEST_RELAY_TOKEN,
             )
             throw AssertionError("expected IllegalArgumentException")
         } catch (e: IllegalArgumentException) {

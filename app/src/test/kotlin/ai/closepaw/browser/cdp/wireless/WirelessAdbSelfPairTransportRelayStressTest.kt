@@ -69,6 +69,7 @@ class WirelessAdbSelfPairTransportRelayStressTest {
             keyStore = keyStore,
             pairingClient = pairingClient,
             wireClient = wireClient,
+            relayAuthToken = TEST_TOKEN,
         )
     }
 
@@ -187,7 +188,11 @@ class WirelessAdbSelfPairTransportRelayStressTest {
         val baseline = countWirelessAdbThreads()
 
         repeat(20) {
-            Socket("127.0.0.1", port).use {
+            // Send a valid WS upgrade with the configured token so the relay reaches the
+            // openLocalAbstract success path and spawns the pump threads we're stressing.
+            Socket("127.0.0.1", port).use { sock ->
+                sock.getOutputStream().write(validUpgradeRequest(TEST_TOKEN, port))
+                sock.getOutputStream().flush()
                 Thread.sleep(15) // let proxy spawn before we tear down
             }
         }
@@ -209,12 +214,76 @@ class WirelessAdbSelfPairTransportRelayStressTest {
         val baseline = countWirelessAdbThreads()
 
         repeat(20) {
-            Socket("127.0.0.1", port).use { Thread.sleep(10) }
+            Socket("127.0.0.1", port).use { sock ->
+                sock.getOutputStream().write(validUpgradeRequest(TEST_TOKEN, port))
+                sock.getOutputStream().flush()
+                Thread.sleep(10)
+            }
         }
 
         awaitThreadDelta(baseline)
         assertThat(countWirelessAdbThreads() - baseline).isAtMost(MAX_TRANSIENT_THREADS)
     }
+
+    @Test
+    fun `relay rejects connection without token with 403`() = runBlocking {
+        val port = transport.ensureWebSocketRelayPort()!!
+        Socket("127.0.0.1", port).use { sock ->
+            sock.getOutputStream().write(
+                "GET /devtools/page/AAA HTTP/1.1\r\nHost: 127.0.0.1:$port\r\n\r\n".toByteArray()
+            )
+            sock.getOutputStream().flush()
+            val response = sock.getInputStream().readBytes().toString(Charsets.US_ASCII)
+            assertThat(response).startsWith("HTTP/1.1 403")
+        }
+    }
+
+    @Test
+    fun `relay rejects connection with wrong token with 403`() = runBlocking {
+        val port = transport.ensureWebSocketRelayPort()!!
+        Socket("127.0.0.1", port).use { sock ->
+            sock.getOutputStream().write(
+                ("GET /devtools/page/AAA HTTP/1.1\r\nHost: 127.0.0.1:$port\r\n" +
+                    "X-ClosePaw-Token: not-the-real-token\r\n\r\n").toByteArray()
+            )
+            sock.getOutputStream().flush()
+            val response = sock.getInputStream().readBytes().toString(Charsets.US_ASCII)
+            assertThat(response).startsWith("HTTP/1.1 403")
+        }
+    }
+
+    @Test
+    fun `relay accepts connection with correct token and proxies`() = runBlocking {
+        // Capture the bytes the relay forwards upstream so we can assert the WS upgrade made it
+        // through with the X-ClosePaw-Token still attached (Chrome ignores unknown headers).
+        val captured = java.io.ByteArrayOutputStream()
+        coEvery { wireClient.openLocalAbstract(any(), any(), any(), any()) } answers {
+            mockk<AdbStream>(relaxed = true).also { stream ->
+                every { stream.inputStream } returns ByteArrayInputStream(ByteArray(0))
+                every { stream.outputStream } returns captured
+            }
+        }
+        val port = transport.ensureWebSocketRelayPort()!!
+        val request = validUpgradeRequest(TEST_TOKEN, port)
+        Socket("127.0.0.1", port).use { sock ->
+            sock.getOutputStream().write(request)
+            sock.getOutputStream().flush()
+            Thread.sleep(50) // let proxy forward upstream
+        }
+        // Verify the upstream sink received the verbatim upgrade (header included).
+        val forwarded = captured.toByteArray().toString(Charsets.US_ASCII)
+        assertThat(forwarded).contains("X-ClosePaw-Token: $TEST_TOKEN")
+        assertThat(forwarded).startsWith("GET /devtools/page/")
+    }
+
+    private fun validUpgradeRequest(token: String, port: Int): ByteArray =
+        ("GET /devtools/page/AAA HTTP/1.1\r\n" +
+            "Host: 127.0.0.1:$port\r\n" +
+            "Upgrade: websocket\r\n" +
+            "Connection: Upgrade\r\n" +
+            "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+            "Sec-WebSocket-Version: 13\r\n" +
+            "X-ClosePaw-Token: $token\r\n\r\n").toByteArray()
 
     private fun countWirelessAdbThreads(): Int =
         Thread.getAllStackTraces().keys.count { it.name.startsWith("wireless-adb-") }
@@ -233,6 +302,7 @@ class WirelessAdbSelfPairTransportRelayStressTest {
 
     private companion object {
         const val FAKE_TLS_PORT = 41089
+        const val TEST_TOKEN = "test-token-deadbeefcafebabe1234567890abcdef"
         // Tolerate the accept-loop thread plus at most two in-flight pumps from the last
         // connection that may not have unwound by the time we sample. Any leak that scales
         // with cycle count blows past this.

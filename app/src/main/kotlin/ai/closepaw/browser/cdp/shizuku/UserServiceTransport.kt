@@ -23,9 +23,14 @@ class UserServiceTransport(
      * Lazily start the device-side TCP relay (one process == one relay) and return its
      * 127.0.0.1 port. Required because Chrome's `webSocketDebuggerUrl` has no port (defaults to
      * 80, unreachable from the app UID), so the WebSocket has to tunnel through the relay.
+     *
+     * [authToken] gates relay access — see [ai.closepaw.browser.cdp.RelayAuthToken]. The remote
+     * binder side is idempotent for a matching token and rejects token rotation, so calling
+     * this with the same per-session token across multiple resolve cycles is safe.
      */
-    suspend fun ensureRelayPortSuspend(): Int = runInterruptible(Dispatchers.IO) {
-        val port = binder.startTcpRelay()
+    suspend fun ensureRelayPortSuspend(authToken: String): Int = runInterruptible(Dispatchers.IO) {
+        require(authToken.isNotEmpty()) { "authToken must not be empty" }
+        val port = binder.startTcpRelay(authToken)
         if (port <= 0) throw IOException("UserService.startTcpRelay returned invalid port=$port")
         port
     }

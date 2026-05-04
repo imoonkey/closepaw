@@ -15,11 +15,18 @@ class ShizukuChromeDevtoolsBridge(
     private val diagnostics: DevtoolsDiagnostics,
     private val userServiceProvider: UserServiceProvider,
     private val wirelessAdbSelfPairTransport: DevtoolsSocketTransport? = null,
+    /**
+     * Per-session unguessable token expected on the WS Upgrade `X-ClosePaw-Token` header by
+     * both relays. Required: with no token, any local app can dial 127.0.0.1:<relayPort> and
+     * drive Chrome's CDP. See [ai.closepaw.browser.cdp.RelayAuthToken].
+     */
+    private val relayAuthToken: String,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val requestTimeoutMs: Int = DEFAULT_TIMEOUT_MS,
 ) {
 
     init {
+        require(relayAuthToken.isNotEmpty()) { "relayAuthToken must not be empty" }
         require(wirelessAdbSelfPairTransport == null ||
                 wirelessAdbSelfPairTransport.label == TransportLabel.WIRELESS_ADB_SELF_PAIR) {
             "wirelessAdbSelfPairTransport must declare TransportLabel.WIRELESS_ADB_SELF_PAIR"
@@ -60,7 +67,7 @@ class ShizukuChromeDevtoolsBridge(
             TransportLabel.USER_SERVICE -> {
                 val transport = userServiceProvider.obtain() as? UserServiceTransport
                     ?: return@withContext null
-                val port = transport.ensureRelayPortSuspend()
+                val port = transport.ensureRelayPortSuspend(relayAuthToken)
                 "127.0.0.1:$port"
             }
             TransportLabel.WIRELESS_ADB_SELF_PAIR -> {

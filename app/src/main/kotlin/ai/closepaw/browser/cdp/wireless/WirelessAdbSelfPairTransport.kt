@@ -1,5 +1,6 @@
 package ai.closepaw.browser.cdp.wireless
 
+import ai.closepaw.browser.cdp.RelayAuthToken
 import ai.closepaw.browser.cdp.shizuku.DevtoolsSocketTransport
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeDevtoolsBridge
 import ai.closepaw.browser.cdp.shizuku.TransportLabel
@@ -31,8 +32,18 @@ class WirelessAdbSelfPairTransport(
     private val keyStore: AdbCryptoKeyStore,
     private val pairingClient: AdbPairingClient,
     private val wireClient: AdbWireProtocolClient,
+    /**
+     * Per-session unguessable token expected in the WS Upgrade `X-ClosePaw-Token` header. Any
+     * other local app can dial 127.0.0.1:[relayPort], so the token is the only thing keeping
+     * them out of Chrome's CDP. Must be non-empty.
+     */
+    private val relayAuthToken: String,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : DevtoolsSocketTransport, WirelessAdbRelayHost, AutoCloseable {
+
+    init {
+        require(relayAuthToken.isNotEmpty()) { "relayAuthToken must not be empty" }
+    }
 
     override val label: TransportLabel = TransportLabel.WIRELESS_ADB_SELF_PAIR
 
@@ -190,6 +201,19 @@ class WirelessAdbSelfPairTransport(
         var stream: AdbStream? = null
         try {
             client.tcpNoDelay = true
+            // Token gate: read WS Upgrade headers before opening the upstream adb stream so a
+            // rejected client never costs a remote socket round-trip.
+            val parsed = RelayAuthToken.readHttpRequestHead(client.getInputStream())
+            if (parsed !is RelayAuthToken.ParseResult.Success) {
+                Log.w(TAG, "wireless-adb relay token gate: rejected (${(parsed as RelayAuthToken.ParseResult.Failure).reason})")
+                RelayAuthToken.write403(client.getOutputStream())
+                return
+            }
+            if (!RelayAuthToken.verify(relayAuthToken, parsed.token)) {
+                Log.w(TAG, "wireless-adb relay token gate: rejected (token missing or mismatched)")
+                RelayAuthToken.write403(client.getOutputStream())
+                return
+            }
             val tlsPort = cachedTlsPort
             if (tlsPort <= 0) throw IOException("relay invoked before bootstrap")
             stream = kotlinx.coroutines.runBlocking {
@@ -200,6 +224,10 @@ class WirelessAdbSelfPairTransport(
                 )
             }
             val streamFinal = stream
+            // Replay buffered request bytes upstream verbatim — Chrome ignores the unknown
+            // [RelayAuthToken.HEADER_NAME] header.
+            streamFinal.outputStream.write(parsed.bytes)
+            streamFinal.outputStream.flush()
             val downstream = Thread({
                 runCatching { pump(streamFinal.inputStream, client.getOutputStream()) }
                 runCatching { client.shutdownOutput() }

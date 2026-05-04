@@ -6,6 +6,7 @@ import ai.closepaw.browser.cdp.CdpConnectionFactory
 import ai.closepaw.browser.cdp.CdpConnectionClosedException
 import ai.closepaw.browser.cdp.ChromeCdpClient
 import ai.closepaw.browser.cdp.ChromeCdpTarget
+import ai.closepaw.browser.cdp.RelayAuthToken
 import ai.closepaw.browser.cdp.shizuku.DefaultDevtoolsDiagnostics
 import ai.closepaw.browser.cdp.shizuku.DevtoolsSetupError
 import ai.closepaw.browser.cdp.shizuku.DevtoolsVersion
@@ -51,6 +52,13 @@ class BrowserSessionManager(
     sessionScope: CoroutineScope,
     private val traceRecorder: TraceRecorder,
     /**
+     * Per-session unguessable token gating the localhost CDP relays. Default generates a fresh
+     * 256-bit token at construction; tests override to assert specific values. Same token is
+     * baked into [cdpConnectionFactory] (so OkHttp sends it on the WS Upgrade) and into the
+     * bridge (so both relays verify it on accept).
+     */
+    relayAuthToken: String = RelayAuthToken.generate(),
+    /**
      * Per-CDP-command timeout passed to [ChromeCdpClient]. The script's outer `timeout_ms` is
      * a separate, larger budget for the whole script; this cap fires when a single CDP method
      * (most importantly `Page.loadEventFired { awaitEvent: true }`) blocks longer than the
@@ -60,10 +68,12 @@ class BrowserSessionManager(
     private val cdpCommandTimeoutMs: Long = ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS,
     private val bridgeFactory: () -> BrowserDevtoolsBridge = {
         ShizukuBrowserDevtoolsBridge(
-            createDefaultBridge(context.applicationContext)
+            createDefaultBridge(context.applicationContext, relayAuthToken)
         )
     },
-    private val cdpConnectionFactory: CdpConnectionFactory = OkHttpCdpConnectionFactory(),
+    private val cdpConnectionFactory: CdpConnectionFactory = OkHttpCdpConnectionFactory(
+        extraHeaders = mapOf(RelayAuthToken.HEADER_NAME to relayAuthToken),
+    ),
     private val cdpClientFactory: (CdpConnectionFactory, (Throwable) -> Unit) -> ChromeCdpClient =
         { factory, onTransportFailure ->
             ChromeCdpClient(
@@ -274,7 +284,10 @@ class BrowserSessionManager(
     )
 
     companion object {
-        private fun createDefaultBridge(context: Context): ShizukuChromeDevtoolsBridge {
+        private fun createDefaultBridge(
+            context: Context,
+            relayAuthToken: String,
+        ): ShizukuChromeDevtoolsBridge {
             val userServiceProvider = ShizukuUserServiceProvider(context)
             val keyStoreDir = File(context.applicationContext.filesDir, "adb_self_pair")
             val keyStore = AdbCryptoKeyStore(keyStoreDir)
@@ -292,6 +305,7 @@ class BrowserSessionManager(
                 keyStore = keyStore,
                 pairingClient = pairingClient,
                 wireClient = wireClient,
+                relayAuthToken = relayAuthToken,
             )
             return ShizukuChromeDevtoolsBridge(
                 status = ShizukuStatusAdapter(),
@@ -300,6 +314,7 @@ class BrowserSessionManager(
                 ),
                 userServiceProvider = userServiceProvider,
                 wirelessAdbSelfPairTransport = wirelessTransport,
+                relayAuthToken = relayAuthToken,
             )
         }
     }
@@ -333,6 +348,12 @@ private class ShizukuBrowserDevtoolsBridge(
 
 private class OkHttpCdpConnectionFactory(
     private val client: OkHttpClient = OkHttpClient(),
+    /**
+     * Headers to attach to every WS Upgrade request. Carries the per-session
+     * `X-ClosePaw-Token` so the localhost CDP relays accept the connection — without it both
+     * relays 403 the upgrade. Map iteration order is preserved by [Request.Builder.header].
+     */
+    private val extraHeaders: Map<String, String> = emptyMap(),
 ) : CdpConnectionFactory {
     override suspend fun connect(
         url: String,
@@ -340,7 +361,10 @@ private class OkHttpCdpConnectionFactory(
         onFailure: (Throwable) -> Unit,
         onClosed: (CdpConnectionClosedException) -> Unit,
     ): CdpConnection = suspendCancellableCoroutine { cont ->
-        val request = Request.Builder().url(url).build()
+        val request = Request.Builder()
+            .url(url)
+            .apply { extraHeaders.forEach { (k, v) -> header(k, v) } }
+            .build()
         val notifyClosed = onClosed
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {

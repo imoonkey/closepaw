@@ -1,5 +1,6 @@
 package ai.closepaw.browser.cdp.shizuku
 
+import ai.closepaw.browser.cdp.RelayAuthToken
 import ai.closepaw.browser.cdp.wireless.ProcNetTcpListeners
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
@@ -210,11 +211,22 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
     private var relayPort: Int = 0
     private var relayServer: ServerSocket? = null
     private val relayStopped = AtomicBoolean(false)
+    @Volatile
+    private var expectedToken: String = ""
 
     @Synchronized
-    override fun startTcpRelay(): Int {
-        if (relayPort != 0) return relayPort
-        // Bind 127.0.0.1:0 — kernel chooses a free port.
+    override fun startTcpRelay(authToken: String?): Int {
+        require(!authToken.isNullOrEmpty()) { "authToken must not be empty" }
+        if (relayPort != 0) {
+            // Idempotent for the same token; reject token rotation so a buggy second caller
+            // can't silently shadow the first session's auth boundary.
+            check(RelayAuthToken.verify(expectedToken, authToken)) {
+                "startTcpRelay called with a different token than the one already in use"
+            }
+            return relayPort
+        }
+        expectedToken = authToken
+        // Bind 127.0.0.1:0 — kernel chooses a free port. Token in WS Upgrade header gates access.
         val server = ServerSocket()
         server.reuseAddress = true
         server.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 16)
@@ -223,7 +235,7 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         Thread({ relayAcceptLoop(server) }, "cdp-relay-accept").apply {
             isDaemon = true
         }.start()
-        Log.i(TAG, "TCP relay started on 127.0.0.1:$relayPort")
+        Log.i(TAG, "TCP relay started on 127.0.0.1:$relayPort (token-gated)")
         return relayPort
     }
 
@@ -252,10 +264,28 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
     private fun proxyConnection(client: Socket) {
         val abstractSocket = LocalSocket()
         try {
+            client.tcpNoDelay = true
+            // Token gate: read the WS Upgrade request line + headers before connecting upstream.
+            // A connection from any local app — or from this app over the wrong code path — is
+            // 403'd here, never reaching Chrome's CDP.
+            val parsed = RelayAuthToken.readHttpRequestHead(client.getInputStream())
+            if (parsed !is RelayAuthToken.ParseResult.Success) {
+                Log.w(TAG, "relay token gate: rejected (${(parsed as RelayAuthToken.ParseResult.Failure).reason})")
+                RelayAuthToken.write403(client.getOutputStream())
+                return
+            }
+            if (!RelayAuthToken.verify(expectedToken, parsed.token)) {
+                Log.w(TAG, "relay token gate: rejected (token missing or mismatched)")
+                RelayAuthToken.write403(client.getOutputStream())
+                return
+            }
             abstractSocket.connect(
                 LocalSocketAddress(CHROME_DEVTOOLS_SOCKET, LocalSocketAddress.Namespace.ABSTRACT)
             )
-            client.tcpNoDelay = true
+            // Replay the buffered request bytes upstream verbatim. Chrome's HTTP server ignores
+            // unknown headers, so [RelayAuthToken.HEADER_NAME] passes through harmlessly.
+            abstractSocket.outputStream.write(parsed.bytes)
+            abstractSocket.outputStream.flush()
             // Two pump threads — one each direction. Either close terminates both.
             val downstream = Thread({
                 runCatching {
