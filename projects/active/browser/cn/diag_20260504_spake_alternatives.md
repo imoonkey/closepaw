@@ -73,3 +73,12 @@ WirelessAdbSelfPair: wireless-adb bootstrap: complete
 → Cold pair completed end-to-end in ~1.4 s. The persisted keystore was re-created on disk (`cert.x509.der`, `private.pkcs8.der`, `.install-complete` sentinel under `/data/data/ai.closepaw/files/adb_self_pair/`), confirming `adbd` accepted our `PeerInfo` (which is encrypted with the AES-128-GCM key derived via HKDF-SHA256 from the SPAKE2 64-byte transcript). Wire-compat with AOSP `adbd`'s BoringSSL spake25519 is therefore proven by the only test that actually exercises wire-format: a fresh handshake against the real daemon.
 
 The follow-on `Example Domain` HTTP exchange did not complete in this run because the device was on the lockscreen (user lock pattern, cannot be dismissed remotely without the credential). The post-pair `SocketTimeoutException: Read timed out` originates in `AdbWireProtocolClient.readUntilHttpComplete` reading from the local-abstract relay socket while Chrome was not foregrounded — entirely environmental, unrelated to the SPAKE2 swap. The Phase 4 PASS recorded in `diag_20260503_phase4_handoff.md` was on the same device with the screen unlocked + Chrome foregrounded.
+
+## Post-rebase verification (2026-05-04, after merging main)
+
+After rebasing onto main HEAD `6dc2af3a` (which advanced the branch with BC 1.84 bump, storeArtifact quota, ws-idle reset, target-leak per-LiveConnection / switchMutex, and relay token-gate / slowloris deadline), the same gates were re-run:
+- `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint` — all green.
+- Spake25519Test 8/8 (added: pinned KAT vectors, processMessage rejects non-32-byte input, processMessage rejects malformed point bytes, state machine prevents misuse).
+- Real-device cold-pair on nubia (cumulative: BC 1.84 + token-gate + per-LiveConnection + Spake25519): same `wireless-adb pairing complete` log + persisted keystore re-created in 1.4 s. Post-pair behavior unchanged from pre-rebase run (lockscreen still blocks Chrome foregrounding).
+
+The crypto core (M/N extraction, password-scalar hack, cofactor algebra) is unchanged from the pre-review commit; rebase touched only `app/build.gradle.kts` (3-way auto-merge: main's BC 1.84 + branch's eddsa add + spake2-android removal).
