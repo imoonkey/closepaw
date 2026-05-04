@@ -11,6 +11,7 @@
 | **WS relay stress (Phase 5) — multi-iteration leak check** | **nubia P0110 (PASS)** | 10 sequential `browser_script` agent sessions over the same ClosePaw process. Asserted per-iter (iter 1 → iter N) `socket_fd_delta <= +2` and `fd_delta <= +20`, pid stable, zero `EMFILE` lines, every iter showed `browser_script outcome=SUCCESS` + `GOAL_ACHIEVED` + WIRELESS_ADB_SELF_PAIR relay opened. Result on 2026-05-03 (round 4, post-rebase onto pair-once main): per-iter socket_fd_delta=0, per-iter fd_delta=-2, all 10 iterations GOAL_ACHIEVED via WIRELESS_ADB_SELF_PAIR. Driven by `scripts/ws-relay-stress.sh` + `WirelessAdbSelfPairTransportRelayStressTest`. |
 | **Phase 5 mid-gate (post-cleanup regression check)** | **nubia P0110 (PASS, soft)** | Two cold sessions on a clean install after pair-once + deleted-transport collapse + spike-harden + adb_keys prune + WS relay stress all merged. Both sessions return `document.title is "Example Domain"`; cascade is exactly USER_SERVICE → WIRELESS_ADB_SELF_PAIR with zero references to APP_PROCESS / HOST_MEDIATED_RELAY / CHROME_TCP_LOOPBACK in active logcat. Pair-once skip not observable on this OEM (shell uid denied read of `/data/misc/adb/adb_keys` — known per-OEM constraint, not Phase 5 regression). See "Phase 5 mid-gate" section. |
 | **Phase 5 final-gate (post-bridge-simplify regression check)** | **nubia P0110 (PASS, soft)** | Final gate on `task/qa-final` after `bridge-simplify` (httpGet body shrunk to 27 lines, `DEFAULT_TIMEOUT_MS=4000`, +4 wire-protocol unit tests, cause chained in user error) and three soft-TODO docs landed. Cold-pair + re-pair + 10-iter WS stress all green: `document.title is "Example Domain"` returned on both agent runs via WIRELESS_ADB_SELF_PAIR; stress harness reports per-iter `socket_fd_delta=0`, `fd_delta=2` (within +2 budget), pid stable, `EMFILE=0`, 10/10 iterations GOAL_ACHIEVED. Pair-once skip again not observable on this OEM (per qa-mid finding). See "Phase 5 final-gate" section. |
+| **Phase 6 final-gate ROUND 2 (post storeArtifact quota fix)** | **emulator-5556 (round 1, retained) + JVM suite at HEAD** | Re-verification gate after `f6886f4a fix(browser): lift storeArtifact session quota to session scope + atomic CAS` landed on top of the round-1 BLOCKED branch. All 7 local items hold (round-1 emulator full chain unchanged — quota fix touches only `BrowserSessionManager` / `BrowserScriptRunner` / `BrowserScriptJsInterface`, not the CDP transport). Codex re-review on cumulative HEAD returns **VERDICT: APPROVE** with file:line citations confirming counter ownership now on `BrowserSessionManager.kt:106`, survives `markBroken` reconnects (same field at `:177`/`:179`), atomic CAS via `getAndAccumulate` at `BrowserScriptJsInterface.kt:61`, and tests for both shared-counter-across-instances and reconnect-survival. 85 targeted tests across 8 suites, 0 failures. See "Phase 6 final-gate ROUND 2" section. |
 
 The device-policy block documented in the original "nubia FAIL" diagnostic is still real — Shizuku's shell-context UserService is denied `connectto` on `chrome_devtools_remote` on nubia and on a non-root emulator both — but **Phase 4 routes around it through the only context that retains both the SELinux `connectto` and `mlstrustedsubject` privileges (`adbd`), without needing a host PC.**
 
@@ -762,3 +763,75 @@ All under `projects/active/browser/cn/diag_20260504_phase6_qa/`:
 - `03_emu_full_chain_evidence.txt` — emulator GOAL_ACHIEVED log lines
 
 Plus `projects/active/browser/cn/phase6_codex_review.md` for the codex verdict.
+
+---
+
+## Phase 6 final-gate ROUND 2 — 2026-05-04 — PASS
+
+### Summary
+
+Round-2 re-verification gate after `f6886f4a fix(browser): lift storeArtifact session
+quota to session scope + atomic CAS` landed on top of the round-1 BLOCKED branch.
+Round-1's only blocker — item 4 (storeArtifact session-quota scope) — is closed:
+the `sessionDecodedBytes` AtomicLong is now owned by `BrowserSessionManager`
+(session-scoped), threaded through `runnerFactory` → `BrowserScriptRunner` →
+`BrowserScriptJsInterface`, with reservation done by atomic
+`getAndAccumulate` (no check-then-add race). Counter survives `markBroken`-driven
+CDP reconnects (same field re-handed to the rebuilt runner — verified by
+`BrowserSessionManagerTest.storeArtifact session quota survives CDP reconnect within one session`,
+which forces a transport failure between `run()` calls and asserts
+`countersHandedOut[0] === countersHandedOut[1]`). Codex re-review on cumulative
+HEAD returns **VERDICT: APPROVE** with file:line citations confirming all four
+sub-checks (A counter ownership, B reconnect survival, C atomic CAS + reservation
+release, D tests) and re-confirms round-1 items 1, 2, 3, 5, 6 still YES.
+
+### Per-item results
+
+| # | Item | Result | Evidence |
+|---|---|---|---|
+| 1 | Token gate negative test | PASS (round 1 retained) | Same source at HEAD; `RelayAuthTokenTest` 16 tests / `WirelessAdbSelfPairTransportRelayStressTest` 9 tests / `ChromeDevtoolsUserServiceRelayTest` 6 tests all green at HEAD. |
+| 2 | WS handshake/idle separation | PASS (round 1 retained) | `AdbWireProtocolClientTest` 9 tests green at HEAD. |
+| 3 | CDP target switch | PASS (round 1 retained) | `ChromeCdpClientTest` 26 tests green at HEAD. |
+| 4 | storeArtifact DoS (session-quota fix) | **PASS** | Counter on `BrowserSessionManager.kt:106`; threaded into `BrowserScriptRunner.kt:42` and `BrowserScriptJsInterface.kt:24`; atomic CAS at `BrowserScriptJsInterface.kt:61` (`getAndAccumulate`, lambda returns `current` to refuse → no race); reservation released on recorder exception (`:80`) and recorder rejection (`:84`). Two new unit tests: `BrowserScriptJsInterfaceTest.session quota is shared across JsInterface instances within one session` (proves shared counter rejects 2nd run() at cap; counter advances by 1st-call bytes only) and `BrowserSessionManagerTest.storeArtifact session quota survives CDP reconnect within one session` (proves same `AtomicLong` instance is handed to runners on both sides of a `markBroken` reconnect). 10 + 5 tests in those two suites, 0 failures. |
+| 5 | BouncyCastle ≥ 1.84 | PASS (round 1 retained) | `app/build.gradle.kts:142–143` still `1.84` for both `bcpkix-jdk18on` and `bcprov-jdk18on`. |
+| 6 | SPAKE2 / LGPL purge | PASS (round 1 retained) | `grep -E "MuntashirAkon\|spake2-android" build.gradle.kts settings.gradle.kts app/build.gradle.kts` returns only the attribution comment in `app/build.gradle.kts:145`; source-tree hits in `app/src/` are Apache-2.0 attribution comments in `AdbPairingClient.kt`/`Spake25519.kt`/`AndroidPubkey.kt`, not dependency declarations. |
+| 7 | Real-device chain | PASS (round 1 emulator retained) | Quota fix touches `BrowserSessionManager` / `BrowserScriptRunner` / `BrowserScriptJsInterface` only; CDP transport, USER_SERVICE, and WIRELESS_ADB_SELF_PAIR paths unchanged. Round-1 emulator-5556 `debug-output/run_20260504_151121/` GOAL_ACHIEVED ("The page title is: Example Domain") still represents current behavior of the unchanged path. |
+| 8 | Codex re-review | **APPROVE** | `cn/phase6_codex_review_r2.md`. Item 4 sub-checks A/B/C/D all YES with file:line citations; round-1 items 1/2/3/5/6 all YES; no new Critical/High introduced. Codex independently re-ran the focused tests. Verdict: **APPROVE**. |
+
+### Build + targeted tests baseline
+
+`./gradlew :app:testDebugUnitTest` targeted at the 8 affected suites: 0 failures, 0 errors.
+
+| Suite | tests | failures | errors |
+|---|---|---|---|
+| BrowserScriptJsInterfaceTest | 10 | 0 | 0 |
+| BrowserSessionManagerTest | 5 | 0 | 0 |
+| SessionServicesCleanupTest | 4 | 0 | 0 |
+| RelayAuthTokenTest | 16 | 0 | 0 |
+| AdbWireProtocolClientTest | 9 | 0 | 0 |
+| ChromeCdpClientTest | 26 | 0 | 0 |
+| ChromeDevtoolsUserServiceRelayTest | 6 | 0 | 0 |
+| WirelessAdbSelfPairTransportRelayStressTest | 9 | 0 | 0 |
+| **Total** | **85** | **0** | **0** |
+
+### Gate verdict
+
+**PASS.** Round-1 BLOCKED is closed: the storeArtifact session-quota scope bug is
+fixed at the only correct ownership level (`BrowserSessionManager` — outlives
+both per-call JsInterface and per-bridge runner, and is not reset by an
+attacker-forced reconnect), with atomic CAS reservation that is race-free under
+the WebView's worker-thread dispatch and that releases on every non-success
+path. Codex re-review independently APPROVES with file:line citations for every
+sub-check. All round-1 PASS items still hold at HEAD.
+
+### Diagnostic artifacts
+
+All under `projects/active/browser/cn/`:
+
+- `cn/diag_20260504_phase6_qa/04_round2_quota_fix_evidence.txt` — code-level
+  walkthrough of the fix + targeted test counts (round 2).
+- `cn/phase6_codex_review_r2.md` — codex round-2 verdict (APPROVE) with
+  file:line citations.
+- (Round-1 evidence retained: `cn/diag_20260504_phase6_qa/01_*`,
+  `02_*`, `03_*` and `cn/phase6_codex_review.md`.)
+
