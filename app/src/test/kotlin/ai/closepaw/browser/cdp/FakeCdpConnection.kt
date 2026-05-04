@@ -73,11 +73,20 @@ internal class FakeCdpConnection : CdpConnection {
     fun lastSent(): JsonObject = sent.last()
 
     fun factory(): CdpConnectionFactory = CdpConnectionFactory { url, onMsg, onFail, onClose ->
+        bind(url, onMsg, onFail, onClose)
+    }
+
+    fun bind(
+        url: String,
+        onMsg: (String) -> Unit,
+        onFail: (Throwable) -> Unit,
+        onClose: (CdpConnectionClosedException) -> Unit,
+    ): FakeCdpConnection {
         connectedUrls.add(url)
         onMessage = onMsg
         onFailure = onFail
         onClosed = onClose
-        this
+        return this
     }
 
     companion object {

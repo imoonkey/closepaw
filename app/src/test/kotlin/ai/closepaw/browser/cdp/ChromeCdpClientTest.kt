@@ -116,6 +116,64 @@ class ChromeCdpClientTest {
     }
 
     @Test
+    fun `switching direct page targets closes previous WS, leaving exactly one active`() = runTest {
+        // Tab-heavy scripts repeatedly switch targets. The previous direct WS used to be
+        // parked until session teardown, leaking WS+fds per switch. Each switch must close
+        // the prior WS cleanly without marking the new connection broken.
+        val opened = mutableListOf<FakeCdpConnection>()
+        val factory = CdpConnectionFactory { url, onMsg, onFail, onClose ->
+            FakeCdpConnection().bind(url, onMsg, onFail, onClose).also { opened += it }
+        }
+        val client = ChromeCdpClient(factory)
+        client.connect("ws://127.0.0.1:9222/devtools/page/page-0")
+        client.useDirectPageTarget("page-0", "ws://127.0.0.1:9222/devtools/page/page-0")
+
+        repeat(10) { i ->
+            val tid = "page-${i + 1}"
+            client.send("Page.enable", options = CdpOptions(targetId = tid))
+
+            // Invariant: exactly one active direct WS at any time after the switch.
+            assertThat(opened.count { !it.closed }).isEqualTo(1)
+            assertThat(client.activeConnectionCount).isEqualTo(1)
+            assertThat(client.activeTargetId).isEqualTo(tid)
+            assertThat(client.isBroken).isFalse()
+        }
+
+        // 11 distinct connections were opened (initial + 10 switches), 10 were closed.
+        assertThat(opened).hasSize(11)
+        assertThat(opened.count { it.closed }).isEqualTo(10)
+
+        client.close()
+        assertThat(opened.count { !it.closed }).isEqualTo(0)
+        assertThat(client.activeConnectionCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `closing previous WS on switch does not mark new connection broken`() = runTest {
+        // The prior connection's onClosed callback would, if not suppressed, fire
+        // markTransportBroken on the shared client and corrupt the new connection.
+        var transportFailures = 0
+        val opened = mutableListOf<FakeCdpConnection>()
+        val factory = CdpConnectionFactory { url, onMsg, onFail, onClose ->
+            FakeCdpConnection().bind(url, onMsg, onFail, onClose).also { opened += it }
+        }
+        val client = ChromeCdpClient(
+            connectionFactory = factory,
+            onTransportFailure = { transportFailures++ },
+        )
+        client.connect("ws://127.0.0.1:9222/devtools/page/page-1")
+        client.useDirectPageTarget("page-1", "ws://127.0.0.1:9222/devtools/page/page-1")
+
+        client.send("Page.enable", options = CdpOptions(targetId = "page-2"))
+        // Simulate the OS firing onClosed on the now-defunct previous WS *after* the switch.
+        opened[0].injectClosed(code = 1000, reason = "switched away")
+
+        assertThat(client.isBroken).isFalse()
+        assertThat(transportFailures).isEqualTo(0)
+        assertThat(client.activeTargetId).isEqualTo("page-2")
+    }
+
+    @Test
     fun `page domain without active session fails fast`() = runTest {
         val conn = FakeCdpConnection()
         val client = ChromeCdpClient(conn.factory())

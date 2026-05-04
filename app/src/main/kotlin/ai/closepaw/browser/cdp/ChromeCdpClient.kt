@@ -51,14 +51,18 @@ class ChromeCdpClient(
     var isBroken: Boolean = false
         private set
 
-    private var connection: CdpConnection? = null
-    private val parkedConnections = mutableListOf<CdpConnection>()
+    private var current: LiveConnection? = null
     private var directPageWebSocketBase: String? = null
+
+    /** Visible for tests: count of WS connections still considered active (not closed by us). */
+    val activeConnectionCount: Int
+        get() = if (current?.active == true) 1 else 0
 
     suspend fun connect(wsUrl: String) {
         isBroken = false
         directPageWebSocketBase = null
-        connection = connectionFactory.connect(wsUrl, ::onMessage, ::onFailure, ::onClosed)
+        current?.closeQuietly()
+        current = openConnection(wsUrl)
     }
 
     fun useDirectPageTarget(targetId: String, wsUrl: String) {
@@ -146,10 +150,8 @@ class ChromeCdpClient(
     fun drainEvents(): List<CdpIncoming.Event> = eventBuffer.drain()
 
     fun close() {
-        connection?.close()
-        connection = null
-        parkedConnections.forEach { it.close() }
-        parkedConnections.clear()
+        current?.closeQuietly()
+        current = null
         val err = CdpException(-1, "Client closed")
         pending.values.forEach { it.completeExceptionally(err) }
         pending.clear()
@@ -170,12 +172,16 @@ class ChromeCdpClient(
     private suspend fun switchDirectPageTarget(targetId: String) {
         val base = directPageWebSocketBase ?: return
         if (targetId == activeTargetId) return
-        connection?.let { parkedConnections.add(it) }
+        val previous = current
         val wsUrl = "$base/$targetId"
-        connection = connectionFactory.connect(wsUrl, ::onMessage, ::onFailure, ::onClosed)
+        current = openConnection(wsUrl)
         isBroken = false
         activeTargetId = targetId
         activeSessionId = null
+        // Swap first so the previous WS's onClosed (now suppressed by active=false) cannot
+        // mark the new connection broken or fail its in-flight pending requests. Switching
+        // is a normal operation, not a transport failure.
+        previous?.closeQuietly()
     }
 
     private suspend fun sendRaw(
@@ -188,7 +194,7 @@ class ChromeCdpClient(
         pending[id] = deferred
         try {
             val msg = buildCdpRequest(id, method, params, sessionId)
-            val conn = connection ?: throw CdpException(-1, "Not connected")
+            val conn = current?.raw ?: throw CdpException(-1, "Not connected")
             try {
                 conn.send(msg)
             } catch (t: Exception) {
@@ -262,6 +268,36 @@ class ChromeCdpClient(
 
     private fun isStaleSessionError(e: CdpException): Boolean =
         "Session with given id not found" in e.message
+
+    /**
+     * Wraps a raw [CdpConnection] with an `active` flag so intentional close (target switch,
+     * client close) does not leak through to the shared `onMessage`/`onFailure`/`onClosed`
+     * callbacks and corrupt state on the next connection.
+     */
+    private class LiveConnection {
+        @Volatile var active: Boolean = true
+        @Volatile var raw: CdpConnection? = null
+
+        fun closeQuietly() {
+            active = false
+            try {
+                raw?.close()
+            } catch (_: Throwable) {
+                // active=false is what guarantees no stray callback; close is best-effort.
+            }
+        }
+    }
+
+    private suspend fun openConnection(wsUrl: String): LiveConnection {
+        val live = LiveConnection()
+        live.raw = connectionFactory.connect(
+            wsUrl,
+            { text -> if (live.active) onMessage(text) },
+            { error -> if (live.active) onFailure(error) },
+            { error -> if (live.active) onClosed(error) },
+        )
+        return live
+    }
 
     companion object {
         /**
