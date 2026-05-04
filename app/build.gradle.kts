@@ -139,8 +139,8 @@ dependencies {
 
     // BouncyCastle — X.509 self-signed cert generation for wireless ADB pairing
     // (sun.security.x509 is not available on Android). "jdk18on" = JDK 1.8 onwards.
-    implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
-    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.84")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.84")
 
     // SPAKE2 — required for ADB pairing protocol (AOSP uses BoringSSL spake25519).
     // LGPL-3.0; we link dynamically via a Maven dep, so license is compatible with proprietary app.
