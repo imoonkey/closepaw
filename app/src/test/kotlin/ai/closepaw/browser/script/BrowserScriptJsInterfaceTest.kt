@@ -144,4 +144,85 @@ class BrowserScriptJsInterfaceTest {
         assertThat(result).isNull()
         verify(exactly = 0) { recorder.storeBytes(any(), any(), any(), any(), any()) }
     }
+
+    @Test
+    fun `storeArtifact rejects payloads above per-call cap without decoding or storing`() {
+        val recorder = mockk<TraceRecorder>(relaxed = true)
+        val iface = BrowserScriptJsInterface(
+            bridge = mockk(relaxed = true),
+            traceRecorder = recorder,
+            maxBytesPerCall = 16,
+            maxBytesPerSession = 1_024L,
+        )
+
+        // 17-char base64 string: one byte over the configured per-call cap.
+        val oversized = "AAAAAAAAAAAAAAAAA"
+        val result = iface.storeArtifact("k", "f.bin", oversized, null)
+
+        assertThat(result).isNull()
+        // Decode must not run for over-cap payloads — the length check is the OOM guard.
+        verify(exactly = 0) { Base64.decode(any<String>(), any()) }
+        verify(exactly = 0) { recorder.storeBytes(any(), any(), any(), any(), any()) }
+        verify(atLeast = 1) { Log.w(any<String>(), match<String> { it.contains("per-call cap") }) }
+    }
+
+    @Test
+    fun `storeArtifact rejects when cumulative session bytes would exceed cap`() {
+        val recorder = mockk<TraceRecorder>(relaxed = true)
+        every { recorder.runDirAbsolutePath } returns "/sdcard/trace/run-1"
+        every {
+            recorder.storeBytes(any(), any(), any(), any(), any())
+        } returns TraceArtifactRef(
+            kind = "browser-script",
+            path = "artifacts/a.bin",
+            mimeType = null,
+            description = null,
+        )
+        // Per-session cap of 12 bytes; "Hello World!" decodes to exactly 12 bytes.
+        val iface = BrowserScriptJsInterface(
+            bridge = mockk(relaxed = true),
+            traceRecorder = recorder,
+            maxBytesPerCall = 1_024,
+            maxBytesPerSession = 12L,
+        )
+
+        val first = iface.storeArtifact("k", "a.bin", "SGVsbG8gV29ybGQh", null) // 12 decoded bytes
+        val second = iface.storeArtifact("k", "b.bin", "QQ==", null) // 1 more decoded byte → over
+
+        assertThat(first).isEqualTo("/sdcard/trace/run-1/artifacts/a.bin")
+        assertThat(second).isNull()
+        verify(exactly = 1) { recorder.storeBytes(any(), any(), any(), any(), any()) }
+        verify(atLeast = 1) { Log.w(any<String>(), match<String> { it.contains("session decoded bytes") }) }
+    }
+
+    @Test
+    fun `storeArtifact does not consume session quota when recorder rejects the write`() {
+        val recorder = mockk<TraceRecorder>(relaxed = true)
+        every { recorder.runDirAbsolutePath } returns "/sdcard/trace/run-1"
+        // First call: recorder rejects (returns null) → quota must not advance.
+        // Second call: recorder accepts → would only succeed if quota wasn't burned by call #1.
+        every {
+            recorder.storeBytes(any(), any(), any(), any(), any())
+        } returnsMany listOf(
+            null,
+            TraceArtifactRef(
+                kind = "browser-script",
+                path = "artifacts/ok.bin",
+                mimeType = null,
+                description = null,
+            ),
+        )
+        val iface = BrowserScriptJsInterface(
+            bridge = mockk(relaxed = true),
+            traceRecorder = recorder,
+            maxBytesPerCall = 1_024,
+            maxBytesPerSession = 12L, // exactly one "Hello World!" worth
+        )
+
+        val rejected = iface.storeArtifact("k", "a.bin", "SGVsbG8gV29ybGQh", null)
+        val accepted = iface.storeArtifact("k", "b.bin", "SGVsbG8gV29ybGQh", null)
+
+        assertThat(rejected).isNull()
+        assertThat(accepted).isEqualTo("/sdcard/trace/run-1/artifacts/ok.bin")
+    }
 }
