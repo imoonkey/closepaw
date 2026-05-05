@@ -5,28 +5,28 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Base64
 import android.util.Log
-import java.io.IOException
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONException
-import org.json.JSONObject
 
-class TermuxBridgeManager(context: Context) {
+class TermuxBridgeManager internal constructor(
+    private val commandRunner: TermuxCommandRunner,
+    private val healthProbe: TermuxHealthProbe,
+    private val termuxInstalled: () -> Boolean,
+    private val bridgePayloadBase64: suspend () -> String,
+    private val managerScope: CoroutineScope
+) {
     companion object {
         private const val TAG = "TermuxBridgeManager"
         private const val TERMUX_PACKAGE = "com.termux"
@@ -38,11 +38,11 @@ class TermuxBridgeManager(context: Context) {
         private const val DEPLOY_TIMEOUT_MS = 30_000L
         private const val START_TIMEOUT_MS = 10_000L
         private const val HEALTH_READY_TIMEOUT_MS = 10_000L
-        private const val HEALTH_POLL_INTERVAL_MS = 30_000L
         private const val DEPLOY_BRIDGE_COMMAND =
             "mkdir -p ~/.closepaw ~/closepaw/workspace ~/closepaw/artifacts ~/closepaw/logs && " +
-                "base64 -d > ~/.closepaw/bridge.py && " +
-                "python3 -m py_compile ~/.closepaw/bridge.py && echo CLOSEPAW_DEPLOY=ok"
+                "base64 -d > ~/.closepaw/bridge.py.tmp && " +
+                "python3 -m py_compile ~/.closepaw/bridge.py.tmp && " +
+                "mv ~/.closepaw/bridge.py.tmp ~/.closepaw/bridge.py && echo CLOSEPAW_DEPLOY=ok"
         private const val BRIDGE_EXISTS_COMMAND =
             "test -f ~/.closepaw/bridge.py && echo CLOSEPAW_BRIDGE=present"
 
@@ -65,24 +65,40 @@ class TermuxBridgeManager(context: Context) {
                 "echo CLOSEPAW_START=ok"
 
         fun get(context: Context): TermuxBridgeManager = TermuxBridgeManagerHolder.instance(context)
+
+        private fun detectTermuxInstalled(context: Context): Boolean {
+            return try {
+                context.packageManager.getPackageInfo(TERMUX_PACKAGE, 0)
+                true
+            } catch (_: PackageManager.NameNotFoundException) {
+                false
+            }
+        }
+
+        private suspend fun loadBridgePayloadBase64(context: Context): String =
+            withContext(Dispatchers.IO) {
+                context.resources.openRawResource(R.raw.closepaw_bridge_py).use { stream ->
+                    Base64.encodeToString(stream.readBytes(), Base64.NO_WRAP)
+                }
+            }
     }
 
-    private val context: Context = context.applicationContext
     private val _state = MutableStateFlow<TermuxBridgeStatus>(TermuxBridgeStatus.NotInstalled)
     val state: StateFlow<TermuxBridgeStatus> = _state.asStateFlow()
     private val mutex = Mutex()
-    private val adapter = TermuxRunCommandAdapter(this.context)
-    private val httpClient =
-        OkHttpClient.Builder()
-            .connectTimeout(1, TimeUnit.SECONDS)
-            .readTimeout(2, TimeUnit.SECONDS)
-            .writeTimeout(2, TimeUnit.SECONDS)
-            .callTimeout(3, TimeUnit.SECONDS)
-            .build()
-    private val healthPollingLock = Any()
-    private var healthPollingJob: Job? = null
+    private val inFlightLock = Any()
+    private var inFlightJob: Deferred<TermuxBridgeStatus>? = null
 
-    suspend fun setup(): TermuxBridgeStatus = mutex.withLock { setupLocked() }
+    constructor(context: Context) : this(
+        commandRunner = AndroidTermuxCommandRunner(context.applicationContext),
+        healthProbe = HttpTermuxHealthProbe(HEALTH_URL, BRIDGE_IDENTITY, BRIDGE_VERSION_EXPECTED),
+        termuxInstalled = { detectTermuxInstalled(context.applicationContext) },
+        bridgePayloadBase64 = suspend { loadBridgePayloadBase64(context.applicationContext) },
+        managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    )
+
+    suspend fun setup(): TermuxBridgeStatus =
+        awaitInFlight { mutex.withLock { setupLocked() } }
 
     suspend fun healthCheck(): TermuxBridgeStatus = mutex.withLock {
         if (!detectTermuxInstalled()) emit(TermuxBridgeStatus.NotInstalled) else emit(fetchHealth().toPassiveStatus())
@@ -90,32 +106,16 @@ class TermuxBridgeManager(context: Context) {
 
     suspend fun detectInstalled(): TermuxBridgeStatus = mutex.withLock { detectInstalledLocked() }
 
-    suspend fun ensureReadyForSession(timeoutMs: Long): TermuxBridgeStatus = mutex.withLock {
-        withTimeoutOrNull(timeoutMs) { ensureReadyForSessionLocked() }
+    suspend fun ensureReadyForSession(timeoutMs: Long): TermuxBridgeStatus = awaitInFlight {
+        withTimeoutOrNull(timeoutMs) { mutex.withLock { ensureReadyForSessionLocked() } }
             ?: emit(needsSetup(NeedsSetupReason.HEALTH_TIMEOUT))
     }
 
-    suspend fun restart(): TermuxBridgeStatus = mutex.withLock { restartLocked() }
+    suspend fun restart(): TermuxBridgeStatus =
+        awaitInFlight { mutex.withLock { restartLocked() } }
 
-    fun startHealthPolling(scope: CoroutineScope) {
-        synchronized(healthPollingLock) {
-            healthPollingJob?.cancel()
-            healthPollingJob =
-                scope.launch(Dispatchers.IO) {
-                    while (isActive) {
-                        try {
-                            healthCheck()
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Termux health polling failed: ${e.message}", e)
-                            emit(TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.UNKNOWN))
-                        }
-                        delay(HEALTH_POLL_INTERVAL_MS)
-                    }
-                }
-        }
-    }
+    // No background health polling here: /v1/health refreshes the bridge idle timer.
+    // Session creation recovers with ensureReadyForSession(); Settings observes with one-shot probes.
 
     /** Captures the current bridge capability for a new session. */
     fun snapshot(enabled: Boolean): TermuxCapabilitySnapshot {
@@ -125,6 +125,21 @@ class TermuxBridgeManager(context: Context) {
             enabled = enabled,
             status = status
         )
+    }
+
+    private suspend fun awaitInFlight(block: suspend () -> TermuxBridgeStatus): TermuxBridgeStatus {
+        val deferred =
+            synchronized(inFlightLock) {
+                inFlightJob?.takeIf { it.isActive } ?: managerScope.async { block() }.also { job ->
+                    inFlightJob = job
+                    job.invokeOnCompletion {
+                        synchronized(inFlightLock) {
+                            if (inFlightJob === job) inFlightJob = null
+                        }
+                    }
+                }
+            }
+        return deferred.await()
     }
 
     private suspend fun setupLocked(): TermuxBridgeStatus {
@@ -156,7 +171,7 @@ class TermuxBridgeManager(context: Context) {
 
         val probe =
             try {
-                adapter.runShell("echo CLOSEPAW_PROBE=ok", timeoutMs = PROBE_TIMEOUT_MS)
+                commandRunner.runShell("echo CLOSEPAW_PROBE=ok", timeoutMs = PROBE_TIMEOUT_MS)
             } catch (e: RunCommandError) {
                 return needsSetup(e.toReason(NeedsSetupReason.UNKNOWN))
             }
@@ -166,7 +181,7 @@ class TermuxBridgeManager(context: Context) {
 
         val install =
             try {
-                adapter.runShell(INSTALL_COMMAND, timeoutMs = INSTALL_TIMEOUT_MS)
+                commandRunner.runShell(INSTALL_COMMAND, timeoutMs = INSTALL_TIMEOUT_MS)
             } catch (e: RunCommandError) {
                 return needsSetup(e.toReason(NeedsSetupReason.PACKAGES_MISSING))
             }
@@ -176,9 +191,9 @@ class TermuxBridgeManager(context: Context) {
 
         val deploy =
             try {
-                adapter.runShell(
+                commandRunner.runShell(
                     DEPLOY_BRIDGE_COMMAND,
-                    stdinBase64 = bridgeResourceBase64(),
+                    stdinBase64 = bridgePayloadBase64(),
                     timeoutMs = DEPLOY_TIMEOUT_MS
                 )
             } catch (e: RunCommandError) {
@@ -242,31 +257,17 @@ class TermuxBridgeManager(context: Context) {
     private fun detectInstalledLocked(): TermuxBridgeStatus =
         if (detectTermuxInstalled()) emit(needsSetup(NeedsSetupReason.UNKNOWN)) else emit(TermuxBridgeStatus.NotInstalled)
 
-    private fun detectTermuxInstalled(): Boolean {
-        return try {
-            context.packageManager.getPackageInfo(TERMUX_PACKAGE, 0)
-            true
-        } catch (_: PackageManager.NameNotFoundException) {
-            false
-        }
-    }
+    private fun detectTermuxInstalled(): Boolean = termuxInstalled()
 
     private suspend fun hasDeployedBridge(): Boolean {
-        val result = adapter.runShell(BRIDGE_EXISTS_COMMAND, timeoutMs = PROBE_TIMEOUT_MS)
+        val result = commandRunner.runShell(BRIDGE_EXISTS_COMMAND, timeoutMs = PROBE_TIMEOUT_MS)
         return result.exitCode == 0 && result.stdout.contains("CLOSEPAW_BRIDGE=present")
     }
-
-    private suspend fun bridgeResourceBase64(): String =
-        withContext(Dispatchers.IO) {
-            context.resources.openRawResource(R.raw.closepaw_bridge_py).use { stream ->
-                Base64.encodeToString(stream.readBytes(), Base64.NO_WRAP)
-            }
-        }
 
     private suspend fun startBridge(): StartResult {
         val result =
             try {
-                adapter.runShell(START_BRIDGE_COMMAND, timeoutMs = START_TIMEOUT_MS)
+                commandRunner.runShell(START_BRIDGE_COMMAND, timeoutMs = START_TIMEOUT_MS)
             } catch (e: RunCommandError) {
                 return StartResult.Failed(e.toReason(NeedsSetupReason.UNKNOWN))
             }
@@ -306,37 +307,14 @@ class TermuxBridgeManager(context: Context) {
         } ?: HealthProbe.Unavailable
     }
 
-    private suspend fun fetchHealth(): HealthProbe =
-        withContext(Dispatchers.IO) {
-            val request = Request.Builder().url(HEALTH_URL).get().build()
-            try {
-                httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext HealthProbe.Unavailable
-                    val json = JSONObject(response.body.string())
-                    val identity = json.optString("identity")
-                    val version = json.optString("version")
-
-                    when {
-                        identity != BRIDGE_IDENTITY -> HealthProbe.InvalidIdentity
-                        version != BRIDGE_VERSION_EXPECTED -> HealthProbe.BridgeOutdated
-                        else -> HealthProbe.Ready
-                    }
-                }
-            } catch (_: IOException) {
-                HealthProbe.Unavailable
-            } catch (_: JSONException) {
-                HealthProbe.Unavailable
-            } catch (_: IllegalStateException) {
-                HealthProbe.Unavailable
-            }
-        }
+    private suspend fun fetchHealth(): HealthProbe = healthProbe.fetch()
 
     private fun RunCommandError.toReason(fallback: NeedsSetupReason): NeedsSetupReason =
         when (this) {
             RunCommandError.PermissionMissing -> NeedsSetupReason.PERMISSION_MISSING
             RunCommandError.AllowExternalAppsMissing -> NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING
             RunCommandError.TermuxNotAvailable -> NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING
-            is RunCommandError.Timeout -> fallback
+            is RunCommandError.Timeout -> NeedsSetupReason.TERMUX_TIMEOUT
             is RunCommandError.Other -> fallback
         }
 
@@ -374,11 +352,6 @@ class TermuxBridgeManager(context: Context) {
     private fun emit(status: TermuxBridgeStatus): TermuxBridgeStatus {
         _state.value = status
         return status
-    }
-
-    private sealed class HealthProbe {
-        object Ready : HealthProbe(); object BridgeOutdated : HealthProbe()
-        object InvalidIdentity : HealthProbe(); object Unavailable : HealthProbe()
     }
 
     private sealed class StartResult {

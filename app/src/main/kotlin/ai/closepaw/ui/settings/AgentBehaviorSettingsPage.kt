@@ -226,6 +226,7 @@ private fun NeedsSetupReason.toDisplayText(): String =
         NeedsSetupReason.PACKAGES_MISSING -> "Missing packages — tap to install python/git/ripgrep"
         NeedsSetupReason.BRIDGE_OUTDATED -> "Bridge daemon out of date — tap to update"
         NeedsSetupReason.HEALTH_TIMEOUT -> "Bridge unreachable — tap to retry setup"
+        NeedsSetupReason.TERMUX_TIMEOUT -> "Termux command timed out — open Termux once and retry"
         NeedsSetupReason.PORT_IN_USE -> "Port 18422 in use by another process"
         NeedsSetupReason.UNKNOWN -> "Setup error — tap to retry"
     }

@@ -23,6 +23,7 @@ enum class NeedsSetupReason {
     PACKAGES_MISSING,
     BRIDGE_OUTDATED,
     HEALTH_TIMEOUT,
+    TERMUX_TIMEOUT,
     PORT_IN_USE,
     UNKNOWN
 }
