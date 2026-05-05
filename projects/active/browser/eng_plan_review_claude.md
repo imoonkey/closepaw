@@ -1,7 +1,7 @@
 # Engineering Plan Review: Browser CDP Script Runtime
 
 Reviewer: Claude
-Design: `projects/active/browser/design_codex.md` (draft v1)
+Design: `projects/active/browser/cn/design_codex.md` (draft v1)
 Date: 2026-04-29
 
 ---
