@@ -43,6 +43,24 @@ class TermuxBridgeManager(context: Context) {
             "mkdir -p ~/.closepaw ~/closepaw/workspace ~/closepaw/artifacts ~/closepaw/logs && " +
                 "base64 -d > ~/.closepaw/bridge.py && " +
                 "python3 -m py_compile ~/.closepaw/bridge.py && echo CLOSEPAW_DEPLOY=ok"
+
+        // Combined install step. Three things this command works around for unattended bootstrap:
+        //   1. Termux v0.118+ ships with no `chosen_mirrors` symlink — the first `pkg install`
+        //      otherwise drops into an interactive mirror picker. Symlink the default group
+        //      (Termux's own bundled list) before running apt.
+        //   2. `Acquire::Check-Valid-Until=false` keeps apt from rejecting the InRelease file
+        //      when the device clock is skewed (signatures still verified).
+        //   3. Termux v0.118+ does not ship a `which` binary; `command -v` is POSIX and works.
+        //
+        // Path is hardcoded because Termux only sets $PREFIX in interactive login shells; the
+        // RUN_COMMAND-launched shell is non-login and $PREFIX expands to empty.
+        private const val TERMUX_PREFIX = "/data/data/com.termux/files/usr"
+        private const val INSTALL_COMMAND =
+            "[ -L $TERMUX_PREFIX/etc/termux/chosen_mirrors ] || " +
+                "ln -sf $TERMUX_PREFIX/etc/termux/mirrors/default $TERMUX_PREFIX/etc/termux/chosen_mirrors && " +
+                "$TERMUX_PREFIX/bin/apt update -y -o Acquire::Check-Valid-Until=false && " +
+                "$TERMUX_PREFIX/bin/apt install -y python git ripgrep -o Acquire::Check-Valid-Until=false && " +
+                "command -v python3 && command -v git && command -v rg"
         private val START_BRIDGE_COMMAND =
             """
             mkdir -p ~/closepaw/logs
@@ -162,13 +180,7 @@ class TermuxBridgeManager(context: Context) {
 
         val install =
             try {
-                adapter.runShell(
-                    // `command -v` instead of `which` — Termux v0.118+ does not ship a
-                    // `which` binary by default and `pkg install -y python git ripgrep`
-                    // does not pull one in, so the legacy probe always returned 127.
-                    "pkg install -y python git ripgrep && command -v python3 && command -v git && command -v rg",
-                    timeoutMs = INSTALL_TIMEOUT_MS
-                )
+                adapter.runShell(INSTALL_COMMAND, timeoutMs = INSTALL_TIMEOUT_MS)
             } catch (e: RunCommandError) {
                 return needsSetup(e.toReason(NeedsSetupReason.PACKAGES_MISSING))
             }

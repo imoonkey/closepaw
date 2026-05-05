@@ -134,7 +134,17 @@ class TermuxRunCommandAdapter(private val context: Context) {
             }
 
             try {
-                if (appContext.startService(runCommandIntent) == null) {
+                // Use startForegroundService on Android 8+ — Android 13's BG-FGS-START
+                // restrictions reject plain startService for cross-app service starts even
+                // when the caller is a foreground Activity. Termux's RunCommandService
+                // declares dataSync FGS type and calls startForeground() during onStartCommand.
+                val started =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        appContext.startForegroundService(runCommandIntent)
+                    } else {
+                        appContext.startService(runCommandIntent)
+                    }
+                if (started == null) {
                     fail(RunCommandError.TermuxNotAvailable)
                 }
             } catch (e: SecurityException) {
