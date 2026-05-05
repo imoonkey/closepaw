@@ -2,7 +2,6 @@ package ai.closepaw.termux
 
 import ai.closepaw.R
 import android.content.Context
-import android.content.pm.PackageManager
 import android.util.Base64
 import android.util.Log
 import kotlinx.coroutines.CancellationException
@@ -23,13 +22,12 @@ import kotlinx.coroutines.withTimeoutOrNull
 class TermuxBridgeManager internal constructor(
     private val commandRunner: TermuxCommandRunner,
     private val healthProbe: TermuxHealthProbe,
-    private val termuxInstalled: () -> Boolean,
+    private val termuxInstallProbe: TermuxInstallProbe,
     private val bridgePayloadBase64: suspend () -> String,
     private val managerScope: CoroutineScope
 ) {
     companion object {
         private const val TAG = "TermuxBridgeManager"
-        private const val TERMUX_PACKAGE = "com.termux"
         private const val BRIDGE_IDENTITY = "closepaw-bridge"
         private const val BRIDGE_VERSION_EXPECTED = "1"
         private const val HEALTH_URL = "http://127.0.0.1:18422/v1/health"
@@ -69,15 +67,6 @@ class TermuxBridgeManager internal constructor(
 
         fun get(context: Context): TermuxBridgeManager = TermuxBridgeManagerHolder.instance(context)
 
-        private fun detectTermuxInstalled(context: Context): Boolean {
-            return try {
-                context.packageManager.getPackageInfo(TERMUX_PACKAGE, 0)
-                true
-            } catch (_: PackageManager.NameNotFoundException) {
-                false
-            }
-        }
-
         private suspend fun loadBridgePayloadBase64(context: Context): String =
             withContext(Dispatchers.IO) {
                 context.resources.openRawResource(R.raw.closepaw_bridge_py).use { stream ->
@@ -95,7 +84,7 @@ class TermuxBridgeManager internal constructor(
     constructor(context: Context) : this(
         commandRunner = AndroidTermuxCommandRunner(context.applicationContext),
         healthProbe = HttpTermuxHealthProbe(HEALTH_URL, BRIDGE_IDENTITY, BRIDGE_VERSION_EXPECTED),
-        termuxInstalled = { detectTermuxInstalled(context.applicationContext) },
+        termuxInstallProbe = AndroidTermuxInstallProbe(context.applicationContext.packageManager),
         bridgePayloadBase64 = suspend { loadBridgePayloadBase64(context.applicationContext) },
         managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     )
@@ -104,7 +93,8 @@ class TermuxBridgeManager internal constructor(
         awaitInFlight(OperationKind.Setup) { mutex.withLock { setupLocked() } }
 
     suspend fun healthCheck(): TermuxBridgeStatus = mutex.withLock {
-        if (!detectTermuxInstalled()) emit(TermuxBridgeStatus.NotInstalled) else emit(fetchHealth().toPassiveStatus())
+        unavailableInstallStatus()?.let { return@withLock emit(it) }
+        emit(fetchHealth().toPassiveStatus())
     }
 
     suspend fun detectInstalled(): TermuxBridgeStatus = mutex.withLock { detectInstalledLocked() }
@@ -177,15 +167,13 @@ class TermuxBridgeManager internal constructor(
     }
 
     private suspend fun doBootstrap(): TermuxBridgeStatus {
-        if (!detectTermuxInstalled()) {
-            return TermuxBridgeStatus.NotInstalled
-        }
+        unavailableInstallStatus()?.let { return it }
 
         val probe =
             try {
                 commandRunner.runShell("echo CLOSEPAW_PROBE=ok", timeoutMs = PROBE_TIMEOUT_MS)
             } catch (e: RunCommandError) {
-                return needsSetup(e.toReason(NeedsSetupReason.UNKNOWN))
+                return needsSetup(e.toProbeReason())
             }
         if (!probe.stdout.contains("CLOSEPAW_PROBE=ok")) {
             return needsSetup(NeedsSetupReason.UNKNOWN)
@@ -222,9 +210,7 @@ class TermuxBridgeManager internal constructor(
     }
 
     private suspend fun doRestart(): TermuxBridgeStatus {
-        if (!detectTermuxInstalled()) {
-            return TermuxBridgeStatus.NotInstalled
-        }
+        unavailableInstallStatus()?.let { return it }
 
         return when (val start = startBridge()) {
             StartResult.Started ->
@@ -246,7 +232,7 @@ class TermuxBridgeManager internal constructor(
     private suspend fun ensureReadyForSessionLocked(): TermuxBridgeStatus {
         val health = fetchHealth()
         if (health == HealthProbe.Ready) return emit(TermuxBridgeStatus.Ready)
-        if (!detectTermuxInstalled()) return emit(TermuxBridgeStatus.NotInstalled)
+        unavailableInstallStatus()?.let { return emit(it) }
         if (health == HealthProbe.BridgeOutdated) {
             return emit(needsSetup(NeedsSetupReason.BRIDGE_OUTDATED))
         }
@@ -267,9 +253,17 @@ class TermuxBridgeManager internal constructor(
     }
 
     private fun detectInstalledLocked(): TermuxBridgeStatus =
-        if (detectTermuxInstalled()) emit(needsSetup(NeedsSetupReason.UNKNOWN)) else emit(TermuxBridgeStatus.NotInstalled)
+        emit(unavailableInstallStatus() ?: needsSetup(NeedsSetupReason.UNKNOWN))
 
-    private fun detectTermuxInstalled(): Boolean = termuxInstalled()
+    private fun unavailableInstallStatus(): TermuxBridgeStatus? =
+        when (detectTermuxInstall()) {
+            TermuxInstallState.NotInstalled -> TermuxBridgeStatus.NotInstalled
+            TermuxInstallState.RunCommandUnavailable ->
+                needsSetup(NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE)
+            TermuxInstallState.Available -> null
+        }
+
+    private fun detectTermuxInstall(): TermuxInstallState = termuxInstallProbe.inspect()
 
     private suspend fun hasDeployedBridge(): Boolean {
         val result = commandRunner.runShell(BRIDGE_EXISTS_COMMAND, timeoutMs = PROBE_TIMEOUT_MS)
@@ -329,6 +323,16 @@ class TermuxBridgeManager internal constructor(
             is RunCommandError.Timeout -> NeedsSetupReason.TERMUX_TIMEOUT
             is RunCommandError.Other -> fallback
         }
+
+    private fun RunCommandError.toProbeReason(): NeedsSetupReason {
+        val canBeUnsupportedVariant =
+            this == RunCommandError.PermissionMissing || this == RunCommandError.TermuxNotAvailable
+        return if (canBeUnsupportedVariant && detectTermuxInstall() == TermuxInstallState.RunCommandUnavailable) {
+            NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE
+        } else {
+            toReason(NeedsSetupReason.UNKNOWN)
+        }
+    }
 
     private fun String.hasInstalledBinaries(): Boolean {
         val binaries = lineSequence().map { it.trim().substringAfterLast('/') }.toSet()

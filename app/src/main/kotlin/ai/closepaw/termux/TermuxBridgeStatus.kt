@@ -20,6 +20,7 @@ sealed class TermuxBridgeStatus {
 enum class NeedsSetupReason {
     PERMISSION_MISSING,
     ALLOW_EXTERNAL_APPS_MISSING,
+    TERMUX_RUN_COMMAND_UNAVAILABLE,
     PACKAGES_MISSING,
     BRIDGE_OUTDATED,
     HEALTH_TIMEOUT,

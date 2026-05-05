@@ -110,25 +110,17 @@ private fun TermuxShellSettingsRow() {
                         // Try detection first; only fall back to F-Droid if Termux really isn't there.
                         val state = manager.setup()
                         if (state is TermuxBridgeStatus.NotInstalled) {
-                            withContext(Dispatchers.Main) {
-                                try {
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(TERMUX_INSTALL_URL))
-                                    )
-                                } catch (_: ActivityNotFoundException) {
-                                    Toast.makeText(
-                                        context,
-                                        "Unable to open Termux install page",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
+                            withContext(Dispatchers.Main) { context.openTermuxInstallPage() }
                         }
                     }
                 }
             }
             is TermuxBridgeStatus.NeedsSetup -> {
-                { scope.launch(Dispatchers.IO) { manager.setup() } }
+                if (displayedStatus.reason == NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE) {
+                    { context.openTermuxInstallPage() }
+                } else {
+                    { scope.launch(Dispatchers.IO) { manager.setup() } }
+                }
             }
             TermuxBridgeStatus.Ready -> {
                 { scope.launch(Dispatchers.IO) { manager.restart() } }
@@ -223,6 +215,8 @@ private fun NeedsSetupReason.toDisplayText(): String =
     when (this) {
         NeedsSetupReason.PERMISSION_MISSING -> "Permission missing — tap to grant RUN_COMMAND"
         NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING -> "Allow external apps disabled in Termux — tap to retry"
+        NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE ->
+            "This Termux build cannot accept external commands. Install Termux from F-Droid (the Google Play build is incompatible)."
         NeedsSetupReason.PACKAGES_MISSING -> "Missing packages — tap to install python/git/ripgrep"
         NeedsSetupReason.BRIDGE_OUTDATED -> "Bridge daemon out of date — tap to update"
         NeedsSetupReason.HEALTH_TIMEOUT -> "Bridge unreachable — tap to retry setup"
@@ -230,3 +224,11 @@ private fun NeedsSetupReason.toDisplayText(): String =
         NeedsSetupReason.PORT_IN_USE -> "Port 18422 in use by another process"
         NeedsSetupReason.UNKNOWN -> "Setup error — tap to retry"
     }
+
+private fun android.content.Context.openTermuxInstallPage() {
+    try {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMUX_INSTALL_URL)))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(this, "Unable to open Termux install page", Toast.LENGTH_SHORT).show()
+    }
+}

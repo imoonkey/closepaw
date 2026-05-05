@@ -1,6 +1,14 @@
 package ai.closepaw.termux
 
+import android.content.Intent
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.content.pm.PermissionInfo
+import android.content.pm.ResolveInfo
+import android.content.pm.ServiceInfo
 import com.google.common.truth.Truth.assertThat
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -13,6 +21,60 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TermuxBridgeManagerTest {
+
+    @Test
+    fun `detectInstalled reports unavailable when either RUN_COMMAND signal is missing`() = runTest {
+        val cases = listOf(
+            packageManager(declaredPermissions = listOf("android.permission.INTERNET")),
+            packageManager(resolvesRunCommandService = false)
+        )
+
+        cases.forEach { packageManager ->
+            val manager = manager(packageManager)
+            val status = manager.detectInstalled()
+
+            assertThat(status)
+                .isEqualTo(TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE))
+            assertThat(manager.state.value).isEqualTo(status)
+        }
+    }
+
+    @Test
+    fun `setup does not report RUN_COMMAND unavailable for F-Droid compatible Termux`() = runTest {
+        val commandRunner = FakeCommandRunner()
+        val manager = manager(
+            packageManager = packageManager(),
+            commandRunner = commandRunner,
+            healthProbe = FakeHealthProbe(HealthProbe.Unavailable, commandRunner)
+        )
+
+        val status = manager.setup()
+
+        assertThat(status).isEqualTo(TermuxBridgeStatus.Ready)
+        assertThat(manager.state.value)
+            .isNotEqualTo(TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE))
+    }
+
+    @Test
+    fun `setup maps probe permission failure to RUN_COMMAND unavailable when variant check confirms it`() =
+        runTest {
+            val commandRunner = FakeCommandRunner(probeError = RunCommandError.PermissionMissing)
+            val installProbe = SequenceTermuxInstallProbe(
+                TermuxInstallState.Available,
+                TermuxInstallState.RunCommandUnavailable
+            )
+            val manager = manager(
+                commandRunner = commandRunner,
+                healthProbe = FakeHealthProbe(HealthProbe.Unavailable, commandRunner),
+                installProbe = installProbe
+            )
+
+            val status = manager.setup()
+
+            assertThat(status)
+                .isEqualTo(TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE))
+            assertThat(commandRunner.commands).containsExactly(Command.Probe)
+        }
 
     @Test
     fun `ensureReadyForSession returns ready without RUN_COMMAND when health is ready`() = runTest {
@@ -191,18 +253,27 @@ class TermuxBridgeManagerTest {
 
     private fun TestScope.manager(
         commandRunner: FakeCommandRunner,
-        healthProbe: TermuxHealthProbe
+        healthProbe: TermuxHealthProbe,
+        installProbe: TermuxInstallProbe = TermuxInstallProbe { TermuxInstallState.Available }
     ): TermuxBridgeManager =
         TermuxBridgeManager(
             commandRunner = commandRunner,
             healthProbe = healthProbe,
-            termuxInstalled = { true },
+            termuxInstallProbe = installProbe,
             bridgePayloadBase64 = { "cHJpbnQoJ29rJykK" },
             managerScope = backgroundScope
         )
 
+    private fun TestScope.manager(
+        packageManager: PackageManager,
+        commandRunner: FakeCommandRunner = FakeCommandRunner(),
+        healthProbe: TermuxHealthProbe = FakeHealthProbe(HealthProbe.Unavailable, commandRunner)
+    ): TermuxBridgeManager =
+        manager(commandRunner, healthProbe, AndroidTermuxInstallProbe(packageManager))
+
     private class FakeCommandRunner(
         private val bridgeExists: Boolean = true,
+        private val probeError: RunCommandError? = null,
         private val installGate: CompletableDeferred<Unit>? = null,
         private val bridgeExistsGate: CompletableDeferred<Unit>? = null
     ) : TermuxCommandRunner {
@@ -224,6 +295,7 @@ class TermuxBridgeManagerTest {
             when {
                 "CLOSEPAW_PROBE=ok" in command -> {
                     commands += Command.Probe
+                    probeError?.let { throw it }
                     RunCommandResult("CLOSEPAW_PROBE=ok\n", "", 0)
                 }
                 "apt install" in command -> {
@@ -285,5 +357,41 @@ class TermuxBridgeManagerTest {
         Deploy,
         BridgeExists,
         Start
+    }
+
+    private class SequenceTermuxInstallProbe(private vararg val states: TermuxInstallState) : TermuxInstallProbe {
+        private var calls = 0
+
+        override fun inspect(): TermuxInstallState = states[(calls++).coerceAtMost(states.lastIndex)]
+    }
+
+    private fun packageManager(
+        declaredPermissions: List<String> = listOf(RUN_COMMAND_PERMISSION),
+        resolvesRunCommandService: Boolean = true
+    ): PackageManager {
+        val packageManager = mockk<PackageManager>()
+        every { packageManager.getPackageInfo(TERMUX_PACKAGE, PackageManager.GET_PERMISSIONS) } returns
+            PackageInfo().apply {
+                permissions = declaredPermissions.map { permission ->
+                    PermissionInfo().apply { name = permission }
+                }.toTypedArray()
+            }
+        every { packageManager.queryIntentServices(any<Intent>(), 0) } returns
+            if (resolvesRunCommandService) listOf(runCommandServiceResolveInfo()) else emptyList()
+        return packageManager
+    }
+
+    private fun runCommandServiceResolveInfo(): ResolveInfo =
+        ResolveInfo().apply {
+            serviceInfo = ServiceInfo().apply {
+                packageName = TERMUX_PACKAGE
+                name = TERMUX_RUN_COMMAND_SERVICE
+            }
+        }
+
+    private companion object {
+        const val TERMUX_PACKAGE = "com.termux"
+        const val RUN_COMMAND_PERMISSION = "com.termux.permission.RUN_COMMAND"
+        const val TERMUX_RUN_COMMAND_SERVICE = "com.termux.app.RunCommandService"
     }
 }

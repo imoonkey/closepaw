@@ -1,6 +1,9 @@
 package ai.closepaw.termux
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
@@ -22,11 +25,21 @@ internal fun interface TermuxHealthProbe {
     suspend fun fetch(): HealthProbe
 }
 
+internal fun interface TermuxInstallProbe {
+    fun inspect(): TermuxInstallState
+}
+
 internal enum class HealthProbe {
     Ready,
     BridgeOutdated,
     InvalidIdentity,
     Unavailable
+}
+
+internal enum class TermuxInstallState {
+    NotInstalled,
+    RunCommandUnavailable,
+    Available
 }
 
 internal class AndroidTermuxCommandRunner(context: Context) : TermuxCommandRunner {
@@ -37,6 +50,45 @@ internal class AndroidTermuxCommandRunner(context: Context) : TermuxCommandRunne
         stdinBase64: String?,
         timeoutMs: Long
     ): RunCommandResult = adapter.runShell(command, stdinBase64, timeoutMs)
+}
+
+internal class AndroidTermuxInstallProbe(
+    private val packageManager: PackageManager
+) : TermuxInstallProbe {
+
+    @Suppress("DEPRECATION")
+    override fun inspect(): TermuxInstallState {
+        val packageInfo =
+            try {
+                packageManager.getPackageInfo(TERMUX_PACKAGE, PackageManager.GET_PERMISSIONS)
+            } catch (_: PackageManager.NameNotFoundException) {
+                return TermuxInstallState.NotInstalled
+            }
+
+        val declaresRunCommandPermission =
+            packageInfo.permissions.orEmpty().any { it.name == RUN_COMMAND_PERMISSION }
+        val resolvesRunCommandService =
+            packageManager.queryIntentServices(Intent(ACTION_RUN_COMMAND), 0)
+                .any { it.isTermuxRunCommandService() }
+
+        return if (declaresRunCommandPermission && resolvesRunCommandService) {
+            TermuxInstallState.Available
+        } else {
+            TermuxInstallState.RunCommandUnavailable
+        }
+    }
+
+    private fun ResolveInfo.isTermuxRunCommandService(): Boolean {
+        val serviceInfo = serviceInfo ?: return false
+        return serviceInfo.packageName == TERMUX_PACKAGE && serviceInfo.name == TERMUX_RUN_COMMAND_SERVICE
+    }
+
+    private companion object {
+        const val TERMUX_PACKAGE = "com.termux"
+        const val RUN_COMMAND_PERMISSION = "com.termux.permission.RUN_COMMAND"
+        const val ACTION_RUN_COMMAND = "com.termux.RUN_COMMAND"
+        const val TERMUX_RUN_COMMAND_SERVICE = "com.termux.app.RunCommandService"
+    }
 }
 
 internal class HttpTermuxHealthProbe(
