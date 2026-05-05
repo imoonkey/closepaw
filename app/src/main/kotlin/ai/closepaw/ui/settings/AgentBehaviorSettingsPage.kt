@@ -213,8 +213,11 @@ private val TermuxBridgeStatus.subtitle: String
 
 private fun NeedsSetupReason.toDisplayText(): String =
     when (this) {
-        NeedsSetupReason.PERMISSION_MISSING -> "Permission missing — tap to grant RUN_COMMAND"
-        NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING -> "Allow external apps disabled in Termux — tap to retry"
+        NeedsSetupReason.PERMISSION_MISSING -> "RUN_COMMAND permission missing. Grant the permission, then tap setup."
+        NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING ->
+            "Allow external apps is disabled in Termux. Enable it, then tap setup."
+        NeedsSetupReason.TERMUX_NOT_RUNNING ->
+            "Termux is not running. Open Termux once, then return here and tap setup."
         NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE ->
             "This Termux build cannot accept external commands. Install Termux from F-Droid (the Google Play build is incompatible)."
         NeedsSetupReason.PACKAGES_MISSING -> "Missing packages — tap to install python/git/ripgrep"

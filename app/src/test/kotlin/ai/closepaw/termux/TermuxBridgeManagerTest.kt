@@ -1,5 +1,6 @@
 package ai.closepaw.termux
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -56,24 +57,36 @@ class TermuxBridgeManagerTest {
     }
 
     @Test
-    fun `setup maps probe permission failure to RUN_COMMAND unavailable when variant check confirms it`() =
+    fun `setup maps probe failures to refined setup reasons`() =
         runTest {
-            val commandRunner = FakeCommandRunner(probeError = RunCommandError.PermissionMissing)
-            val installProbe = SequenceTermuxInstallProbe(
-                TermuxInstallState.Available,
-                TermuxInstallState.RunCommandUnavailable
-            )
-            val manager = manager(
-                commandRunner = commandRunner,
-                healthProbe = FakeHealthProbe(HealthProbe.Unavailable, commandRunner),
-                installProbe = installProbe
+            val cases: List<Triple<RunCommandError, TermuxInstallProbe, NeedsSetupReason>> = listOf(
+                Triple(
+                    RunCommandError.PermissionMissing,
+                    SequenceTermuxInstallProbe(
+                        TermuxInstallState.Available,
+                        TermuxInstallState.RunCommandUnavailable
+                    ),
+                    NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE
+                ),
+                Triple(
+                    ForegroundServiceStartNotAllowedException(FGS_REJECTED_MESSAGE).toRunCommandStartError(),
+                    TermuxInstallProbe { TermuxInstallState.Available },
+                    NeedsSetupReason.TERMUX_NOT_RUNNING
+                )
             )
 
-            val status = manager.setup()
+            cases.forEach { (probeError, installProbe, expectedReason) ->
+                val commandRunner = FakeCommandRunner(probeError = probeError)
+                val manager = manager(
+                    commandRunner = commandRunner,
+                    healthProbe = FakeHealthProbe(HealthProbe.Unavailable, commandRunner),
+                    installProbe = installProbe
+                )
+                val status = manager.setup()
 
-            assertThat(status)
-                .isEqualTo(TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE))
-            assertThat(commandRunner.commands).containsExactly(Command.Probe)
+                assertThat(status).isEqualTo(TermuxBridgeStatus.NeedsSetup(expectedReason))
+                assertThat(commandRunner.commands).containsExactly(Command.Probe)
+            }
         }
 
     @Test
@@ -351,13 +364,7 @@ class TermuxBridgeManagerTest {
         }
     }
 
-    private enum class Command {
-        Probe,
-        Install,
-        Deploy,
-        BridgeExists,
-        Start
-    }
+    private enum class Command { Probe, Install, Deploy, BridgeExists, Start }
 
     private class SequenceTermuxInstallProbe(private vararg val states: TermuxInstallState) : TermuxInstallProbe {
         private var calls = 0
@@ -372,9 +379,7 @@ class TermuxBridgeManagerTest {
         val packageManager = mockk<PackageManager>()
         every { packageManager.getPackageInfo(TERMUX_PACKAGE, PackageManager.GET_PERMISSIONS) } returns
             PackageInfo().apply {
-                permissions = declaredPermissions.map { permission ->
-                    PermissionInfo().apply { name = permission }
-                }.toTypedArray()
+                permissions = declaredPermissions.map { PermissionInfo().apply { name = it } }.toTypedArray()
             }
         every { packageManager.queryIntentServices(any<Intent>(), 0) } returns
             if (resolvesRunCommandService) listOf(runCommandServiceResolveInfo()) else emptyList()
@@ -382,16 +387,12 @@ class TermuxBridgeManagerTest {
     }
 
     private fun runCommandServiceResolveInfo(): ResolveInfo =
-        ResolveInfo().apply {
-            serviceInfo = ServiceInfo().apply {
-                packageName = TERMUX_PACKAGE
-                name = TERMUX_RUN_COMMAND_SERVICE
-            }
-        }
+        ResolveInfo().apply { serviceInfo = ServiceInfo().apply { packageName = TERMUX_PACKAGE; name = TERMUX_RUN_COMMAND_SERVICE } }
 
     private companion object {
         const val TERMUX_PACKAGE = "com.termux"
         const val RUN_COMMAND_PERMISSION = "com.termux.permission.RUN_COMMAND"
         const val TERMUX_RUN_COMMAND_SERVICE = "com.termux.app.RunCommandService"
+        const val FGS_REJECTED_MESSAGE = "It is forbidden to start a 3rd process by service"
     }
 }

@@ -319,6 +319,7 @@ class TermuxBridgeManager internal constructor(
         when (this) {
             RunCommandError.PermissionMissing -> NeedsSetupReason.PERMISSION_MISSING
             RunCommandError.AllowExternalAppsMissing -> NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING
+            RunCommandError.TermuxProcessNotRunning -> NeedsSetupReason.TERMUX_NOT_RUNNING
             RunCommandError.TermuxNotAvailable -> NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING
             is RunCommandError.Timeout -> NeedsSetupReason.TERMUX_TIMEOUT
             is RunCommandError.Other -> fallback

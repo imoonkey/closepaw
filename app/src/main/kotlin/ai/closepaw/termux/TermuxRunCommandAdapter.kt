@@ -1,5 +1,6 @@
 package ai.closepaw.termux
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
@@ -21,9 +22,26 @@ data class RunCommandResult(val stdout: String, val stderr: String, val exitCode
 sealed class RunCommandError : Exception() {
     object PermissionMissing : RunCommandError()
     object AllowExternalAppsMissing : RunCommandError()
+    object TermuxProcessNotRunning : RunCommandError()
     object TermuxNotAvailable : RunCommandError()
     data class Timeout(val ms: Long) : RunCommandError()
     data class Other(override val cause: Throwable?) : RunCommandError()
+}
+
+internal fun Throwable.toRunCommandStartError(): RunCommandError =
+    when {
+        this is ForegroundServiceStartNotAllowedException || isThirdProcessStartRejected() ->
+            RunCommandError.TermuxProcessNotRunning
+        this is SecurityException -> RunCommandError.PermissionMissing
+        this is ActivityNotFoundException || this is IllegalArgumentException ->
+            RunCommandError.TermuxNotAvailable
+        else -> RunCommandError.Other(this)
+    }
+
+private fun Throwable.isThirdProcessStartRejected(): Boolean {
+    val text = message.orEmpty()
+    return text.contains("forbidden to start a 3rd process", ignoreCase = true) ||
+        text.contains("forbidden to start a third process", ignoreCase = true)
 }
 
 class TermuxRunCommandAdapter(private val context: Context) {
@@ -145,14 +163,18 @@ class TermuxRunCommandAdapter(private val context: Context) {
                         appContext.startService(runCommandIntent)
                     }
                 if (started == null) {
-                    fail(RunCommandError.TermuxNotAvailable)
+                    fail(RunCommandError.TermuxProcessNotRunning)
                 }
+            } catch (e: ForegroundServiceStartNotAllowedException) {
+                fail(RunCommandError.TermuxProcessNotRunning)
             } catch (e: SecurityException) {
-                fail(RunCommandError.PermissionMissing)
+                fail(e.toRunCommandStartError())
             } catch (e: ActivityNotFoundException) {
-                fail(RunCommandError.TermuxNotAvailable)
+                fail(e.toRunCommandStartError())
             } catch (e: IllegalArgumentException) {
-                fail(RunCommandError.TermuxNotAvailable)
+                fail(e.toRunCommandStartError())
+            } catch (e: IllegalStateException) {
+                fail(e.toRunCommandStartError())
             } catch (t: Throwable) {
                 fail(RunCommandError.Other(t))
             }
