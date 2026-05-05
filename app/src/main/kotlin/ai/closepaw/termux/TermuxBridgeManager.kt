@@ -40,9 +40,12 @@ class TermuxBridgeManager internal constructor(
         private const val HEALTH_READY_TIMEOUT_MS = 10_000L
         private const val DEPLOY_BRIDGE_COMMAND =
             "mkdir -p ~/.closepaw ~/closepaw/workspace ~/closepaw/artifacts ~/closepaw/logs && " +
-                "base64 -d > ~/.closepaw/bridge.py.tmp && " +
-                "python3 -m py_compile ~/.closepaw/bridge.py.tmp && " +
-                "mv ~/.closepaw/bridge.py.tmp ~/.closepaw/bridge.py && echo CLOSEPAW_DEPLOY=ok"
+                "tmpf=${'$'}(mktemp ~/.closepaw/bridge.py.XXXXXX) && " +
+                "trap 'rm -f \"${'$'}tmpf\"' EXIT && " +
+                "base64 -d > \"${'$'}tmpf\" && " +
+                "python3 -m py_compile \"${'$'}tmpf\" && " +
+                "mv \"${'$'}tmpf\" ~/.closepaw/bridge.py && " +
+                "trap - EXIT && echo CLOSEPAW_DEPLOY=ok"
         private const val BRIDGE_EXISTS_COMMAND =
             "test -f ~/.closepaw/bridge.py && echo CLOSEPAW_BRIDGE=present"
 
@@ -87,7 +90,7 @@ class TermuxBridgeManager internal constructor(
     val state: StateFlow<TermuxBridgeStatus> = _state.asStateFlow()
     private val mutex = Mutex()
     private val inFlightLock = Any()
-    private var inFlightJob: Deferred<TermuxBridgeStatus>? = null
+    private val inFlightJobs = mutableMapOf<OperationKind, Deferred<TermuxBridgeStatus>>()
 
     constructor(context: Context) : this(
         commandRunner = AndroidTermuxCommandRunner(context.applicationContext),
@@ -98,7 +101,7 @@ class TermuxBridgeManager internal constructor(
     )
 
     suspend fun setup(): TermuxBridgeStatus =
-        awaitInFlight { mutex.withLock { setupLocked() } }
+        awaitInFlight(OperationKind.Setup) { mutex.withLock { setupLocked() } }
 
     suspend fun healthCheck(): TermuxBridgeStatus = mutex.withLock {
         if (!detectTermuxInstalled()) emit(TermuxBridgeStatus.NotInstalled) else emit(fetchHealth().toPassiveStatus())
@@ -106,13 +109,14 @@ class TermuxBridgeManager internal constructor(
 
     suspend fun detectInstalled(): TermuxBridgeStatus = mutex.withLock { detectInstalledLocked() }
 
-    suspend fun ensureReadyForSession(timeoutMs: Long): TermuxBridgeStatus = awaitInFlight {
-        withTimeoutOrNull(timeoutMs) { mutex.withLock { ensureReadyForSessionLocked() } }
-            ?: emit(needsSetup(NeedsSetupReason.HEALTH_TIMEOUT))
-    }
+    suspend fun ensureReadyForSession(timeoutMs: Long): TermuxBridgeStatus =
+        awaitInFlight(OperationKind.EnsureReady) {
+            withTimeoutOrNull(timeoutMs) { mutex.withLock { ensureReadyForSessionLocked() } }
+                ?: emit(needsSetup(NeedsSetupReason.HEALTH_TIMEOUT))
+        }
 
     suspend fun restart(): TermuxBridgeStatus =
-        awaitInFlight { mutex.withLock { restartLocked() } }
+        awaitInFlight(OperationKind.Restart) { mutex.withLock { restartLocked() } }
 
     // No background health polling here: /v1/health refreshes the bridge idle timer.
     // Session creation recovers with ensureReadyForSession(); Settings observes with one-shot probes.
@@ -127,14 +131,22 @@ class TermuxBridgeManager internal constructor(
         )
     }
 
-    private suspend fun awaitInFlight(block: suspend () -> TermuxBridgeStatus): TermuxBridgeStatus {
+    private suspend fun awaitInFlight(
+        kind: OperationKind,
+        block: suspend () -> TermuxBridgeStatus
+    ): TermuxBridgeStatus {
         val deferred =
             synchronized(inFlightLock) {
-                inFlightJob?.takeIf { it.isActive } ?: managerScope.async { block() }.also { job ->
-                    inFlightJob = job
-                    job.invokeOnCompletion {
-                        synchronized(inFlightLock) {
-                            if (inFlightJob === job) inFlightJob = null
+                val current = inFlightJobs[kind]
+                if (current?.isActive == true) {
+                    current
+                } else {
+                    managerScope.async { block() }.also { job ->
+                        inFlightJobs[kind] = job
+                        job.invokeOnCompletion {
+                            synchronized(inFlightLock) {
+                                if (inFlightJobs[kind] === job) inFlightJobs.remove(kind)
+                            }
                         }
                     }
                 }
@@ -356,6 +368,12 @@ class TermuxBridgeManager internal constructor(
 
     private sealed class StartResult {
         object Started : StartResult(); data class Failed(val reason: NeedsSetupReason) : StartResult()
+    }
+
+    private enum class OperationKind {
+        Setup,
+        EnsureReady,
+        Restart
     }
 
     private object TermuxBridgeManagerHolder {

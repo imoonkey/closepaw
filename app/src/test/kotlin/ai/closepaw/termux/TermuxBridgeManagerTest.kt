@@ -75,6 +75,95 @@ class TermuxBridgeManagerTest {
     }
 
     @Test
+    fun `ensureReadyForSession during in flight setup runs start only block`() = runTest {
+        val installGate = CompletableDeferred<Unit>()
+        val commandRunner = FakeCommandRunner(bridgeExists = false, installGate = installGate)
+        val healthProbe = FakeHealthProbe(
+            initial = HealthProbe.Unavailable,
+            responses = listOf(HealthProbe.Ready, HealthProbe.Unavailable)
+        )
+        val manager = manager(commandRunner, healthProbe)
+
+        val setup = async { manager.setup() }
+        runCurrent()
+        assertThat(commandRunner.installCalls).isEqualTo(1)
+
+        val ensureReady = async { manager.ensureReadyForSession(timeoutMs = 10_000) }
+        runCurrent()
+
+        installGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(setup.await()).isEqualTo(TermuxBridgeStatus.Ready)
+        assertThat(ensureReady.await())
+            .isEqualTo(TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.HEALTH_TIMEOUT))
+        assertThat(commandRunner.commands)
+            .containsExactly(Command.Probe, Command.Install, Command.Deploy, Command.Start, Command.BridgeExists)
+            .inOrder()
+        assertThat(commandRunner.deployCalls).isEqualTo(1)
+        assertThat(commandRunner.startCalls).isEqualTo(1)
+    }
+
+    @Test
+    fun `setup during in flight ensureReadyForSession runs bootstrap block`() = runTest {
+        val bridgeExistsGate = CompletableDeferred<Unit>()
+        val commandRunner = FakeCommandRunner(bridgeExists = false, bridgeExistsGate = bridgeExistsGate)
+        val healthProbe = FakeHealthProbe(
+            initial = HealthProbe.Unavailable,
+            responses = listOf(HealthProbe.Unavailable, HealthProbe.Ready)
+        )
+        val manager = manager(commandRunner, healthProbe)
+
+        val ensureReady = async { manager.ensureReadyForSession(timeoutMs = 10_000) }
+        runCurrent()
+        assertThat(commandRunner.commands).containsExactly(Command.BridgeExists)
+
+        val setup = async { manager.setup() }
+        runCurrent()
+
+        bridgeExistsGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(ensureReady.await())
+            .isEqualTo(TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.HEALTH_TIMEOUT))
+        assertThat(setup.await()).isEqualTo(TermuxBridgeStatus.Ready)
+        assertThat(commandRunner.commands)
+            .containsExactly(Command.BridgeExists, Command.Probe, Command.Install, Command.Deploy, Command.Start)
+            .inOrder()
+        assertThat(commandRunner.deployCalls).isEqualTo(1)
+        assertThat(commandRunner.startCalls).isEqualTo(1)
+    }
+
+    @Test
+    fun `setup during bridge outdated ensureReadyForSession still bootstraps`() = runTest {
+        val firstHealthGate = CompletableDeferred<Unit>()
+        val commandRunner = FakeCommandRunner()
+        val healthProbe = FakeHealthProbe(
+            initial = HealthProbe.Unavailable,
+            responses = listOf(HealthProbe.BridgeOutdated, HealthProbe.Ready),
+            firstFetchGate = firstHealthGate
+        )
+        val manager = manager(commandRunner, healthProbe)
+
+        val ensureReady = async { manager.ensureReadyForSession(timeoutMs = 10_000) }
+        runCurrent()
+
+        val setup = async { manager.setup() }
+        runCurrent()
+
+        firstHealthGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(ensureReady.await())
+            .isEqualTo(TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.BRIDGE_OUTDATED))
+        assertThat(setup.await()).isEqualTo(TermuxBridgeStatus.Ready)
+        assertThat(commandRunner.commands)
+            .containsExactly(Command.Probe, Command.Install, Command.Deploy, Command.Start)
+            .inOrder()
+        assertThat(commandRunner.deployCalls).isEqualTo(1)
+    }
+
+    @Test
     fun `cancelled setup awaiter does not cancel in flight bootstrap`() = runTest {
         val installGate = CompletableDeferred<Unit>()
         val commandRunner = FakeCommandRunner(installGate = installGate)
@@ -114,7 +203,8 @@ class TermuxBridgeManagerTest {
 
     private class FakeCommandRunner(
         private val bridgeExists: Boolean = true,
-        private val installGate: CompletableDeferred<Unit>? = null
+        private val installGate: CompletableDeferred<Unit>? = null,
+        private val bridgeExistsGate: CompletableDeferred<Unit>? = null
     ) : TermuxCommandRunner {
         val commands = mutableListOf<Command>()
         var installCalls = 0
@@ -148,13 +238,14 @@ class TermuxBridgeManagerTest {
                         0
                     )
                 }
-                "bridge.py.tmp" in command -> {
+                "CLOSEPAW_DEPLOY=ok" in command -> {
                     commands += Command.Deploy
                     deployCalls += 1
                     RunCommandResult("CLOSEPAW_DEPLOY=ok\n", "", 0)
                 }
                 "test -f ~/.closepaw/bridge.py" in command -> {
                     commands += Command.BridgeExists
+                    bridgeExistsGate?.await()
                     if (bridgeExists) {
                         RunCommandResult("CLOSEPAW_BRIDGE=present\n", "", 0)
                     } else {
@@ -173,10 +264,19 @@ class TermuxBridgeManagerTest {
 
     private class FakeHealthProbe(
         private val initial: HealthProbe,
-        private val commandRunner: FakeCommandRunner? = null
+        private val commandRunner: FakeCommandRunner? = null,
+        responses: List<HealthProbe> = emptyList(),
+        private val firstFetchGate: CompletableDeferred<Unit>? = null
     ) : TermuxHealthProbe {
-        override suspend fun fetch(): HealthProbe =
-            if (commandRunner?.bridgeReady == true) HealthProbe.Ready else initial
+        private val responses = ArrayDeque(responses)
+        private var fetchCalls = 0
+
+        override suspend fun fetch(): HealthProbe {
+            if (fetchCalls == 0) firstFetchGate?.await()
+            fetchCalls += 1
+            if (responses.isNotEmpty()) return responses.removeFirst()
+            return if (commandRunner?.bridgeReady == true) HealthProbe.Ready else initial
+        }
     }
 
     private enum class Command {
