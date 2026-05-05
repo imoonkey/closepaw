@@ -2499,5 +2499,41 @@
     "updated": "2026-05-04T22:34:13Z",
     "agent": "w-p6-quota-scope",
     "note": "DONE — commit f6886f4a (or cherry-picked) merged 2026-05-04 15:33. sessionDecodedBytes moved to BrowserSessionManager (outlives JsInterface AND Runner, survives markBroken reconnects — closes force-reconnect-to-reset-quota attack). runnerFactory signature gained AtomicLong; threaded to JsInterface. storeArtifact uses getAndAccumulate atomic CAS for reserve-or-refuse. Recorder-null/throw paths release reservation via addAndGet(-byteCount). 2 new tests: multi-instance shared AtomicLong + BrowserSessionManagerTest asserts same AtomicLong across runnerFactory + markBroken reconnects."
+  },
+  "browser-tool-settings": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Browser tool Settings UI — toggle + CDP-status + chrome flag CTA",
+    "description": "Surface browser_script in AgentBehavior settings as a Tools section toggle. When ON, show status row (✓ Active or ✗ Chrome devtools not exposed) + CTA to open chrome://flags#enable-command-line-on-non-rooted-devices when not active. Auto-write /data/local/tmp/chrome-command-line via Shizuku on toggle ON (silent). Detect via shell `cat /proc/net/unix | grep chrome_devtools_remote`. Three CTA fallbacks: ACTION_VIEW intent → Shizuku am start → clipboard.\n\nDoes NOT touch onboarding flow. KISS — user manually toggles the chrome flag (one-time); ClosePaw just makes that easy to find. Full design at projects/active/browser_setting/design.md.",
+    "design": "projects/active/browser_setting/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsModels.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/setup/**",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt"
+    ],
+    "acceptCriteria": [
+      "New Tools section in AgentBehavior settings page",
+      "browser_script toggle wired to persisted user pref (default OFF)",
+      "Toggle ON: status row appears within 500ms",
+      "Status ✓ when /proc/net/unix contains @chrome_devtools_remote, ✗ otherwise",
+      "Status ✗: CTA button opens chrome://flags via Intent → Shizuku am start → clipboard fallback chain",
+      "Re-check button re-detects without page reload",
+      "Toggle ON auto-writes /data/local/tmp/chrome-command-line via Shizuku (silent, idempotent)",
+      "Toggle OFF removes browser_script from agent tool allowlist",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
+      "UI screenshots for 3 states (off / on + ✓ / on + ✗ + CTA)"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "ui",
+      "settings"
+    ],
+    "created": "2026-05-05T04:38:43Z",
+    "updated": "2026-05-05T04:38:43Z"
   }
 }
