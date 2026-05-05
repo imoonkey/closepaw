@@ -94,11 +94,8 @@ private fun TermuxShellSettingsRow() {
 
     LaunchedEffect(manager, termuxShellEnabled) {
         if (termuxShellEnabled) {
-            // healthCheck is probe-only; if state is still NotInstalled, also try detection
-            // via setup() so a freshly-installed Termux gets noticed without an app restart.
-            if (manager.state.value is TermuxBridgeStatus.NotInstalled) {
-                manager.setup()
-            } else {
+            val detected = manager.detectInstalled()
+            if (detected !is TermuxBridgeStatus.NotInstalled) {
                 manager.healthCheck()
             }
         }

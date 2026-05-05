@@ -43,37 +43,26 @@ class TermuxBridgeManager(context: Context) {
             "mkdir -p ~/.closepaw ~/closepaw/workspace ~/closepaw/artifacts ~/closepaw/logs && " +
                 "base64 -d > ~/.closepaw/bridge.py && " +
                 "python3 -m py_compile ~/.closepaw/bridge.py && echo CLOSEPAW_DEPLOY=ok"
+        private const val BRIDGE_EXISTS_COMMAND =
+            "test -f ~/.closepaw/bridge.py && echo CLOSEPAW_BRIDGE=present"
 
-        // Combined install step. Three things this command works around for unattended bootstrap:
-        //   1. Termux v0.118+ ships with no `chosen_mirrors` symlink — the first `pkg install`
-        //      otherwise drops into an interactive mirror picker. Symlink the default group
-        //      (Termux's own bundled list) before running apt.
-        //   2. `Acquire::Check-Valid-Until=false` keeps apt from rejecting the InRelease file
-        //      when the device clock is skewed (signatures still verified).
-        //   3. Termux v0.118+ does not ship a `which` binary; `command -v` is POSIX and works.
-        //
-        // Path is hardcoded because Termux only sets $PREFIX in interactive login shells; the
-        // RUN_COMMAND-launched shell is non-login and $PREFIX expands to empty.
+        // Probe first so already-installed runtimes do not depend on networked apt.
+        // The hardcoded prefix is needed because RUN_COMMAND shells do not populate $PREFIX.
         private const val TERMUX_PREFIX = "/data/data/com.termux/files/usr"
         private const val INSTALL_COMMAND =
-            "[ -L $TERMUX_PREFIX/etc/termux/chosen_mirrors ] || " +
-                "ln -sf $TERMUX_PREFIX/etc/termux/mirrors/default $TERMUX_PREFIX/etc/termux/chosen_mirrors && " +
+            "command -v python3 && command -v git && command -v rg || " +
+                "(([ -L $TERMUX_PREFIX/etc/termux/chosen_mirrors ] || " +
+                "ln -sf $TERMUX_PREFIX/etc/termux/mirrors/default $TERMUX_PREFIX/etc/termux/chosen_mirrors) && " +
                 "$TERMUX_PREFIX/bin/apt update -y -o Acquire::Check-Valid-Until=false && " +
                 "$TERMUX_PREFIX/bin/apt install -y python git ripgrep -o Acquire::Check-Valid-Until=false && " +
-                "command -v python3 && command -v git && command -v rg"
-        private val START_BRIDGE_COMMAND =
-            """
-            mkdir -p ~/closepaw/logs
-            nohup python3 ~/.closepaw/bridge.py >/dev/null 2>~/closepaw/logs/bridge.err </dev/null &
-            pid=${'$'}!
-            sleep 1
-            if ! kill -0 ${'$'}pid 2>/dev/null; then
-                echo CLOSEPAW_START=failed
-                cat ~/closepaw/logs/bridge.err
-                exit 1
-            fi
-            echo CLOSEPAW_START=ok
-            """.trimIndent()
+                "command -v python3 && command -v git && command -v rg)"
+        private const val START_BRIDGE_COMMAND =
+            "mkdir -p ~/closepaw/logs || exit 1; " +
+                "nohup python3 ~/.closepaw/bridge.py >/dev/null 2>~/closepaw/logs/bridge.err </dev/null & " +
+                "pid=${'$'}!; sleep 1; " +
+                "if ! kill -0 ${'$'}pid 2>/dev/null; then " +
+                "echo CLOSEPAW_START=failed; cat ~/closepaw/logs/bridge.err; exit 1; fi; " +
+                "echo CLOSEPAW_START=ok"
 
         fun get(context: Context): TermuxBridgeManager = TermuxBridgeManagerHolder.instance(context)
     }
@@ -93,21 +82,20 @@ class TermuxBridgeManager(context: Context) {
     private val healthPollingLock = Any()
     private var healthPollingJob: Job? = null
 
-    suspend fun setup(): TermuxBridgeStatus {
-        return mutex.withLock { setupLocked() }
+    suspend fun setup(): TermuxBridgeStatus = mutex.withLock { setupLocked() }
+
+    suspend fun healthCheck(): TermuxBridgeStatus = mutex.withLock {
+        if (!detectTermuxInstalled()) emit(TermuxBridgeStatus.NotInstalled) else emit(fetchHealth().toPassiveStatus())
     }
 
-    suspend fun healthCheck(): TermuxBridgeStatus {
-        return mutex.withLock {
-            if (!detectTermuxInstalled()) return@withLock emit(TermuxBridgeStatus.NotInstalled)
+    suspend fun detectInstalled(): TermuxBridgeStatus = mutex.withLock { detectInstalledLocked() }
 
-            emit(fetchHealth().toPassiveStatus())
-        }
+    suspend fun ensureReadyForSession(timeoutMs: Long): TermuxBridgeStatus = mutex.withLock {
+        withTimeoutOrNull(timeoutMs) { ensureReadyForSessionLocked() }
+            ?: emit(needsSetup(NeedsSetupReason.HEALTH_TIMEOUT))
     }
 
-    suspend fun restart(): TermuxBridgeStatus {
-        return mutex.withLock { restartLocked() }
-    }
+    suspend fun restart(): TermuxBridgeStatus = mutex.withLock { restartLocked() }
 
     fun startHealthPolling(scope: CoroutineScope) {
         synchronized(healthPollingLock) {
@@ -147,9 +135,7 @@ class TermuxBridgeManager(context: Context) {
         return runWithSetupState { doRestart() }
     }
 
-    private suspend fun runWithSetupState(
-        block: suspend () -> TermuxBridgeStatus
-    ): TermuxBridgeStatus {
+    private suspend fun runWithSetupState(block: suspend () -> TermuxBridgeStatus): TermuxBridgeStatus {
         val priorState = _state.value
         emit(TermuxBridgeStatus.SetupInProgress)
         return try {
@@ -230,6 +216,32 @@ class TermuxBridgeManager(context: Context) {
         }
     }
 
+    private suspend fun ensureReadyForSessionLocked(): TermuxBridgeStatus {
+        val health = fetchHealth()
+        if (health == HealthProbe.Ready) return emit(TermuxBridgeStatus.Ready)
+        if (!detectTermuxInstalled()) return emit(TermuxBridgeStatus.NotInstalled)
+        if (health == HealthProbe.BridgeOutdated) {
+            return emit(needsSetup(NeedsSetupReason.BRIDGE_OUTDATED))
+        }
+
+        val passiveStatus = emit(health.toPassiveStatus())
+        val bridgeExists =
+            try {
+                hasDeployedBridge()
+            } catch (e: RunCommandError) {
+                return emit(needsSetup(e.toReason(NeedsSetupReason.UNKNOWN)))
+            }
+        if (!bridgeExists) return passiveStatus
+
+        return when (val start = startBridge()) {
+            StartResult.Started -> emit(waitForReadyHealth().toStartupStatus())
+            is StartResult.Failed -> emit(needsSetup(start.reason))
+        }
+    }
+
+    private fun detectInstalledLocked(): TermuxBridgeStatus =
+        if (detectTermuxInstalled()) emit(needsSetup(NeedsSetupReason.UNKNOWN)) else emit(TermuxBridgeStatus.NotInstalled)
+
     private fun detectTermuxInstalled(): Boolean {
         return try {
             context.packageManager.getPackageInfo(TERMUX_PACKAGE, 0)
@@ -237,6 +249,11 @@ class TermuxBridgeManager(context: Context) {
         } catch (_: PackageManager.NameNotFoundException) {
             false
         }
+    }
+
+    private suspend fun hasDeployedBridge(): Boolean {
+        val result = adapter.runShell(BRIDGE_EXISTS_COMMAND, timeoutMs = PROBE_TIMEOUT_MS)
+        return result.exitCode == 0 && result.stdout.contains("CLOSEPAW_BRIDGE=present")
     }
 
     private suspend fun bridgeResourceBase64(): String =
@@ -360,15 +377,12 @@ class TermuxBridgeManager(context: Context) {
     }
 
     private sealed class HealthProbe {
-        object Ready : HealthProbe()
-        object BridgeOutdated : HealthProbe()
-        object InvalidIdentity : HealthProbe()
-        object Unavailable : HealthProbe()
+        object Ready : HealthProbe(); object BridgeOutdated : HealthProbe()
+        object InvalidIdentity : HealthProbe(); object Unavailable : HealthProbe()
     }
 
     private sealed class StartResult {
-        object Started : StartResult()
-        data class Failed(val reason: NeedsSetupReason) : StartResult()
+        object Started : StartResult(); data class Failed(val reason: NeedsSetupReason) : StartResult()
     }
 
     private object TermuxBridgeManagerHolder {

@@ -45,6 +45,7 @@ import org.json.JSONObject
 
 internal interface TermuxSessionBridge {
     suspend fun healthCheck(): TermuxBridgeStatus
+    suspend fun ensureReadyForSession(timeoutMs: Long): TermuxBridgeStatus = healthCheck()
     fun snapshot(enabled: Boolean): TermuxCapabilitySnapshot
 }
 
@@ -52,6 +53,9 @@ private class TermuxBridgeManagerSessionBridge(
         private val manager: TermuxBridgeManager
 ) : TermuxSessionBridge {
     override suspend fun healthCheck(): TermuxBridgeStatus = manager.healthCheck()
+
+    override suspend fun ensureReadyForSession(timeoutMs: Long): TermuxBridgeStatus =
+            manager.ensureReadyForSession(timeoutMs)
 
     override fun snapshot(enabled: Boolean): TermuxCapabilitySnapshot = manager.snapshot(enabled)
 }
@@ -214,11 +218,11 @@ class SessionServices internal constructor(
             runCatching {
                 runBlocking(Dispatchers.IO) {
                     withTimeoutOrNull(timeoutMs) {
-                        bridge.healthCheck()
+                        bridge.ensureReadyForSession(timeoutMs)
                     }
                 }
             }.onFailure { error ->
-                Log.w(TAG, "Termux health probe before session snapshot failed", error)
+                Log.w(TAG, "Termux readiness probe before session snapshot failed", error)
             }
 
             return bridge.snapshot(termuxShellEnabled)

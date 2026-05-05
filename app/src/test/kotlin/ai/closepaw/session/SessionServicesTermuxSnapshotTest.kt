@@ -1,5 +1,6 @@
 package ai.closepaw.session
 
+import ai.closepaw.termux.NeedsSetupReason
 import ai.closepaw.termux.TermuxBridgeStatus
 import ai.closepaw.termux.TermuxCapabilitySnapshot
 import com.google.common.truth.Truth.assertThat
@@ -54,6 +55,22 @@ class SessionServicesTermuxSnapshotTest {
         assertThat(snapshot.status).isEqualTo(TermuxBridgeStatus.NotInstalled)
     }
 
+    @Test
+    fun `captureTermuxSnapshot restarts idle exited bridge before snapshot`() {
+        val bridge = RestartingTermuxSessionBridge()
+
+        val snapshot = SessionServices.captureTermuxSnapshot(
+            bridge = bridge,
+            termuxShellEnabled = true
+        )
+
+        assertThat(bridge.healthChecks).isEqualTo(2)
+        assertThat(bridge.restarts).isEqualTo(1)
+        assertThat(snapshot.available).isTrue()
+        assertThat(snapshot.enabled).isTrue()
+        assertThat(snapshot.status).isEqualTo(TermuxBridgeStatus.Ready)
+    }
+
     private class FakeTermuxSessionBridge(
         private val delayMs: Long = 0
     ) : TermuxSessionBridge {
@@ -66,6 +83,41 @@ class SessionServicesTermuxSnapshotTest {
             if (delayMs > 0) delay(delayMs)
             status = TermuxBridgeStatus.Ready
             return status
+        }
+
+        override fun snapshot(enabled: Boolean): TermuxCapabilitySnapshot =
+            TermuxCapabilitySnapshot(
+                available = enabled && status is TermuxBridgeStatus.Ready,
+                enabled = enabled,
+                status = status
+            )
+    }
+
+    private class RestartingTermuxSessionBridge : TermuxSessionBridge {
+        var healthChecks = 0
+            private set
+        var restarts = 0
+            private set
+        private var status: TermuxBridgeStatus =
+            TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.HEALTH_TIMEOUT)
+
+        override suspend fun healthCheck(): TermuxBridgeStatus {
+            healthChecks += 1
+            status =
+                if (healthChecks == 1) {
+                    TermuxBridgeStatus.NeedsSetup(NeedsSetupReason.HEALTH_TIMEOUT)
+                } else {
+                    TermuxBridgeStatus.Ready
+                }
+            return status
+        }
+
+        override suspend fun ensureReadyForSession(timeoutMs: Long): TermuxBridgeStatus {
+            val initialStatus = healthCheck()
+            if (initialStatus is TermuxBridgeStatus.Ready) return initialStatus
+
+            restarts += 1
+            return healthCheck()
         }
 
         override fun snapshot(enabled: Boolean): TermuxCapabilitySnapshot =
