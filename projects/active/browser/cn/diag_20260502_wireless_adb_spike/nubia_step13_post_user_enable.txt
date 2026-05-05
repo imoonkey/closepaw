@@ -1,0 +1,34 @@
+==> nubia2: confirm wireless adb is stable now (no auto-revert)
+T+1s: adb_wifi_enabled=1, TLS=:46125
+T+2s: adb_wifi_enabled=1, TLS=:46125
+T+3s: adb_wifi_enabled=1, TLS=:46125
+
+--- so the OEM revert is NOT firing while it's already on. Test: toggle off then on, see what happens ---
+--- after off ---
+0
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+--- after on ---
+1
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+LISTEN      0      0            *:32837                    *:*                  
+--- AdbService logs ---
+05-02 15:54:41.588  3394  5814 V SettingsShellCmd: putForUser(userId=0, table=global, key=adb_wifi_enabled, value=0, tag=null, makeDefault=false, overrideableByRestore=false)
+05-02 15:54:41.591  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 15:54:41.591  3394  3449 D AdbService: setAdbEnabled(false), mIsAdbUsbEnabled=true, mIsAdbWifiEnabled=true, transportType=1
+05-02 15:54:41.593  7098  7116 I adbd    : persist.adb.tls_server.enable changed to 0
+05-02 15:54:41.607  7098  7116 I adbd    : Waiting for persist.adb.tls_server.enable=1
+05-02 15:54:41.608  3394  3449 D AdbService: Released multicast lock
+05-02 15:54:41.608  3394  3449 D AdbService: Broadcasting enable = false, type = 1
+05-02 15:54:41.609  3394  3449 I AdbDebuggingManager: stopAdbDebuggingThread ref=1
+05-02 15:54:44.078  3394  6739 V SettingsShellCmd: putForUser(userId=0, table=global, key=adb_wifi_enabled, value=1, tag=null, makeDefault=false, overrideableByRestore=false)
+05-02 15:54:44.078  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 15:54:44.079  3394  3449 D AdbService: setAdbEnabled(true), mIsAdbUsbEnabled=true, mIsAdbWifiEnabled=false, transportType=1
+05-02 15:54:44.079  7098  7116 I adbd    : persist.adb.tls_server.enable changed to 1
+05-02 15:54:44.079  7098  7116 I adbd    : TlsServer running on port 32837
+05-02 15:54:44.084  7098  7116 I adbd    : Waiting for persist.adb.tls_server.enable=0
+05-02 15:54:44.084  3394  3449 D AdbService: Acquired multicast lock
+05-02 15:54:44.085  3394  3449 D AdbService: Broadcasting enable = true, type = 1
+05-02 15:54:44.087  3394  3449 I AdbDebuggingManager: startAdbDebuggingThread ref=2
+05-02 15:54:44.087  3394  3449 I AdbDebuggingManager: adb start wireless adb
+05-02 15:54:44.087  3394 16191 D AdbDebuggingManager: Starting adb port property poller
+05-02 15:54:44.087  3394 16191 D AdbDebuggingManager: Received tls port=32837

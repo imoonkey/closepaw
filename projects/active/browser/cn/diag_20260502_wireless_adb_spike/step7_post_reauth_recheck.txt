@@ -1,0 +1,33 @@
+==> POST-REAUTH RECHECK: did manual confirmation unblock wireless debugging?
+--- adb_wifi_enabled (reads back as 1!) ---
+1
+
+--- TLS/pair port status ---
+
+
+
+
+--- TCP listeners (any new high-port?) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:39775                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+
+--- adbd log for current state ---
+05-02 14:39:40.936  3488  3488 W libc    : Access denied finding property "service.adb.tls.port"
+05-02 14:39:40.929  3488  3488 W getprop : type=1400 audit(0.0:112576): avc:  denied  { read } for  name="u:object_r:adbd_prop:s0" dev="tmpfs" ino=237 scontext=u:r:shell:s0 tcontext=u:object_r:adbd_prop:s0 tclass=file permissive=0
+05-02 14:39:41.351  3563  3563 W libc    : Access denied finding property "persist.adb.tls_server.enable"
+05-02 14:39:41.345  3563  3563 W getprop : type=1400 audit(0.0:112577): avc:  denied  { read } for  name="u:object_r:system_adbd_prop:s0" dev="tmpfs" ino=519 scontext=u:r:shell:s0 tcontext=u:object_r:system_adbd_prop:s0 tclass=file permissive=0
+
+--- wait a moment, recheck ---
+1
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:39775                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+
+--- did any UI dialog or notification fire? Check notifications ---
+                android.tv.EXTENSIONS=Bundle (Bundle[{channel_id=usbdevicemanager.adb.tv, suppressShowOverApps=false, flags=1}])
+        NotificationChannel{mId='adb_pairing', mName=Wireless debugging pairing, mDescription=, mImportance=4, mBypassDnd=false, mLockscreenVisibility=-1000, mSound=null, mLights=false, mLightColor=0, mVibrationPattern=null, mVibrationEffect=null, mUserLockedFields=0, mUserVisibleTaskShown=true, mVibrationEnabled=false, mShowBadge=false, mDeleted=false, mDeletedTimeMs=-1, mGroup='null', mAudioAttributes=AudioAttributes: usage=USAGE_NOTIFICATION content=CONTENT_TYPE_SONIFICATION flags=0x800 tags= bundle=null, mBlockableSystem=false, mAllowBubbles=-1, mImportanceLockedDefaultApp=false, mOriginalImp=4, mParent=null, mConversationId=null, mDemoted=false, mImportantConvo=false, mLastNotificationUpdateTimeMs=0}

@@ -1,0 +1,15 @@
+==> emu13: ensure Dev Options is enabled
+null
+after put:
+1
+Starting: Intent { act=android.settings.APPLICATION_DEVELOPMENT_SETTINGS }
+    topResumedActivity=ActivityRecord{209a060 u0 com.android.settings/.Settings} t428}
+
+--- search for any 'wireless'/'pair' entries ---
+text="Bluetooth, pairing"
+
+--- if not visible, scroll down ---
+scroll 1:
+text="Bluetooth, pairing"
+scroll 2:
+scroll 3:

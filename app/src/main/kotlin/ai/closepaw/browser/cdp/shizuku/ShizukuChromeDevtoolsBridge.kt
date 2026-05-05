@@ -1,42 +1,46 @@
 package ai.closepaw.browser.cdp.shizuku
 
+import ai.closepaw.browser.cdp.wireless.WirelessAdbRelayHost
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Spike-quality bridge that proves the Chrome DevTools transport story end-to-end:
- *
- * 1. Validate Shizuku binder + permission.
- * 2. Probe whether Chrome's `chrome_devtools_remote` abstract socket is bound and Chrome is
- *    actually running. Distinguish "DevTools socket missing" vs "Chrome not running" only when
- *    the probes are *certain*; defer to the transport otherwise so we never lie about state.
- * 3. Try the direct app-process [DevtoolsSocketTransport] (LocalSocket from the app UID).
- * 4. Fall back to a Shizuku UserService transport (LocalSocket from the shell UID), produced
- *    lazily by [UserServiceProvider] so binding only happens when needed.
- * 5. Speak strict HTTP/1.1 over the chosen transport and parse `/json/version` and `/json/list`.
- *
- * The constructor takes the two transport seats by name — not a free-form list — so the
- * production order (app-process first, UserService second) is enforced by this class, not by
- * the caller.
- *
- * Every failure mode surfaces as a distinct [DevtoolsSetupError] so the BrowserScriptTool layer
- * can hand the user an actionable next step rather than a generic "couldn't connect".
+ * Bridge from CDP traffic to a working device-side transport. Cascade is
+ * USER_SERVICE → WIRELESS_ADB_SELF_PAIR; failures map to distinct [DevtoolsSetupError] codes
+ * so the capability gate can render an actionable reason instead of a generic IOException.
  */
 class ShizukuChromeDevtoolsBridge(
     private val status: ShizukuStatusProvider,
     private val diagnostics: DevtoolsDiagnostics,
-    private val appProcessTransport: DevtoolsSocketTransport,
-    private val userServiceProvider: UserServiceProvider? = null,
+    private val userServiceProvider: UserServiceProvider,
+    private val wirelessAdbSelfPairTransport: DevtoolsSocketTransport? = null,
+    /**
+     * Per-session unguessable token expected on the WS Upgrade `X-ClosePaw-Token` header by
+     * both relays. Required: with no token, any local app can dial 127.0.0.1:<relayPort> and
+     * drive Chrome's CDP. See [ai.closepaw.browser.cdp.RelayAuthToken].
+     */
+    private val relayAuthToken: String,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val requestTimeoutMs: Int = DEFAULT_TIMEOUT_MS,
 ) {
 
     init {
-        require(appProcessTransport.label == TransportLabel.APP_PROCESS) {
-            "appProcessTransport must declare TransportLabel.APP_PROCESS"
+        require(relayAuthToken.isNotEmpty()) { "relayAuthToken must not be empty" }
+        require(wirelessAdbSelfPairTransport == null ||
+                wirelessAdbSelfPairTransport.label == TransportLabel.WIRELESS_ADB_SELF_PAIR) {
+            "wirelessAdbSelfPairTransport must declare TransportLabel.WIRELESS_ADB_SELF_PAIR"
         }
     }
+
+    /**
+     * Tracks which transport satisfied the most recent successful HTTP fetch so
+     * [resolveWebSocketHost] can pick the right WS URL transformation. Both transports terminate
+     * on Chrome's port-less abstract socket; the bridge rewrites `webSocketDebuggerUrl`'s host
+     * onto a transport-specific TCP relay so OkHttp can reach it from the app UID.
+     */
+    @Volatile
+    private var lastSuccessfulTransport: TransportLabel? = null
 
     /** Reads `/json/version` and returns the parsed payload. */
     suspend fun fetchVersion(): DevtoolsVersion = withContext(ioDispatcher) {
@@ -53,61 +57,83 @@ class ShizukuChromeDevtoolsBridge(
     /** Run preflight only — useful for explicit diagnostics endpoints. Throws on failure. */
     suspend fun preflight(): Unit = withContext(ioDispatcher) { runPreflight() }
 
+    /**
+     * Resolve the host:port the CDP WebSocket should connect to. Chrome reflects our
+     * `Host: localhost` request header verbatim, so the WS URL has no port — point it at the
+     * transport-owned device-side TCP relay instead.
+     */
+    suspend fun resolveWebSocketHost(): String? = withContext(ioDispatcher) {
+        when (lastSuccessfulTransport) {
+            TransportLabel.USER_SERVICE -> {
+                val transport = userServiceProvider.obtain() as? UserServiceTransport
+                    ?: return@withContext null
+                val port = transport.ensureRelayPortSuspend(relayAuthToken)
+                "127.0.0.1:$port"
+            }
+            TransportLabel.WIRELESS_ADB_SELF_PAIR -> {
+                val transport = wirelessAdbSelfPairTransport as? WirelessAdbRelayHost
+                    ?: return@withContext null
+                transport.ensureWebSocketRelayPort()?.let { "127.0.0.1:$it" }
+            }
+            else -> null
+        }
+    }
+
     /** Release any Shizuku UserService binding owned by this bridge. */
     fun close() {
-        userServiceProvider?.close()
+        userServiceProvider.close()
+        (wirelessAdbSelfPairTransport as? AutoCloseable)?.let { runCatching { it.close() } }
     }
 
     private suspend fun httpGet(path: String): String {
         runPreflight()
         val request = DevtoolsHttpProtocol.buildGet(path)
 
-        val appResponse = runCatching { appProcessTransport.exchange(request, requestTimeoutMs) }
-        appResponse.fold(
-            onSuccess = { return DevtoolsHttpProtocol.parseHttpBody(it) },
-            onFailure = { e -> if (e is DevtoolsSetupError) throw e },
-        )
-        val appError = appResponse.exceptionOrNull()
-
-        val provider = userServiceProvider
-            ?: throw DevtoolsSetupError.AppProcessSocketInaccessible(appError)
-
-        val userTransport = try {
-            provider.obtain()
-        } catch (e: DevtoolsSetupError) {
-            throw e
-        } catch (e: Throwable) {
-            throw DevtoolsSetupError.UserServiceSocketInaccessible(e)
+        // Some OEM builds (e.g. nubia P0110) deny shell-domain connectto on appdomain abstract
+        // sockets, so the UserService leg can fail; the wireless leg routes through adbd instead.
+        val userResponse = runCatching {
+            DevtoolsHttpProtocol.parseHttpBody(
+                userServiceProvider.obtain().exchange(request, requestTimeoutMs)
+            )
         }
-
-        val userResponse = try {
-            userTransport.exchange(request, requestTimeoutMs)
-        } catch (e: DevtoolsSetupError) {
-            throw e
-        } catch (e: Throwable) {
-            throw DevtoolsSetupError.UserServiceSocketInaccessible(e)
+        userResponse.getOrNull()?.let {
+            lastSuccessfulTransport = TransportLabel.USER_SERVICE
+            return it
         }
-
-        return DevtoolsHttpProtocol.parseHttpBody(userResponse)
+        val userError = userResponse.exceptionOrNull()
+        val wireless = wirelessAdbSelfPairTransport
+            ?: throw toUserServiceError(userError)
+        val wirelessResponse = runCatching {
+            DevtoolsHttpProtocol.parseHttpBody(wireless.exchange(request, requestTimeoutMs))
+        }
+        wirelessResponse.getOrNull()?.let {
+            lastSuccessfulTransport = TransportLabel.WIRELESS_ADB_SELF_PAIR
+            return it
+        }
+        val wirelessError = wirelessResponse.exceptionOrNull()
+        if (wirelessError is DevtoolsSetupError) throw wirelessError
+        throw DevtoolsSetupError.WirelessAdbSelfPairUnavailable(wirelessError ?: userError)
     }
 
-    private fun runPreflight() {
-        if (!status.isAvailable()) throw DevtoolsSetupError.ShizukuUnavailable
-        if (!status.hasPermission()) throw DevtoolsSetupError.ShizukuPermissionMissing
+    private fun toUserServiceError(error: Throwable?): DevtoolsSetupError = when (error) {
+        is DevtoolsSetupError -> error
+        else -> DevtoolsSetupError.UserServiceSocketInaccessible(error)
+    }
 
+    private suspend fun runPreflight() {
+        // Distinguish "DevTools socket missing" vs "Chrome not running" only when the probes are
+        // *certain* — Unknown means defer to the transport so we never lie about device state.
         val socketProbe = diagnostics.isDevtoolsSocketBound()
         if (socketProbe == SocketProbeResult.NotBound) {
-            // Only emit the distinct preflight verdict when we're CERTAIN about Chrome's state.
-            // If the chrome probe returned Unknown we don't know whether the missing socket means
-            // Chrome isn't running or DevTools isn't enabled, so defer to the transport — it will
-            // produce a precise app/user-service-inaccessible error instead.
             when (diagnostics.isChromeRunning()) {
                 ChromeRunningResult.Running -> throw DevtoolsSetupError.DevtoolsSocketMissing
                 ChromeRunningResult.NotRunning -> throw DevtoolsSetupError.ChromeNotRunning
                 ChromeRunningResult.Unknown -> Unit
             }
         }
-        // SocketProbeResult.Bound and SocketProbeResult.Unknown both proceed to the transport.
+
+        if (!status.isAvailable()) throw DevtoolsSetupError.ShizukuUnavailable
+        if (!status.hasPermission()) throw DevtoolsSetupError.ShizukuPermissionMissing
     }
 
     companion object {
@@ -126,9 +152,8 @@ interface ShizukuStatusProvider {
 
 /**
  * Side-channel diagnostics so the bridge can distinguish "Chrome not running" from "DevTools
- * socket missing" without depending on `connect()` failure modes (which collapse both into
- * `ECONNREFUSED`). Both probes return a tri-state — Bound/NotBound/Unknown and
- * Running/NotRunning/Unknown — so we never claim certainty we don't have.
+ * socket missing" without depending on `connect()`'s `ECONNREFUSED` ambiguity. Tri-state
+ * results so we never claim certainty we don't have.
  */
 interface DevtoolsDiagnostics {
     fun isDevtoolsSocketBound(): SocketProbeResult
@@ -146,4 +171,4 @@ interface DevtoolsSocketTransport {
     suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray
 }
 
-enum class TransportLabel { APP_PROCESS, USER_SERVICE }
+enum class TransportLabel { USER_SERVICE, WIRELESS_ADB_SELF_PAIR }

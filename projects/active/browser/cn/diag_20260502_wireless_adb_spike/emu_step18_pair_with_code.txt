@@ -1,0 +1,25 @@
+==> emu21: tap 'Pair device with pairing code' and inspect
+Pair-with-code entry bounds: bounds="[189,1474][864,1545]"
+--- pairing dialog ---
+    topResumedActivity=ActivityRecord{6fd0e59 u0 com.android.settings/.SubSettings} t433}
+--- all UI text on pairing dialog ---
+text="Pair with device"
+text="Wi‑Fi pairing code"
+text="369416"
+text="IP address &amp; Port"
+text="10.0.2.16:43525"
+text="Cancel"
+
+--- pair port from props ---
+
+
+--- TCP listeners (pair port should be open!) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0            *:43993                    *:*                  
+LISTEN      0      0            *:43525                    *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  
+
+--- save full pair UI dump for inspection ---
+(saved emu_step18_pair_dialog.xml)

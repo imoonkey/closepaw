@@ -1,0 +1,32 @@
+==> step 3c: try direct intents to wireless debugging settings
+--- am start -a android.settings.development.WIRELESS_DEBUGGING_SETTINGS ---
+Starting: Intent { act=android.settings.development.WIRELESS_DEBUGGING_SETTINGS }
+Error: Activity not started, unable to resolve Intent { act=android.settings.development.WIRELESS_DEBUGGING_SETTINGS flg=0x10000000 xflg=0x4 }
+    topResumedActivity=ActivityRecord{171071860 u0 com.android.settings/.Settings t3121}
+--- am start -a android.settings.APPLICATION_DEVELOPMENT_SETTINGS ---
+Starting: Intent { act=android.settings.APPLICATION_DEVELOPMENT_SETTINGS }
+    topResumedActivity=ActivityRecord{120378803 u0 com.android.settings/.DevelopmentSettings t3161}
+--- am start -a com.android.settings.DEVELOPMENT_SETTINGS ---
+Starting: Intent { act=com.android.settings.DEVELOPMENT_SETTINGS }
+Error: Activity not started, unable to resolve Intent { act=com.android.settings.DEVELOPMENT_SETTINGS flg=0x10000000 xflg=0x4 }
+    topResumedActivity=ActivityRecord{120378803 u0 com.android.settings/.DevelopmentSettings t3161}
+--- am start -a android.settings.DEVELOPMENT_SETTINGS ---
+Starting: Intent { act=android.settings.DEVELOPMENT_SETTINGS }
+Error: Activity not started, unable to resolve Intent { act=android.settings.DEVELOPMENT_SETTINGS flg=0x10000000 xflg=0x4 }
+    topResumedActivity=ActivityRecord{120378803 u0 com.android.settings/.DevelopmentSettings t3161}
+
+--- Settings packages with WirelessDebugging in name ---
+
+--- list activities in Settings package containing 'wireless' or 'adb' or 'debug' ---
+Error: unknown list type 'activities'
+        ba3adb4 com.android.settings/.Settings$PowerUsageSummaryActivity2 filter 4649d52
+        ba3adb4 com.android.settings/.Settings$PowerUsageSummaryActivity2 filter d5fddd
+        5b1adbc com.android.settings/.WallpaperCache$LauncherWallpaperChangedReceiver filter afe7145
+
+--- try with the precise component name (varies by Android version) ---
+Starting: Intent { cmp=com.android.settings/.development.AdbDebuggingFragment }
+Error type 3
+Error: Activity class {com.android.settings/com.android.settings.development.AdbDebuggingFragment} does not exist.
+Starting: Intent { cmp=com.android.settings/.development.AdbWirelessSettings }
+Error type 3
+Error: Activity class {com.android.settings/com.android.settings.development.AdbWirelessSettings} does not exist.

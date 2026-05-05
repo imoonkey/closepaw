@@ -1,0 +1,24 @@
+==> nubia4: extract settings activities + try AIDL pair
+--- list activities in custom settings package ---
+
+--- dump activities by component (raw filter) ---
+
+--- try IAdbManager.enablePairingByPairingCode (transaction code 4 might be it) ---
+(code 5 was tried earlier — 0-byte result. Try other codes carefully — DON'T do code 4 again, that killed the connection)
+code 1: Result: Parcel(	0x00000000: fffffffd ffffffff 000002b8 00000157 '............W...'
+code 2: Result: Parcel(	00000000    '....')
+code 3: Result: Parcel(	00000000    '....')
+adb: device offline
+code 5: 
+adb: device offline
+code 6: 
+
+--- check current activity / look for anything new ---
+adb: device offline
+
+--- try to find 'pair' in resources/strings ---
+adb: device offline
+adb: device offline
+
+--- look for ADB pairing notification (we saw the channel 'adb_pairing' earlier) ---
+adb: device offline

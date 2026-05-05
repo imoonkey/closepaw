@@ -1,0 +1,14 @@
+==> step 10: clean re-test of 'does the put now stick?'
+
+--- current state (baseline) ---
+0
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+
+--- single put 1, watch for 5 seconds ---
+T+0.1s: adb_wifi_enabled=0 | listener: 
+T+0.5s: adb_wifi_enabled=0 | listener: 
+T+1s: adb_wifi_enabled=0 | listener: 
+T+2s: adb_wifi_enabled=0 | listener: 
+T+5s: adb_wifi_enabled=0 | listener: 
+
+--- logcat from put: focus on dialogs/notifications/permissions ---

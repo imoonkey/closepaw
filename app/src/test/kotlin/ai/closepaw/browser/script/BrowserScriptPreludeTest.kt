@@ -23,7 +23,7 @@ class BrowserScriptPreludeTest {
     }
 
     @Test
-    fun `prelude exposes only cdp resolve and reject on globalThis`() {
+    fun `prelude exposes only the documented set of globalThis bindings`() {
         val matches = Regex("""globalThis\.\w+""")
             .findAll(BrowserScriptPrelude.PRELUDE)
             .map { it.value }
@@ -32,7 +32,15 @@ class BrowserScriptPreludeTest {
             "globalThis.cdp",
             "globalThis.__cdpResolve",
             "globalThis.__cdpReject",
+            "globalThis.storeArtifact",
         )
+    }
+
+    @Test
+    fun `prelude exposes globalThis storeArtifact that calls bridge storeArtifact`() {
+        val prelude = BrowserScriptPrelude.PRELUDE
+        assertThat(prelude).contains("globalThis.storeArtifact")
+        assertThat(prelude).contains("AndroidBrowserScript.storeArtifact")
     }
 
     @Test

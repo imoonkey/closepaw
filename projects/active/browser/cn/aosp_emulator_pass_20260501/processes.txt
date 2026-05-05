@@ -1,0 +1,4 @@
+u:r:untrusted_app:s0:c196,c256,c512,c768 u0_a196 24255 307 13706632 97292 do_epoll_wait    0 S moe.shizuku.privileged.api
+u:r:untrusted_app:s0:c195,c256,c512,c768 u0_a195 26221 307 30699932 246312 do_epoll_wait   0 S ai.closepaw
+u:r:su:s0                      root         26975     1 13174120 116904 do_epoll_wait      0 S shizuku_server
+u:r:su:s0                      root         27135     1 13379424 229948 do_epoll_wait      0 S ai.closepaw:chrome_devtools

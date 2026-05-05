@@ -1,0 +1,45 @@
+==> emu17: navigate Settings → System → Developer options manually
+Starting: Intent { act=android.settings.SETTINGS }
+--- top-level Settings entries ---
+text="Settings"
+text="Search settings"
+text="Network &amp; internet"
+text="Mobile, Wi‑Fi, hotspot"
+text="Connected devices"
+text="Bluetooth, pairing"
+text="Apps"
+text="Assistant, recent apps, default apps"
+text="Notifications"
+text="Notification history, conversations"
+text="Battery"
+text="100%"
+text="Storage"
+text="71% used - 2.35 GB free"
+text="Sound &amp; vibration"
+text="Volume, haptics, Do Not Disturb"
+text="Display"
+
+--- scroll down looking for System ---
+text="Settings"
+text="Search settings"
+text="Storage"
+text="71% used - 2.35 GB free"
+text="Sound &amp; vibration"
+text="Volume, haptics, Do Not Disturb"
+text="Display"
+text="Dark theme, font size, brightness"
+text="Wallpaper &amp; style"
+text="Colors, themed icons, app grid"
+text="Accessibility"
+text="Display, interaction, audio"
+text="Security"
+text="Screen lock, Find My Device, app security"
+text="Privacy"
+text="Permissions, account activity, personal data"
+text="Location"
+text="On - 7 apps have access to location"
+text="Safety &amp; emergency"
+text="Emergency SOS, medical info, alerts"
+
+--- find 'System' entry and tap ---
+System bounds: 

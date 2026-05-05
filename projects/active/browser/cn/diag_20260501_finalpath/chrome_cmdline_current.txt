@@ -1,0 +1,1 @@
+chrome --remote-debugging-socket-name=chrome_devtools_remote --enable-remote-debugging

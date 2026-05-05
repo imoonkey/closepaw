@@ -1,0 +1,36 @@
+==> step 2b: investigate why settings put didn't stick
+--- shell user id and selinux context ---
+uid=2000(shell) gid=2000(shell) groups=2000(shell),1004(input),1007(log),1011(adb),1015(sdcard_rw),1028(sdcard_r),1078(ext_data_rw),1079(ext_obb_rw),3001(net_bt_admin),3002(net_bt),3003(inet),3006(net_bw_stats),3009(readproc),3011(uhid),3012(readtracefs) context=u:r:shell:s0
+u:r:shell:s0
+lrwxrwxrwx 1 shell shell u:r:shell:s0  0 2026-05-02 14:25 /proc/self/exe -> /system/bin/toybox
+--- can we write a benign global setting (test sentinel)? ---
+hello_1777746258
+(if sentinel reads back = settings put generally works; only adb_wifi_enabled is rejected)
+--- logcat: filter for adb wireless / setting writes (last 200 lines) ---
+--- now retry put + immediately scrape logcat ---
+05-02 14:25:28.470  3394  6735 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+05-02 14:25:28.623  3394  6735 V SettingsShellCmd: putForUser(userId=0, table=global, key=adb_wifi_enabled, value=1, tag=null, makeDefault=false, overrideableByRestore=false)
+05-02 14:25:28.624  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 14:25:28.625  3394  3449 D AdbService: setAdbEnabled(true), mIsAdbUsbEnabled=true, mIsAdbWifiEnabled=false, transportType=1
+05-02 14:25:28.626 19389 19394 I adbd    : persist.adb.tls_server.enable changed to 1
+05-02 14:25:28.627 19389 19394 I adbd    : adbwifi started on port 43701
+05-02 14:25:28.627 19389 19394 I adbd    : TlsServer running on port 43701
+05-02 14:25:28.627 19389 19394 I adbd    : adb wifi started on port 43701
+05-02 14:25:28.637 19389 19394 I adbd    : Waiting for persist.adb.tls_server.enable=0
+05-02 14:25:28.637  3394  3449 I WifiService: acquireMulticastLock uid=1000 lockTag=AdbMulticastLock
+05-02 14:25:28.638  3394  3449 D AdbService: Acquired multicast lock
+05-02 14:25:28.639  3394  3449 D AdbService: Broadcasting enable = true, type = 1
+05-02 14:25:28.639  3394  3449 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for android(uid=1000)
+05-02 14:25:28.642  3394  3449 W ProcessIntercept: [FEAT_PROCESS_INTERCEPT][240] Allow to start app with ops setting com.android.systemui
+05-02 14:25:28.643  3394  3449 W ActivityTaskManager: callingPackage for (uid=1000, pid=3394) is ambiguous: [android, com.android.providers.settings, com.android.server.telecom, com.android.location.fused]
+05-02 14:25:28.648  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 14:25:28.648  3394  3449 D AdbService: setAdbEnabled(false), mIsAdbUsbEnabled=true, mIsAdbWifiEnabled=true, transportType=1
+05-02 14:25:28.648 19389 19394 I adbd    : persist.adb.tls_server.enable changed to 0
+05-02 14:25:28.649 19389 19394 I adbd    : adb wifi stopped
+05-02 14:25:28.650  3394  3449 I WifiService: releaseMulticastLock uid=1000 lockTag=AdbMulticastLock
+05-02 14:25:28.650 19389 19394 I adbd    : Waiting for persist.adb.tls_server.enable=1
+05-02 14:25:28.650  3394  3449 D AdbService: Released multicast lock
+05-02 14:25:28.650  3394  3449 D AdbService: Broadcasting enable = false, type = 1
+05-02 14:25:29.473  3394  5062 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+--- final check on adb_wifi_enabled ---
+0

@@ -1,0 +1,17 @@
+Proof that the chrome://flags "enable-command-line-on-non-rooted-devices"
+toggle was successfully enabled on nubia P0110 by uiautomator clicks: with
+the toggle on, Chrome reads /data/local/tmp/chrome-command-line, and any
+--remote-debugging-socket-name we write is honored. Sample:
+
+  $ echo "chrome --remote-debugging-socket-name=phase2_test_socket --enable-remote-debugging" \
+      > /data/local/tmp/chrome-command-line
+  $ am force-stop com.android.chrome
+  $ monkey -p com.android.chrome 1
+  $ cat /proc/net/unix | grep -i devtools
+    0000000000000000: 00000002 00000000 00010000 0001 01 14353949 @phase2_test_socket
+
+Before enabling the flag, Chrome ignored chrome-command-line (verified in
+Phase 0 / projects/active/browser/cn/diag_20260501_finalpath/). After the
+toggle, the file IS read. So the user-onboarding part of Phase 2 works as
+designed; the blocker is purely that Chrome refuses to expose CDP via TCP
+on Android.

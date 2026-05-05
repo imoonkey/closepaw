@@ -93,3 +93,9 @@ return await cdp("Runtime.evaluate", {
 - Screenshots are device pixels. Input coordinates are CSS pixels. Convert by `window.devicePixelRatio` if you measure coordinates from a screenshot.
 - After visible actions, verify by rereading page state or taking another screenshot.
 - Android Chrome CDP support can differ from desktop Chrome. If a method is unsupported, use another raw CDP route or visible Android automation.
+
+## Screenshots Return Paths, Not Bytes
+
+`screenshot()` from `page.js` writes the image bytes to a trace artifact and returns metadata plus `path` — the absolute on-device path of the saved file (or `null` when tracing is disabled). It does NOT return the raw base64 in the result. If you need to verify visual state, reference the `path` with shell tools (`adb shell run-as ai.closepaw cat <path>` from the host, `cat`/`stat` on device). Do NOT base64-decode it back and paste it into your tool output — that is exactly the cost this helper exists to avoid (a single screenshot can be 100–500 KB of base64).
+
+If you need the raw base64 for a specific reason (e.g. uploading), call `Page.captureScreenshot` directly via `cdp(...)` instead of `screenshot()`.

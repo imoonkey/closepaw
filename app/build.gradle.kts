@@ -60,6 +60,7 @@ android {
             excludes += "META-INF/NOTICE.txt"
             excludes += "META-INF/notice.txt"
             excludes += "META-INF/ASL2.0"
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
     
@@ -68,6 +69,11 @@ android {
         unitTests {
             isReturnDefaultValues = true
             isIncludeAndroidResources = true
+            all {
+                // Default test JVM heap (512m) OOMs once the suite includes Robolectric +
+                // bundled Conscrypt/BouncyCastle + the OpenAI SDK + MockWebServer harnesses.
+                it.maxHeapSize = "2g"
+            }
         }
     }
 }
@@ -144,7 +150,24 @@ dependencies {
     
     // Hidden API bypass — for InputEvent.setDisplayId(), ServiceManager access, etc.
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
-    
+
+    // BouncyCastle — X.509 self-signed cert generation for wireless ADB pairing
+    // (sun.security.x509 is not available on Android). "jdk18on" = JDK 1.8 onwards.
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.84")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.84")
+
+    // SPAKE2-25519 — required for ADB pairing protocol (AOSP uses BoringSSL spake25519).
+    // Pure-Kotlin implementation in `wireless/Spake25519.kt` over `net.i2p.crypto:eddsa`
+    // (CC0 / public domain, 25k+ Maven Central dependents) for Ed25519 group arithmetic.
+    // Replaces the previous LGPL-3.0 JitPack dep `com.github.MuntashirAkon.spake2-java:spake2-android`.
+    // See `projects/active/browser/cn/diag_20260504_spake_alternatives.md`.
+    implementation("net.i2p.crypto:eddsa:0.3.0")
+
+    // Conscrypt — bundled (vs reflection on platform) for the TLS exporter API used by the
+    // ADB pairing handshake. Platform Conscrypt is hidden API and HiddenApiBypass falls flat
+    // on certain Android builds; the bundled AAR (~3MB) gives us a stable Conscrypt.exportKeyingMaterial.
+    implementation("org.conscrypt:conscrypt-android:2.5.2")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")

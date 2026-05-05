@@ -38,6 +38,8 @@ internal class FileTraceRecorder(
 
     override val enabled: Boolean = true
 
+    override val runDirAbsolutePath: String get() = runDir.absolutePath
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val channel = Channel<WriteOp>(capacity = WRITE_CHANNEL_CAPACITY)
     private val seq = AtomicLong(0L)

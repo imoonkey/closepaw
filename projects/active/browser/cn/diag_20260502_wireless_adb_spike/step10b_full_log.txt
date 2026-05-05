@@ -1,0 +1,88 @@
+==> step 10b: catch ALL log lines around the put (no filter)
+--- raw logcat 200 lines after put ---
+05-02 14:52:26.690  5153  5933 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.691  3394  8430 D FileUtils: Rounded bytes from 496379383808 to 512000000000
+05-02 14:52:26.691  3394  8430 D FileUtils: Rounded bytes from 15777558528 to 16000000000
+05-02 14:52:26.695  5153  5933 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.695  5153  5933 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:2002 android.content.ContextWrapper.startService:855 com.bytedance.os.slardar.usetime.UseTimeServiceImpl.startRepeatHandle:58 com.bytedance.os.slardar.SlardarAlarmService.repeatHandleAction:416 com.bytedance.os.slardar.SlardarAlarmService.onHandleIntent:251 
+05-02 14:52:26.697  5153  5934 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.697  5153  5934 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.697  5153  5934 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.697  3394  8430 D FileUtils: Rounded bytes from 496379383808 to 512000000000
+05-02 14:52:26.697  5153  5933 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:2002 android.content.ContextWrapper.startService:855 com.bytedance.os.slardar.obric.ObricImplService.checkOtaTime:107 com.bytedance.os.slardar.SlardarAlarmService.onHandleIntent:272 android.app.IntentService$ServiceHandler.handleMessage:77 
+05-02 14:52:26.697  5153  5934 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.697  5153  5934 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.697  5153 15958 I SlardarOS_DataReportsHandleTask: run
+05-02 14:52:26.697  5153 15958 D obric_log_statistic: Alogout in a minutes: 59
+05-02 14:52:26.698  5153 15958 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1284 android.content.ContextWrapper.sendBroadcast:511 com.obric.olog.OLog.reportMetricEvent:518 com.obric.olog.OLog.StatisticFunc:221 com.obric.olog.OLog.Alogout:214 
+05-02 14:52:26.698  5153  5933 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:2002 android.content.ContextWrapper.startService:855 com.bytedance.os.slardar.profile.ProfileServiceImpl.startHandle:33 com.bytedance.os.slardar.SlardarAlarmService.onHandleIntent:285 android.app.IntentService$ServiceHandler.handleMessage:77 
+05-02 14:52:26.698  5153 15958 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:2002 android.content.ContextWrapper.startService:855 com.bytedance.os.slardar.dropbox.CustomErrorServiceImpl.startHandle:35 com.bytedance.os.slardar.task.DataReportsHandleTask.run:116 com.bytedance.os.slardar.base.taskhelper.ExecuteHelper$NamedRunnable.run:45 
+05-02 14:52:26.699  2073  2073 I vendor.qti.hardware.servicetrackeraidl-service: destroyService is called for service : com.bytedance.os.mermaid/com.bytedance.os.slardar.SlardarAlarmService
+05-02 14:52:26.699  5153 15958 I SlardarOS_DataReportsHandleTask: start DropboxServiceImpl
+05-02 14:52:26.699  3394  8430 D FileUtils: Rounded bytes from 496379383808 to 512000000000
+05-02 14:52:26.699  5153 15958 I SlardarOS_DropboxScanRunner: build value: smartcm
+05-02 14:52:26.699  5153 15958 I SlardarOS_DropboxScanRunner: handle dropbox
+05-02 14:52:26.701  5153  5940 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.701  5153  5940 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.701  5153  5941 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:2002 android.content.ContextWrapper.startService:855 com.bytedance.os.slardar.dropbox.CustomErrorScanService.onHandleIntent:107 android.app.IntentService$ServiceHandler.handleMessage:77 android.os.Handler.dispatchMessage:110 
+05-02 14:52:26.701  5153 15958 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.702  2073  2073 I vendor.qti.hardware.servicetrackeraidl-service: destroyService is called for service : com.bytedance.os.mermaid/com.bytedance.os.slardar.dropbox.CustomErrorScanService
+05-02 14:52:26.703  2073  2073 I vendor.qti.hardware.servicetrackeraidl-service: destroyService is called for service : com.bytedance.os.mermaid/com.bytedance.os.slardar.dropbox.HprofScanService
+05-02 14:52:26.707  5153 15958 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.707  5153 15958 W SQLiteLog: (28) double-quoted string literal: "applog"
+05-02 14:52:26.710  5153  5934 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.710  3394  8430 D FileUtils: Rounded bytes from 496379383808 to 512000000000
+05-02 14:52:26.711  3394  8430 D FileUtils: Rounded bytes from 15777558528 to 16000000000
+05-02 14:52:26.712  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.712  2073  2073 I vendor.qti.hardware.servicetrackeraidl-service: destroyService is called for service : com.bytedance.os.mermaid/com.bytedance.os.slardar.usetime.TimeHandleService
+05-02 14:52:26.712  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.712  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.712  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.713  3394  8430 E Parcel  : Expecting header 0x53595354 but found 0x660072. Mixing copies of libbinder?
+05-02 14:52:26.713  3394  8430 W Binder  : Caught a RuntimeException from the binder stub implementation.
+05-02 14:52:26.713  3394  8430 W Binder  : java.lang.SecurityException: Binder invocation to an incorrect interface
+05-02 14:52:26.713  3394  8430 W Binder  : 	at android.os.Parcel.nativeEnforceInterface(Native Method)
+05-02 14:52:26.713  3394  8430 W Binder  : 	at android.os.Parcel.enforceInterface(Parcel.java:1142)
+05-02 14:52:26.713  3394  8430 W Binder  : 	at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:2560)
+05-02 14:52:26.713  3394  8430 W Binder  : 	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:3077)
+05-02 14:52:26.713  3394  8430 W Binder  : 	at android.os.Binder.execTransactInternal(Binder.java:1435)
+05-02 14:52:26.713  3394  8430 W Binder  : 	at android.os.Binder.execTransact(Binder.java:1374)
+05-02 14:52:26.713  3394  8432 D FileUtils: Rounded bytes from 496379383808 to 512000000000
+05-02 14:52:26.722  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.722  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.723  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.723  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.724  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.724  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.724  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.724  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.725  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.725  5153  7543 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.732  5153 15958 W SQLiteLog: (28) double-quoted string literal: "metric"
+05-02 14:52:26.733  5153 15958 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.733  5153 15958 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.733  5153 15958 E MatrixTeaManager: MatrixOnesSdk: getDeviceId 有值，立即回调 3863016234293769
+05-02 14:52:26.822  2038  4158 I sensors-hal: handle_sns_std_sensor_event:83, rear_ambient_light_event: ts=306356444800902, lux = 0, data=4000 815 111 137 38 81 5912 0 0 0 0 0 0 0 0
+05-02 14:52:26.835  4944  7410 D EventDataStallCollector: StallHandler handleMessage startStallPolling
+05-02 14:52:26.869  2038  4158 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=306356504831474, lux = 203, data=5262 0 118478 93154 34024 490744 129171 99754 37378 550169 98 94 96 1603 0
+
+--- compare: put a sentinel setting (proves writes work) ---
+spike_sentinel_1777747878=test
+
+--- verify SettingsShellCmd logs ARE captured normally ---
+05-02 14:52:27.349  3394  8432 V SettingsShellCmd: putForUser(userId=0, table=global, key=spike_sentinel_1777747878, value=test, tag=null, makeDefault=false, overrideableByRestore=false)

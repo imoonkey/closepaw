@@ -1,0 +1,8 @@
+==> emu12: navigate via Dev Options to find wireless debugging
+Starting: Intent { act=android.settings.APPLICATION_DEVELOPMENT_SETTINGS }
+    topResumedActivity=ActivityRecord{209a060 u0 com.android.settings/.Settings} t428}
+
+--- Look for 'Wireless debugging' entry text ---
+
+--- get bounds of 'Wireless debugging' entry ---
+bounds: 

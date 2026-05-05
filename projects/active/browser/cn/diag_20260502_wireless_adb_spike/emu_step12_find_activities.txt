@@ -1,0 +1,11 @@
+==> emu15: find ALL settings activities related to adb/pair/wireless
+
+--- all adb/wireless-related activities exported ---
+
+--- list all settings activities with 'Adb' in name ---
+        766b80d com.android.settings/.bluetooth.BluetoothPairingDialog filter 9de83c2
+        e50383a com.android.settings/.Settings$BlueToothPairingActivity filter 25cceb
+        ed4f49d com.android.settings/.bluetooth.BluetoothPairingRequest filter 1a22d12
+        ed4f49d com.android.settings/.bluetooth.BluetoothPairingRequest filter 1a22d12
+        7ee9c37 com.android.settings/.media.BluetoothPairingReceiver filter dbb75a4
+        88f47ed com.android.settings/.development.qstile.DevelopmentTiles$WirelessDebugging filter b3a0622 permission android.permission.BIND_QUICK_SETTINGS_TILE

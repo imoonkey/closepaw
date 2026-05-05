@@ -1,0 +1,29 @@
+==> nubia3: try to launch the pairing dialog activity directly
+--- find activities with 'pair' or 'AdbPairing' in nubia's settings ---
+
+--- find SystemUI activities related to wireless debug ---
+
+--- list ALL system activities with 'pair' in name ---
+        name=com.pairip.application.Application
+        className=com.pairip.application.Application
+        name=com.pairip.application.Application
+        className=com.pairip.application.Application
+        name=com.pairip.application.Application
+        className=com.pairip.application.Application
+        name=com.pairip.application.Application
+        className=com.pairip.application.Application
+
+--- direct intent attempts ---
+→ am start -n com.android.settings/.development.AdbWirelessSettings
+Starting: Intent { cmp=com.android.settings/.development.AdbWirelessSettings }
+→ am start -n com.android.settings/.development.AdbWifiPairingPreferenceFragment
+Starting: Intent { cmp=com.android.settings/.development.AdbWifiPairingPreferenceFragment }
+→ am start -n com.android.settings/.development.AdbPairingDeviceFragment
+Starting: Intent { cmp=com.android.settings/.development.AdbPairingDeviceFragment }
+→ am start -n com.android.settings/.Settings$AdbWirelessSettingsActivity
+Starting: Intent { cmp=com.android.settings/.Settings }
+→ am start -n com.android.settings/com.android.settings.development.AdbDeviceListPreferenceController
+Starting: Intent { cmp=com.android.settings/.development.AdbDeviceListPreferenceController }
+
+--- attempt: look for nubia's customized settings with hidden wireless debug ---
+package:/system/priv-app/SettingsBytedanceProject/SettingsBytedanceProject.apk

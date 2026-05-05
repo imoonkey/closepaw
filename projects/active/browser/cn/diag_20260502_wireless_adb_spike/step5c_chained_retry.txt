@@ -1,0 +1,82 @@
+==> step 5c: retry chained forward+reverse cleanly
+--- baseline: clear any existing forward/reverse ---
+
+--- A) host->device CDP via plain forward (sanity check) ---
+7777
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to 127.0.0.1 (127.0.0.1) port 7777 (#0)
+> GET /json/version HTTP/1.1
+> Host: 127.0.0.1:7777
+> User-Agent: curl/7.58.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Content-Security-Policy:frame-ancestors 'none'
+< Content-Length:422
+< Content-Type:application/json; charset=UTF-8
+< 
+{ [422 bytes data]
+* Connection #0 to host 127.0.0.1 left intact
+{
+   "Android-Package": "com.android.chrome",
+   "Browser": "Chrome/147.0.7727.137",
+   "Protocol-Version": "1.3",
+   "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Mobile Safari/537.36",
+   "V8-Version": "14.7.173.22",
+   "WebKit-Version": "537.36 (@68ba233a543d25e75c30f1228dd3bafa2da96937)",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:7777/devtools/browser"
+}
+
+--- B) device-side untrusted_app via reverse-only (LOCAL spec is on host = no chrome_devtools_remote on host) ---
+8889
+(reverse list:)
+host-26 tcp:8889 localabstract:chrome_devtools_remote
+
+(device-side curl from untrusted_app:)
+*   Trying 127.0.0.1:8889...
+* Connected to 127.0.0.1 (127.0.0.1) port 8889
+* using HTTP/1.x
+> GET /json/version HTTP/1.1
+> Host: 127.0.0.1:8889
+> User-Agent: curl/8.12.0-DEV
+> Accept: */*
+> 
+* Request completely sent off
+* Empty reply from server
+* shutting down connection #0
+
+--- C) chained: device:8888 -> host:7777 (which forwards to device's chrome) ---
+8888
+(reverse list:)
+host-26 tcp:8889 localabstract:chrome_devtools_remote
+host-26 tcp:8888 tcp:7777
+
+(device untrusted_app via chain:)
+*   Trying 127.0.0.1:8888...
+* Connected to 127.0.0.1 (127.0.0.1) port 8888
+* using HTTP/1.x
+> GET /json/version HTTP/1.1
+> Host: 127.0.0.1:8888
+> User-Agent: curl/8.12.0-DEV
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/1.1 200 OK
+< Content-Security-Policy:frame-ancestors 'none'
+< Content-Length:422
+< Content-Type:application/json; charset=UTF-8
+< 
+{ [422 bytes data]
+* Connection #0 to host 127.0.0.1 left intact
+{
+   "Android-Package": "com.android.chrome",
+   "Browser": "Chrome/147.0.7727.137",
+   "Protocol-Version": "1.3",
+   "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Mobile Safari/537.36",
+   "V8-Version": "14.7.173.22",
+   "WebKit-Version": "537.36 (@68ba233a543d25e75c30f1228dd3bafa2da96937)",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:8888/devtools/browser"
+}
+
+--- cleanup ---

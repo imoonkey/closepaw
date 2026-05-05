@@ -1,0 +1,25 @@
+==> step 1 (re-verify): wireless debugging state
+--- ro.adb.secure ---
+1
+--- service.adb.tls.port ---
+
+--- service.adb.tcp.port ---
+5555
+--- service.adb.tls.pairing_port ---
+
+--- adb_wifi_enabled (global) ---
+0
+--- adb_enabled (global) ---
+1
+--- android version + fingerprint ---
+16
+nubia/pacific/pacific:16/1.11.0.0/20260407.122620:user/release-keys
+--- adbd procs and contexts ---
+u:r:adbd:s0                    shell        19389     1   11141956  14892 0                   0 S adbd
+--- TCP listening (current) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+--- mlstrustedsubject contains adbd? (recall) ---
+Yes — confirmed in /sepolicy via prior diag_20260501_finalpath/selinux_mlstrusted.txt: adbd, runas, shell are mlstrustedsubject

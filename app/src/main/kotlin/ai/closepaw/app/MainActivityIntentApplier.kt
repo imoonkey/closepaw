@@ -3,13 +3,15 @@ package ai.closepaw.app
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
+import ai.closepaw.protocol.ApprovalMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal data class MainActivityIntentApplyResult(
     val pendingTraceEnabled: Boolean?,
     val pendingTraceRunId: String?,
-    val pendingExcludedTools: Set<String>
+    val pendingExcludedTools: Set<String>,
+    val pendingApprovalMode: ApprovalMode?,
 )
 
 /**
@@ -30,13 +32,15 @@ internal suspend fun applyIntentPayloadToSettings(
     currentPendingTraceEnabled: Boolean?,
     currentPendingTraceRunId: String?,
     currentPendingExcludedTools: Set<String>,
+    currentPendingApprovalMode: ApprovalMode?,
     log: (String) -> Unit
 ): MainActivityIntentApplyResult {
     if (!isDebugBuild) {
         return MainActivityIntentApplyResult(
             pendingTraceEnabled = currentPendingTraceEnabled,
             pendingTraceRunId = currentPendingTraceRunId,
-            pendingExcludedTools = currentPendingExcludedTools
+            pendingExcludedTools = currentPendingExcludedTools,
+            pendingApprovalMode = currentPendingApprovalMode,
         )
     }
 
@@ -91,6 +95,10 @@ internal suspend fun applyIntentPayloadToSettings(
         settingsState.updateDebugMode(enabled)
         log("Debug mode set from intent: $enabled")
     }
+    payload.browserScriptEnabled?.let { enabled ->
+        settingsState.updateBrowserScriptEnabled(enabled)
+        log("browser_script enabled set from intent: $enabled")
+    }
 
     val pendingTraceEnabled =
         payload.traceEnabled?.also { enabled ->
@@ -105,10 +113,15 @@ internal suspend fun applyIntentPayloadToSettings(
         payload.excludedTools.ifEmpty { currentPendingExcludedTools }.also { tools ->
             if (tools.isNotEmpty()) log("Excluded tools set from intent: $tools")
         }
+    val pendingApprovalMode =
+        payload.approvalMode?.also { mode ->
+            log("Approval mode set from intent: $mode")
+        } ?: currentPendingApprovalMode
 
     return MainActivityIntentApplyResult(
         pendingTraceEnabled = pendingTraceEnabled,
         pendingTraceRunId = pendingTraceRunId,
-        pendingExcludedTools = pendingExcludedTools
+        pendingExcludedTools = pendingExcludedTools,
+        pendingApprovalMode = pendingApprovalMode,
     )
 }

@@ -1,0 +1,64 @@
+==> step 1: wireless debugging support
+--- ro.adb.secure ---
+1
+--- service.adb.tls.port ---
+
+--- service.adb.tcp.port ---
+5555
+--- adb_wifi_enabled (global) ---
+0
+--- adb_enabled (global) ---
+1
+--- android version + fingerprint ---
+16
+nubia/pacific/pacific:16/1.11.0.0/20260407.122620:user/release-keys
+--- adbd procs and contexts ---
+u:r:adbd:s0                    shell        19389     1   11141956  14760 0                   0 S adbd
+--- TCP listening (initial) ---
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State      
+tcp        0      0 127.0.0.1:53922         0.0.0.0:*               LISTEN     
+tcp       25      0 192.168.1.35:59054      8.38.121.195:443        CLOSE_WAIT 
+tcp        0      0 192.168.1.35:40288      163.181.66.214:443      ESTABLISHED
+tcp        0      0 192.168.1.35:60868      178.156.152.91:443      ESTABLISHED
+tcp        0      0 192.168.1.35:33132      98.96.213.145:443       ESTABLISHED
+tcp        0      0 192.168.1.35:57844      101.126.58.197:443      ESTABLISHED
+tcp        0      0 192.168.1.35:53768      2.18.67.81:443          TIME_WAIT  
+tcp        0      0 192.168.1.35:36352      2.18.67.81:443          TIME_WAIT  
+tcp       25      0 192.168.1.35:56970      47.246.22.201:443       CLOSE_WAIT 
+tcp       25      0 192.168.1.35:38168      122.14.229.7:443        CLOSE_WAIT 
+tcp        0      0 192.168.1.35:38176      122.14.229.7:443        CLOSE_WAIT 
+tcp       64      0 192.168.1.35:47100      155.102.54.139:443      CLOSE_WAIT 
+tcp        0      0 192.168.1.35:36642      2.18.67.81:443          TIME_WAIT  
+tcp        0      0 192.168.1.35:35294      2.18.67.81:443          TIME_WAIT  
+tcp        0      0 192.168.1.35:53684      2.18.67.81:443          TIME_WAIT  
+tcp       25      0 192.168.1.35:47006      47.246.22.201:443       CLOSE_WAIT 
+tcp        0      0 192.168.1.35:56730      2.18.67.84:443          TIME_WAIT  
+tcp        0      0 192.168.1.35:56724      2.18.67.84:443          TIME_WAIT  
+tcp       25      0 192.168.1.35:58860      8.25.82.230:443         CLOSE_WAIT 
+tcp        0      0 192.168.1.35:38942      120.52.95.247:443       CLOSE_WAIT 
+tcp        0      0 192.168.1.35:53290      2.18.67.81:443          TIME_WAIT  
+tcp        0      0 192.168.1.35:46078      163.181.60.204:443      ESTABLISHED
+tcp        0      0 192.168.1.35:49780      163.181.66.188:443      ESTABLISHED
+tcp       25      0 192.168.1.35:59226      47.246.22.194:443       CLOSE_WAIT 
+tcp       25      0 192.168.1.35:54088      47.246.22.201:443       CLOSE_WAIT 
+tcp        0      0 192.168.1.35:53448      139.214.194.59:443      CLOSE_WAIT 
+tcp        0      0 192.168.1.35:35304      2.18.67.81:443          TIME_WAIT  
+tcp       25      0 192.168.1.35:53802      47.246.22.201:443       CLOSE_WAIT 
+tcp6       0      0 [::]:5555               [::]:*                  LISTEN     
+tcp6       0      0 ::ffff:127.0.0.1:43129  [::]:*                  LISTEN     
+tcp6       0      0 ::ffff:192.168.1.:58142 ::ffff:43.159.235.2:443 ESTABLISHED
+tcp6     130      0 2603:6080:6501:66:48124 2607:f8b0:4002:c0f::443 CLOSE_WAIT 
+tcp6       0      0 ::ffff:192.168.1.:34838 ::ffff:8.45.176.207:443 ESTABLISHED
+tcp6     130      0 2603:6080:6501:66:57322 2001:4860:4802:36:::443 CLOSE_WAIT 
+tcp6       0      0 2603:6080:6501:66:43904 2607:a400:c:312::9:443  ESTABLISHED
+tcp6       0      0 2603:6080:6501:66:44964 2604:980:3007:124:::443 ESTABLISHED
+tcp6      64      0 2603:6080:6501:66:59624 2607:a400:c:312::9:443  CLOSE_WAIT 
+tcp6       0      0 2603:6080:6501:66:60682 2606:b740:1:20::103:443 ESTABLISHED
+tcp6       0      0 2603:6080:6501:66:41954 2606:b740:49::101:80    ESTABLISHED
+tcp6       0      0 2603:6080:6501:66:58108 2607:a400:c:312::9:443  ESTABLISHED
+tcp6     130      0 2603:6080:6501:66:57306 2001:4860:4802:36:::443 CLOSE_WAIT 
+tcp6       0     72 ::ffff:100.64.43.9:5555 ::ffff:100.79.206:55210 ESTABLISHED
+tcp6       0      0 2603:6080:6501:66:48122 2408:871a:6010:4::f:443 ESTABLISHED
+tcp6       0      0 2603:6080:6501:66:48106 2408:871a:6010:4::f:443 ESTABLISHED
+tcp6       0      0 2603:6080:6501:66:48996 2607:f8b0:4002:c2c:5228 ESTABLISHED

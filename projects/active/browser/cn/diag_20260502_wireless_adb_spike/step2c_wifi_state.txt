@@ -1,0 +1,140 @@
+==> step 2c: investigate auto-revert of adb_wifi_enabled
+--- Wi-Fi state ---
+Verbose logging is on
+mVerboseLoggingLevel 1
+Stay-awake conditions: 15
+mInIdleMode false
+mScanPending false
+SupportedFeatures: [WIFI_FEATURE_INFRA, WIFI_FEATURE_PASSPOINT, WIFI_FEATURE_P2P, WIFI_FEATURE_MOBILE_HOTSPOT, WIFI_FEATURE_AWARE, WIFI_FEATURE_D2D_RTT, WIFI_FEATURE_D2AP_RTT, WIFI_FEATURE_PNO, WIFI_FEATURE_TDLS, WIFI_FEATURE_AP_STA, WIFI_FEATURE_LINK_LAYER_STATS, WIFI_FEATURE_RSSI_MONITOR, WIFI_FEATURE_CONFIG_NDO, WIFI_FEATURE_CONTROL_ROAMING, WIFI_FEATURE_TX_POWER_LIMIT, WIFI_FEATURE_WPA3_SAE, WIFI_FEATURE_WPA3_SUITE_B, WIFI_FEATURE_OWE, WIFI_FEATURE_LOW_LATENCY, WIFI_FEATURE_DPP, WIFI_FEATURE_CONNECTED_RAND_MAC, WIFI_FEATURE_MBO, WIFI_FEATURE_OCE, WIFI_FEATURE_WAPI, WIFI_FEATURE_FILS_SHA256, WIFI_FEATURE_FILS_SHA384, WIFI_FEATURE_SAE_PK, WIFI_FEATURE_BRIDGED_AP, WIFI_FEATURE_ADDITIONAL_STA_MBB, WIFI_FEATURE_ADDITIONAL_STA_RESTRICTED, WIFI_FEATURE_DPP_ENROLLEE_RESPONDER, WIFI_FEATURE_PASSPOINT_TERMS_AND_CONDITIONS, WIFI_FEATURE_SAE_H2E, WIFI_FEATURE_WFD_R2, WIFI_FEATURE_DECORATED_IDENTITY, WIFI_FEATURE_TRUST_ON_FIRST_USE, WIFI_FEATURE_ADDITIONAL_STA_MULTI_INTERNET, WIFI_FEATURE_SET_TLS_MINIMUM_VERSION, WIFI_FEATURE_TLS_V1_3, WIFI_FEATURE_DUAL_BAND_SIMULTANEOUS, WIFI_FEATURE_WEP, WIFI_FEATURE_WPA_PERSONAL, WIFI_FEATURE_AGGRESSIVE_ROAMING_MODE_SUPPORT]
+SettingsStore:
+WifiState 1
+AirplaneModeOn false
+ScanAlwaysAvailable true
+WifiScoringState true
+WifiPasspointState true
+WifiMultiInternetMode 0
+WifiStateApm false
+WifiStateBt false
+WifiStateUser 0
+AirplaneModeEnhancementEnabled false
+SatelliteModeOn false
+Dump of WifiActiveModeWarden
+Current wifi mode: EnabledState
+Wi-Fi is enabled
+NumActiveModeManagers: 1
+mIsMultiplePrimaryBugreportTaken: false
+WifiController:
+ total records=6
+ rec[0]: time=04-29 01:46:58.187 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=3839 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[] SupportedChannelListIn5g[] SupportedChannelListIn6g[] SupportedChannelListIn60g[] mCountryCodeFromDrivernull
+ rec[1]: time=04-29 01:46:58.195 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=3839 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[] SupportedChannelListIn5g[] SupportedChannelListIn6g[] SupportedChannelListIn60g[] mCountryCodeFromDrivernull
+ rec[2]: time=04-29 01:47:01.078 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=3839 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] SupportedChannelListIn5g[52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165] SupportedChannelListIn6g[1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 117, 121, 125, 129, 133, 137, 141, 145, 149, 153, 157, 161, 165, 169, 173, 177, 181] SupportedChannelListIn60g[] mCountryCodeFromDriverUS
+ rec[3]: time=04-29 01:47:01.078 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 2 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=3839 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] SupportedChannelListIn5g[52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165] SupportedChannelListIn6g[1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 117, 121, 125, 129, 133, 137, 141, 145, 149, 153, 157, 161, 165, 169, 173, 177, 181] SupportedChannelListIn60g[] mCountryCodeFromDriverUS
+ rec[4]: time=04-29 11:54:22.500 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=3839 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] SupportedChannelListIn5g[52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165] SupportedChannelListIn6g[1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 117, 121, 125, 129, 133, 137, 141, 145, 149, 153, 157, 161, 165, 169, 173, 177, 181] SupportedChannelListIn60g[] mCountryCodeFromDriverUS
+ rec[5]: time=04-29 11:54:22.551 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=3839 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] SupportedChannelListIn5g[52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165] SupportedChannelListIn6g[1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 117, 121, 125, 129, 133, 137, 141, 145, 149, 153, 157, 161, 165, 169, 173, 177, 181] SupportedChannelListIn60g[] mCountryCodeFromDriverUS
+curState=EnabledState
+Dump of ClientModeManager id=25243
+current StateMachine mode: ConnectModeState
+mRole: ROLE_CLIENT_PRIMARY
+mPreviousRole: null
+mTargetRoleChangeInfo: Role: ROLE_CLIENT_PRIMARY, RequestorWs: WorkSource{1000 com.android.settings}, ModeListener: com.android.server.wifi.ActiveModeWarden$ClientListener@9ae3e60
+mClientInterfaceName: wlan0
+mIfaceIsUp: true
+mSecondaryInternet: false
+Failed to write while dumping service wifi: Broken pipe
+
+--- IP addresses (look for non-loopback wlan/eth) ---
+    inet 127.0.0.1/8 scope host lo
+23: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 3000
+    inet 192.168.1.35/24 brd 192.168.1.255 scope global wlan0
+    inet 100.64.43.95/32 scope global tun0
+
+--- Connectivity: active networks ---
+NetworkProviders for:
+  2: WIFI_AWARE_FACTORY
+  6: TelephonyNetworkProvider
+  8: UntrustedWifiNetworkFactory
+  11: MultiInternetWifiNetworkFactory
+  9: RestrictedWifiNetworkFactory
+  10: OemPaidWifiNetworkFactory
+  3: VcnNetworkProvider
+  4: L2capNetworkProvider
+  1: EthernetNetworkFactory
+  5: VpnNetworkProvider:0
+  7: WifiNetworkFactory
+
+Active default network: 102
+
+Current network preferences: 
+  Default requests:
+
+Current Networks:
+  NetworkAgentInfo{network{102}  handle{441492361229}  ni{WIFI CONNECTED extra: } created=2026-04-30T04:25:38.943Z Score(Policies : TRANSPORT_PRIMARY&EVER_EVALUATED&IS_UNMETERED&EVER_VALIDATED&IS_VALIDATED ; KeepConnected : 0)  created 81548585 firstValidated 81549906 lastValidated 81549906  lp{{InterfaceName: wlan0 LinkAddresses: [ fe80::9434:bbff:fe76:ea3e/64,192.168.1.35/24,2603:6080:6501:66b4:9434:bbff:fe76:ea3e/64,2603:6080:6501:66b4:755a:2834:a822:14b4/64,fd00:fc12:6379:57b8:9434:bbff:fe76:ea3e/64,fd00:fc12:6379:57b8:449d:f878:672:a1d/64,fd00:fc12:6379:57b8:1799:e8af:33ac:867b/64,2603:6080:6501:66b4:40f5:5ee4:ceb6:3f41/64,2603:6080:6501:66b4:6d99:4a79:60a0:48b1/64,fd00:fc12:6379:57b8:5d63:607b:b15:bdd4/64 ] DnsAddresses: [ /2603:6080:6501:66b4::1,/192.168.1.1,/180.184.1.1 ] Domains: lan MTU: 0 ServerAddress: /192.168.1.1 TcpBufferSizes: 524288,1048576,2097152,524288,1048576,4194304 Routes: [ fe80::/64 -> :: wlan0 mtu 0,::/0 -> fe80::fe12:63ff:fe79:57b8 wlan0 mtu 0,2603:6080:6501:66b4::/64 -> fe80::fe12:63ff:fe79:57b8 wlan0 mtu 0,2603:6080:6501:66b4::/64 -> :: wlan0 mtu 0,fd00:fc12:6379:57b8::/64 -> :: wlan0 mtu 0,192.168.1.0/24 -> 0.0.0.0 wlan0 mtu 0,0.0.0.0/0 -> 192.168.1.1 wlan0 mtu 0 ]}}  nc{[ Transports: WIFI Capabilities: NOT_METERED&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=22608Kbps LinkDnBandwidth>=62074Kbps Specifier: <WifiNetworkAgentSpecifier [WifiConfiguration=, SSID="WhoTMCars", BSSID=fc:12:63:79:57:b6, band=2, mMatchLocalOnlySpecifiers=false]> TransportInfo: <SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -51, Link speed: 720Mbps, Tx Link speed: 720Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 1080Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>> SignalStrength: -51 OwnerUid: 1000 AdminUids: [1000] SSID: "WhoTMCars" UnderlyingNetworks: Null]}  factorySerialNumber=7}
+    Nat464Xlat:
+      <not started>
+    Requests: REQUEST:3 LISTEN:90 BACKGROUND_REQUEST:0 total:93
+      NetworkRequest [ REQUEST id=1, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED RequestorUid: 1000 RequestorPkg: android UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=7, [ Capabilities: FOREGROUND RequestorUid: 1000 RequestorPkg: android MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=10, [ Capabilities: FOREGROUND RequestorUid: 1000 RequestorPkg: android MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=11, [ Capabilities: NOT_RESTRICTED&TRUSTED&NOT_VPN&FOREGROUND&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: android MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=12, [ Capabilities: FOREGROUND RequestorUid: 1000 RequestorPkg: android MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=13, [ Capabilities: FOREGROUND RequestorUid: 1000 RequestorPkg: android MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=14, [ Capabilities: NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: android MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=30, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&VALIDATED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: android MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=37, [ Transports: WIFI Capabilities: NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1073 RequestorUid: 1073 RequestorPkg: com.android.networkstack MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ TRACK_SYSTEM_DEFAULT id=38, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED RequestorUid: 1073 RequestorPkg: com.android.networkstack.tethering UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=43, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: com.bytedance.os.mermaid MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=48, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: com.obric.matrix MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ TRACK_SYSTEM_DEFAULT id=60, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED RequestorUid: 1001 RequestorPkg: com.android.phone UnderlyingNetworks: Null] ]
+      NetworkRequest [ TRACK_SYSTEM_DEFAULT id=61, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED RequestorUid: 1001 RequestorPkg: com.android.phone UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=67, [ Transports: WIFI Capabilities: INTERNET&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1001 RequestorUid: 1001 RequestorPkg: com.android.phone UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN_FOR_BEST id=68, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED Uid: 1001 RequestorUid: 1001 RequestorPkg: com.android.phone UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=74, [ Transports: WIFI Capabilities: INTERNET&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1001 RequestorUid: 1001 RequestorPkg: com.android.phone UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN_FOR_BEST id=75, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED Uid: 1001 RequestorUid: 1001 RequestorPkg: com.android.phone UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=81, [ Transports: WIFI Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1001 RequestorUid: 1001 RequestorPkg: com.android.phone UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=82, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1001 RequestorUid: 1001 RequestorPkg: com.android.phone UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=83, [ Transports: WIFI Capabilities: NOT_VPN RequestorUid: 10144 RequestorPkg: com.android.systemui MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=87, [ Transports: CELLULAR|WIFI Capabilities: NOT_VPN RequestorUid: 10144 RequestorPkg: com.android.systemui MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=96, [ Capabilities: NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1001 RequestorUid: 1001 RequestorPkg: com.android.ons UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=97, [ Transports: WIFI Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Forbidden: LOCAL_NETWORK Uid: 10113 RequestorUid: 10113 RequestorPkg: com.qualcomm.qti.cne UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=101, [ Transports: WIFI Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10117 RequestorUid: 10117 RequestorPkg: vendor.qti.data.txpwradmin UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=109, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: com.obric.updater MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ REQUEST id=110, [ Capabilities: NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: com.obric.updater MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=115, [ Transports: WIFI Capabilities: NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1001 RequestorUid: 1001 RequestorPkg: com.bytedance.radioservice UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=125, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: com.obric.processservice MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=128, [ Transports: WIFI Capabilities: NOT_RESTRICTED&TRUSTED&NOT_VPN&FOREGROUND&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Forbidden: LOCAL_NETWORK Uid: 10103 RequestorUid: 10103 RequestorPkg: com.bytedance.securityserver UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=129, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&FOREGROUND&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Forbidden: LOCAL_NETWORK Uid: 10035 RequestorUid: 10035 RequestorPkg: com.obric.aivoice UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=132, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&FOREGROUND&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Forbidden: LOCAL_NETWORK Uid: 10035 RequestorUid: 10035 RequestorPkg: com.obric.aivoice UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=135, [ Transports: WIFI Capabilities: NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10048 RequestorUid: 10048 RequestorPkg: com.larus.nova UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=139, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Forbidden: LOCAL_NETWORK Uid: 10050 RequestorUid: 10050 RequestorPkg: com.obric.numberassistant UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=147, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: com.obric.cae MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=148, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: com.obric.cae MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+      NetworkRequest [ LISTEN id=155, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 1000 RequestorUid: 1000 RequestorPkg: com.obric.cae MatchNonThreadLocalNetworks UnderlyingNetworks: Null] ]
+Failed to write while dumping service connectivity: Broken pipe
+
+--- Re-toggle and dump LARGE context window ---
+05-02 14:26:00.712  3394  7951 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for android(uid=1000)
+05-02 14:26:00.759  3394  8427 V SettingsShellCmd: putForUser(userId=0, table=global, key=adb_wifi_enabled, value=1, tag=null, makeDefault=false, overrideableByRestore=false)
+05-02 14:26:00.759  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 14:26:00.759  3394  3449 D AdbService: setAdbEnabled(true), mIsAdbUsbEnabled=true, mIsAdbWifiEnabled=false, transportType=1
+05-02 14:26:00.760 19389 19394 I adbd    : persist.adb.tls_server.enable changed to 1
+05-02 14:26:00.760 19389 19394 I adbd    : adbwifi started on port 33893
+05-02 14:26:00.760 19389 19394 I adbd    : TlsServer running on port 33893
+05-02 14:26:00.760 19389 19394 I adbd    : adb wifi started on port 33893
+05-02 14:26:00.769  3394  3449 I WifiService: acquireMulticastLock uid=1000 lockTag=AdbMulticastLock
+05-02 14:26:00.769 19389 19394 I adbd    : Waiting for persist.adb.tls_server.enable=0
+05-02 14:26:00.769  3394  3449 D AdbService: Acquired multicast lock
+05-02 14:26:00.770  3394  3449 D AdbService: Broadcasting enable = true, type = 1
+05-02 14:26:00.770  3394  3449 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for android(uid=1000)
+05-02 14:26:00.771  3394  3449 W ProcessIntercept: [FEAT_PROCESS_INTERCEPT][240] Allow to start app with ops setting com.android.systemui
+05-02 14:26:00.771  3394  3449 W ActivityTaskManager: callingPackage for (uid=1000, pid=3394) is ambiguous: [android, com.android.providers.settings, com.android.server.telecom, com.android.location.fused]
+05-02 14:26:00.775  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 14:26:00.775  3394  3449 D AdbService: setAdbEnabled(false), mIsAdbUsbEnabled=true, mIsAdbWifiEnabled=true, transportType=1
+05-02 14:26:00.775 19389 19394 I adbd    : persist.adb.tls_server.enable changed to 0
+05-02 14:26:00.776 19389 19394 I adbd    : adb wifi stopped
+05-02 14:26:00.777  3394  3449 I WifiService: releaseMulticastLock uid=1000 lockTag=AdbMulticastLock
+05-02 14:26:00.777  3394  3449 D AdbService: Released multicast lock
+05-02 14:26:00.777  3394  3449 D AdbService: Broadcasting enable = false, type = 1
+05-02 14:26:00.777 19389 19394 I adbd    : Waiting for persist.adb.tls_server.enable=1
+05-02 14:26:01.136  3394  3443 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.bytedance.radioservice(uid=1001)
+05-02 14:26:01.467  3394  3443 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+05-02 14:26:02.470  3394  5045 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)

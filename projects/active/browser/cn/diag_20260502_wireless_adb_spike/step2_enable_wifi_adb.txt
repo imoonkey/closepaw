@@ -1,0 +1,34 @@
+==> step 2: try enabling wireless debugging via settings put
+--- before: adb_wifi_enabled ---
+0
+--- attempt: settings put global adb_wifi_enabled 1 ---
+EXIT=0
+--- after: adb_wifi_enabled ---
+0
+--- props after toggle ---
+service.adb.tls.port:
+
+service.adb.tls.pairing_port:
+
+service.adb.tcp.port:
+5555
+persist.adb.wifi.guid:
+
+--- TCP listening (after toggle) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+--- broadcast ADB_WIRELESS_DEBUGGING_ENABLED to wake adbd subsystem ---
+Broadcasting: Intent { act=com.android.server.adb.WIRELESS_DEBUG_ENABLED flg=0x400000 }
+Broadcast completed: result=0
+--- props after broadcast ---
+service.adb.tls.port:
+
+service.adb.tls.pairing_port:
+
+--- TCP listening (after broadcast) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  

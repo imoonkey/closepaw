@@ -1,0 +1,12 @@
+==> step 3d: in DevelopmentSettings, search for wireless debugging entry
+--- search for 'wireless'/'无线'/'adb'/'调试' related text ---
+<node index="0" text="USB 调试" resource-id="com.android.settings:id/title" class="android.widget.TextView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[112,471][345,537]" drawing-order="1" hint="" /
+<node index="0" text="选择调试应用" resource-id="com.android.settings:id/title" class="android.widget.TextView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[112,835][448,901]" drawing-order="1" hint="" /
+<node index="0" text="等待调试程序" resource-id="com.android.settings:id/title" class="android.widget.TextView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[112,1017][448,1083]" drawing-order="1" hint="" /
+
+--- try scrolling down to find more options ---
+--- after first scroll ---
+<node index="0" text="调试 GPU 过度绘制" resource-id="com.android.settings:id/title" class="android.widget.TextView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[112,2142][589,2208]" drawing-order="1" hint="" /
+<node index="0" text="调试非矩形剪裁操作" resource-id="com.android.settings:id/title" class="android.widget.TextView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[112,2324][616,2390]" drawing-order="1" hint="" /
+
+--- after second scroll ---

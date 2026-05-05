@@ -1,0 +1,50 @@
+==> emu3: check emulator network state
+    inet 127.0.0.1/8 scope host lo
+    link/ether 0a:3e:3d:a1:63:24 brd ff:ff:ff:ff:ff:ff
+    link/ether b6:36:c3:c7:8d:aa brd ff:ff:ff:ff:ff:ff
+    link/ether 92:f1:88:f1:4c:cc brd ff:ff:ff:ff:ff:ff
+    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+15: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.2.15/8 brd 10.255.255.255 scope global eth0
+16: wlan0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
+
+--- wifi state ---
+Verbose logging is off
+mVerboseLoggingLevel 0
+Stay-awake conditions: 1
+mInIdleMode false
+mScanPending false
+SupportedFeatures:1d81ccb8000019
+SettingsStore:
+WifiState 1
+AirplaneModeOn false
+ScanAlwaysAvailable true
+Failed to write while dumping service wifi: Broken pipe
+
+--- check if WiFi is even enabled ---
+1
+Wifi is enabled
+Wifi scanning is always available
+==== Primary ClientModeManager instance ====
+Wifi is not connected
+
+==> emu4: try to bring up emulator Wi-Fi
+Wifi is enabled
+Wifi scanning is always available
+==== Primary ClientModeManager instance ====
+Wifi is not connected
+    inet 127.0.0.1/8 scope host lo
+    inet 10.0.2.15/8 brd 10.255.255.255 scope global eth0
+16: wlan0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
+
+==> emu5: now retry wireless adb enable
+0
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  
+
+--- AdbService logs ---
+05-02 18:57:25.690   509   526 I AdbDebuggingManager: Not connected to any wireless network. Not enabling adbwifi.

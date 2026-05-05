@@ -1,0 +1,46 @@
+==> emu18: continue scrolling for System
+text="Settings"
+text="Search settings"
+text="Colors, themed icons, app grid"
+text="Accessibility"
+text="Display, interaction, audio"
+text="Security"
+text="Screen lock, Find My Device, app security"
+text="Privacy"
+text="Permissions, account activity, personal data"
+text="Location"
+text="On - 7 apps have access to location"
+text="Safety &amp; emergency"
+text="Emergency SOS, medical info, alerts"
+text="Passwords &amp; accounts"
+text="Saved passwords, autofill, synced accounts"
+text="Digital Wellbeing &amp; parental controls"
+text="Screen time, app timers, bedtime schedules"
+text="Google"
+text="Services &amp; preferences"
+text="System"
+
+System bounds: bounds="[189,2044][363,2115]"
+tap System at 276,2079
+--- System page ---
+text="Languages &amp; input"
+text="Gboard"
+text="Live Translate"
+text="Use Live Translate"
+text="Gestures"
+text="Date &amp; time"
+text="GMT+00:00 Coordinated Universal Time"
+text="Backup"
+text="System update"
+text="Updated to Android 13"
+text="Rules"
+text="0 rules"
+text="Multiple users"
+text="Signed in as Owner"
+text="Developer options"
+text="Reset options"
+
+Developer options bounds: bounds="[189,2121][614,2192]"
+--- Developer options page ---
+
+Wireless debugging entry bounds: 

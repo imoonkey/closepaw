@@ -1,0 +1,28 @@
+05-03 02:52:37.956 13165 13277 D ToolRegistry: Registered tool: browser_script
+05-03 02:52:43.845 13165 13165 D AgentTurnRunner:   [10] "ClosePaw"  @(317,137)
+05-03 02:52:44.002 13165 13165 I OpenAIResponseClient: - [2026-05-01 21:47:02 UTC] On this device, browser_script may f...
+05-03 02:52:44.003 13165 13165 I OpenAIResponseClient: ║   - browser_script: Run an automation script against the user's real Chrome browser via raw Chrome DevTools
+05-03 02:52:49.062 13165 13279 I OpenAIResponseClient: ║   - open_app({"agent_thought":"Open the browser to navigate to the requested website and read its page title.","app_name":"Chrome"})
+05-03 02:52:49.902 13165 13165 D TurnExecutionPhase: Executing tool: open_app with args: {"agent_thought":"Open the browser to navigate to the requested website and read its page title.","app_name":"Chrome"}
+05-03 02:52:49.905 13165 13165 D AgentEventDispatcher: ActionProposed: open_app - Open app: Chrome
+05-03 02:52:50.525 13165 13165 D OpenAppInvocation: Resolved 'Chrome' -> com.android.chrome (Chrome)
+05-03 02:52:50.929 25119 25119 W System.err: 	at Gm.recreate(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:33)
+05-03 02:52:50.929 25119 25119 W System.err: 	at Jr3.I(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:28)
+05-03 02:52:50.929 25119 25119 W System.err: 	at t1.f(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:52)
+05-03 02:52:50.929 25119 25119 W System.err: 	at OL.Y(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:56)
+05-03 02:52:50.930 25119 25119 W System.err: 	at org.chromium.base.ApplicationStatus.a(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:165)
+05-03 02:52:50.930 25119 25119 W System.err: 	at Of.onActivityResumed(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:2)
+05-03 02:52:50.930 25119 25119 W System.err: 	at sN0.onResume(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:6)
+05-03 02:52:50.930 25119 25119 W System.err: 	at Gm.onResume(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:1)
+05-03 02:52:50.930 25119 25119 W System.err: 	at org.chromium.chrome.browser.ChromeTabbedActivity.onResume(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:8)
+05-03 02:52:51.498 25119 25119 I cr_ChromeActivity: #onStart, num async tabs: 8
+05-03 02:52:51.655 13165 13165 D AgentService: Window changed: pkg=com.android.chrome, class=org.chromium.chrome.browser.ChromeTabbedActivity, displayId=0, from=MAIN_APP, to=OTHER_APP, hasActiveTask=true
+05-03 02:52:51.660 25119 25119 I cr_ChromeTabbedActivity: #initializeState
+05-03 02:52:52.332 25119 25119 E MessageQueue: java.lang.NullPointerException: Attempt to read from field 'yp1 org.chromium.chrome.browser.compositor.CompositorViewHolder.r' on a null object reference in method 'mp1 org.chromium.chrome.browser.ChromeTabbedActivity.c2()'
+05-03 02:52:52.332 25119 25119 E MessageQueue: 	at org.chromium.chrome.browser.ChromeTabbedActivity.c2(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:7)
+05-03 02:52:52.332 25119 25119 E MessageQueue: 	at OP.run(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:291)
+05-03 02:52:52.332 25119 25119 E MessageQueue: 	at Kh0.queueIdle(chromium-TrichromeChromeGoogle6432.aab-stable-541412337:13)
+05-03 02:52:57.388 13165 13165 I OpenAIResponseClient: ║ [3] FUNCTION_OUTPUT: Output{string=Success: Launched Chrome (com.android.chrome)}
+05-03 02:52:57.388 13165 13165 I OpenAIResponseClient: - [2026-05-01 21:47:02 UTC] On this device, browser_script may f...
+05-03 02:52:57.388 13165 13165 I OpenAIResponseClient: - Chrome may show first-run prompts on fresh installs: "Acce...
+05-03 02:52:57.388 13165 13165 I OpenAIResponseClient: ║   - browser_script: Run an automation script against the user's real Chrome browser via raw Chrome DevTools

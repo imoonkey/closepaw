@@ -1,0 +1,62 @@
+==> nubia12: push & run PairTest via app_process
+/tmp/spike_pair/dex/classes.dex: 1 file pushed, 0 skipped. 24.8 MB/s (4640 bytes in 0.000s)
+
+--- baseline state ---
+1
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+LISTEN      0      0            *:42875                    *:*                  
+
+--- launch PairTest in background, write to file ---
+--- pairtest.log so far ---
+[PairTest] === IAdbManager pair-flow probe ===
+[PairTest] === IAdbManager pair-flow probe ===
+[PairTest] euid=2000 pid=29360
+[PairTest] euid=2000 pid=29360
+[PairTest] got adb binder: android.os.BinderProxy@93bcc4c interface=android.debug.IAdbManager
+[PairTest] got adb binder: android.os.BinderProxy@93bcc4c interface=android.debug.IAdbManager
+[PairTest] got IAdbManager: android.debug.IAdbManager$Stub$Proxy@57d5495
+[PairTest] got IAdbManager: android.debug.IAdbManager$Stub$Proxy@57d5495
+[PairTest] isAdbWifiSupported() = true
+[PairTest] isAdbWifiSupported() = true
+[PairTest] isAdbWifiQrSupported() = true
+[PairTest] isAdbWifiQrSupported() = true
+[PairTest] getAdbWirelessPort() = 42875
+[PairTest] getAdbWirelessPort() = 42875
+[PairTest] getPairedDevices() = [Landroid.debug.FingerprintAndPairDevice;@66099aa
+[PairTest] getPairedDevices() = [Landroid.debug.FingerprintAndPairDevice;@66099aa
+[PairTest] --- about to call enablePairingByPairingCode() ---
+[PairTest] --- about to call enablePairingByPairingCode() ---
+[PairTest] enablePairingByPairingCode() = null
+[PairTest] enablePairingByPairingCode() = null
+[PairTest] --- enablePairingByPairingCode returned, polling state ---
+[PairTest] --- enablePairingByPairingCode returned, polling state ---
+[PairTest] T+500ms: getAdbWirelessPort=42875
+[PairTest] T+500ms: getAdbWirelessPort=42875
+[PairTest] T+1000ms: getAdbWirelessPort=42875
+[PairTest] T+1000ms: getAdbWirelessPort=42875
+[PairTest] T+1500ms: getAdbWirelessPort=42875
+[PairTest] T+1500ms: getAdbWirelessPort=42875
+[PairTest] T+2000ms: getAdbWirelessPort=42875
+[PairTest] T+2000ms: getAdbWirelessPort=42875
+[PairTest] T+2500ms: getAdbWirelessPort=42875
+[PairTest] T+2500ms: getAdbWirelessPort=42875
+[PairTest] T+3000ms: getAdbWirelessPort=42875
+[PairTest] T+3000ms: getAdbWirelessPort=42875
+[PairTest] T+3500ms: getAdbWirelessPort=42875
+[PairTest] T+3500ms: getAdbWirelessPort=42875
+
+--- listeners (look for new pair port) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0            *:45719                    *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+LISTEN      0      0            *:42875                    *:*                  
+
+--- relevant logcat ---
+05-02 18:05:41.297  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 93], operation[true,1]
+05-02 18:05:41.588  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 92], operation[true,1]
+05-02 18:05:41.904  3394  3561 D SettingsProvider: mutateSystemSetting brightness:calling(android,1000,3394), pair[screen_brightness, 91], operation[true,1]

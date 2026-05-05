@@ -153,7 +153,7 @@ class SessionServicesCleanupTest {
             traceRecorder = NoopTraceRecorder,
             bridgeFactory = { bridge },
             cdpConnectionFactory = connectionFactory,
-            runnerFactory = { _, _ ->
+            runnerFactory = { _, _, _ ->
                 BrowserScriptExecutor { _, _ -> ScriptResult.Ok("\"ok\"") }
             },
         )

@@ -1,0 +1,28 @@
+==> nubia14: PairTest2 with broadcast receiver
+/tmp/spike_pair/dex2/classes.dex: 1 file pushed, 0 skipped. 24.5 MB/s (5216 bytes in 0.000s)
+
+--- launching PairTest2 in background ---
+
+--- pairtest2 log ---
+[PairTest2] === IAdbManager pair-with-broadcast probe ===
+[PairTest2] euid=2000 pid=29589
+[PairTest2] got system Context: android.app.ContextImpl@5f74c59
+
+--- listeners ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0            *:45719                    *:*                  
+LISTEN      0      0            *:42875                    *:*                  
+--- wait more then read log ---
+[PairTest2] === IAdbManager pair-with-broadcast probe ===
+[PairTest2] euid=2000 pid=29589
+[PairTest2] got system Context: android.app.ContextImpl@5f74c59
+
+--- check if process still running ---
+
+--- check listeners ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0      127.0.0.1:53922              0.0.0.0:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0            *:45719                    *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:43129                    *:*                  
+LISTEN      0      0            *:42875                    *:*                  

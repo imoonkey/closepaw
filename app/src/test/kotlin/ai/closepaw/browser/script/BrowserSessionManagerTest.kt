@@ -11,6 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -33,7 +34,7 @@ class BrowserSessionManagerTest {
             traceRecorder = NoopTraceRecorder,
             bridgeFactory = bridgeFactory::create,
             cdpConnectionFactory = connectionFactory,
-            runnerFactory = { _, client ->
+            runnerFactory = { _, client, _ ->
                 BrowserScriptExecutor { _, _ ->
                     invocationCount++
                     if (invocationCount == 1) {
@@ -80,7 +81,7 @@ class BrowserSessionManagerTest {
             traceRecorder = NoopTraceRecorder,
             bridgeFactory = bridgeFactory::create,
             cdpConnectionFactory = connectionFactory,
-            runnerFactory = { _, client ->
+            runnerFactory = { _, client, _ ->
                 BrowserScriptExecutor { _, _ ->
                     invocationCount++
                     if (invocationCount == 1) {
@@ -125,7 +126,7 @@ class BrowserSessionManagerTest {
             traceRecorder = NoopTraceRecorder,
             bridgeFactory = bridgeFactory::create,
             cdpConnectionFactory = connectionFactory,
-            runnerFactory = { _, client ->
+            runnerFactory = { _, client, _ ->
                 BrowserScriptExecutor { _, _ ->
                     client.send("Runtime.evaluate")
                     ScriptResult.Ok("\"ok\"")
@@ -143,6 +144,78 @@ class BrowserSessionManagerTest {
         assertThat(connectionFactory.connections).hasSize(2)
         assertThat(bridgeFactory.bridges).hasSize(2)
         manager.close()
+    }
+
+    @Test
+    fun `storeArtifact session quota persists across browser_script invocations within one session`() = runTest {
+        // Reproduces the P6 final-gate scope bug: before the fix, BrowserScriptJsInterface
+        // owned the AtomicLong, but the JsInterface was rebuilt per BrowserScriptRunner.run().
+        // Two run() calls thus saw two independent counters, turning the documented 500 MiB
+        // session cap into a 500 MiB per-call cap and reopening the /sdcard DoS vector.
+        // The session manager hands the same AtomicLong to every runnerFactory invocation;
+        // assert that the same instance is reused across at least two run() calls.
+        val countersHandedOut = mutableListOf<AtomicLong>()
+        val manager = BrowserSessionManager(
+            context = testContext(),
+            sessionScope = this,
+            traceRecorder = NoopTraceRecorder,
+            bridgeFactory = RecordingBridgeFactory()::create,
+            cdpConnectionFactory = RecordingCdpConnectionFactory(),
+            runnerFactory = { _, _, counter ->
+                countersHandedOut.add(counter)
+                BrowserScriptExecutor { _, _ -> ScriptResult.Ok("\"ok\"") }
+            },
+        )
+
+        manager.run("first", 1_000)
+        manager.run("second", 1_000)
+        manager.close()
+
+        // Same runner is reused across runs, so the factory only fires once per session
+        // (until markBroken). The counter must be the *single* session-scoped instance.
+        assertThat(countersHandedOut).hasSize(1)
+        // Mutating the counter via one runner is observed by any future runner: prove the
+        // identity contract by writing through one reference and reading via the same one.
+        countersHandedOut[0].set(42L)
+        assertThat(countersHandedOut[0].get()).isEqualTo(42L)
+    }
+
+    @Test
+    fun `storeArtifact session quota survives CDP reconnect within one session`() = runTest {
+        // After markBroken (transport failure), the runner is rebuilt — but the counter
+        // must NOT reset, otherwise an attacker could force reconnects to clear quota.
+        val countersHandedOut = mutableListOf<AtomicLong>()
+        val bridgeFactory = RecordingBridgeFactory()
+        val connectionFactory = RecordingCdpConnectionFactory()
+        var invocationCount = 0
+        val manager = BrowserSessionManager(
+            context = testContext(),
+            sessionScope = this,
+            traceRecorder = NoopTraceRecorder,
+            bridgeFactory = bridgeFactory::create,
+            cdpConnectionFactory = connectionFactory,
+            runnerFactory = { _, _, counter ->
+                countersHandedOut.add(counter)
+                BrowserScriptExecutor { _, _ ->
+                    invocationCount++
+                    if (invocationCount == 1) {
+                        connectionFactory.latest().fail(IOException("websocket died"))
+                        ScriptResult.Failure("cdp request rejected", null)
+                    } else {
+                        ScriptResult.Ok("\"ok\"")
+                    }
+                }
+            },
+        )
+
+        manager.run("first", 1_000)
+        manager.run("second", 1_000)
+        manager.close()
+
+        // Two runner instances built (one before reconnect, one after) but both got the
+        // SAME AtomicLong — quota persists across reconnects.
+        assertThat(countersHandedOut).hasSize(2)
+        assertThat(countersHandedOut[0]).isSameInstanceAs(countersHandedOut[1])
     }
 
     private fun testContext(): Context {

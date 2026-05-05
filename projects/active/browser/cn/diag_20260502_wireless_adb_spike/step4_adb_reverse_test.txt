@@ -1,0 +1,58 @@
+==> step 4: critical test — does adb reverse create a DEVICE-side listener in adbd context?
+Hypothesis: 'adb reverse tcp:9999 ...' makes device listen on 9999.
+
+--- BASELINE: device-side TCP listeners (filter for high ports) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0            *:39049                    *:*                  
+
+--- attempt: adb reverse tcp:9999 localabstract:chrome_devtools_remote ---
+9999
+EXIT=0
+
+--- AFTER: device-side TCP listeners (look for new :9999) ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0            *:39049                    *:*                  
+LISTEN      0      0            *:9999                     *:*                  
+
+--- AFTER: adb reverse --list ---
+host-26 tcp:9999 localabstract:chrome_devtools_remote
+
+
+--- DEVICE-SIDE shell tries to reach 127.0.0.1:9999 ---
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:9999...
+* Connected to 127.0.0.1 (127.0.0.1) port 9999
+* using HTTP/1.x
+> GET /json/version HTTP/1.1
+> Host: 127.0.0.1:9999
+> User-Agent: curl/8.12.0-DEV
+> Accept: */*
+> 
+* Request completely sent off
+* Empty reply from server
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* shutting down connection #0
+curl: (52) Empty reply from server
+
+--- TRY VIA ClosePaw run-as (untrusted_app context) ---
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:9999...
+* Connected to 127.0.0.1 (127.0.0.1) port 9999
+* using HTTP/1.x
+> GET /json/version HTTP/1.1
+> Host: 127.0.0.1:9999
+> User-Agent: curl/8.12.0-DEV
+> Accept: */*
+> 
+* Request completely sent off
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Empty reply from server
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* shutting down connection #0
+curl: (52) Empty reply from server
+
+--- check selinux context of the listener ---
+LISTEN      0      0            *:9999                     *:*                   uid:2000 ino:17686330 sk:0
+
+--- cleanup: remove reverse ---

@@ -1,0 +1,15 @@
+==> step 5: chained forward + reverse (host-mediated round-trip)
+Goal: device-side process reaches chrome_devtools_remote via 4-hop relay
+  device:8888 -> adbd transport -> host:7777 -> adbd transport -> device's abstract socket
+
+--- setup forward: host:7777 -> device's chrome_devtools_remote ---
+7777
+--- verify host can reach Chrome ---
+
+--- setup reverse: device:8888 -> host:7777 ---
+8888
+--- verify device-side untrusted_app can NOW reach via the chain ---
+
+--- if device-side untrusted_app got Chrome's JSON above, ARCHITECTURE PROOF (host-mediated) ---
+
+--- cleanup ---

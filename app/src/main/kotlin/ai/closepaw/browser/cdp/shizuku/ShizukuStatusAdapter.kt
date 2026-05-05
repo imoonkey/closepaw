@@ -1,15 +1,42 @@
 package ai.closepaw.browser.cdp.shizuku
 
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import java.io.File
 import rikka.shizuku.Shizuku
 
 /** Adapter exposing the [ShizukuStatusProvider] surface backed by the real Shizuku binder. */
 class ShizukuStatusAdapter : ShizukuStatusProvider {
-    override fun isAvailable(): Boolean = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
+    /**
+     * Shizuku publishes its binder to apps via [rikka.shizuku.ShizukuProvider]'s on-demand
+     * broadcast — which can lag a second or two behind app start (especially after
+     * `adb install -r` when the prior process death dropped the cached binder). A naive
+     * `Shizuku.pingBinder()` immediately at app start returns false even when Shizuku is
+     * fully running and granted; the bridge's preflight then rejects the whole CDP path
+     * before the wireless self-pair / UserService legs ever try.
+     *
+     * Retry briefly (cheap: pingBinder is a single oneway transaction) so a freshly-launched
+     * process gets the same answer a long-running one would.
+     */
+    override fun isAvailable(): Boolean = waitFor { Shizuku.pingBinder() }
     override fun hasPermission(): Boolean = runCatching {
         Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
     }.getOrDefault(false)
+
+    private fun waitFor(predicate: () -> Boolean): Boolean {
+        val deadline = SystemClock.uptimeMillis() + BINDER_WAIT_MS
+        var ok = runCatching { predicate() }.getOrDefault(false)
+        while (!ok && SystemClock.uptimeMillis() < deadline) {
+            Thread.sleep(BINDER_POLL_MS)
+            ok = runCatching { predicate() }.getOrDefault(false)
+        }
+        return ok
+    }
+
+    companion object {
+        private const val BINDER_WAIT_MS = 2_000L
+        private const val BINDER_POLL_MS = 100L
+    }
 }
 
 /**

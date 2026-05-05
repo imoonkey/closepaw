@@ -1,0 +1,29 @@
+==> step 12: rapid-poll the value during put to catch transient flip
+
+--- poll output (look for any 1) ---
+1777748007.963454985 0
+1777748008.135632173 1
+1777748008.158346235 0
+
+--- final value ---
+0
+
+--- relevant logcat ---
+
+==> step 12b: try via 'cmd' instead of 'settings put' (different code path)
+0
+
+==> step 12c: try invoking IAdbManager directly via service call
+(IAdbManager.aidl method 7 is enableAdbWifi(boolean) on Android 14+)
+service call adb 1 i32 1 → Result: Parcel(	
+0x00000000: fffffffd ffffffff 000002b8 00000157 '............W...'
+service call adb 2 i32 1 → Result: Parcel(	00000000    '....')
+service call adb 3 i32 1 → Result: Parcel(	00000000    '....')
+service call adb 4 i32 1 → error: closed
+service call adb 5 i32 1 → adb: device offline
+service call adb 6 i32 1 → adb: device offline
+service call adb 7 i32 1 → adb: device offline
+service call adb 8 i32 1 → adb: device offline
+service call adb 9 i32 1 → adb: device offline
+service call adb 10 i32 1 → adb: device offline
+adb: device offline

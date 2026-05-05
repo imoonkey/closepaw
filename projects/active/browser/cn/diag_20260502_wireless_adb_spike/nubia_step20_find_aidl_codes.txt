@@ -1,0 +1,56 @@
+==> nubia10: read IAdbManager.aidl from system framework to find transaction codes
+
+--- look at framework.jar / framework-minus-apex.jar for IAdbManager ---
+looking up transaction code constants from framework dex
+boot-framework-adservices.vdex
+boot-framework-adservices.vdex.fsv_meta
+boot-framework-ext.vdex
+boot-framework-ext.vdex.fsv_meta
+boot-framework-graphics.vdex
+boot-framework-graphics.vdex.fsv_meta
+boot-framework-location.vdex
+boot-framework-location.vdex.fsv_meta
+boot-framework-ondeviceintelligence-platform.vdex
+boot-framework-ondeviceintelligence-platform.vdex.fsv_meta
+
+--- try cmd-wrapped invocation if exists ---
+Currently running services:
+  BDSecurityService
+  DockObserver
+  ObricSecurityService
+  SurfaceFlinger
+  SurfaceFlingerAIDL
+  accessibility
+  account
+  acquire_crashportraits
+  activity
+  activity_opt
+  activity_task
+  adb
+  adservices_manager
+  advanced_protection
+  alarm
+  alwaysonrecord
+  android.app.IFKHelperComunication
+  android.frameworks.cameraservice.service.ICameraService/default
+  android.frameworks.devicestate.IDeviceStateService/default
+  android.frameworks.location.altitude.IAltitudeService/default
+  android.frameworks.sensorservice.ISensorManager/default
+  android.frameworks.stats.IStats/default
+  android.frameworks.vibrator.IVibratorControlService/default
+  android.hardware.ahm.IAHM/default
+  android.hardware.alwaysonrecord.IAlwaysOnRecordHw/default
+  android.hardware.anti_aging.IAnti_aging/default
+  android.hardware.audio.core.IConfig/default
+  android.hardware.audio.core.IModule/bluetooth
+  android.hardware.audio.core.IModule/default
+
+--- check adb help ---
+cmd: Can't find service: help
+
+--- try the AOSP 'wirelessdebug' cmd if it exists ---
+cmd: Can't find service: debug
+
+--- pull framework for analysis ---
+/system/framework/framework.jar: 1 file pulled, 0 skipped. 0.8 MB/s (50483169 bytes in 59.572s)
+-rw-r--r-- 1 qiguo qiguo 50483169 May  2 14:53 /tmp/framework.jar

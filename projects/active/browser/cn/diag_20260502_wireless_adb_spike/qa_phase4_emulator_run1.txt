@@ -1,0 +1,17 @@
+[0;34m> Debug output: /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_195359[0m
+[0;34m> Using LLM backend: openai[0m
+[0;34m> Using main model: gpt-5.4[0m
+[0;34m> Using execution mode: basic[0m
+[0;34m> Using perception mode: accessibility_only[0m
+[0;34m> Using platform mode: accessibility[0m
+[0;34m> Using approval mode: SMART[0m
+[1;33m! Multiple devices detected; using emulator-5554[0m
+[1;33m! No physical device found; using emulator: emulator-5554[0m
+[0;34m> Starting agent with goal: Use the browser_script tool to open https://example.com in Chrome via CDP, then read the page title and tell it to me. Do not use the screen — use browser_script.[0m
+Warning: Activity not started, its current task has been brought to the front
+[0;32m✓ Agent started[0m
+
+[0;34m> Monitoring turns (max 80 captured turn-start events)...[0m
+[0;34m> Max wait before auto-stop: 420s (set DEBUG_MAX_WAIT_SECONDS to override)[0m
+
+  Turn 1 captured (#1) -> /home/qiguo/ld-workspace/android-agent-workspace/androidagent/debug-output/run_20260502_195359/turn_001_n1.png

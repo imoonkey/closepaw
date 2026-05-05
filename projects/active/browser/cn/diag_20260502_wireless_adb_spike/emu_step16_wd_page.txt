@@ -1,0 +1,31 @@
+==> emu19: retry to dev options + scroll
+    topResumedActivity=ActivityRecord{18b418f u0 com.android.settings/.SubSettings} t433}
+--- on dev options page now ---
+text="Use developer options"
+text="Memory"
+text="Avg 1.5 GB of 2.1 GB memory used"
+text="Bug report"
+text="Bug report handler"
+text="Android System"
+text="Capture system heap dump"
+text="Desktop backup password"
+text="Desktop full backups aren’t currently protected"
+text="Stay awake"
+text="Screen will never sleep while charging"
+text="HDCP checking"
+text="Use HDCP checking for DRM content only"
+text="Enable Bluetooth HCI snoop log"
+text="Disabled"
+
+--- scroll to find Wireless debugging ---
+scroll 1: not yet
+scroll 2: not yet
+scroll 3: FOUND wireless entries:
+text="Wireless debugging"
+Wireless debugging entry bounds: bounds="[63,2220][526,2291]"
+
+tapping Wireless debugging at 294,2255
+--- Wireless debugging page ---
+    topResumedActivity=ActivityRecord{6fd0e59 u0 com.android.settings/.SubSettings} t433}
+text="Use wireless debugging"
+text="To see and use available devices, turn on wireless debugging"

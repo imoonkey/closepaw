@@ -20,6 +20,7 @@ internal class FakeCdpConnection : CdpConnection {
     )
 
     val sent: MutableList<JsonObject> = Collections.synchronizedList(mutableListOf())
+    val connectedUrls: MutableList<String> = Collections.synchronizedList(mutableListOf())
     private var onMessage: ((String) -> Unit)? = null
     private var onFailure: ((Throwable) -> Unit)? = null
     private var onClosed: ((CdpConnectionClosedException) -> Unit)? = null
@@ -71,11 +72,21 @@ internal class FakeCdpConnection : CdpConnection {
 
     fun lastSent(): JsonObject = sent.last()
 
-    fun factory(): CdpConnectionFactory = CdpConnectionFactory { _, onMsg, onFail, onClose ->
+    fun factory(): CdpConnectionFactory = CdpConnectionFactory { url, onMsg, onFail, onClose ->
+        bind(url, onMsg, onFail, onClose)
+    }
+
+    fun bind(
+        url: String,
+        onMsg: (String) -> Unit,
+        onFail: (Throwable) -> Unit,
+        onClose: (CdpConnectionClosedException) -> Unit,
+    ): FakeCdpConnection {
+        connectedUrls.add(url)
         onMessage = onMsg
         onFailure = onFail
         onClosed = onClose
-        this
+        return this
     }
 
     companion object {

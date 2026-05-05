@@ -1,0 +1,1 @@
+chrome --enable-features=NetworkService --remote-debugging-socket-name=chrome_devtools_remote --enable-remote-debugging --no-first-run --disable-fre --no-default-browser-check

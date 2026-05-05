@@ -1,0 +1,92 @@
+# Phase 6 final-gate ROUND 2 — storeArtifact session-quota fix evidence
+
+## Branch / commit
+- Branch: task/p6-qa-r2 (worktree .worktrees/p6-qa-r2)
+- HEAD: f6886f4a "fix(browser): lift storeArtifact session quota to session scope + atomic CAS"
+- Diff vs round-1 BLOCKED commit (cef6d4c7..f6886f4a): one fix commit, 6 files, +199/-25.
+
+## Code-level confirmation (item 4 sub-checks A–D)
+
+A. **Counter ownership = session.** `sessionDecodedBytes: AtomicLong` is now declared and
+   instantiated as a private member of `BrowserSessionManager`:
+   - `app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt:106`
+     ```
+     private val sessionDecodedBytes = AtomicLong(0L)
+     ```
+   It is threaded into `runnerFactory(appContext, client, sessionDecodedBytes)` at
+   `BrowserSessionManager.kt:179`, then into `BrowserScriptRunner(..., sessionDecodedBytes = ...)` at
+   `BrowserScriptRunner.kt:42` (constructor param) and `BrowserScriptRunner.kt:89` (passed to
+   the JsInterface as `sessionDecodedBytes = sessionDecodedBytes`), then into
+   `BrowserScriptJsInterface.kt:24` as a constructor parameter (no longer a private field).
+   Per-call JsInterface instances within one session see the same AtomicLong.
+
+B. **Survives markBroken reconnects.** The runner is rebuilt via `runnerFactory` on every
+   reconnect (the call site that hands the counter is `BrowserSessionManager.kt:179`, inside
+   the reconnect-rebuild path). `sessionDecodedBytes` is a single `private val` field on the
+   manager — re-invoking `runnerFactory` reads the same field, so the new runner gets the
+   same AtomicLong instance. Verified by the unit test below (D-2).
+
+C. **Atomic CAS via getAndAccumulate.** The check-then-add pattern is replaced with one
+   indivisible reservation:
+   ```
+   val before = sessionDecodedBytes.getAndAccumulate(byteCount) { current, requested ->
+       if (current + requested > maxBytesPerSession) current else current + requested
+   }
+   if (before + byteCount > maxBytesPerSession) { ... reject ... }
+   ```
+   (`BrowserScriptJsInterface.kt:61–66`). The lambda returns `current` to refuse, so two
+   concurrent JS-thread calls cannot both pass the check and both add. Reservation releases
+   on `recorder.storeBytes` exception (`addAndGet(-byteCount)` at line 80) and on null return
+   (`addAndGet(-byteCount)` at line 84) — quota only burns on actual stored bytes.
+
+D. **Tests covering the fix.**
+   - `BrowserScriptJsInterfaceTest.session quota is shared across JsInterface instances within one session`
+     (`app/src/test/kotlin/.../BrowserScriptJsInterfaceTest.kt`): builds two distinct
+     JsInterface instances sharing one AtomicLong, simulates two `run()` calls; second call's
+     reservation is refused at cap; counter advances by first-call bytes only (proving CAS
+     accumulator returns `current` on refuse).
+   - `BrowserSessionManagerTest.storeArtifact session quota persists across browser_script invocations within one session`:
+     asserts `runnerFactory` is invoked once (runner reuse across runs) and the counter is
+     observable across both invocations.
+   - `BrowserSessionManagerTest.storeArtifact session quota survives CDP reconnect within one session`:
+     forces a reconnect via `markBroken` (transport failure on call 1) then runs again;
+     asserts two runner instances built but `countersHandedOut[0] === countersHandedOut[1]`
+     (same AtomicLong instance).
+
+## Test execution
+
+`./gradlew :app:testDebugUnitTest` targeted at the 8 affected suites: 0 failures, 0 errors.
+
+| Suite | tests | failures | errors |
+|---|---|---|---|
+| BrowserScriptJsInterfaceTest | 10 | 0 | 0 |
+| BrowserSessionManagerTest | 5 | 0 | 0 |
+| SessionServicesCleanupTest | 4 | 0 | 0 |
+| RelayAuthTokenTest | 16 | 0 | 0 |
+| AdbWireProtocolClientTest | 9 | 0 | 0 |
+| ChromeCdpClientTest | 26 | 0 | 0 |
+| ChromeDevtoolsUserServiceRelayTest | 6 | 0 | 0 |
+| WirelessAdbSelfPairTransportRelayStressTest | 9 | 0 | 0 |
+| **Total** | **85** | **0** | **0** |
+
+## Spot-check items 1, 2, 3, 5, 6 (round 1 PASS; should still hold)
+
+- **5 (BC ≥ 1.84)** — `app/build.gradle.kts:142–143` still pins
+  `bcpkix-jdk18on:1.84` and `bcprov-jdk18on:1.84`. ✓
+- **6 (LGPL/SPAKE purge)** — `grep -E "MuntashirAkon|spake2-android" build.gradle.kts
+  settings.gradle.kts app/build.gradle.kts` returns 1 line and it is the
+  attribution comment in `app/build.gradle.kts:145` ("Replaces the previous LGPL-3.0
+  JitPack dep ..."). Source-tree hits in `app/src/` are attribution comments in
+  `AdbPairingClient.kt`, `Spake25519.kt`, `AndroidPubkey.kt` (Apache-2.0 origin
+  notes for the AOSP-derived Spake25519 + RSA pubkey adapters) — not dependency
+  declarations. ✓
+- **1, 2, 3** — JVM unit-test coverage above (RelayAuthTokenTest 16, AdbWireProtocolClientTest 9,
+  ChromeCdpClientTest 26) all green at HEAD; same source as round 1. ✓
+- **7 (full chain)** — round-1 emulator-5556 evidence (run dir
+  `debug-output/run_20260504_151121/`) stands; CDP code path was not modified by the
+  quota fix (the fix touches BrowserSessionManager / BrowserScriptRunner /
+  BrowserScriptJsInterface — not the CDP transport layer).
+
+## Codex re-review
+
+See `cn/phase6_codex_review_r2.md` for the round-2 codex verdict on the cumulative state.

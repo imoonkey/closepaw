@@ -1,45 +1,68 @@
 # Browser CDP Runtime — Implementation Summary
 
-> Snapshot of the active Browser CDP runtime project.
+> Snapshot of the Browser CDP runtime project at milestone close.
 > Source of truth for design decisions: `cn/design_codex.md` (do not edit from here).
-> Last updated: 2026-05-02
+> Last updated: 2026-05-04 (browser-cdp-runtime + browser-phase5/6 milestones DONE)
 
 ## Goal
 
-Give ClosePaw a minimal, programmable browser-automation path against the user's **real** Chrome (with their profile and logged-in state), driven via Chrome DevTools Protocol over a Shizuku-mediated transport. Single agent-facing tool: `browser_script`. Helpers/snippets live in the bundled `browser-use` agent skill, not in the runtime prelude.
+Give ClosePaw a minimal, programmable browser-automation path against the user's **real** Chrome
+(with their profile and logged-in state), driven via Chrome DevTools Protocol over a transport
+that does not require root, a connected PC, or external network. Single agent-facing tool:
+`browser_script`. Helpers/snippets live in the bundled `browser-use` agent skill, not in the
+runtime prelude.
 
-## Task Graph (per design_codex.md)
+## Status
 
-| # | Task ID | Status | Scope |
-|---|---------|--------|-------|
-| 1 | `browser-reference` | ✅ done | `.reference/browser-harness` checked out, design doc captures behaviors to copy |
-| 2 | `cdp-bridge-spike` | ✅ accepted | `browser/cdp/shizuku/` — Shizuku status, Chrome socket probe, app-process LocalSocket transport, UserService fallback, distinct `DevtoolsSetupError` taxonomy |
-| 3 | `cdp-client-core` | ✅ accepted | `browser/cdp/` — `ChromeCdpClient` with command id mux, page-session routing (`Target.*`/`Browser.*` browser-level), stale-session recovery |
-| 4 | `script-host` | ✅ accepted | `browser/script/` — hidden hardened WebView, `BrowserScriptPrelude` (only `globalThis.cdp` exposed), `BrowserScriptBridge` (parse send → CDP → resolve/reject + cancel/timeout), `BrowserScriptJsInterface` (only `send`/`done`), `BrowserScriptRunner` lifecycle |
-| 5 | `browser-script-tool` | ✅ accepted | `tool/impl/BrowserScriptTool.kt` + types + concrete capability gate + tests |
-| 6 | **`browser-session-integration`** | ✅ **this snapshot** | Session-scoped `BrowserSessionManager`, tool registration, settings flag, UI toggle, policy rule, shutdown cleanup |
-| 7 | `browser-use-skill-v0` | ⏳ pending | Bundle `browser-use/SKILL.md` + `scripts/{page,tabs,input}.js` into assets; install/seed into `context.filesDir/skills/browser-use/`; rewrite `{{SKILL_DIR}}` placeholder |
-| 8 | `verification` | ⏳ pending | Snippet syntax checks, install/seed test, broader unit-test sweep |
-| 9 | `holistic-review` | ⏳ pending | Cross-cut review of the whole change set against design |
-| 10 | `real-device-qa` | ⏳ pending | One end-to-end use case on a real Android device with Chrome + Shizuku permission |
+- **`browser-cdp-runtime`** — DONE 2026-05-04. All 16 leaves done.
+- **`browser-phase5`** (cleanup + production hardening) — DONE 2026-05-03. 10 leaves (1 cancelled).
+- **`browser-phase6`** (security + dependency hardening from codex review) — DONE 2026-05-04.
 
-## What Just Landed (browser-session-integration)
+Real-device evidence: nubia P0110 (Android 13, stock) and AOSP `emulator-5556` both PASS the full
+agent chain via `debug-run.sh`. Test ledger in `real_device_qa.md`. Production-ready.
 
-- **`BrowserSessionManager`** — session-scoped owner for Shizuku bridge, CDP client, hidden-WebView runner, exclusive script lease, Broken-state teardown, and reconnect on the next call after transport failure.
-- **Session wiring** — `SessionServices.create()` constructs the manager with `context.applicationContext`, registers `BrowserScriptTool`, injects `DefaultBrowserScriptCapabilityGate`, and closes browser resources during cleanup. `SessionToolingBootstrapper` stays Android-free.
-- **Settings and policy** — `browserScriptEnabled` defaults false, persists through `AppSettingsStore`, and is exposed as **Browser automation (experimental)** in Settings. `ToolName.BrowserScript` is screen-changing. `PolicyEngine` asks in SMART for `browser_script` even when Chrome is `NORMAL`, and the user allow-list does not bypass that rule.
-- **Regression coverage** — policy, settings round-trip, tool registry wiring, cleanup after browser use, transport failure, synchronous send failure, server WebSocket close, CDP/bridge teardown, reconnect, and androidTest signature coverage.
+## Final Architecture
 
-## Key Decisions
+- **One tool, raw CDP** — `browser_script` is the only agent-facing surface. Helpers live in the
+  bundled `browser-use` skill, not in the runtime prelude. Schema is always loaded so the agent
+  knows the capability exists; capability gate fires per-call.
+- **Two-transport cascade** — `USER_SERVICE` (Shizuku) → `WIRELESS_ADB_SELF_PAIR` (in-app TLS-PSK
+  SPAKE2-25519 + mTLS over ADB wire protocol). The earlier `APP_PROCESS`,
+  `HOST_MEDIATED_RELAY`, and `CHROME_TCP_LOOPBACK` transports were each empirically blocked on
+  stock Android and removed in Phase 5 (-1791 net source lines).
+- **Token-gated localhost relays** — both transports bind `127.0.0.1:0`. Per-session 32-byte hex
+  `RelayAuthToken` carried as `X-ClosePaw-Token` on the WS Upgrade gates accept; constant-time
+  verify; total pre-auth deadline (5s) defeats slowloris; 4 KiB header buffer cap.
+- **Atomic target switching** — `ChromeCdpClient.switchMutex` serializes target switches and a
+  per-`LiveConnection` pending map keeps stranded replies from misrouting.
+- **Session-scoped storeArtifact quota** — cumulative decoded-byte counter on
+  `BrowserSessionManager` (atomic CAS) so reconnects don't reset and the cap covers the whole
+  session, not per-call.
+- **Pure-Kotlin SPAKE2-25519** — `Spake25519.kt` (183 lines) over `net.i2p.crypto:eddsa` (CC0).
+  Replaces the previous LGPL-3.0 JitPack JNI dep `MuntashirAkon/spake2-android`. KAT vectors
+  pinned. ISC notice carried.
+- **Dependency hardening** — BouncyCastle bumped to 1.84 (CVE). BC + Conscrypt providers added
+  and removed at narrow scope to avoid app-wide JSSE clashes.
+- **Hardened script host** — cancellation guard in `ScriptHostWebViewClient` page-load and
+  prelude-eval callbacks blocks queued callbacks from running arbitrary agent JS after timeout.
+- **Screenshot returns artifact path** — `screenshot()` writes to the trace artifact store via
+  `storeArtifact` and returns a relative path; never returns base64 bytes inflating the JS
+  result.
 
-- **One tool, raw CDP** — `browser_script` is the only agent-facing surface. No `browser_click` / `browser_type` / `browser_open` wrapper tools. JS control flow inside the script collapses many CDP round-trips into one tool call.
-- **Always-loaded schema, execution-time gate** — schema appears in function-calling prompts whether the gates pass or not, so the agent knows the capability exists. The gate is consulted on every `execute()` call, fail-closed.
-- **`BrowserScriptRunner` is owned by `BrowserSessionManager`**, not by the tool. The tool only sees a `BrowserScriptInvoker` lambda the gate hands back when capability is available — keeps the tool Android-context-free and unit-testable.
-- **Trace gets the full `ScriptResult`** — `rawResultJson` always carries the serialized runner outcome (success payload OR error JSON), never the truncated user-facing text. The prompt context stays bounded; the debug pipeline sees everything.
-- **Mid-execution cancellation reports real elapsed time** — the watchdog approach captures `started = clock()` *before* the scope, so the cancellation trace records actual duration, not 0ms.
+## Where Things Live
 
-## Open Items For Next Task (`browser-use-skill-v0`)
-
-- Bundle `browser-use/SKILL.md` and `scripts/{page,tabs,input}.js`.
-- Seed bundled skill files into `context.filesDir/skills/browser-use/`.
-- Keep native runtime helpers out of the WebView prelude; snippets are read and inlined by the agent when needed.
+| Concern | File |
+|---------|------|
+| Tool entry point | `tool/impl/BrowserScriptTool.kt` |
+| Capability gate | `tool/impl/DefaultBrowserScriptCapabilityGate.kt` |
+| Session ownership | `browser/script/BrowserSessionManager.kt`, `session/SessionServices.kt` |
+| Hidden WebView host | `browser/script/BrowserScriptRunner.kt` + `BrowserScriptPrelude.kt` + `BrowserScriptJsInterface.kt` |
+| CDP client | `browser/cdp/ChromeCdpClient.kt` + `ChromeCdpCommand.kt` + `ChromeCdpTarget.kt` |
+| Transport cascade | `browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt` |
+| USER_SERVICE transport | `browser/cdp/shizuku/ChromeDevtoolsUserService.kt` + `UserServiceTransport.kt` + `ShizukuUserServiceProvider.kt` |
+| Wireless self-pair transport | `browser/cdp/wireless/WirelessAdbSelfPairTransport.kt` (+ pairing/wire/crypto under `wireless/`) |
+| Localhost relay token | `browser/cdp/RelayAuthToken.kt` |
+| Bundled skill | `app/src/main/assets/agent_skills/browser-use/**` (seeded into `filesDir/skills/browser-use/`) |
+| Policy rule | `tool/PolicyEngine.kt` (Chrome SMART asks even at NORMAL tier) |
+| Settings | `AppSettingsStore.browser_script_enabled` (default false), Settings UI under Experimental |
+| Architecture doc | `doc/main/infra/browser.md` |

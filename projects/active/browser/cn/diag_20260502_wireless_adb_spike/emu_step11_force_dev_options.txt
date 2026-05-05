@@ -1,0 +1,41 @@
+==> emu14: kill settings, retry
+Starting: Intent { act=android.settings.APPLICATION_DEVELOPMENT_SETTINGS }
+      topResumedActivity=ActivityRecord{bed5222 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity} t6}
+
+--- titles found ---
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text=""
+text="Sat, May 2"
+text=""
+text="Gmail"
+text="Photos"
+text="YouTube"
+text=""
+text=""
+text=""
+text=""
+text="Phone"
+text="Messages"
+text="Chrome"
+text="Gmail"
+text=""
+text=""
+text=""
+
+--- if it's still settings home, try the precise component ---
+Starting: Intent { cmp=com.android.settings/.Settings }
+    topResumedActivity=ActivityRecord{a239c4d u0 com.android.settings/.Settings} t432}
+
+--- titles after direct component start ---

@@ -5,7 +5,8 @@ import ai.closepaw.browser.cdp.CdpConnection
 import ai.closepaw.browser.cdp.CdpConnectionFactory
 import ai.closepaw.browser.cdp.CdpConnectionClosedException
 import ai.closepaw.browser.cdp.ChromeCdpClient
-import ai.closepaw.browser.cdp.shizuku.AppProcessLocalSocketTransport
+import ai.closepaw.browser.cdp.ChromeCdpTarget
+import ai.closepaw.browser.cdp.RelayAuthToken
 import ai.closepaw.browser.cdp.shizuku.DefaultDevtoolsDiagnostics
 import ai.closepaw.browser.cdp.shizuku.DevtoolsSetupError
 import ai.closepaw.browser.cdp.shizuku.DevtoolsVersion
@@ -14,8 +15,16 @@ import ai.closepaw.browser.cdp.shizuku.ShizukuChromeDevtoolsBridge
 import ai.closepaw.browser.cdp.shizuku.ShizukuChromeRunningProbe
 import ai.closepaw.browser.cdp.shizuku.ShizukuStatusAdapter
 import ai.closepaw.browser.cdp.shizuku.ShizukuUserServiceProvider
+import ai.closepaw.browser.cdp.shizuku.UserServiceTransport
+import ai.closepaw.browser.cdp.wireless.AdbCryptoKeyStore
+import ai.closepaw.browser.cdp.wireless.AdbPairingClient
+import ai.closepaw.browser.cdp.wireless.AdbWireProtocolClient
+import ai.closepaw.browser.cdp.wireless.AdbWirelessManager
+import ai.closepaw.browser.cdp.wireless.WirelessAdbSelfPairTransport
 import ai.closepaw.trace.TraceRecorder
 import java.io.Closeable
+import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
@@ -42,24 +51,59 @@ import okhttp3.WebSocketListener
 class BrowserSessionManager(
     context: Context,
     sessionScope: CoroutineScope,
-    @Suppress("unused") private val traceRecorder: TraceRecorder,
+    private val traceRecorder: TraceRecorder,
+    /**
+     * Per-session unguessable token gating the localhost CDP relays. Default generates a fresh
+     * 256-bit token at construction; tests override to assert specific values. Same token is
+     * baked into [cdpConnectionFactory] (so OkHttp sends it on the WS Upgrade) and into the
+     * bridge (so both relays verify it on accept).
+     */
+    relayAuthToken: String = RelayAuthToken.generate(),
+    /**
+     * Per-CDP-command timeout passed to [ChromeCdpClient]. The script's outer `timeout_ms` is
+     * a separate, larger budget for the whole script; this cap fires when a single CDP method
+     * (most importantly `Page.loadEventFired { awaitEvent: true }`) blocks longer than the
+     * cap. Defaults to [ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS] (30s) which leaves headroom
+     * for cellular page loads through the wireless-ADB self-pair relay.
+     */
+    private val cdpCommandTimeoutMs: Long = ChromeCdpClient.DEFAULT_COMMAND_TIMEOUT_MS,
     private val bridgeFactory: () -> BrowserDevtoolsBridge = {
-        ShizukuBrowserDevtoolsBridge(createDefaultBridge(context.applicationContext))
+        ShizukuBrowserDevtoolsBridge(
+            createDefaultBridge(context.applicationContext, relayAuthToken)
+        )
     },
-    private val cdpConnectionFactory: CdpConnectionFactory = OkHttpCdpConnectionFactory(),
+    private val cdpConnectionFactory: CdpConnectionFactory = OkHttpCdpConnectionFactory(
+        extraHeaders = mapOf(RelayAuthToken.HEADER_NAME to relayAuthToken),
+    ),
     private val cdpClientFactory: (CdpConnectionFactory, (Throwable) -> Unit) -> ChromeCdpClient =
         { factory, onTransportFailure ->
-            ChromeCdpClient(factory, onTransportFailure = onTransportFailure)
+            ChromeCdpClient(
+                connectionFactory = factory,
+                commandTimeoutMs = cdpCommandTimeoutMs,
+                onTransportFailure = onTransportFailure,
+            )
         },
-    private val runnerFactory: (Context, ChromeCdpClient) -> BrowserScriptExecutor = { ctx, client ->
-        val runner = BrowserScriptRunner(ctx, client)
-        BrowserScriptExecutor { script, timeoutMs -> runner.run(script, timeoutMs) }
-    },
+    private val runnerFactory: (Context, ChromeCdpClient, AtomicLong) -> BrowserScriptExecutor =
+        { ctx, client, counter ->
+            val runner = BrowserScriptRunner(ctx, client, traceRecorder, sessionDecodedBytes = counter)
+            BrowserScriptExecutor { script, timeoutMs -> runner.run(script, timeoutMs) }
+        },
 ) : Closeable {
     private val appContext = context.applicationContext
     private val runtimeJob = SupervisorJob(sessionScope.coroutineContext[Job])
     private val scriptLease = Mutex()
     private val resourceLock = Any()
+
+    /**
+     * Cumulative decoded-byte counter for storeArtifact within this session. Lives on the
+     * SessionManager (not the per-call JsInterface, not the per-bridge Runner) so that
+     * (a) repeated browser_script invocations within one session share the cap and (b) a
+     * forced CDP reconnect — which rebuilds the runner via [markBroken] — does not reset
+     * /sdcard pressure budget. The cap is enforced in [BrowserScriptJsInterface] via
+     * atomic CAS; see [BrowserScriptJsInterface.MAX_BYTES_PER_SESSION] for the value
+     * and rationale.
+     */
+    private val sessionDecodedBytes = AtomicLong(0L)
 
     @Volatile
     private var closed = false
@@ -116,13 +160,23 @@ class BrowserSessionManager(
         return try {
             val version = bridgeHandle.bridge.fetchVersion()
             val targets = bridgeHandle.bridge.listPageTargets()
-            val wsUrl = websocketUrl(version, targets)
-            client.connect(wsUrl)
-            client.attachToFirstRealPage(targets)
+            val rawEndpoint = websocketEndpoint(version, targets)
+            val tunnelHost = bridgeHandle.bridge.resolveWebSocketHost()
+            val endpoint = if (tunnelHost != null) {
+                rawEndpoint.copy(url = rewriteHost(rawEndpoint.url, tunnelHost))
+            } else {
+                rawEndpoint
+            }
+            client.connect(endpoint.url)
+            if (endpoint.directTargetId != null) {
+                client.useDirectPageTarget(endpoint.directTargetId, endpoint.url)
+            } else {
+                client.attachToFirstRealPage(targets)
+            }
             enableCoreDomains(client)
             val newResources = BrowserRuntimeResources(
                 cdpClient = client,
-                runner = runnerFactory(appContext, client),
+                runner = runnerFactory(appContext, client, sessionDecodedBytes),
             )
             synchronized(resourceLock) {
                 resources ?: newResources.also { resources = it }
@@ -145,11 +199,31 @@ class BrowserSessionManager(
         }
     }
 
-    private fun websocketUrl(version: DevtoolsVersion, targets: List<PageTarget>): String {
-        version.webSocketDebuggerUrl?.takeIf { it.isNotBlank() }?.let { return it }
+    private fun websocketEndpoint(version: DevtoolsVersion, targets: List<PageTarget>): WebSocketEndpoint {
+        ChromeCdpTarget.firstRealPage(targets)
+            ?.takeIf { !it.webSocketDebuggerUrl.isNullOrBlank() }
+            ?.let { return WebSocketEndpoint(it.webSocketDebuggerUrl!!, directTargetId = it.id) }
+        version.webSocketDebuggerUrl?.takeIf { it.isNotBlank() }?.let {
+            return WebSocketEndpoint(it, directTargetId = null)
+        }
         targets.firstOrNull { !it.webSocketDebuggerUrl.isNullOrBlank() }?.webSocketDebuggerUrl
-            ?.let { return it }
+            ?.let { return WebSocketEndpoint(it, directTargetId = null) }
         throw DevtoolsSetupError.MalformedResponse("missing webSocketDebuggerUrl")
+    }
+
+    /**
+     * Replace the `[scheme]://[host[:port]]` prefix of a `ws://...` URL with the given
+     * `host:port`. Path/query are preserved verbatim. Used to redirect Chrome's
+     * `webSocketDebuggerUrl` (which has no port — defaults to 80, unreachable from app UID)
+     * onto the device-side TCP relay served by the Shizuku UserService.
+     */
+    private fun rewriteHost(url: String, hostAndPort: String): String {
+        val schemeEnd = url.indexOf("://")
+        if (schemeEnd < 0) return url
+        val pathStart = url.indexOf('/', schemeEnd + 3).let { if (it < 0) url.length else it }
+        val scheme = url.substring(0, schemeEnd)
+        val rest = url.substring(pathStart)
+        return "$scheme://$hostAndPort$rest"
     }
 
     private suspend fun enableCoreDomains(client: ChromeCdpClient) {
@@ -217,15 +291,43 @@ class BrowserSessionManager(
         }
     }
 
+    private data class WebSocketEndpoint(
+        val url: String,
+        val directTargetId: String?,
+    )
+
     companion object {
-        private fun createDefaultBridge(context: Context): ShizukuChromeDevtoolsBridge {
+        private fun createDefaultBridge(
+            context: Context,
+            relayAuthToken: String,
+        ): ShizukuChromeDevtoolsBridge {
+            val userServiceProvider = ShizukuUserServiceProvider(context)
+            val keyStoreDir = File(context.applicationContext.filesDir, "adb_self_pair")
+            val keyStore = AdbCryptoKeyStore(keyStoreDir)
+            val pairingClient = AdbPairingClient(keyStore)
+            val wireClient = AdbWireProtocolClient(keyStore)
+            val wirelessManager = AdbWirelessManager(
+                binderProvider = {
+                    val transport = userServiceProvider.obtain() as? UserServiceTransport
+                        ?: error("UserServiceProvider returned non-UserServiceTransport")
+                    transport.binder
+                }
+            )
+            val wirelessTransport = WirelessAdbSelfPairTransport(
+                wirelessManager = wirelessManager,
+                keyStore = keyStore,
+                pairingClient = pairingClient,
+                wireClient = wireClient,
+                relayAuthToken = relayAuthToken,
+            )
             return ShizukuChromeDevtoolsBridge(
                 status = ShizukuStatusAdapter(),
                 diagnostics = DefaultDevtoolsDiagnostics(
                     chromeRunningProbe = ShizukuChromeRunningProbe(),
                 ),
-                appProcessTransport = AppProcessLocalSocketTransport(),
-                userServiceProvider = ShizukuUserServiceProvider(context),
+                userServiceProvider = userServiceProvider,
+                wirelessAdbSelfPairTransport = wirelessTransport,
+                relayAuthToken = relayAuthToken,
             )
         }
     }
@@ -239,6 +341,12 @@ interface BrowserDevtoolsBridge : Closeable {
     suspend fun preflight()
     suspend fun fetchVersion(): DevtoolsVersion
     suspend fun listPageTargets(): List<PageTarget>
+    /**
+     * Returns `host:port` to substitute into `webSocketDebuggerUrl` from Chrome, or null to
+     * use the URL as-is. Used by the Shizuku transport to route CDP through the device-side
+     * TCP relay instead of the app-UID-unreachable abstract socket.
+     */
+    suspend fun resolveWebSocketHost(): String? = null
 }
 
 private class ShizukuBrowserDevtoolsBridge(
@@ -247,11 +355,18 @@ private class ShizukuBrowserDevtoolsBridge(
     override suspend fun preflight() = delegate.preflight()
     override suspend fun fetchVersion(): DevtoolsVersion = delegate.fetchVersion()
     override suspend fun listPageTargets(): List<PageTarget> = delegate.listPageTargets()
+    override suspend fun resolveWebSocketHost(): String? = delegate.resolveWebSocketHost()
     override fun close() = delegate.close()
 }
 
 private class OkHttpCdpConnectionFactory(
     private val client: OkHttpClient = OkHttpClient(),
+    /**
+     * Headers to attach to every WS Upgrade request. Carries the per-session
+     * `X-ClosePaw-Token` so the localhost CDP relays accept the connection — without it both
+     * relays 403 the upgrade. Map iteration order is preserved by [Request.Builder.header].
+     */
+    private val extraHeaders: Map<String, String> = emptyMap(),
 ) : CdpConnectionFactory {
     override suspend fun connect(
         url: String,
@@ -259,7 +374,10 @@ private class OkHttpCdpConnectionFactory(
         onFailure: (Throwable) -> Unit,
         onClosed: (CdpConnectionClosedException) -> Unit,
     ): CdpConnection = suspendCancellableCoroutine { cont ->
-        val request = Request.Builder().url(url).build()
+        val request = Request.Builder()
+            .url(url)
+            .apply { extraHeaders.forEach { (k, v) -> header(k, v) } }
+            .build()
         val notifyClosed = onClosed
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {

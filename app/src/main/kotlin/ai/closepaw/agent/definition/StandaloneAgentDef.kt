@@ -1,6 +1,7 @@
 package ai.closepaw.agent.definition
 
 import ai.closepaw.agent.AgentExecutionRole
+import ai.closepaw.tool.ToolName
 
 internal val StandaloneRoleDef = AgentRoleDef(
     name = "standalone",
@@ -17,7 +18,8 @@ internal val StandaloneRoleDef = AgentRoleDef(
                     "complete_task",
                     "ask_user",
                     "remember_experience",
-                    "activate_skill"
+                    "activate_skill",
+                    ToolName.BrowserScript.raw
             ),
     systemPrompt =
             """

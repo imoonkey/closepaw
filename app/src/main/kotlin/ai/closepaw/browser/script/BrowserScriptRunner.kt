@@ -1,6 +1,7 @@
 package ai.closepaw.browser.script
 
 import ai.closepaw.browser.cdp.ChromeCdpClient
+import ai.closepaw.trace.TraceRecorder
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -22,11 +23,23 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayInputStream
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class BrowserScriptRunner(
     context: Context,
     private val cdpClient: ChromeCdpClient,
+    private val traceRecorder: TraceRecorder,
+    /**
+     * Cumulative decoded-byte counter shared with the session-scoped owner
+     * (BrowserSessionManager). Threaded through to [BrowserScriptJsInterface] so a
+     * runaway script issuing repeated browser_script tool calls cannot bypass
+     * [BrowserScriptJsInterface.MAX_BYTES_PER_SESSION] — a per-call counter would
+     * reset every run() and turn the documented 500 MiB session cap into a
+     * 500 MiB per-call cap. Defaults to a fresh counter so the androidTest
+     * harness (single-run) works without plumbing.
+     */
+    private val sessionDecodedBytes: AtomicLong = AtomicLong(0L),
 ) {
     private val appContext: Context = context.applicationContext
 
@@ -70,14 +83,18 @@ class BrowserScriptRunner(
                 }
                 val theBridge = BrowserScriptBridge(cdpClient, evaluator, bridgeScope)
                 bridge = theBridge
-                val jsInterface = BrowserScriptJsInterface(theBridge)
+                val jsInterface = BrowserScriptJsInterface(
+                    bridge = theBridge,
+                    traceRecorder = traceRecorder,
+                    sessionDecodedBytes = sessionDecodedBytes,
+                )
 
                 val pageReady = CompletableDeferred<Unit>()
                 mainHandler.post {
                     if (cancelled.get()) return@post
                     try {
                         wv.addJavascriptInterface(jsInterface, BrowserScriptPrelude.BRIDGE_OBJECT_NAME)
-                        wv.webViewClient = ScriptHostWebViewClient(wv, script, pageReady)
+                        wv.webViewClient = ScriptHostWebViewClient(wv, script, pageReady, cancelled)
                         wv.loadDataWithBaseURL(
                             "about:blank",
                             "<!doctype html><html><head></head><body></body></html>",
@@ -165,6 +182,7 @@ class BrowserScriptRunner(
         private val webView: WebView,
         private val userScript: String,
         private val pageReady: CompletableDeferred<Unit>,
+        private val cancelled: AtomicBoolean,
     ) : WebViewClient() {
         private val initialLoaded = AtomicBoolean(false)
 
@@ -190,15 +208,45 @@ class BrowserScriptRunner(
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
-            if (!initialLoaded.compareAndSet(false, true)) return
-            webView.evaluateJavascript(BrowserScriptPrelude.PRELUDE) { _ ->
-                webView.evaluateJavascript(BrowserScriptPrelude.wrapScript(userScript), null)
-                pageReady.complete(Unit)
-            }
+            handlePageFinished(
+                cancelled = cancelled,
+                initialLoaded = initialLoaded,
+                userScript = userScript,
+                pageReady = pageReady,
+                evaluatePrelude = { onComplete ->
+                    webView.evaluateJavascript(BrowserScriptPrelude.PRELUDE) { _ -> onComplete() }
+                },
+                evaluateUserScript = { js -> webView.evaluateJavascript(js, null) },
+            )
         }
     }
 
     companion object {
         private const val TAG = "BrowserScriptRunner"
+    }
+}
+
+/**
+ * Page-load orchestration extracted for JVM-testable cancellation-guard coverage.
+ *
+ * Two guards close a race: a queued onPageFinished or prelude-eval callback can fire
+ * after run()'s finally block has set [cancelled] but before the WebView is destroyed.
+ * Without these checks, that window would inject the prelude (and then arbitrary user
+ * script) into a WebView that's about to be torn down.
+ */
+internal fun handlePageFinished(
+    cancelled: AtomicBoolean,
+    initialLoaded: AtomicBoolean,
+    userScript: String,
+    pageReady: CompletableDeferred<Unit>,
+    evaluatePrelude: (onComplete: () -> Unit) -> Unit,
+    evaluateUserScript: (String) -> Unit,
+) {
+    if (cancelled.get()) return
+    if (!initialLoaded.compareAndSet(false, true)) return
+    evaluatePrelude {
+        if (cancelled.get()) return@evaluatePrelude
+        evaluateUserScript(BrowserScriptPrelude.wrapScript(userScript))
+        pageReady.complete(Unit)
     }
 }

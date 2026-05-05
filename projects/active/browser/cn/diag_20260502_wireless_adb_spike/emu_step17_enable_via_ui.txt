@@ -1,0 +1,37 @@
+==> emu20: enable wireless debugging via UI toggle and find Pair with code
+--- current state ---
+0
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  
+
+--- find toggle switch and tap ---
+Toggle bounds: bounds="[839,610][985,736]"
+tap toggle at 912,673
+--- after toggle (Allow dialog may appear) ---
+text="Allow wireless debugging on this network?"
+text="Always allow on this network"
+text="Cancel"
+text="Allow"
+found Allow dialog, tapping
+
+--- post state ---
+1
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0            *:43993                    *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:37903                    *:*                  
+LISTEN      0      0            *:5555                     *:*                  
+LISTEN      0      0       [::ffff:127.0.0.1]:35403                    *:*                  
+
+--- now check the wireless debugging page for pair entries ---
+text="Use wireless debugging"
+text="Device name"
+text="sdk_gphone64_x86_64"
+text="IP address &amp; Port"
+text="10.0.2.16:43993"
+text="Pair device with QR code"
+text="Pair new devices using QR code scanner"
+text="Pair device with pairing code"
+text="Pair new devices using six digit code"
+text="Paired devices"

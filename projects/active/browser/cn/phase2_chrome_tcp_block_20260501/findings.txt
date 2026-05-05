@@ -1,0 +1,40 @@
+Phase 2 (Chrome --remote-debugging-port → TCP loopback) is INFEASIBLE on
+Chrome for Android.
+
+Empirical test on nubia P0110 / Chrome 147.0.7727.137 with chrome://flags
+"Enable command line on non-rooted devices" toggled ON (verified by chrome
+honoring our custom --remote-debugging-socket-name). Each row is a fresh
+chrome restart after writing the shown command-line:
+
+  --remote-debugging-port=9222
+    abstract socket bound: @chrome_devtools_remote
+    TCP localhost:9222   : NOT BOUND
+
+  --remote-debugging-port=9223 --remote-debugging-address=127.0.0.1
+    abstract socket bound: @chrome_devtools_remote
+    TCP localhost:9223   : NOT BOUND
+
+  --remote-debugging-port=9224 --enable-remote-debugging
+    abstract socket bound: @chrome_devtools_remote
+    TCP localhost:9224   : NOT BOUND
+
+  --remote-debugging-port=9225 --remote-debugging-socket-name=test_sock_name
+    abstract socket bound: @test_sock_name
+    TCP localhost:9225   : NOT BOUND
+
+Conclusion: Chromium's Android build hardcodes Unix abstract socket as the
+DevTools transport. --remote-debugging-port is silently ignored and the
+DevTools server only binds an abstract socket. No combination of flags
+makes Chrome bind a TCP debug listener on Android.
+
+Therefore the user's stated Phase 2 path ("Chrome binds localhost:N, app
+connects to 127.0.0.1:N") cannot be realized as long as the app uses
+stable com.android.chrome — it is an upstream Chromium-on-Android
+limitation, not a ClosePaw bug.
+
+The shipped Phase 2 transport infrastructure (ChromeRemoteDebugPortTransport,
+IChromeDevtoolsUserService.ensureChromeRemoteDebugPort, file-write +
+am-force-stop logic, ChromeRemoteDebuggingFlagNotEnabled typed error)
+remains correct and ready to engage IF/WHEN Chrome ever respects
+--remote-debugging-port on Android, OR if the user installs an alternative
+Chromium-based browser that does honor TCP debug.

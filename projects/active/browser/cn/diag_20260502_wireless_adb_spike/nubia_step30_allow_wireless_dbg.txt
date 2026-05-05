@@ -1,0 +1,42 @@
+==> nubia_step30: allowWirelessDebugging direct AIDL call (UI-free)
+(this test was done after the user manually consented previously, so BSSID was already in trust;
+ but the AIDL call would BOTH add to trust list AND enable wireless adb in one shot for a fresh BSSID)
+
+--- run AllowWirelessDbg again to capture clean output ---
+before: adb_wifi_enabled=0
+before: listeners=
+
+[AWD] === allowWirelessDebugging direct-call probe ===
+[AWD] euid=2000 pid=7846
+[AWD] current BSSID = 'fc:12:63:79:57:b6'
+[AWD] calling allowWirelessDebugging(true, 'fc:12:63:79:57:b6')
+[AWD] allowWirelessDebugging returned ok
+[AWD] --- state after call ---
+[AWD] adb_wifi_enabled = 1
+[AWD] listeners (high ports):
+[AWD] 127.0.0.1:53922
+[::ffff:127.0.0.1]:43129
+*:41089
+
+[AWD] WifiDebuggingActivity visible?:
+[AWD]     topResumedActivity=ActivityRecord{234963385 u0 com.android.chrome/com.google.android.apps.chrome.Main t3170}
+
+[AWD] --- relevant logcat ---
+[AWD] 
+[AWD] === done ===
+
+--- top activity right after call (should NOT be WifiDebuggingActivity) ---
+    topResumedActivity=ActivityRecord{234963385 u0 com.android.chrome/com.google.android.apps.chrome.Main t3170}
+
+--- relevant logcat (look for setAdbEnabled, TlsServer, dialog launch) ---
+05-02 18:34:41.217  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 18:34:41.218 16415 16418 I adbd    : TlsServer running on port 41089
+05-02 18:34:41.225  3394  3449 I AdbDebuggingManager: startAdbDebuggingThread ref=2
+05-02 18:34:41.225  3394  3449 I AdbDebuggingManager: adb start wireless adb
+05-02 18:34:41.225  3394  7879 D AdbDebuggingManager: Starting adb port property poller
+05-02 18:34:41.225  3394  7879 D AdbDebuggingManager: Received tls port=41089
+05-02 18:34:41.227  3394  3449 D AdbService: setAdbEnabled(true), mIsAdbUsbEnabled=true, mIsAdbWifiEnabled=false, transportType=1
+05-02 18:34:41.229  3394  3449 D AdbService: Acquired multicast lock
+05-02 18:34:41.229  3394  3449 D AdbService: Broadcasting enable = true, type = 1
+05-02 18:34:41.231  3394  4103 D AdbSettingsObserver: onChange content://settings/global/adb_wifi_enabled
+05-02 18:34:41.231  3394  3449 D AdbService: setAdbEnabled(true), mIsAdbUsbEnabled=true, mIsAdbWifiEnabled=true, transportType=1

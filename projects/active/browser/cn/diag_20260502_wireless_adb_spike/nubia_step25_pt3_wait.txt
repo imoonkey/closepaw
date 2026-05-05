@@ -1,0 +1,19 @@
+--- wait 35s for broadcast then read log ---
+[PT3] euid=2000 pid=29832
+[PT3] Looper.prepareMainLooper ok
+[PT3] ActivityThread.systemMain ok: android.app.ActivityThread@2c7384b
+[PT3] getSystemContext ok: android.app.ContextImpl@6fc0228
+[PT3] registerReceiver(5arg, EXPORTED) ok
+[PT3] IAdbManager ready
+[PT3] disablePairing ok
+[PT3] enablePairingByPairingCode invoked
+[PT3] waiting up to 30s for broadcast...
+[PT3] broadcast received = false
+[PT3] done — holding 60s for manual cleanup
+
+--- listeners ---
+State       Recv-Q Send-Q Local Address:Port               Peer Address:Port              
+LISTEN      0      0            *:42875                    *:*                  
+LISTEN      0      0            *:41099                    *:*                  
+
+--- relevant logcat (filter for adb pair) ---

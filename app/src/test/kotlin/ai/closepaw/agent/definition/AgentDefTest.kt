@@ -21,8 +21,10 @@ class AgentDefTest {
                 "complete_task",
                 "ask_user",
                 "remember_experience",
-                "activate_skill"
+                "activate_skill",
+                "browser_script"
             )
+        assertThat(StandaloneRoleDef.allowedTools).contains("browser_script")
         assertThat(StandaloneRoleDef.delegatable).isFalse()
         assertThat(StandaloneRoleDef.systemPrompt).contains("standalone Android automation agent")
     }

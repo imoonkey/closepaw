@@ -1,0 +1,13 @@
+==> emu10: trigger 'Pair device with code' flow
+--- launch wireless debugging settings ---
+Starting: Intent { cmp=com.android.settings/.Settings }
+--- current activity ---
+    topResumedActivity=ActivityRecord{209a060 u0 com.android.settings/.Settings} t428}
+
+--- UI dump (look for 'Pair' button) ---
+<node index="1" text="Bluetooth, pairing" resource-id="android:id/summary" class="android.widget.TextView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[189,1061][476,1112]" /
+
+--- look for 'Pair device with pairing code' specifically and find clickable parent ---
+
+--- if pair entry found, get its bounds ---
+Pair entry bounds: 

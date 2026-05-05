@@ -1,0 +1,22 @@
+==> nubia15: actually pair using our chosen PSK
+--- try standard adb pair first ---
+Enter pairing code: Successfully paired to 100.64.43.95:33909 [guid=adb-EP0110MZ0BC101266W-P3WPtn]
+
+--- alternative: pass PSK as arg ---
+
+--- check qr.log for any pair attempt result ---
+[QR] calling enablePairingByQrCode(name='ClosePawSpike', psk='SPIKE_PSK_12345')
+[QR] enablePairingByQrCode invoked
+[QR] T+500ms: getAdbWirelessPort=42875 all-listen-ports=33909,42875,43129,53922,5555,
+[QR] T+1000ms: getAdbWirelessPort=42875 all-listen-ports=33909,42875,43129,53922,5555,
+[QR] T+1500ms: getAdbWirelessPort=42875 all-listen-ports=33909,42875,43129,53922,5555,
+[QR] T+2000ms: getAdbWirelessPort=42875 all-listen-ports=33909,42875,43129,53922,5555,
+[QR] T+2500ms: getAdbWirelessPort=42875 all-listen-ports=33909,42875,43129,53922,5555,
+[QR] T+3000ms: getAdbWirelessPort=42875 all-listen-ports=33909,42875,43129,53922,5555,
+[QR] --- now hold; outside, run: adb pair <ip>:<pairport> SPIKE_PSK_12345 ---
+[QR] --- (PSK is the same shape as a 6-digit code; adb pair will accept any string client-side) ---
+
+--- check adb_keys to see if my key got added ---
+    user_keys=QAAAAM36XUT7ffmv85ayMFfsgOu1d6R+l7HPlO7Xpt4ODhFem2lk+UuSNMveVfn4vlVs+ytcn89sf/IHgNdR3txMCzFU6K7rDqG3ML8mxde64i5isydHDTNr/iE7neiN/wCWzgBfjxFWxTKsi564jlz/zZsKDZNF3y9bVRDsj61B8nGkPXESGnajvxYksyGrIFO4BDxXuHCm/48FlnJXEf61AbvcZCU/BWmmve8onU5f0536Pejhdh+fMqtGtgtyTQ8shSlUAazdhZe2vOFxjKfbVC2Alck6fI93sQ/FhBz/rNV3EJCHKI1exvhJaf78GwnV0TGe8nrt60Aohq0a8gVJt9r3QsjMbZkZ4Al992VvbBb5pl7R3bf9PK9kbFcH3CoZivrfUdW7i8i/C04ubHod087LHYzkAprxK1uW8ugc08edHqvdmopdVZQWznUfxAqh6SfcO97dDFdyl9LLSTwV5zdX26klUg2jp44Q5c67h9QB5+CtWv+es6YhC1a8Ch9YUlFyYlr5U03bJsesfp11LO66eFtwF/9MQOoxy8lXHzV1FE1SF0pSFjfjoBhINiZy6x9uvTx70FFGjxpSUYSMMeba3LZ5xXkARtdFY4nCiC4O0Q7oz2btUcooddFfkSJLidtqOyAOWMhYoJakOlkxI2EkLzm60dZ7QPy2mZJBv4Z7yHAVTgEAAQA= qiguo@qiguo-ld1
+    QAAAAM3iDIv7Je6/0ufISI3FdORzbSX52BILt6E3ttGUXm2UdB0shpBQyBll5LEWteOLfVPm4vILP263YOiXs4WXxZXDdRzDLVc88E0qz4lUXpp8zu/T4RX02ET9JQjeteh5PF6VKbEfyQ5fDTK7qI0imhSV2tIyoTF0D+pqPE8foKDm6VblRJgharzmNslZxnHloIHQDv5YusNWb+E7BsfwK+nDT9LZIrcuYKxwqIi4N6birmSytdQK3ncwLeRrFc+6d9upzgomfHT8vN9MduRL55fRXk0+gUVt0rrH4LBy/Py8IlvLuJ3KliwKyTVhRAIOgZvPk4ZcJuwhHpfu18DVBXPesrf1cVhgn1cFcpNNc/5kLWHs5ND0Suddhp55GlG2Mn9zIYxePArztGkXCdrvYtGjP7hodOg/Xj8XoG55TclMVpIxNLHqfuTqweTnwqWcdelNp97n184sZECQ2FTgBZ9bZcYMfz7J6sU2os2QPSCmPsTbPh19B++2Jxk7DmlK4sNXNVVhr6DV/nqrSu88/YUSPs6Dqda5cwH739ePnDwFJiNkK9egfqmzwpB2B6G0PJtKwjGwszGjvKT5ZDvhN6ufUhKJwa8QOCIM+KlONRfRq+IeECfG3Ipvnb5hAi0L6CaXLxGmRhQCbyD1dwsXJd0w3wSYY0Y3Tvuq/L57aDlquV62kQEAAQA= moonkey@Moonkeys-MBP.lan
+    
