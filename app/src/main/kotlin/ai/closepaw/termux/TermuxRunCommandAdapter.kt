@@ -14,15 +14,10 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
 data class RunCommandResult(val stdout: String, val stderr: String, val exitCode: Int?)
-
-private const val WAKE_TERMUX_RETRY_DELAY_MS = 1_500L
 
 sealed class RunCommandError : Exception() {
     object PermissionMissing : RunCommandError()
@@ -35,63 +30,15 @@ sealed class RunCommandError : Exception() {
 
 internal fun Throwable.toRunCommandStartError(): RunCommandError =
     when {
-        isRecoverableTermuxStartRejection() -> RunCommandError.TermuxProcessNotRunning
+        this is ForegroundServiceStartNotAllowedException || isThirdProcessStartRejected() ->
+            RunCommandError.TermuxProcessNotRunning
         this is SecurityException -> RunCommandError.PermissionMissing
         this is ActivityNotFoundException || this is IllegalArgumentException ->
             RunCommandError.TermuxNotAvailable
         else -> RunCommandError.Other(this)
     }
 
-internal suspend fun startRunCommandWithAutoWake(
-    startRunCommand: () -> Boolean,
-    wakeTermux: () -> Boolean,
-    delayAfterWake: suspend () -> Unit = { delay(WAKE_TERMUX_RETRY_DELAY_MS) }
-): RunCommandError? {
-    val firstFailure = runCommandStartFailure(startRunCommand) ?: return null
-    if (!firstFailure.canRetryWithWake || !wakeTermux()) return firstFailure.error
-
-    delayAfterWake()
-
-    return runCommandStartFailure(startRunCommand)?.error
-}
-
-private data class RunCommandStartFailure(
-    val error: RunCommandError,
-    val canRetryWithWake: Boolean
-)
-
-private fun runCommandStartFailure(startRunCommand: () -> Boolean): RunCommandStartFailure? =
-    try {
-        if (startRunCommand()) {
-            null
-        } else {
-            RunCommandStartFailure(RunCommandError.TermuxProcessNotRunning, canRetryWithWake = true)
-        }
-    } catch (e: ForegroundServiceStartNotAllowedException) {
-        e.toRunCommandStartFailure()
-    } catch (e: SecurityException) {
-        e.toRunCommandStartFailure()
-    } catch (e: ActivityNotFoundException) {
-        e.toRunCommandStartFailure()
-    } catch (e: IllegalArgumentException) {
-        e.toRunCommandStartFailure()
-    } catch (e: IllegalStateException) {
-        e.toRunCommandStartFailure()
-    } catch (t: Throwable) {
-        RunCommandStartFailure(RunCommandError.Other(t), canRetryWithWake = false)
-    }
-
-private fun Throwable.toRunCommandStartFailure(): RunCommandStartFailure =
-    RunCommandStartFailure(
-        error = toRunCommandStartError(),
-        canRetryWithWake = isRecoverableTermuxStartRejection()
-    )
-
-private fun Throwable.isRecoverableTermuxStartRejection(): Boolean =
-    this is ForegroundServiceStartNotAllowedException || isThirdProcessStartRejected()
-
 private fun Throwable.isThirdProcessStartRejected(): Boolean {
-    if (this !is SecurityException) return false
     val text = message.orEmpty()
     return text.contains("forbidden to start a 3rd process", ignoreCase = true) ||
         text.contains("forbidden to start a third process", ignoreCase = true)
@@ -121,7 +68,7 @@ class TermuxRunCommandAdapter(private val context: Context) {
         executable: String,
         args: List<String>,
         stdinBase64: String?
-    ): RunCommandResult = coroutineScope {
+    ): RunCommandResult =
         suspendCancellableCoroutine { continuation ->
             val appContext = context.applicationContext
             val requestId = UUID.randomUUID().toString()
@@ -204,50 +151,34 @@ class TermuxRunCommandAdapter(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            launch {
-                val startError =
-                    startRunCommandWithAutoWake(
-                        startRunCommand = { startRunCommand(appContext, runCommandIntent) },
-                        wakeTermux = { wakeTermux(appContext) }
-                    )
-                if (startError != null) {
-                    fail(startError)
+            try {
+                // Use startForegroundService on Android 8+ — Android 13's BG-FGS-START
+                // restrictions reject plain startService for cross-app service starts even
+                // when the caller is a foreground Activity. Termux's RunCommandService
+                // declares dataSync FGS type and calls startForeground() during onStartCommand.
+                val started =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        appContext.startForegroundService(runCommandIntent)
+                    } else {
+                        appContext.startService(runCommandIntent)
+                    }
+                if (started == null) {
+                    fail(RunCommandError.TermuxProcessNotRunning)
                 }
+            } catch (e: ForegroundServiceStartNotAllowedException) {
+                fail(RunCommandError.TermuxProcessNotRunning)
+            } catch (e: SecurityException) {
+                fail(e.toRunCommandStartError())
+            } catch (e: ActivityNotFoundException) {
+                fail(e.toRunCommandStartError())
+            } catch (e: IllegalArgumentException) {
+                fail(e.toRunCommandStartError())
+            } catch (e: IllegalStateException) {
+                fail(e.toRunCommandStartError())
+            } catch (t: Throwable) {
+                fail(RunCommandError.Other(t))
             }
         }
-    }
-
-    private fun startRunCommand(appContext: Context, runCommandIntent: Intent): Boolean {
-        // Use startForegroundService on Android 8+ — Android 13's BG-FGS-START
-        // restrictions reject plain startService for cross-app service starts even
-        // when the caller is a foreground Activity. Termux's RunCommandService
-        // declares dataSync FGS type and calls startForeground() during onStartCommand.
-        val started =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                appContext.startForegroundService(runCommandIntent)
-            } else {
-                appContext.startService(runCommandIntent)
-            }
-        return started != null
-    }
-
-    private fun wakeTermux(appContext: Context): Boolean {
-        val intent =
-            Intent(Intent.ACTION_MAIN)
-                .addCategory(Intent.CATEGORY_LAUNCHER)
-                .setPackage(TERMUX_PACKAGE)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return try {
-            // Activity launches are not subject to the FGS background-start restriction;
-            // this is only a process wake signal before retrying RUN_COMMAND once.
-            appContext.startActivity(intent)
-            true
-        } catch (_: ActivityNotFoundException) {
-            false
-        } catch (_: SecurityException) {
-            false
-        }
-    }
 
     private fun registerResultReceiver(
         appContext: Context,
