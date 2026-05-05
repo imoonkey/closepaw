@@ -166,6 +166,30 @@ def test_max_output_bytes_overrides_default_cap(bridge_server):
     assert artifact.read_bytes() == b"x" * 4096
 
 
+def test_non_utf8_stdout_decodes_with_replacement_and_preserves_raw_artifact(bridge_server):
+    binary_prefix = b"\xff\xfe hello"
+    filler_size = 4096
+    raw_bytes = binary_prefix + b"x" * filler_size
+    command = python_command(
+        f"import sys; sys.stdout.buffer.write(b'\\xff\\xfe hello' + b'x' * {filler_size})"
+    )
+
+    response = bridge_server.post_json(
+        "/v1/exec",
+        {"command": command, "max_output_bytes": 1024},
+        timeout=10,
+    )
+
+    assert response.status == 200
+    assert response.body["exit_code"] == 0
+    assert "�" in response.body["stdout"]
+    assert response.body["stdout_truncated"] is True
+    artifact = Path(response.body["stdout_ref"])
+    assert artifact.name.endswith("_stdout")
+    with open(artifact, "rb") as fh:
+        assert fh.read() == raw_bytes
+
+
 def test_invalid_env_and_max_output_bytes_return_invalid_request(bridge_server):
     bad_requests = [
         {"command": "true", "env": {"TERM": 1}},
