@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-05-04: Browser CDP — phase 5/6 cleanup + production hardening (milestone DONE)
+
+**What changed:**
+- **Transport cascade collapsed to 2** — `USER_SERVICE` (Shizuku) → `WIRELESS_ADB_SELF_PAIR`. Deleted `APP_PROCESS`, `HOST_MEDIATED_RELAY`, and `CHROME_TCP_LOOPBACK` after each was empirically blocked on stock Android (SELinux device-policy block, Chrome ignoring `--remote-debugging-port`, host PC dependency). Net −1791 source lines through Phase 5 cleanup.
+- **Wireless-ADB self-pair transport** — new `browser/cdp/wireless/` package: in-app TLS-PSK SPAKE2-25519 pairing (`AdbPairingClient`), mTLS upgrade (`AdbTlsClient`), CNXN/AUTH/OPEN ADB wire protocol (`AdbWireProtocolClient`) opening `localabstract:chrome_devtools_remote`. RSA-2048 keypair persisted in `AdbCryptoKeyStore` with AOSP `adb_keys` blob format and an 8-entry ceiling so reinstalls don't fill paired slots. Pair-once optimisation (OEM-dependent) reuses the stored key.
+- **In-house SPAKE2-25519** — `Spake25519.kt` (183-line pure-Kotlin port of BoringSSL `spake25519.c` over `net.i2p.crypto:eddsa` (CC0)). Replaces the LGPL-3.0 JitPack JNI dep `MuntashirAkon/spake2-android`. KAT vectors pinned + ISC notice carried.
+- **Token-gated localhost CDP relays** — `RelayAuthToken` generates a fresh 32-byte hex token per `BrowserSessionManager`; OkHttp sends it as `X-ClosePaw-Token` on the WS Upgrade; both relays' accept loops verify in constant time, bound the entire pre-auth phase under a 5s **total** wall-clock deadline (defeats slowloris), cap headers at 4 KiB, and 403/408 the rejects. Buffered request bytes are forwarded verbatim once auth succeeds.
+- **CDP target-switch atomicity** — `ChromeCdpClient.switchMutex` serializes target switches; per-`LiveConnection` pending map keeps stranded replies from misrouting.
+- **storeArtifact session quota lifted** — cumulative decoded-byte counter moved to `BrowserSessionManager` (atomic CAS) so reconnects don't reset and the cap covers the whole session.
+- **Other hardening** — single-flight `ShizukuUserServiceProvider` binder, separate WS handshake vs idle timeouts, BouncyCastle 1.78.1 → 1.84 (CVE), BC + Conscrypt provider scoping, cancellation guard in `ScriptHostWebViewClient` page-load + prelude-eval callbacks, `screenshot()` in `browser-use` skill returns artifact path via `storeArtifact` instead of inflating the JS return value with base64.
+
+**Why:**
+- Two codex review rounds across phases 5 and 6 surfaced one CRITICAL (unauth localhost relay), several HIGH (target-switch races, slowloris, dependency CVE, LGPL/JitPack risk), and a long tail of MEDIUM/LOW cleanup. Production-ready means: no other app on the device can drive Chrome DevTools while we're running; no upstream license/CVE risk; no stranded pending commands; no quota bypass via reconnect; no UC-time JS racing past cancellation.
+
+**Key files:**
+- new: `browser/cdp/wireless/**` (Spake25519, AdbPairingClient, AdbTlsClient, AdbWireProtocolClient, AdbCryptoKeyStore, AndroidPubkey, AdbWirelessManager, ProcNetTcpListeners, WirelessAdbSelfPairTransport, WirelessAdbProviders), `browser/cdp/RelayAuthToken.kt`
+- changed: `browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt` (cascade simplification + token wiring), `browser/cdp/shizuku/ChromeDevtoolsUserService.kt` (token gate + slowloris deadline), `browser/cdp/shizuku/ShizukuUserServiceProvider.kt` (single-flight, version bump), `browser/cdp/ChromeCdpClient.kt` (switchMutex + per-LiveConnection pending), `browser/script/BrowserSessionManager.kt` (token, sessionDecodedBytes), `browser/script/BrowserScriptJsInterface.kt` (storeArtifact CAS), `browser/script/BrowserScriptRunner.kt` + `ScriptHostWebViewClient` (cancel-guard), `app/src/main/assets/agent_skills/browser-use/scripts/page.js` (screenshot artifact path), `app/build.gradle.kts` (BouncyCastle 1.84 + net.i2p.crypto:eddsa)
+- deleted: every reference to `APP_PROCESS` / `HOST_MEDIATED_RELAY` / `CHROME_TCP_LOOPBACK`
+- tests: `browser/cdp/RelayAuthTokenTest`, `browser/cdp/ChromeCdpRecoveryTest`, `browser/cdp/wireless/**Test` (10 files incl. `Spake25519Test` with KAT vectors and `WirelessAdbSelfPairTransportRelayStressTest`), `BrowserSessionManagerTest`, `ShizukuUserServiceProviderTest`, `ScriptHostPageLoadCancelGuardTest`
+- docs: `doc/main/infra/browser.md`, `doc/main/README.md` (browser package layout), `doc/dev/development.md` (transport requirements + AOSP emulator chrome://flags note), `projects/active/browser/implementation_summary.md`
+
+**Verification:** `./gradlew test` BUILD SUCCESSFUL across both phase milestones. Real-device PASS on nubia P0110 (Android 13, stock) — Phase 5 final-gate via wireless-ADB self-pair, full agent chain through `debug-run.sh`. AOSP `emulator-5556` PASS via `USER_SERVICE` after the chrome://flags Local State unlock procedure recorded in `projects/active/browser/cn/diag_20260503_emu_chrome_devtools.md`. Phase 6 final-gate PASS round 2.
+**Commit:** `8a8bbcf4..1eed564c` (84 commits across `browser-cdp-runtime` Phase 1-3 sequel cleanup, `browser-phase5`, `browser-phase6`)
+**Next:** None — milestone closed, browser runtime production-ready.
+**Blockers:** None.
+
 ## 2026-05-02: Browser CDP — bundled `browser-use` Agent Skill
 
 **What changed:**

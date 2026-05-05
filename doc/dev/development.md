@@ -1,6 +1,6 @@
 # Development Guide
 
-> Last updated: 2026-05-02 (browser runtime verification)
+> Last updated: 2026-05-04 (browser-cdp-runtime + browser-phase5/6 milestones)
 
 This guide covers the development workflow for ClosePaw - building, testing, and debugging.
 
@@ -114,7 +114,9 @@ Critical pitfall: **never use Kotlin built-in `assert(...)` for verdicts** in an
 ### 2c. Browser Runtime Tests
 
 The browser CDP runtime has JVM coverage for transport, session lifecycle, policy, settings, and
-tool behavior. Run the full JVM suite after browser changes:
+tool behavior, plus the wireless-ADB self-pair stack (SPAKE2-25519 KAT vectors, ADB wire protocol,
+relay stress harness) and the localhost-relay token gate. Run the full JVM suite after browser
+changes:
 
 ```bash
 ./gradlew test
@@ -135,9 +137,20 @@ To run the on-device browser script host test directly:
 ```
 
 To exercise real `browser_script` from the app, enable **Settings → Permissions & Advanced →
-Browser automation (experimental)**, keep Shizuku running and authorized for ClosePaw, and open
-Chrome so its DevTools socket is available. SMART mode still asks for approval before
-`browser_script` runs against Chrome.
+Browser automation (experimental)**, keep Chrome installed and the DevTools socket reachable, and
+make sure at least one transport is available:
+
+- **`USER_SERVICE`** (preferred) — Shizuku running and authorized for ClosePaw.
+- **`WIRELESS_ADB_SELF_PAIR`** (fallback) — wireless debugging enabled in Developer Options
+  (Android 11+); ClosePaw self-pairs once and reuses the stored ADB key.
+
+SMART mode still asks for approval before `browser_script` runs against Chrome.
+
+> **AOSP emulator note:** Chrome stable on AOSP defaults to `chromium-enable-devtools-remote =
+> false` in `Local State`, which disables the `chrome_devtools_remote` socket entirely. Apply the
+> chrome://flags Local State unlock procedure in
+> `projects/active/browser/cn/diag_20260503_emu_chrome_devtools.md` once before expecting CDP to
+> work on the emulator. Real devices (e.g. nubia P0110) do not need this.
 
 ### Prompt Ownership
 

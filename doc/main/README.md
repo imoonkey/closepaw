@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-05-02 (browser-session-integration)
+> Last updated: 2026-05-04 (browser-cdp-runtime + browser-phase5/6 milestones)
 
 ## Quick Start
 
@@ -251,23 +251,33 @@ app/src/main/kotlin/ai/closepaw/
 ├── model/                        # Domain models
 │   └── Models.kt                 # ScreenSnapshot, etc.
 │
-├── browser/                      # Browser automation (CDP over Shizuku)
+├── browser/                      # Browser automation (CDP over Shizuku or wireless ADB)
 │   ├── cdp/                      # Chrome DevTools Protocol client
 │   │   ├── CdpTransport.kt       # WebSocket transport abstraction
 │   │   ├── ChromeCdpCommand.kt   # CDP message types, parse/build (result is JsonElement)
 │   │   ├── ChromeCdpTarget.kt    # Page target filtering (real vs internal)
 │   │   ├── ChromeCdpEventBuffer.kt # Thread-safe event ring buffer
-│   │   ├── ChromeCdpClient.kt    # Core client: routing, attach, stale-session recovery
-│   │   └── shizuku/              # Shizuku bridge to Chrome's abstract socket
-│   │       ├── ShizukuChromeDevtoolsBridge.kt  # HTTP bootstrap (version, targets)
-│   │       ├── ChromeDevtoolsUserService.kt    # Shell-UID socket proxy
-│   │       └── ...               # Transport, diagnostics, error classification
+│   │   ├── ChromeCdpClient.kt    # Core client: routing, attach, target-switch atomicity, recovery
+│   │   ├── RelayAuthToken.kt     # Per-session 32-byte hex token; X-ClosePaw-Token gate; slowloris deadline
+│   │   ├── shizuku/              # Shizuku transport (USER_SERVICE)
+│   │   │   ├── ShizukuChromeDevtoolsBridge.kt  # Cascade: USER_SERVICE → WIRELESS_ADB_SELF_PAIR
+│   │   │   ├── ChromeDevtoolsUserService.kt    # Shell-UID socket proxy (token-gated)
+│   │   │   ├── ShizukuUserServiceProvider.kt   # Single-flight binder, pair-once
+│   │   │   └── ...               # HTTP bootstrap, transport, diagnostics, error classification
+│   │   └── wireless/             # Wireless-ADB self-pair transport (no PC, no root)
+│   │       ├── WirelessAdbSelfPairTransport.kt # Token-gated relay; same start() contract
+│   │       ├── AdbPairingClient.kt             # TLS-PSK SPAKE2-25519 pairing handshake
+│   │       ├── Spake25519.kt                   # In-house SPAKE2-25519 over net.i2p.crypto:eddsa (CC0)
+│   │       ├── AdbWireProtocolClient.kt        # Post-mTLS CNXN/AUTH/OPEN ADB wire protocol
+│   │       ├── AdbCryptoKeyStore.kt            # RSA-2048 key persistence + adb_keys ceiling
+│   │       └── ...               # AndroidPubkey, providers, /proc/net listener discovery
 │   └── script/                   # Hidden-WebView JavaScript automation host
-│       ├── BrowserSessionManager.kt # Session owner: lease, lazy resources, reconnect, cleanup
+│       ├── BrowserSessionManager.kt # Session owner: lease, lazy resources, reconnect, cleanup,
+│       │                          # session-scoped storeArtifact byte counter (atomic CAS)
 │       ├── BrowserScriptPrelude.kt # JS prelude (only `globalThis.cdp` exposed) + script wrapper
 │       ├── BrowserScriptBridge.kt  # Pure-Kotlin bridge: parse send → ChromeCdpClient → resolve/reject; cancel/timeout
-│       ├── BrowserScriptJsInterface.kt # @JavascriptInterface surface (only `send`/`done`)
-│       └── BrowserScriptRunner.kt  # Hardened hidden WebView lifecycle, timeout, navigation block, awaited destroy
+│       ├── BrowserScriptJsInterface.kt # @JavascriptInterface surface (`send`/`done`/`storeArtifact`)
+│       └── BrowserScriptRunner.kt  # Hardened hidden WebView lifecycle, timeout, navigation block, cancel-guarded callbacks
 │
 └── util/                         # Shared utilities
 ```
