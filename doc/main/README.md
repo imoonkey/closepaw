@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-05-04 (browser-cdp-runtime + browser-phase5/6 milestones)
+> Last updated: 2026-05-05 (termux_shell integration)
 
 ## Quick Start
 
@@ -54,6 +54,7 @@ doc/main/
 │   │   ├── persistence.md # SessionHistoryManager, SessionRecordingService, SessionStorage
 │   │   ├── runtime.md     # HistoryManager, compression pipeline, token budgeting
 │   │   └── models.md      # SessionRecord, MessageRecord, ScreenStateRecord
+│   ├── termux_shell.md # Termux bridge + termux_shell runtime
 │   └── settings.md    # User settings, preferences, SessionConfig compilation
 │
 ├── ui/                # User interface
@@ -130,6 +131,11 @@ app/src/main/kotlin/ai/closepaw/
 │   ├── TodoState.kt              # Planning state (with mutation listener)
 │   └── ScratchpadState.kt        # Key-value memory state (with mutation listener)
 │
+├── termux/                       # Termux bridge lifecycle + RUN_COMMAND bootstrap
+│   ├── TermuxBridgeManager.kt    # State, setup, restart, session readiness snapshot
+│   ├── TermuxBridgeStatus.kt     # NotInstalled / NeedsSetup / Ready / Disabled
+│   └── TermuxRunCommandAdapter.kt # Bootstrap through Termux RUN_COMMAND
+│
 ├── tool/                         # Tool system
 │   ├── ToolSpec.kt               # Tool interface
 │   ├── ToolRegistry.kt           # Discovery/registration
@@ -159,6 +165,7 @@ app/src/main/kotlin/ai/closepaw/
 │       ├── DelegateTaskTool.kt
 │       ├── RememberExperienceTool.kt
 │       ├── ShellTool.kt
+│       ├── TermuxShellTool.kt              # termux_shell: full bash through Termux bridge
 │       ├── BrowserScriptTool.kt              # browser_script: validation, capability gate, bounded output, trace
 │       ├── BrowserScriptTypes.kt             # gate/invoker/sink interfaces, outcome taxonomy, runner JSON serializer
 │       └── DefaultBrowserScriptCapabilityGate.kt  # production gate: experimental flag → Shizuku → preflight
@@ -309,6 +316,7 @@ app/src/main/kotlin/ai/closepaw/
 | Overlays | [overlay.md](ui/overlay.md) |
 | History persistence | [history/overview.md](app/history/overview.md) |
 | Settings | [settings.md](app/settings.md) |
+| Termux shell | [termux_shell.md](app/termux_shell.md) |
 | Evaluation | [eval.md](eval/eval.md) |
 
 ---
@@ -329,6 +337,7 @@ app/src/main/kotlin/ai/closepaw/
 | **Context Hygiene** | Token-efficient history management (compression pipeline) | [planning.md](agent/planning.md), [history/runtime.md](app/history/runtime.md) |
 | **Cross-Session Memory** | Persistent app-specific learnings recalled per turn | [memory.md](agent/memory.md) |
 | **Agent Skills** | agentskills.io-compatible task/capability skills with catalog + on-demand activation | [agent_skills.md](agent/agent_skills.md) |
+| **termux_shell** | Full Linux bash runtime through an installed F-Droid Termux bridge | [termux_shell.md](app/termux_shell.md) |
 
 ---
 

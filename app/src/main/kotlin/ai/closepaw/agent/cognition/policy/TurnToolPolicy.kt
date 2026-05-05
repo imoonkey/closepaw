@@ -5,6 +5,12 @@ import ai.closepaw.agent.TurnResult
 import ai.closepaw.tool.ToolName
 
 private val COMPLETE_TASK_TOOL = ToolName.CompleteTask.raw
+private val HOISTABLE_TOOL_NAMES =
+        setOf(
+                ToolName.Scratchpad.canonical,
+                ToolName.WriteTodos.canonical,
+                ToolName.RememberExperience.canonical
+        )
 
 /**
  * Result of choosing which tool calls from one LLM turn should actually execute.
@@ -33,10 +39,11 @@ internal data class CompletionDecision(
 internal class TurnToolPolicy {
     /**
      * Arbitration rule:
-     * - Keep all non-screen-changing (cognitive) tools.
-     * - Keep all screen-changing tools (multi-action per turn).
+     * - Hoist only cognitive tools.
+     * - Keep other selected tools in model order.
      * - Keep `complete_task` only when no screen-changing tool is selected.
      *
+     * Shell-like tools are not hoistable; they keep the LLM's ordering.
      * Navigation isolation (click-to-navigate, back, open_app should be alone)
      * is enforced at the prompt layer, not here.
      */
@@ -54,22 +61,26 @@ internal class TurnToolPolicy {
 
         val completionCall = toolCalls.find { it.name == COMPLETE_TASK_TOOL }
         val hasCompletionTool = completionCall != null
+        val nonCompletionCalls = toolCalls.filter { it.name != COMPLETE_TASK_TOOL }
         val screenCalls =
-                toolCalls.filter { call ->
-                        call.name != COMPLETE_TASK_TOOL && ToolName.from(call.name).isScreenChanging
+                nonCompletionCalls.filter { call ->
+                        ToolName.from(call.name).isScreenChanging
                 }
-        val cognitiveCalls =
-                toolCalls.filter { call ->
-                        call.name != COMPLETE_TASK_TOOL &&
-                                !ToolName.from(call.name).isScreenChanging
+        val hoistableCalls =
+                nonCompletionCalls.filter { call ->
+                        ToolName.from(call.name).canonical in HOISTABLE_TOOL_NAMES
+                }
+        val orderedCalls =
+                nonCompletionCalls.filterNot { call ->
+                        ToolName.from(call.name).canonical in HOISTABLE_TOOL_NAMES
                 }
 
         val hasScreenAction = screenCalls.isNotEmpty()
         val selectedCompletion = if (!hasScreenAction) completionCall else null
         val selectedToolCalls =
                 buildList {
-                        addAll(cognitiveCalls)
-                        addAll(screenCalls)
+                        addAll(hoistableCalls)
+                        addAll(orderedCalls)
                         selectedCompletion?.let(::add)
                 }
 

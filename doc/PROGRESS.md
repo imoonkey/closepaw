@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-05-05: termux_shell tool: Linux bash for the agent via Termux bridge
+
+**What changed:**
+- Added `termux_shell`, a full bash ToolSpec backed by a Python bridge daemon inside Termux on `127.0.0.1:18422`. `TermuxBridgeManager` now owns Termux detection, explicit setup, start-only session readiness, a 30-minute idle-exit restart path, typed setup reasons, and immutable per-session capability snapshots. Standalone, Planner, and Executor expose the tool when F-Droid Termux is enabled and bridge-ready; `shell` remains the restricted Android toybox path.
+
+**Why:**
+- The agent needs a general-purpose Linux runtime for git, python, builds, tests, and data processing alongside Android UI automation.
+
+**Key files:** `tools/termux-bridge/closepaw_bridge.py`, `app/src/main/kotlin/ai/closepaw/termux/{TermuxBridgeManager,TermuxRunCommandAdapter,TermuxBridgeStatus}.kt`, `app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt`, `app/src/main/kotlin/ai/closepaw/agent/definition/{AgentRoleDef,WorkspaceShellPromptSection}.kt`, `app/src/main/kotlin/ai/closepaw/session/{SessionServices,SessionToolingBootstrapper}.kt`, `doc/main/app/termux_shell.md`, `projects/active/termux_shell/implementation_summary.md`
+**Verification:** `./gradlew assembleDebug`, `./gradlew test`, `python3 -m pytest tools/termux-bridge/tests -q`, emulator QA on Termux 0.118.1, and real-device QA on P0110 (`100.64.43.95:5555`, Android 16) for OEM FGS/BAL restriction handling.
+**Commit:** `f2179ed9^..9a6def5e` (32 implementation commits; final hardening from `cac2ca64..9a6def5e`)
+**Next:** None for this branch; shell security hardening continues under `projects/active/shell_security/`.
+**Blockers:** OEM ROMs may require the user to launch Termux manually before setup; the shipped `TERMUX_NOT_RUNNING` reason and Settings hint cover this.
+
 ## 2026-05-04: Browser CDP — phase 5/6 cleanup + production hardening (milestone DONE)
 
 **What changed:**

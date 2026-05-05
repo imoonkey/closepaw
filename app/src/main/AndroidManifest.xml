@@ -6,14 +6,19 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <!-- Shizuku permission for virtual display operations -->
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
-    <!-- Package visibility: Allow querying all launchable apps (Android 11+) -->
+    <!-- Package visibility: Allow querying launchable apps and Termux RUN_COMMAND (Android 11+) -->
     <queries>
+        <package android:name="com.termux" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="com.termux.RUN_COMMAND" />
         </intent>
     </queries>
 

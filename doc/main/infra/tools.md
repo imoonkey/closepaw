@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, PolicyEngine, and tool execution lifecycle.
-> Last updated: 2026-05-02 (browser-session-integration)
+> Last updated: 2026-05-05 (termux_shell)
 
 ## Overview
 
@@ -80,7 +80,7 @@ Decision inputs: `(toolName, params, packageName, destinationPackage?) → Polic
 
 Decision flow:
 
-1. **Non-screen-changing tools** (scratchpad, write_todos, remember_experience, complete_task, ask_user, shell) → always `Allow`
+1. **Non-screen-changing tools** (scratchpad, write_todos, remember_experience, complete_task, ask_user, shell, termux_shell) → always `Allow`
 2. **Escape actions** (system_button back/home) → always `Allow` (agent must not be trapped in a blocked app)
 3. **BLOCKED app** → always `Deny`, even in `AUTO_APPROVE` mode (absolute floor)
 4. **`browser_script` special rule** → after the BLOCKED-app floor and before user allow-lists,
@@ -136,6 +136,7 @@ Classifies Android packages into security tiers.
 | `delegate_task` | Sub-agent delegation (PRO mode, always routes to executor) | `query`, `important_notes` |
 | `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
 | `shell` | Execute file-related shell commands | `command`, optional `timeout_ms` |
+| `termux_shell` | Execute full Linux bash through the Termux bridge | `command`, optional `cwd`, `timeout_seconds`, `env` |
 | `remember_experience` | Save reusable learning to long-term memory | `category`, `content`, optional `package_name` |
 | `browser_script` | Run a JS automation script against the user's real Chrome over CDP | `script`, optional `timeout_ms` |
 
@@ -144,6 +145,16 @@ Classifies Android packages into security tiers.
 `ask_user` is registered lazily in `SessionAgentRunner.start()`. It suspends the agent coroutine via `UserResponseChannel` (CompletableDeferred) until the user responds through the capsule UI, or times out after 5 minutes. See [session.md](session.md) for `UserResponseChannel` details.
 
 `shell` executes shell commands on the device via `ProcessBuilder("sh", "-c", command)` with a 10s timeout. Two layers of validation: (1) **metacharacter rejection** — `;`, `|`, `&`, `` ` ``, `>`, `<`, `$`, newline, and CR are rejected at validation time to prevent chaining/bypass; (2) **blocklist** — first token checked against `am`, `pm`, `reboot`, `su`, `env`, `xargs`, `find`. Output is capped at `MAX_OUTPUT_CHARS` (4096) with a truncation indicator when exceeded. Password field text is suppressed at the perception layer (Perceptor checks `AccessibilityNodeInfo.isPassword()`).
+
+`termux_shell` runs bash through a Python bridge daemon inside Termux. It supports pipes,
+redirects, git, python, ripgrep, and installed Termux packages. The tool is registered only when
+the session's immutable `TermuxCapabilitySnapshot` is enabled and ready. Non-zero exit codes and
+command timeouts are returned as structured tool output; bridge transport/protocol failures are
+tool failures. The tool is non-screen-changing and non-hoistable, so it keeps the LLM-returned order
+with UI tools.
+
+→ See: [app/termux_shell.md](../app/termux_shell.md) for bridge setup, lifecycle, state reasons, and
+known OEM limitations.
 
 `remember_experience` writes a timestamped entry to the persistent memory store. Categories: `app` (requires `package_name`), `user_pref`, `device`. Content is prefixed with kind tags (`[workflow]`, `[pitfall]`, `[verification]`). Classified as cognitive (non-screen-changing) and auto-allowed. A **memory gate** blocks writes when the foreground app is BLOCKED (financial/auth), preventing the agent from creating persistent knowledge about blocked app content. Registered eagerly in `SessionServices.create()`.
 

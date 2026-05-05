@@ -9,10 +9,12 @@ import ai.closepaw.agent.AgentExecutionConfig
 import ai.closepaw.agent.AgentExecutionRole
 import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentDefRegistry
+import ai.closepaw.agent.definition.ResolvedAgentRole
 import ai.closepaw.agent.subagent.IsolatedSubAgentRunner
 import ai.closepaw.protocol.AgentEvent
 import ai.closepaw.protocol.SessionId
 import ai.closepaw.protocol.SessionConfig
+import ai.closepaw.tool.ToolName
 import ai.closepaw.tool.impl.DelegateTaskTool
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -55,7 +57,12 @@ internal class SessionAgentRunner(
 
     fun start(taskInput: String, taskId: String) {
         val agentDef = AgentDefRegistry.mainFor(config.agentMode)
-        if ("delegate_task" in agentDef.allowedTools) {
+        val resolvedAgentDef: ResolvedAgentRole = agentDef.resolve(
+            snapshot = services.termuxSnapshot,
+            excludedTools = config.excludedTools.toToolNames()
+        )
+
+        if (ToolName.DelegateTask.raw in resolvedAgentDef.allowedToolNames) {
             ensureDelegationToolRegistered()
         }
         ensureAskUserToolRegistered()
@@ -63,7 +70,7 @@ internal class SessionAgentRunner(
         val signal = CompletableDeferred<AgentStopReason>()
 
         // Resolve model name based on agent role
-        val modelName = when (agentDef.executionRole) {
+        val modelName = when (resolvedAgentDef.executionRole) {
             AgentExecutionRole.STANDALONE,
             AgentExecutionRole.PLANNER -> config.mainModel
             AgentExecutionRole.EXECUTOR -> config.executorModel ?: config.mainModel
@@ -76,10 +83,10 @@ internal class SessionAgentRunner(
             maxTurns = config.maxTurns,
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
-            systemPrompt = resolvePromptTemplates(agentDef.systemPrompt),
-            allowedToolNames = agentDef.allowedTools - config.excludedTools,
+            systemPrompt = resolvePromptTemplates(resolvedAgentDef.systemPrompt),
+            allowedToolNames = resolvedAgentDef.allowedToolNames,
             agentId = sessionId.value,
-            agentRole = agentDef.executionRole,
+            agentRole = resolvedAgentDef.executionRole,
             modelName = modelName
         )
 
@@ -164,6 +171,8 @@ internal class SessionAgentRunner(
         )
         services.toolRegistry.register(askUserTool)
     }
+
+    private fun Set<String>.toToolNames(): Set<ToolName> = map { ToolName.from(it) }.toSet()
 
     suspend fun pause(): Deferred<Unit> {
         val currentAgent = synchronized(stateLock) { state.agent }

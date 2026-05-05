@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Debug: block cleartext by default, allow only for emulator loopback -->
+    <!--
+        Debug-only: 10.0.2.2 (emulator host) and localhost permitted in addition
+        to 127.0.0.1 for developer tooling. Release config
+        (app/src/main/res/xml/network_security_config.xml) only permits
+        127.0.0.1 for the Termux bridge.
+    -->
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">10.0.2.2</domain>

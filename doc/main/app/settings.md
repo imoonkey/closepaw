@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-05-02 (browser automation experimental flag)
+> Last updated: 2026-05-05 (termux_shell toggle)
 
 ## Overview
 
@@ -33,6 +33,7 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | `maxTurns` | `Int` | `20` | Max turns per task (UI default; protocol default is 50) |
 | `debugMode` | `Boolean` | `false` | Verbose logging + debug artifacts |
 | `browserScriptEnabled` | `Boolean` | `false` | Enables experimental `browser_script` execution gate |
+| `termuxShellEnabled` | `Boolean` | `true` | Allows `termux_shell` exposure when Termux is installed and bridge-ready |
 
 ### Platform
 
@@ -107,6 +108,7 @@ The settings UI is a full-screen page overlay with sub-page navigation (system b
 | Local Model | Model selection + loading status indicator (visible when Local) |
 | Max Turns | Dropdown: 10, 20, 50 |
 | Execution Mode | Basic/Pro dropdown (`AgentModeDropdown`) |
+| Termux Shell | Enable toggle plus install/setup/restart state row for `termux_shell` |
 | Perception Mode | 3-button toggle: Accessibility Only, Hybrid, Screenshot Only |
 | API Keys | LLM & Authentication page (mode → provider → model hierarchy: Sign In / API Key / Local tabs) — see Auth Section below |
 | Permissions | Accessibility Service + Overlay permission status indicators |
@@ -147,6 +149,7 @@ ui/settings/
 - `debug_mode` — boolean
 - `trace_enabled` — boolean
 - `browser_script_enabled` — boolean, gates `browser_script` before Shizuku/Chrome preflight
+- `termux_shell_enabled` — boolean, gates `termux_shell` exposure at the next session snapshot
 - `perception_mode` — `accessibility_only`, `screenshot_only`, `hybrid`
 - `platform_mode` — `ACCESSIBILITY`, `VIRTUAL_DISPLAY`
 - `model` / `executor_model` — model name strings
@@ -157,6 +160,13 @@ The browser automation toggle lives under **Permissions & Advanced → Experimen
 only permits the runtime capability gate to continue; `browser_script` still requires Shizuku
 availability, Shizuku permission, Chrome DevTools socket preflight, and the normal tool policy
 approval flow.
+
+The Termux Shell row lives under **Agent Behavior → Execution**. The row can render
+`NotInstalled`, `NeedsSetup(reason)`, `SetupInProgress`, `Ready`, or `Disabled`; full bootstrap runs
+only from an explicit row action. Setting changes apply to the next session because
+`SessionServices.create(...)` captures an immutable Termux capability snapshot.
+
+→ See: [termux_shell.md](termux_shell.md) for setup states, lifecycle invariants, and OEM limits.
 
 `AuthStore` keys (`EncryptedSharedPreferences`, file `auth_store.xml`):
 - One entry per `LLMProvider.name` (e.g. `OPENAI_API`, `OPENAI_CODEX`, `OPENROUTER`, `NOVITA`), value is a JSON-encoded `AuthCredential` (`ApiKey` or `OAuth`).

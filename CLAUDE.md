@@ -13,6 +13,7 @@ AI-powered Android automation using accessibility services. Kotlin/Jetpack Compo
 
 **Architecture Docs**: `doc/main/`
 **Dev Workflow**: `doc/dev/development.md`
+**Termux Shell**: `termux_shell` joins the agent tool roster when F-Droid Termux is installed, enabled, and bridge-ready. See `doc/main/app/termux_shell.md`.
 
 ## Critical Rules
 

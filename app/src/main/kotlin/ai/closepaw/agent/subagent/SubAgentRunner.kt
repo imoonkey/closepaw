@@ -5,12 +5,14 @@ import ai.closepaw.agent.AgentEventDispatcher
 import ai.closepaw.agent.AgentExecutionConfig
 import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentRoleDef
+import ai.closepaw.agent.definition.ResolvedAgentRole
 import ai.closepaw.agent.cognition.policy.DelegationSummaryFormatter
 import ai.closepaw.history.HistoryManager
 import ai.closepaw.history.ResponseItem
 import ai.closepaw.protocol.*
 import ai.closepaw.session.AgentSessionState
 import ai.closepaw.session.SessionServices
+import ai.closepaw.tool.ToolName
 import ai.closepaw.tool.ToolRouter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
@@ -61,8 +63,12 @@ internal class IsolatedSubAgentRunner(
     override suspend fun run(request: SubAgentRequest): SubAgentResult {
         val childTaskId = "sub-${roleDef.name}-${System.currentTimeMillis()}"
         val childSessionId = SessionId("${parentSessionId.value}::$childTaskId")
+        val resolvedRoleDef: ResolvedAgentRole = roleDef.resolve(
+            snapshot = parentServices.termuxSnapshot,
+            excludedTools = parentServices.config.excludedTools.toToolNames()
+        )
         val childTools = parentServices.toolRegistry.createFilteredCopy(
-            allowedNames = roleDef.allowedTools,
+            allowedNames = resolvedRoleDef.allowedToolNames,
             excludedNames = setOf("delegate_task")
         )
         // Share scratchpad by reference on purpose so planner/executor exchange state in one turn.
@@ -85,13 +91,13 @@ internal class IsolatedSubAgentRunner(
                 goal = request.toGoal(),
                 sessionId = childSessionId,
                 taskId = childTaskId,
-                maxTurns = roleDef.maxTurns,
+                maxTurns = resolvedRoleDef.maxTurns,
                 uiSettleDelayMs = parentServices.config.actionDelayMs,
                 debugMode = parentServices.config.debugMode,
-                systemPrompt = roleDef.systemPrompt,
-                allowedToolNames = roleDef.allowedTools,
+                systemPrompt = resolvedRoleDef.systemPrompt,
+                allowedToolNames = resolvedRoleDef.allowedToolNames,
                 agentId = childSessionId.value,
-                agentRole = roleDef.executionRole,
+                agentRole = resolvedRoleDef.executionRole,
                 parentSessionId = parentSessionId,
                 delegationCallId = request.delegationCallId,
                 modelName = childModelName
@@ -101,7 +107,7 @@ internal class IsolatedSubAgentRunner(
             cancellationSignal = CompletableDeferred()
         )
 
-        val stopReason = withTimeoutOrNull(roleDef.timeoutMs) {
+        val stopReason = withTimeoutOrNull(resolvedRoleDef.timeoutMs) {
             childAgent.run()
         }
         val completion = extractCompletion(childServices.historyManager)
@@ -118,7 +124,7 @@ internal class IsolatedSubAgentRunner(
             }
             AgentStopReason.MaxTurnsReached -> {
                 val narrative = DelegationSummaryFormatter.format(
-                    maxTurns = roleDef.maxTurns,
+                    maxTurns = resolvedRoleDef.maxTurns,
                     delegatedQuery = request.query,
                     history = childServices.historyManager.getAll()
                 )
@@ -139,7 +145,7 @@ internal class IsolatedSubAgentRunner(
                 SubAgentResult(success = false, message = stopReason.message)
             }
             null -> {
-                SubAgentResult(success = false, message = "Timeout after ${roleDef.timeoutMs}ms")
+                SubAgentResult(success = false, message = "Timeout after ${resolvedRoleDef.timeoutMs}ms")
             }
         }
     }
@@ -165,6 +171,8 @@ internal class IsolatedSubAgentRunner(
         )
     }
 }
+
+private fun Set<String>.toToolNames(): Set<ToolName> = map { ToolName.from(it) }.toSet()
 
 private data class CompletionPayload(
     val status: String,
