@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionCoordinator, SessionServices, and session lifecycle.
-> Last updated: 2026-05-02 (bundled Agent Skill install)
+> Last updated: 2026-05-05 (termux_shell snapshot)
 
 ## AgentSession
 
@@ -135,6 +135,7 @@ Dependency-injection container for all session-scoped services. Created via fact
 | `traceRecorder` | Trace persistence sink |
 | `recordingService` | Session history recording |
 | `browserSessionManager` | Session-scoped owner for browser CDP/WebView/Shizuku resources |
+| `termuxSnapshot` | Immutable Termux bridge capability snapshot for this session |
 | `appSkillRepository` | Loads `app_skills/<package>/SKILL.md` assets for per-turn prompt injection |
 | `userResponseChannel` | Suspension bridge for `ask_user` tool (CompletableDeferred) |
 | `memoryStore` | Persistent cross-session memory I/O (`memory/MemoryStore.kt`) |
@@ -169,6 +170,15 @@ Shizuku bindings.
 
 → See: [browser.md](browser.md) for the browser runtime lifecycle and policy rule.
 
+Termux runtime wiring is also captured at session creation. `SessionServices.create(...)` asks
+`TermuxBridgeManager.ensureReadyForSession(...)` to restart an already-deployed idle bridge without
+running package install, then snapshots `TermuxCapabilitySnapshot`. `SessionToolingBootstrapper`
+uses that snapshot to register `termux_shell`, and `AgentRoleDef.resolve(...)` uses the same
+snapshot to inject the workspace-shell prompt for Standalone, Planner, and Executor roles. The
+snapshot remains fixed for the session, including Hot Idle follow-up tasks.
+
+→ See: [termux_shell.md](../app/termux_shell.md) for setup states, bridge lifecycle, and OEM limits.
+
 ### Cleanup
 
 `SessionServices.cleanup()` cancels active tools, closes `browserSessionManager`, then calls
@@ -185,6 +195,7 @@ Built-in tool registration includes:
 - `mobile_action`, `open_app`, `system_button`, `wait`
 - `write_todos`, `scratchpad`, `complete_task`
 - `shell` (restricted file-related shell command execution)
+- `termux_shell` (full bash through Termux, only when the session snapshot is enabled and ready)
 - `remember_experience` (registered in `SessionServices.create()`)
 - `browser_script` (registered in `SessionServices.create()` with session-scoped browser runtime)
 
