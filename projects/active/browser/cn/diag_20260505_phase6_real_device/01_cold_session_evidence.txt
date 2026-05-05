@@ -1,0 +1,45 @@
+Phase 6 cumulative real-device re-test — COLD-SESSION evidence
+================================================================
+Date:          2026-05-05
+Device:        nubia P0110 (pacific) Android 16, transport=100.64.43.95:5555
+Build SHA:     cb099d7a (main HEAD; full Phase 5+6 milestone)
+APK:           app/build/outputs/apk/debug/app-debug.apk (233 MB, built fresh)
+Goal:          "Use browser_script to fetch document.title from open https://example.com"
+Mode:          DEBUG_AUTO_APPROVE=true / basic / accessibility_only
+Run dir:       debug-output/run_20260505_103043
+
+Pre-run state (force fresh pair + strip host plumbing):
+  $ adb shell run-as ai.closepaw rm -rf files/adb_self_pair  # OK
+  $ adb forward --remove-all                                  # OK
+  $ adb reverse --remove-all                                  # OK
+
+CASCADE evidence (USER_SERVICE → WIRELESS_ADB_SELF_PAIR):
+  Line  6912 — UserServiceManager: New service record ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService
+                                    (USER_SERVICE strategy chosen first)
+  Line  7253 — JavaBinder: java.io.IOException: Permission denied
+                            at android.net.LocalSocketImpl.connectLocal(Native Method)
+                            at ChromeDevtoolsUserService.exchange(:58)
+              (USER_SERVICE blocked on this OEM — connectLocal to chrome devtools abstract socket
+               denied for the spawned Shizuku UID 2000 process)
+  Line  7257 — WirelessAdbSelfPair: wireless-adb bootstrap: starting   ← cascade fired
+  Line  7315 — WirelessAdbSelfPair: wireless-adb bootstrap: (a) enableWirelessDebugging ok
+  Line  7316 — WirelessAdbSelfPair: wireless-adb bootstrap: (b) tls port = 41089
+  Line  7399 — WirelessAdbSelfPair: wireless-adb pairing complete; future runs reuse persisted key
+  Line  7444 — WirelessAdbSelfPair: wireless-adb bootstrap: complete
+  Line  7768 — WirelessAdbSelfPair: wireless-adb WS relay on 127.0.0.1:40337   ← Phase 6 token-gated relay opened
+
+CDP traffic (via WS relay over wireless ADB tunnel):
+  Tool call (line 6861):
+      browser_script({"script":"const { targetInfos } = await cdp('Target.getTargets'); ...
+                       await cdp('Target.attachToTarget', { targetId: page.targetId, flatten: true });
+                       await cdp('Runtime.evaluate', {expression:'document.title', ...})", "timeout_ms":30000})
+  Line  8497 — AgentEventDispatcher: ActionExecuted: browser_script outcome=SUCCESS
+
+Final outcome:
+  Line  9474 — AgentService: Task completed: task-1778002315614, outcome: GOAL_ACHIEVED
+  Final answer: document.title is: Example Domain
+  Turn count: 5 turns
+
+Verdict:        PASS — full cumulative chain (USER_SERVICE attempt → cascade →
+                wireless-adb bootstrap → fresh pair → token-gated WS relay → CDP roundtrip
+                → Runtime.evaluate result) works end-to-end on a real OEM-locked device.

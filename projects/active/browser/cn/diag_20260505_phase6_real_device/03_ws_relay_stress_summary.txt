@@ -1,0 +1,36 @@
+Phase 6 cumulative real-device re-test — WS relay stress harness (5 iterations on nubia)
+==========================================================================================
+Date:          2026-05-05
+Device:        nubia P0110 (pacific) Android 16
+Command:       ANDROID_SERIAL=100.64.43.95:5555 bash scripts/ws-relay-stress.sh -n 5
+Output dir:    debug-output/ws-stress-20260505_110308/
+
+Per-iteration outcomes (all 5 iter directories under debug-output/run_20260505_110316
+through debug-output/run_20260505_110655):
+
+  Iteration 1: pid=14241  fd=277  socket_fd=20  ✓ browser_script SUCCESS + GOAL_ACHIEVED + WS relay
+  Iteration 2: pid=14241  fd=279  socket_fd=20  ✓ browser_script SUCCESS + GOAL_ACHIEVED + WS relay
+  Iteration 3: pid=14241  fd=279  socket_fd=20  ✓ browser_script SUCCESS + GOAL_ACHIEVED + WS relay
+  Iteration 4: pid=14241  fd=279  socket_fd=20  ✓ browser_script SUCCESS + GOAL_ACHIEVED + WS relay
+  Iteration 5: pid=14241  fd=279  socket_fd=20  ✓ browser_script SUCCESS + GOAL_ACHIEVED + WS relay
+
+Leak signal (per-iteration delta, iter1 → iter5):
+  fd_delta         = 2  (within harness's +2 slack)
+  socket_fd_delta  = 0  (no relay-side leak — the load-bearing assertion)
+  EMFILE / Too-many-open-files lines across all per-iter logcats: 0
+
+Process stability:
+  pid_before=14241   pid_after=14241   (no app crash, no respawn)
+
+Bootstrap cost (cold → iter 1, one-time, NOT a leak):
+  fd=-43            (settled below cold baseline as transient handles closed)
+  socket_fd=0       (no extra sockets accumulated)
+
+Per-iter pair-skipped: 0/5 — consistent with nubia OEM denying adb_keys read
+(documented in 02_warm_pair_check_evidence.txt). All 5 iters re-paired
+successfully and the relay WS still opened cleanly each time. Harness's
+informational note explicitly calls this out as harmless to the leak check.
+
+Final harness verdict (from stress.log):
+  "PASS: pid stable, per-iter socket_fd_delta=0, per-iter fd_delta=2, EMFILE=0,
+   all 5 iterations verified"

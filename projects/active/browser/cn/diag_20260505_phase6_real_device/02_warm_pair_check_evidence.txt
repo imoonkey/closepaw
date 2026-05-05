@@ -1,0 +1,49 @@
+Phase 6 cumulative real-device re-test — WARM-RUN re-pair evidence (qa-mid finding confirmed)
+==============================================================================================
+Date:          2026-05-05
+Device:        nubia P0110 (pacific) Android 16
+Run dir:       debug-output/run_20260505_110152
+
+Pre-run state (pair cache PRESERVED, host plumbing stripped, app fresh-launched):
+  $ adb shell run-as ai.closepaw ls files/adb_self_pair
+    cert.x509.der            ← persisted from cold run
+    private.pkcs8.der        ← persisted from cold run
+  $ adb forward --remove-all
+  $ adb reverse --remove-all
+
+What we want to observe:
+  Pair-once optimization should kick in iff `wirelessManager.isPubkeyAuthorized()`
+  returns true, which requires the app to read /data/misc/adb/adb_keys.
+
+  See WirelessAdbSelfPairTransport.kt:144-150 :
+      if (keyStore.isPersisted() && wirelessManager.isPubkeyAuthorized(pubkeyBase64)) {
+          Log.i(TAG, "wireless-adb pair skipped: pubkey already authorized")
+          ...
+      }
+      ...
+      Log.i(TAG, "wireless-adb pairing complete; future runs reuse persisted key")
+
+What this OEM (nubia) does:
+  Line  5391 — ChromeDevtoolsUS: could not read /data/misc/adb/adb_keys:
+                                 /data/misc/adb/adb_keys: open failed: EACCES (Permission denied)
+              ⇒ isPubkeyAuthorized() returns false on this OEM
+  Line  5430 — WirelessAdbSelfPair: wireless-adb pairing complete; future runs reuse persisted key
+              ⇒ Falls through to full re-pair (silently degraded, not a failure)
+  Line  5768 — WirelessAdbSelfPair: wireless-adb WS relay on 127.0.0.1:39271
+              ⇒ Token-gated relay opens normally on a fresh port; Phase 6 unaffected.
+
+End-to-end still PASS:
+  Line  6476 — AgentEventDispatcher: ActionExecuted: browser_script outcome=SUCCESS
+  Line  7624 — AgentService: Task completed: task-1778004184017, outcome: GOAL_ACHIEVED
+  Final answer: document.title is "Example Domain".
+
+Conclusion:
+  Pair-skip is NOT observable on this OEM — exactly as documented in the qa-mid
+  finding: "nubia denies shell-uid read of adb_keys". The transport silently
+  re-pairs every cold session. This is correctness-equivalent to pair-once on
+  permissive ROMs (emulator pair-skip works as expected, see prior round-1
+  03_emu_full_chain_evidence.txt). The pair-once feature is a perf optimization,
+  not a correctness invariant; functional Phase 6 behavior is unaffected.
+
+Verdict:        PASS (warm path) + OEM-specific pair-skip degradation observed and
+                documented. Does not block production-ready confirmation.

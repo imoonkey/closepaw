@@ -835,3 +835,62 @@ All under `projects/active/browser/cn/`:
 - (Round-1 evidence retained: `cn/diag_20260504_phase6_qa/01_*`,
   `02_*`, `03_*` and `cn/phase6_codex_review.md`.)
 
+---
+
+## Phase 6 production-ready re-test — 2026-05-05 — PASS
+
+### Summary
+
+Cumulative real-device QA on `cb099d7a` (main HEAD with the full Phase 5+6
+milestone landed). Goal: confirm the production-ready state — full cascade
+USER_SERVICE → WIRELESS_ADB_SELF_PAIR, pair-once with persisted key,
+token-gated WS relay, switchMutex/per-LiveConnection pending, BC 1.84,
+in-house Spake25519, and session-scoped storeArtifact quota — still works
+end-to-end on a real OEM-locked device after Phase 5+6 cleanup. Three
+independent checks: (a) cold-session full cascade, (b) warm-run re-pair
+behavior on this OEM, (c) WS-relay stress (5 iters, leak signal).
+
+### Per-check results
+
+| # | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | Cold-session full cascade | **PASS** | nubia P0110 (Android 16) on `100.64.43.95:5555`, fresh APK from `cb099d7a`. Pre-run: `rm -rf files/adb_self_pair`, `forward --remove-all`, `reverse --remove-all`. Run: `debug-output/run_20260505_103043/`. USER_SERVICE attempted (`UserServiceManager: New service record … ChromeDevtoolsUserService`, line 6912), denied on connectLocal abstract socket (`JavaBinder: java.io.IOException: Permission denied at LocalSocketImpl.connectLocal` → `ChromeDevtoolsUserService.exchange:58`, line 7253) — exactly the documented OEM lockout. Cascade fires (`WirelessAdbSelfPair: wireless-adb bootstrap: starting`, line 7257), Shizuku enables wireless-debugging (line 7315), TLS port discovered (line 7316), fresh pair completes (`pairing complete; future runs reuse persisted key`, line 7399), bootstrap closes (line 7444), token-gated WS relay opens on `127.0.0.1:40337` (line 7768). Agent issues `browser_script` with `Target.getTargets → Target.attachToTarget(flatten:true) → Runtime.evaluate('document.title')`; `ActionExecuted: browser_script outcome=SUCCESS` (line 8497); `Task completed: outcome: GOAL_ACHIEVED` (line 9474); final answer "Example Domain" in 5 turns. |
+| 2 | Warm-run re-pair (qa-mid OEM finding confirmed) | **PASS** (functional) + pair-skip silently degraded on this OEM | After cold run, pair cache (`cert.x509.der` + `private.pkcs8.der`) persists. Re-run with cache intact (`debug-output/run_20260505_110152/`). The pair-skip path requires reading `/data/misc/adb/adb_keys` — on nubia it logs `ChromeDevtoolsUS: could not read /data/misc/adb/adb_keys: open failed: EACCES (Permission denied)` (line 5391), so `wirelessManager.isPubkeyAuthorized()` returns false. Transport falls through to a full re-pair: `wireless-adb pairing complete; future runs reuse persisted key` (line 5430) and a fresh WS relay opens on `127.0.0.1:39271` (line 5768). End-to-end still PASS: `browser_script outcome=SUCCESS` (line 6476), `outcome: GOAL_ACHIEVED` (line 7624), final answer "Example Domain". This matches the qa-mid finding exactly: pair-once is a perf optimization that requires shell-uid `adb_keys` read, which this OEM denies; correctness is unaffected. |
+| 3 | WS relay stress (5 iter, leak signal) | **PASS** | `ANDROID_SERIAL=100.64.43.95:5555 bash scripts/ws-relay-stress.sh -n 5` → output dir `debug-output/ws-stress-20260505_110308/`. All 5 iters: `browser_script outcome=SUCCESS`, `outcome: GOAL_ACHIEVED`, `wireless-adb WS relay` opened. PID stable across whole run (`pid_before=14241 pid_after=14241`). Per-iter leak signal `fd_delta=2` (within harness's +2 slack), **`socket_fd_delta=0`** (the load-bearing assertion — relay closes its `ServerSocket` and per-stream FDs cleanly), `EMFILE/Too-many-open-files=0` across every iter logcat. Pair-skipped 0/5 (expected on this OEM, see #2 — harness explicitly calls this out as harmless to the leak check). Iter run dirs: `run_20260505_110316`, `_110412`, `_110510`, `_110602`, `_110655`. Final harness verdict: "PASS: pid stable, per-iter socket_fd_delta=0, per-iter fd_delta=2, EMFILE=0, all 5 iterations verified". |
+
+### Build baseline
+
+`./gradlew :app:assembleDebug` from `cb099d7a` → BUILD SUCCESSFUL in 13s
+(`app/build/outputs/apk/debug/app-debug.apk`, 233 MB; 38 actionable tasks, 18
+executed, 20 from cache). `setup.sh` confirmed Shizuku running (pid 9226),
+overlay + accessibility permissions granted, app launched.
+
+### Gate verdict
+
+**PASS — production-ready confirmation.** Cumulative Phase 5+6 state is
+end-to-end functional on a real OEM-locked Android-16 device. The cascade
+is exercised in cold runs (USER_SERVICE blocked → WIRELESS_ADB_SELF_PAIR
+takes over → token-gated WS relay carries CDP traffic → `Runtime.evaluate`
+returns `document.title`). The WS-relay leak signal is clean across 5
+back-to-back stress iters (socket_fd_delta=0, EMFILE=0, pid stable). The
+pair-once optimization is silently degraded on this specific OEM by the
+documented `adb_keys` EACCES — a known qa-mid finding that does not gate
+correctness; on permissive ROMs (emulator round-1 evidence) pair-skip
+fires as designed.
+
+### Diagnostic artifacts
+
+All under `projects/active/browser/cn/diag_20260505_phase6_real_device/`:
+
+- `01_cold_session_evidence.txt` — cold-session cascade walk-through with
+  line citations from `debug-output/run_20260505_103043/`.
+- `02_warm_pair_check_evidence.txt` — OEM `adb_keys` EACCES cause →
+  re-pair fallback observation; references the relevant
+  `WirelessAdbSelfPairTransport.kt:144-150` source path.
+- `03_ws_relay_stress_summary.txt` — per-iter pid/fd/socket_fd table +
+  final harness PASS line.
+
+Plus the live debug-output directories on disk:
+`debug-output/run_20260505_103043/` (cold), `_110152/` (warm), and
+`debug-output/ws-stress-20260505_110308/` with its 5 iter run dirs.
+
