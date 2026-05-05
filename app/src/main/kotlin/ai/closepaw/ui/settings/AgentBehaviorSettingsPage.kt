@@ -23,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -32,6 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.protocol.AgentMode
@@ -40,9 +44,9 @@ import ai.closepaw.termux.TermuxBridgeManager
 import ai.closepaw.termux.TermuxBridgeStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val TERMUX_INSTALL_URL = "https://f-droid.org/packages/com.termux/"
+private const val TERMUX_PACKAGE = "com.termux"
 
 @Composable
 internal fun AgentBehaviorSettingsPage(
@@ -101,25 +105,39 @@ private fun TermuxShellSettingsRow() {
         }
     }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, manager, termuxShellEnabled) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && termuxShellEnabled) {
+                scope.launch {
+                    val detected = manager.detectInstalled()
+                    if (detected !is TermuxBridgeStatus.NotInstalled) {
+                        manager.healthCheck()
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val displayedStatus = if (termuxShellEnabled) bridgeStatus else TermuxBridgeStatus.Disabled
     val rowAction: (() -> Unit)? =
         when (displayedStatus) {
             TermuxBridgeStatus.NotInstalled -> {
-                {
-                    scope.launch(Dispatchers.IO) {
-                        // Try detection first; only fall back to F-Droid if Termux really isn't there.
-                        val state = manager.setup()
-                        if (state is TermuxBridgeStatus.NotInstalled) {
-                            withContext(Dispatchers.Main) { context.openTermuxInstallPage() }
-                        }
-                    }
-                }
+                { context.openTermuxInstallPage() }
             }
             is TermuxBridgeStatus.NeedsSetup -> {
-                if (displayedStatus.reason == NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE) {
-                    { context.openTermuxInstallPage() }
-                } else {
-                    { scope.launch(Dispatchers.IO) { manager.setup() } }
+                when (displayedStatus.reason) {
+                    NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE -> {
+                        { context.openTermuxInstallPage() }
+                    }
+                    NeedsSetupReason.TERMUX_NOT_RUNNING -> {
+                        { context.launchTermux() }
+                    }
+                    else -> {
+                        { scope.launch(Dispatchers.IO) { manager.setup() } }
+                    }
                 }
             }
             TermuxBridgeStatus.Ready -> {
@@ -217,7 +235,7 @@ private fun NeedsSetupReason.toDisplayText(): String =
         NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING ->
             "Allow external apps is disabled in Termux. Enable it, then tap setup."
         NeedsSetupReason.TERMUX_NOT_RUNNING ->
-            "Termux is not running. Open Termux once, then return here and tap setup."
+            "Termux is not running. Tap to open Termux, then return here."
         NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE ->
             "This Termux build cannot accept external commands. Install Termux from F-Droid (the Google Play build is incompatible)."
         NeedsSetupReason.PACKAGES_MISSING -> "Missing packages — tap to install python/git/ripgrep"
@@ -233,5 +251,18 @@ private fun android.content.Context.openTermuxInstallPage() {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMUX_INSTALL_URL)))
     } catch (_: ActivityNotFoundException) {
         Toast.makeText(this, "Unable to open Termux install page", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun android.content.Context.launchTermux() {
+    val intent = packageManager.getLaunchIntentForPackage(TERMUX_PACKAGE)
+    if (intent == null) {
+        Toast.makeText(this, "Termux is not installed", Toast.LENGTH_SHORT).show()
+        return
+    }
+    try {
+        startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(this, "Unable to launch Termux", Toast.LENGTH_SHORT).show()
     }
 }
