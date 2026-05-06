@@ -4,7 +4,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.coroutines.resume
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
@@ -68,6 +69,7 @@ internal class ShizukuRuntimeGateway {
          * match on a unique request code, and suspend until it fires. The listener is cleaned
          * up on completion AND on coroutine cancellation (the user switching away mid-request).
          */
+        @OptIn(InternalCoroutinesApi::class)
         suspend fun requestPermissionAndAwait(): PermissionRequestResult {
                 val reqCode = requestCodeSeed.getAndIncrement()
                 return try {
@@ -79,7 +81,6 @@ internal class ShizukuRuntimeGateway {
                                         ) {
                                                 if (requestCode != reqCode) return
                                                 Shizuku.removeRequestPermissionResultListener(this)
-                                                if (!cont.isActive) return
                                                 val result =
                                                         if (grantResult ==
                                                                 PackageManager.PERMISSION_GRANTED
@@ -88,7 +89,8 @@ internal class ShizukuRuntimeGateway {
                                                         } else {
                                                                 PermissionRequestResult.Denied
                                                         }
-                                                cont.resume(result)
+                                                val token = cont.tryResume(result)
+                                                if (token != null) cont.completeResume(token)
                                         }
                                 }
                                 Shizuku.addRequestPermissionResultListener(listener)
@@ -100,11 +102,12 @@ internal class ShizukuRuntimeGateway {
                                 } catch (e: Exception) {
                                         Log.w(TAG, "Shizuku.requestPermission threw: ${e.message}")
                                         Shizuku.removeRequestPermissionResultListener(listener)
-                                        if (cont.isActive) {
-                                                cont.resume(PermissionRequestResult.Error)
-                                        }
+                                        val token = cont.tryResume(PermissionRequestResult.Error)
+                                        if (token != null) cont.completeResume(token)
                                 }
                         }
+                } catch (e: CancellationException) {
+                        throw e
                 } catch (e: Exception) {
                         Log.w(TAG, "Shizuku permission request failed: ${e.message}")
                         PermissionRequestResult.Error
