@@ -59,10 +59,35 @@ class AdbWirelessManager(
      * collisions across distinct keys are cryptographically impossible. Returns false on
      * unreadable adb_keys; caller re-pairs (idempotent on adbd).
      */
-    suspend fun isPubkeyAuthorized(pubkeyBase64: String): Boolean {
-        if (pubkeyBase64.isEmpty()) return false
-        val content = onBinder { it.readAdbKeys() } ?: return false
-        return content.contains(pubkeyBase64)
+    suspend fun isPubkeyAuthorized(pubkeyBase64: String): Boolean =
+        pubkeyAuthorizationStatus(pubkeyBase64) == AuthorizationStatus.AUTHORIZED
+
+    /**
+     * Tri-state variant of [isPubkeyAuthorized] that distinguishes "adb_keys exists but our
+     * key is not in it" from "adb_keys was unreadable to us" (locked OEMs whose shell uid is
+     * dropped from the `adb` group). Callers that maintain a pair-once cache need the
+     * distinction: only the [UNREADABLE] outcome justifies trusting the cache, because that's
+     * the case where re-pairing every cold session is the bug we're working around.
+     */
+    suspend fun pubkeyAuthorizationStatus(pubkeyBase64: String): AuthorizationStatus {
+        if (pubkeyBase64.isEmpty()) return AuthorizationStatus.NOT_AUTHORIZED
+        val content = onBinder { it.readAdbKeys() } ?: return AuthorizationStatus.UNREADABLE
+        return if (content.contains(pubkeyBase64)) {
+            AuthorizationStatus.AUTHORIZED
+        } else {
+            AuthorizationStatus.NOT_AUTHORIZED
+        }
+    }
+
+    enum class AuthorizationStatus {
+        /** `/data/misc/adb/adb_keys` was readable and contained our pubkey. */
+        AUTHORIZED,
+
+        /** `/data/misc/adb/adb_keys` was readable but our pubkey was absent. */
+        NOT_AUTHORIZED,
+
+        /** `/data/misc/adb/adb_keys` could not be read (typically EACCES on locked OEMs). */
+        UNREADABLE,
     }
 
     /**
