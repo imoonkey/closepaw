@@ -73,6 +73,15 @@ internal class RunCommandPermissionGate internal constructor(private val activit
     internal var hasAttempted by mutableStateOf(false)
         private set
 
+    /**
+     * True from the moment [requestPermission] launches the system dialog until the launcher
+     * callback fires. Drives the rapid-tap guard in [requestPermission] and is exposed so the
+     * UI can disable interaction while the dialog is up (the Switch in TermuxShellSettingsRow
+     * and the row tap can both reach [requestPermission] independently).
+     */
+    var pending by mutableStateOf(false)
+        private set
+
     private var launcher: ActivityResultLauncher<String>? = null
 
     internal fun attachLauncher(launcher: ActivityResultLauncher<String>) {
@@ -81,6 +90,11 @@ internal class RunCommandPermissionGate internal constructor(private val activit
 
     internal fun markAttempted() {
         hasAttempted = true
+    }
+
+    /** Re-arm the gate after the launcher callback fires, regardless of granted/denied. */
+    internal fun clearPending() {
+        pending = false
     }
 
     /** Read the current disposition. Safe to call from any thread; reads framework state. */
@@ -97,10 +111,15 @@ internal class RunCommandPermissionGate internal constructor(private val activit
 
     /**
      * Fire the system permission dialog. No-op if the launcher hasn't been attached yet
-     * (shouldn't happen during normal composition — guards against constructor-time taps).
+     * (constructor-time taps) OR if a previous request is still in flight — without the
+     * pending guard, rapid taps before the launcher callback fires would stack multiple
+     * system dialogs (and a late granted callback would still run setup unconditionally).
      */
     fun requestPermission() {
-        launcher?.launch(TERMUX_RUN_COMMAND_PERMISSION)
+        if (pending) return
+        val launcher = launcher ?: return
+        pending = true
+        launcher.launch(TERMUX_RUN_COMMAND_PERMISSION)
     }
 
     /** Send the user to ClosePaw's App Settings → Permissions page. */
@@ -131,6 +150,9 @@ internal fun rememberRunCommandPermissionGate(
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        // Clear pending FIRST so the gate is re-armed even if onResult throws or the caller's
+        // setup work bails. Order matters: mark-attempted is independent and fine either way.
+        gate.clearPending()
         gate.markAttempted()
         onResult(granted)
     }

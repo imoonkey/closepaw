@@ -1,6 +1,10 @@
 package ai.closepaw.ui.settings
 
+import android.app.Activity
+import androidx.activity.result.ActivityResultLauncher
 import com.google.common.truth.Truth.assertThat
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.Test
 
 /**
@@ -99,5 +103,54 @@ class RunCommandPermissionGateTest {
                 shouldShowRationale = true,
             )
         ).isEqualTo(RunCommandPermissionDisposition.Request)
+    }
+
+    /**
+     * In-flight guard: rapid double-taps before the launcher callback fires must not stack
+     * multiple system permission dialogs. Without [RunCommandPermissionGate.pending], a double
+     * tap from the user (or the simultaneous Switch+Row tap paths in TermuxShellSettingsRow)
+     * would call [ActivityResultLauncher.launch] twice — the system queues the second dialog
+     * after the first, and the late granted callback re-runs setup unconditionally.
+     */
+    @Test
+    fun `requestPermission ignores rapid double-tap while in flight`() {
+        val activity = mockk<Activity>(relaxed = true)
+        val launcher = mockk<ActivityResultLauncher<String>>(relaxed = true)
+        val gate = RunCommandPermissionGate(activity)
+        gate.attachLauncher(launcher)
+
+        gate.requestPermission()
+        gate.requestPermission()
+        gate.requestPermission()
+
+        verify(exactly = 1) { launcher.launch(TERMUX_RUN_COMMAND_PERMISSION) }
+        assertThat(gate.pending).isTrue()
+    }
+
+    @Test
+    fun `clearPending re-arms the gate for the next request`() {
+        val activity = mockk<Activity>(relaxed = true)
+        val launcher = mockk<ActivityResultLauncher<String>>(relaxed = true)
+        val gate = RunCommandPermissionGate(activity)
+        gate.attachLauncher(launcher)
+
+        gate.requestPermission()
+        gate.clearPending() // simulates the launcher callback firing
+        gate.requestPermission()
+
+        verify(exactly = 2) { launcher.launch(TERMUX_RUN_COMMAND_PERMISSION) }
+    }
+
+    @Test
+    fun `requestPermission without an attached launcher does not strand the pending flag`() {
+        // Constructor-time tap path: gate exists but SideEffect hasn't attached the launcher
+        // yet. Must be a true no-op — if pending got set without the launcher actually firing,
+        // the gate would deadlock (no callback → never clears → all future taps ignored).
+        val activity = mockk<Activity>(relaxed = true)
+        val gate = RunCommandPermissionGate(activity)
+
+        gate.requestPermission()
+
+        assertThat(gate.pending).isFalse()
     }
 }
