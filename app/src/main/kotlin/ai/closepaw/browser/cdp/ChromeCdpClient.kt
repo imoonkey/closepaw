@@ -10,6 +10,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -42,6 +43,22 @@ class ChromeCdpClient(
      * script that issues parallel `cdp(..., {targetId: ...})` calls leaks WS+fds per race.
      */
     private val switchMutex = Mutex()
+
+    /**
+     * Invoked after a successful target switch — either via the `targetId` option in [send]
+     * (direct-page mode opens a fresh WS, attach mode opens a fresh CDP session). The callback
+     * runs on the same coroutine that issued [send] and is awaited before the user's command
+     * hits the wire, so the new target has core domains (`Page`/`Runtime`/`DOM`/`Network`)
+     * enabled before any command observes its events. Without this, dialog tracking — which
+     * relies on `Page.javascriptDialogOpening` — silently breaks after the first tab switch.
+     *
+     * Bootstrap (`attachToFirstRealPage` / `useDirectPageTarget`) is NOT routed through this
+     * callback because [BrowserSessionManager] runs `enableCoreDomains` immediately after.
+     * Settable post-construction so the production wiring can install the hook without
+     * pushing it through every test factory override.
+     */
+    @Volatile
+    var onTargetActivated: (suspend () -> Unit)? = null
 
     val eventBuffer = ChromeCdpEventBuffer()
 
@@ -117,12 +134,18 @@ class ChromeCdpClient(
         params: JsonObject = JsonObject(emptyMap()),
         options: CdpOptions = CdpOptions(),
     ): JsonElement {
+        if (method == DIALOG_QUERY_METHOD) {
+            return resolveDialogState(options)
+        }
+
         if (options.targetId != null) {
             if (directPageWebSocketBase != null) {
-                switchDirectPageTarget(options.targetId)
+                val switched = switchDirectPageTarget(options.targetId)
+                if (switched) onTargetActivated?.invoke()
                 return sendRaw(method, params, sessionId = null)
             }
             val sid = attachToTarget(options.targetId)
+            onTargetActivated?.invoke()
             return sendRaw(method, params, sid)
         }
 
@@ -178,10 +201,10 @@ class ChromeCdpClient(
             ?: throw CdpException(-1, "No active page session; call attachToTarget first")
     }
 
-    private suspend fun switchDirectPageTarget(targetId: String) {
+    private suspend fun switchDirectPageTarget(targetId: String): Boolean {
         switchMutex.withLock {
-            val base = directPageWebSocketBase ?: return@withLock
-            if (targetId == activeTargetId) return@withLock
+            val base = directPageWebSocketBase ?: return false
+            if (targetId == activeTargetId) return false
             val previous = current
             val wsUrl = "$base/$targetId"
             // Open new first, then swap `current` so the previous connection's incoming callbacks
@@ -193,6 +216,7 @@ class ChromeCdpClient(
             activeTargetId = targetId
             activeSessionId = null
             previous?.closeQuietly("CDP connection switched")
+            return true
         }
     }
 
@@ -260,10 +284,66 @@ class ChromeCdpClient(
             is CdpIncoming.Event -> {
                 // Drop stale events from a switched-away WS so they cannot pollute the
                 // shared event buffer the agent script will drain.
-                if (current === source) eventBuffer.add(msg)
+                if (current === source) {
+                    eventBuffer.add(msg)
+                    routeDialogEvent(msg)
+                }
             }
         }
     }
+
+    private fun routeDialogEvent(event: CdpIncoming.Event) {
+        if (event.method != DIALOG_OPENING_EVENT && event.method != DIALOG_CLOSED_EVENT) return
+        val targetKey = dialogTargetKey(event.sessionId) ?: return
+        when (event.method) {
+            DIALOG_OPENING_EVENT -> {
+                val params = event.params
+                eventBuffer.dialogTracker.setOpen(
+                    targetKey,
+                    DialogStateTracker.DialogState(
+                        type = params["type"]?.jsonPrimitive?.contentOrNull ?: "unknown",
+                        message = params["message"]?.jsonPrimitive?.contentOrNull ?: "",
+                        defaultPrompt = params["defaultPrompt"]?.jsonPrimitive?.contentOrNull,
+                        hasBrowserHandler = params["hasBrowserHandler"]?.jsonPrimitive?.booleanOrNull
+                            ?: false,
+                    ),
+                )
+            }
+            DIALOG_CLOSED_EVENT -> eventBuffer.dialogTracker.setClosed(targetKey)
+        }
+    }
+
+    /**
+     * Resolves the synthetic `ClosePaw.getDialog` query against the in-memory tracker. Returns
+     * `JsonNull` when no dialog is open for the resolved target so the JS-side helper can
+     * `if (resp)` without further unpacking. The query never leaves the device — it does NOT
+     * round-trip to Chrome — because the source of truth is the per-target dialog tracker
+     * fed by `Page.javascriptDialogOpening` / `Closed` events.
+     */
+    private fun resolveDialogState(options: CdpOptions): JsonElement {
+        val key = dialogTargetKey(options.sessionId, options.targetId) ?: return JsonNull
+        val state = eventBuffer.dialogTracker.get(key) ?: return JsonNull
+        return buildJsonObject {
+            put("type", state.type)
+            put("message", state.message)
+            put("defaultPrompt", state.defaultPrompt)
+            put("hasBrowserHandler", state.hasBrowserHandler)
+        }
+    }
+
+    /**
+     * Picks the per-target tracker key. Attach mode emits events with a non-null `sessionId`
+     * (one session per attached target); direct mode opens one WS per target so events have
+     * no `sessionId` and we fall back to `activeTargetId`. Explicit overrides take priority
+     * for `cdp(method, _, { sessionId | targetId })` calls.
+     */
+    private fun dialogTargetKey(
+        explicitSessionId: String? = null,
+        explicitTargetId: String? = null,
+    ): String? = explicitSessionId
+        ?: explicitTargetId
+        ?: activeSessionId
+        ?: activeTargetId
 
     private fun handleFailure(source: LiveConnection, error: Throwable) {
         markTransportBroken(error, source)
@@ -381,5 +461,16 @@ class ChromeCdpClient(
          * transient hangs invisible.
          */
         const val DEFAULT_COMMAND_TIMEOUT_MS: Long = 30_000L
+
+        /**
+         * Synthetic CDP-shaped method name resolved by [resolveDialogState] without touching
+         * the wire. Lets `page.js` query the in-memory dialog tracker through the existing
+         * `cdp()` channel — no new JS interface or bridge surface — and gives helpers a
+         * stable key to avoid colliding with real CDP namespaces (`Page.*`, `Runtime.*`).
+         */
+        const val DIALOG_QUERY_METHOD: String = "ClosePaw.getDialog"
+
+        const val DIALOG_OPENING_EVENT: String = "Page.javascriptDialogOpening"
+        const val DIALOG_CLOSED_EVENT: String = "Page.javascriptDialogClosed"
     }
 }

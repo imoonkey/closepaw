@@ -157,6 +157,12 @@ class BrowserSessionManager(
         client = cdpClientFactory(cdpConnectionFactory) {
             markBroken(bridgeHandle.generation, client)
         }
+        // Re-enable Page (and the rest of the core domains) every time the agent script
+        // switches targets via the `targetId` option. Each switch in direct-page mode opens
+        // a fresh WS, and each attach in attach mode opens a fresh CDP session — neither
+        // inherits the bootstrap `Page.enable`, so dialog tracking (and any other event
+        // subscription) silently breaks after the first tab switch without this hook.
+        client.onTargetActivated = { enableCoreDomains(client) }
         return try {
             val version = bridgeHandle.bridge.fetchVersion()
             val targets = bridgeHandle.bridge.listPageTargets()

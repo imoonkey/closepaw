@@ -132,7 +132,31 @@ async function pageJs(expression, options = {}) {
 }
 
 async function pageInfo() {
-  return await pageJs(`
+  // Check the per-target dialog tracker BEFORE Runtime.evaluate. A pending alert/confirm/
+  // prompt freezes page JS, so the evaluate would silently hang against the per-command
+  // timeout. The synthetic ClosePaw.getDialog method is resolved in Kotlin from the
+  // Page.javascriptDialogOpening/Closed event stream — it never round-trips to Chrome.
+  const dialog = await cdp("ClosePaw.getDialog");
+  if (dialog) {
+    return {
+      url: null,
+      title: null,
+      viewportWidth: null,
+      viewportHeight: null,
+      scrollX: null,
+      scrollY: null,
+      pageWidth: null,
+      pageHeight: null,
+      devicePixelRatio: null,
+      readyState: null,
+      dialog: {
+        type: dialog.type,
+        message: dialog.message,
+        defaultPrompt: dialog.defaultPrompt
+      }
+    };
+  }
+  const data = await pageJs(`
     return {
       url: location.href,
       title: document.title,
@@ -146,7 +170,23 @@ async function pageInfo() {
       readyState: document.readyState
     };
   `);
+  data.dialog = null;
+  return data;
 }
+
+// Dialog handlers — thin wrappers around Page.handleJavaScriptDialog. Inline alongside
+// pageInfo() when the agent needs to dismiss/accept a modal that is blocking page JS.
+cdp.acceptDialog = function(promptText) {
+  const params = { accept: true };
+  if (promptText !== undefined && promptText !== null) {
+    params.promptText = String(promptText);
+  }
+  return cdp("Page.handleJavaScriptDialog", params);
+};
+
+cdp.dismissDialog = function() {
+  return cdp("Page.handleJavaScriptDialog", { accept: false });
+};
 
 async function waitForLoad({ timeoutMs = 15000, pollMs = 300 } = {}) {
   const deadline = Date.now() + timeoutMs;
