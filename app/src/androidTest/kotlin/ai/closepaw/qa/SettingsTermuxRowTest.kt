@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -62,6 +61,7 @@ class SettingsTermuxRowTest {
     private lateinit var manager: TermuxBridgeManager
     private lateinit var prefs: SharedPreferences
     private lateinit var sentIntents: MutableList<Intent>
+    private lateinit var stubPackageManager: PackageManager
     private val launchTermuxIntent: Intent =
         Intent("ai.closepaw.test.LAUNCH_TERMUX").setPackage("com.termux")
 
@@ -81,6 +81,12 @@ class SettingsTermuxRowTest {
         mockkObject(TermuxBridgeManager.Companion)
         every { TermuxBridgeManager.get(any()) } returns manager
 
+        // Build the PackageManager stub on the test thread, not inside the composable —
+        // mockk's bytecode generation can race with UI-thread composition setup.
+        stubPackageManager = mockk(relaxed = true)
+        every { stubPackageManager.getLaunchIntentForPackage("com.termux") } returns
+            Intent(launchTermuxIntent)
+
         sentIntents = mutableListOf()
     }
 
@@ -94,7 +100,7 @@ class SettingsTermuxRowTest {
             ClosePawTheme {
                 val baseContext = LocalContext.current
                 val recording = remember(baseContext) {
-                    IntentRecordingContext(baseContext, sentIntents, launchTermuxIntent)
+                    IntentRecordingContext(baseContext, sentIntents, stubPackageManager)
                 }
                 CompositionLocalProvider(LocalContext provides recording) {
                     AgentBehaviorSettingsPage(
@@ -104,12 +110,15 @@ class SettingsTermuxRowTest {
                         onAgentModeChange = {},
                         perceptionMode = "accessibility_only",
                         onPerceptionModeChange = {},
+                        browserScriptEnabled = false,
+                        onBrowserScriptEnabledChange = {},
                         onBack = {},
                         onClose = {},
                     )
                 }
             }
         }
+        compose.waitForIdle()
     }
 
     // 3-state indicator coverage --------------------------------------------------------------
@@ -143,9 +152,9 @@ class SettingsTermuxRowTest {
     @Test fun toggle_off_persists_to_prefs() {
         // Default termux_shell_enabled is true, so the switch starts ON.
         setRowContent(TermuxBridgeStatus.Ready)
-        // The Switch is the only toggleable node on this page (PerceptionModeSelector uses
-        // Surface(onClick) which is selectable, not toggleable).
-        compose.onNode(isToggleable()).performClick()
+        // Two Switches now exist on the page (Termux and Browser Script). Termux is rendered
+        // first in the layout (Execution section) — index [0] in document order.
+        compose.onAllNodes(isToggleable())[0].performClick()
         // setTermuxShellEnabled is suspend (Dispatchers.IO write); poll prefs.
         compose.waitUntil(timeoutMillis = 3000) {
             !prefs.getBoolean("termux_shell_enabled", true)
@@ -157,7 +166,7 @@ class SettingsTermuxRowTest {
         // Seed prefs to false so the switch starts OFF.
         prefs.edit().putBoolean("termux_shell_enabled", false).commit()
         setRowContent(TermuxBridgeStatus.Ready)
-        compose.onNode(isToggleable()).performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.waitUntil(timeoutMillis = 3000) {
             prefs.getBoolean("termux_shell_enabled", false)
         }
@@ -232,14 +241,8 @@ class SettingsTermuxRowTest {
     private class IntentRecordingContext(
         base: Context,
         private val intents: MutableList<Intent>,
-        launchTermuxIntent: Intent,
+        private val pm: PackageManager,
     ) : ContextWrapper(base) {
-        private val pm: PackageManager = mockk(relaxed = true)
-
-        init {
-            every { pm.getLaunchIntentForPackage("com.termux") } returns launchTermuxIntent
-        }
-
         override fun getApplicationContext(): Context = this
         override fun getPackageManager(): PackageManager = pm
         override fun startActivity(intent: Intent) { intents.add(intent) }

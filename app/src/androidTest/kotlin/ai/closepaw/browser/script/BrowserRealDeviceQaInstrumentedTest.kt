@@ -1,7 +1,6 @@
 package ai.closepaw.browser.script
 
 import ai.closepaw.app.AppSettingsStore
-import ai.closepaw.browser.cdp.shizuku.ShizukuStatusAdapter
 import ai.closepaw.model.ScreenSnapshot
 import ai.closepaw.platform.ActionResult
 import ai.closepaw.platform.AndroidPlatform
@@ -58,7 +57,6 @@ class BrowserRealDeviceQaInstrumentedTest {
             val tool = BrowserScriptTool(
                 capabilityGate = DefaultBrowserScriptCapabilityGate(
                     isExperimentalEnabled = { AppSettingsStore(context).load().browserScriptEnabled },
-                    shizukuStatus = ShizukuStatusAdapter(),
                     preflight = manager::preflight,
                     invokerFactory = {
                         BrowserScriptInvoker { browserScript, timeoutMs ->
