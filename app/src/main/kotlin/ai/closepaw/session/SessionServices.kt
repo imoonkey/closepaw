@@ -28,6 +28,7 @@ import ai.closepaw.termux.TermuxBridgeStatus
 import ai.closepaw.termux.TermuxCapabilitySnapshot
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.tool.PolicyEngine
+import ai.closepaw.tool.ToolName
 import ai.closepaw.tool.ToolRegistry
 import ai.closepaw.tool.ToolRouter
 import ai.closepaw.tool.impl.BrowserScriptInvoker
@@ -149,17 +150,26 @@ class SessionServices internal constructor(
                     bridge = TermuxBridgeManagerSessionBridge(termuxManager),
                     termuxShellEnabled = settingsStore.termuxShellEnabled.value
             )
+            // Merge user-pref tool exclusions (e.g. browser_script when off) into the canonical
+            // SessionConfig.excludedTools so EVERY downstream resolver sees the same gated set —
+            // bootstrapper for tool registration, SessionAgentRunner for the LLM allowlist, and
+            // any future readers of services.config. Without this, the runner would re-resolve
+            // from the pre-merge config and re-expose the gated tool to the LLM.
+            val effectiveExcludedTools = config.excludedTools +
+                    standaloneToolsExcludedByPref(settingsStore.browserScriptEnabled.value)
+            val effectiveConfig =
+                    if (effectiveExcludedTools == config.excludedTools) config
+                    else config.copy(excludedTools = effectiveExcludedTools)
             val tooling = SessionToolingBootstrapper.create(
-                approvalMode = config.approvalMode,
+                approvalMode = effectiveConfig.approvalMode,
                 appClassifier = classifier,
                 initialPersistentAllowList = persistentAllowList,
                 onPersistentAllowListChanged = { packages -> settingsStore.savePersistentAllowList(packages) },
                 agentSkillManager = agentSkillManager,
-                agentRoleDef = AgentDefRegistry.mainFor(config.agentMode),
+                agentRoleDef = AgentDefRegistry.mainFor(effectiveConfig.agentMode),
                 delegatableRoleDefs = AgentDefRegistry.delegatableRoles(),
                 termuxSnapshot = termuxSnapshot,
-                excludedTools = config.excludedTools +
-                        standaloneToolsExcludedByPref(settingsStore.browserScriptEnabled.value),
+                excludedTools = effectiveConfig.excludedTools,
                 context = context.applicationContext
             )
             val policyEngine = tooling.policyEngine
@@ -172,6 +182,8 @@ class SessionServices internal constructor(
                 scope = scope,
                 traceRecorder = traceRecorder,
                 settingsStore = settingsStore,
+                browserScriptToolExcluded =
+                        ToolName.BrowserScript.raw in effectiveExcludedTools,
             )
 
             val history = SessionHistoryBootstrapper.create(context, scope)
@@ -196,7 +208,7 @@ class SessionServices internal constructor(
                     policyEngine = policyEngine,
                     appClassifier = classifier,
                     platform = platform,
-                    config = config,
+                    config = effectiveConfig,
                     llmClient = llmClient,
                     modelCatalog = modelCatalog,
                     llmClientFactory = llmClientFactory,
@@ -247,12 +259,22 @@ class SessionServices internal constructor(
             scope: CoroutineScope,
             traceRecorder: TraceRecorder,
             settingsStore: AppSettingsStore,
+            browserScriptToolExcluded: Boolean = false,
         ): BrowserSessionManager {
             val browserSessionManager = BrowserSessionManager(
                 context = context.applicationContext,
                 sessionScope = scope,
                 traceRecorder = traceRecorder,
             )
+            // Skip registration when the user pref excludes browser_script. Defense in depth:
+            // the LLM allowlist already hides it via SessionConfig.excludedTools, but a missing
+            // registry entry also blocks any path that builds the tool list directly from the
+            // registry. We still construct BrowserSessionManager so the runtime path stays the
+            // same shape — its constructor is cheap and side-effect-free.
+            if (browserScriptToolExcluded) {
+                Log.d(TAG, "Skipping BrowserScriptTool registration — excluded by pref")
+                return browserSessionManager
+            }
             val browserGate = DefaultBrowserScriptCapabilityGate(
                 isExperimentalEnabled = { settingsStore.load().browserScriptEnabled },
                 preflight = browserSessionManager::preflight,

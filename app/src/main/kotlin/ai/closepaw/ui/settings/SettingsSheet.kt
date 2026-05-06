@@ -157,6 +157,8 @@ fun SettingsSheet(
                     onAgentModeChange = onAgentModeChange,
                     perceptionMode = perceptionMode,
                     onPerceptionModeChange = onPerceptionModeChange,
+                    browserScriptEnabled = browserScriptEnabled,
+                    onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss
                 )

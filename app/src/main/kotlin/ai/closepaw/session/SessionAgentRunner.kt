@@ -57,9 +57,12 @@ internal class SessionAgentRunner(
 
     fun start(taskInput: String, taskId: String) {
         val agentDef = AgentDefRegistry.mainFor(config.agentMode)
+        // Read excludedTools from services.config — SessionServices.create stamps the user-pref
+        // tool gates (e.g. browser_script when off) into that copy. The local `config` field is
+        // the original, pre-merge SessionConfig and would re-expose the gated tool to the LLM.
         val resolvedAgentDef: ResolvedAgentRole = agentDef.resolve(
             snapshot = services.termuxSnapshot,
-            excludedTools = config.excludedTools.toToolNames()
+            excludedTools = services.config.excludedTools.toToolNames()
         )
 
         if (ToolName.DelegateTask.raw in resolvedAgentDef.allowedToolNames) {

@@ -18,17 +18,18 @@ import kotlinx.coroutines.withContext
  * security, so we cascade three strategies and stop on the first that succeeds:
  *
  * 1. **External Intent** (free, almost always fails) — try ACTION_VIEW with `setPackage`.
+ *    We pre-check `resolveActivity` so a silent drop doesn't masquerade as success.
  * 2. **Shizuku am start** — `am start -d <url> -n com.android.chrome/...Main`. The `am`
  *    command runs as shell uid, which bypasses the external-intent block.
  * 3. **Clipboard fallback** — copy the URL and toast the user. Last resort that always works.
  *
- * The actual launch is delegated; this class only decides which step to take. The decision
- * function ([decideStrategy]) is pure-functional for unit testing — it inspects an injected
- * environment and returns the strategy to attempt next.
+ * The injected [ShellRunner] is REQUIRED for the cascade to actually exercise step 2; passing
+ * null would make the deep-link cosmetic on stock Android builds where Chrome drops chrome://
+ * intents. The constructor enforces this so the regression Codex caught can't recur.
  */
 class ChromeFlagDeepLink(
     private val context: Context,
-    private val shellRunner: CommandLineWriter.ShellRunner? = null,
+    private val shellRunner: ShellRunner,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
 
@@ -45,10 +46,22 @@ class ChromeFlagDeepLink(
 
     enum class Strategy { ActionView, ShizukuAmStart, Clipboard }
 
+    /**
+     * `startActivity` for an unhandled intent throws ActivityNotFoundException — but Chrome's
+     * external-intent filter ALLOWS the launch (no exception) and then drops the chrome://
+     * URL on its end. To avoid that silent-success trap, require that PackageManager confirms
+     * Chrome resolves the intent before declaring victory. We still catch the throw for older
+     * platforms where ACTION_VIEW just fails outright.
+     */
     private fun tryActionView(): Boolean = try {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(FLAG_URL))
             .setPackage(CHROME_PACKAGE)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val resolved = context.packageManager.resolveActivity(intent, 0)
+        if (resolved == null) {
+            Log.d(TAG, "ACTION_VIEW pre-check: no activity resolves chrome:// for $CHROME_PACKAGE")
+            return false
+        }
         context.startActivity(intent)
         true
     } catch (_: ActivityNotFoundException) {
@@ -61,16 +74,22 @@ class ChromeFlagDeepLink(
         false
     }
 
-    private suspend fun tryShizukuAmStart(): Boolean {
-        val runner = shellRunner ?: return false
-        return runCatching {
-            val result = runner.run(arrayOf("am", "start", "-a", "android.intent.action.VIEW",
-                "-d", FLAG_URL, "-n", "$CHROME_PACKAGE/$CHROME_MAIN_ACTIVITY"))
-            result.exitCode == 0
-        }.getOrElse {
-            Log.w(TAG, "Shizuku am start failed", it)
-            false
-        }
+    private suspend fun tryShizukuAmStart(): Boolean = runCatching {
+        val result = shellRunner.run(arrayOf(
+            "am", "start",
+            "-a", "android.intent.action.VIEW",
+            "-d", FLAG_URL,
+            "-n", "$CHROME_PACKAGE/$CHROME_MAIN_ACTIVITY",
+        ))
+        // `am start` exits 0 on dispatch even when the activity later refuses, but a
+        // shell-uid dispatch is what bypasses the external-intent block — at this point
+        // Chrome's internal nav handler treats the URL as same-origin and renders it. Exit
+        // non-zero genuinely means the dispatch itself failed (Shizuku unavailable, am not
+        // found, etc.) which is what we care about for the cascade decision.
+        result.exitCode == 0
+    }.getOrElse {
+        Log.w(TAG, "Shizuku am start failed", it)
+        false
     }
 
     private fun copyToClipboardAndToast() {

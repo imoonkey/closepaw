@@ -1,9 +1,10 @@
 package ai.closepaw.ui.settings
 
-import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.browser.setup.ChromeCdpProbe
 import ai.closepaw.browser.setup.ChromeFlagDeepLink
 import ai.closepaw.browser.setup.CommandLineWriter
+import ai.closepaw.browser.setup.ShizukuShellRunner
+import ai.closepaw.platform.virtualdisplay.ShizukuClient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,38 +35,88 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * "Tools" section for the Agent Behavior settings page. Currently hosts a single tool
  * (`browser_script`); future tool toggles join here. ADDITIVE — does not replace the
- * Experimental toggle on the Permissions & Advanced page; both bind to the same pref.
+ * Experimental toggle on the Permissions & Advanced page; both bind to the same pref via the
+ * shared [ai.closepaw.app.AppSettingsState] threaded through SettingsSheet.
  *
- * The browser_script toggle drives two side effects when flipped ON:
- * 1. Probes Chrome's `chrome_devtools_remote` socket so we can show ✓/✗ status.
- * 2. Idempotently writes `/data/local/tmp/chrome-command-line` via Shizuku so Chrome will
- *    bind the socket once the user flips the chrome flag and restarts Chrome.
+ * Toggle ON path is gated. Browser_script depends on Shizuku (to write
+ * `/data/local/tmp/chrome-command-line` and to drive `am start` for the chrome flag deep
+ * link). If Shizuku is unavailable, persisting the pref ON would leave the user staring at a
+ * permanently-✗ status row with no actionable feedback. Instead:
  *
- * The status row + CTA only render when the toggle is ON, keeping the off state minimal.
+ * 1. Check Shizuku availability + permission first. If not Ready, show an inline error and
+ *    DO NOT persist.
+ * 2. Run [CommandLineWriter.ensureWritten] and await it. If the write fails, surface the
+ *    error inline AND revert the toggle locally.
+ * 3. Only on success does the pref propagate. Toggle OFF is unconditional — it can never make
+ *    things worse.
  */
 @Composable
-internal fun ToolsSection() {
+internal fun ToolsSection(
+    browserScriptEnabled: Boolean,
+    onBrowserScriptEnabledChange: (Boolean) -> Unit,
+) {
     SettingsSection(title = "Tools") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            BrowserScriptToolRow()
+            BrowserScriptToolRow(
+                enabled = browserScriptEnabled,
+                onEnabledChange = onBrowserScriptEnabledChange,
+            )
         }
     }
 }
 
+private sealed interface ToggleError {
+    data object ShizukuUnavailable : ToggleError
+    data object ShizukuNeedsPermission : ToggleError
+    data object WriteFailed : ToggleError
+}
+
+private fun ToggleError.message(): String = when (this) {
+    ToggleError.ShizukuUnavailable ->
+        "Shizuku is not running. Start Shizuku first, then enable browser_script."
+    ToggleError.ShizukuNeedsPermission ->
+        "Grant Shizuku permission to ClosePaw, then re-enable browser_script."
+    ToggleError.WriteFailed ->
+        "Could not write Chrome's command-line file. Check Shizuku and try again."
+}
+
 @Composable
-private fun BrowserScriptToolRow() {
-    val context = LocalContext.current
-    val appContext = context.applicationContext
-    val settingsStore = remember(appContext) { AppSettingsStore(appContext) }
-    val enabled by settingsStore.browserScriptEnabled.collectAsStateWithLifecycle()
+private fun BrowserScriptToolRow(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+) {
     val scope = rememberCoroutineScope()
+    val shizukuClient = remember { ShizukuClient() }
+    val writer = remember { CommandLineWriter() }
+    var pendingEnable by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<ToggleError?>(null) }
+
+    fun attemptEnable() {
+        error = null
+        pendingEnable = true
+        scope.launch {
+            val gate = withContext(Dispatchers.IO) { evaluateShizuku(shizukuClient) }
+            if (gate != null) {
+                error = gate
+                pendingEnable = false
+                return@launch
+            }
+            val outcome = writer.ensureWritten()
+            pendingEnable = false
+            if (outcome == CommandLineWriter.Outcome.Failed) {
+                error = ToggleError.WriteFailed
+                return@launch
+            }
+            onEnabledChange(true)
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -85,10 +136,23 @@ private fun BrowserScriptToolRow() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (pendingEnable) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                }
                 Switch(
                     checked = enabled,
+                    enabled = !pendingEnable,
                     onCheckedChange = { value ->
-                        scope.launch { settingsStore.setBrowserScriptEnabled(value) }
+                        if (value) {
+                            attemptEnable()
+                        } else {
+                            error = null
+                            onEnabledChange(false)
+                        }
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
@@ -97,12 +161,32 @@ private fun BrowserScriptToolRow() {
                 )
             }
 
-            if (enabled) {
+            error?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = it.message(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            if (enabled && error == null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 BrowserCdpStatusRow()
             }
         }
     }
+}
+
+/**
+ * Shizuku availability check. Returns null when Ready (toggle may proceed), or the appropriate
+ * [ToggleError] otherwise. Mirrors [rememberShizukuStatus] but synchronous so we can gate the
+ * persist + write inside the same coroutine.
+ */
+private fun evaluateShizuku(client: ShizukuClient): ToggleError? = when {
+    !client.isAvailable() -> ToggleError.ShizukuUnavailable
+    !client.hasPermission() -> ToggleError.ShizukuNeedsPermission
+    else -> null
 }
 
 private sealed interface CdpStatusUi {
@@ -117,18 +201,16 @@ private fun BrowserCdpStatusRow() {
     val context = LocalContext.current
     val appContext = context.applicationContext
     val scope = rememberCoroutineScope()
-    val probe = remember { ChromeCdpProbe() }
-    val writer = remember { CommandLineWriter() }
-    val deepLink = remember(appContext) { ChromeFlagDeepLink(appContext) }
+    val shellRunner = remember { ShizukuShellRunner() }
+    val probe = remember(shellRunner) { ChromeCdpProbe(shellRunner = shellRunner) }
+    val deepLink = remember(appContext, shellRunner) {
+        ChromeFlagDeepLink(context = appContext, shellRunner = shellRunner)
+    }
     var status by remember { mutableStateOf<CdpStatusUi>(CdpStatusUi.Probing) }
     var refreshTick by remember { mutableStateOf(0) }
 
-    // Toggle ON triggers two parallel side effects: write the command-line file (silent,
-    // idempotent — see CommandLineWriter docs) and probe the socket so the status row can
-    // render within ~500ms.
     LaunchedEffect(refreshTick) {
         status = CdpStatusUi.Probing
-        scope.launch(Dispatchers.IO) { writer.ensureWritten() }
         status = when (probe.probe()) {
             ChromeCdpProbe.Result.Bound -> CdpStatusUi.Bound
             ChromeCdpProbe.Result.NotBound -> CdpStatusUi.NotBound

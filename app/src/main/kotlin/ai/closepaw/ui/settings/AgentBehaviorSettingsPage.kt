@@ -56,6 +56,8 @@ internal fun AgentBehaviorSettingsPage(
     onAgentModeChange: (AgentMode) -> Unit,
     perceptionMode: String,
     onPerceptionModeChange: (String) -> Unit,
+    browserScriptEnabled: Boolean,
+    onBrowserScriptEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -82,7 +84,10 @@ internal fun AgentBehaviorSettingsPage(
                 PerceptionModeSelector(selectedMode = perceptionMode, onModeChange = onPerceptionModeChange)
             }
             Spacer(modifier = Modifier.height(20.dp))
-            ToolsSection()
+            ToolsSection(
+                browserScriptEnabled = browserScriptEnabled,
+                onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
+            )
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
