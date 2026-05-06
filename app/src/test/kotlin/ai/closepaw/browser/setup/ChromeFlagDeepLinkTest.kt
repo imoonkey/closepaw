@@ -6,9 +6,9 @@ import org.junit.Test
 class ChromeFlagDeepLinkTest {
 
     @Test
-    fun `decideStrategy picks ActionView when external intent succeeds`() {
+    fun `decideStrategy picks ActionView when external intent launched`() {
         val outcome = ChromeFlagDeepLink.decideStrategy(
-            actionViewSucceeded = true,
+            actionViewLaunched = true,
             shizukuAmStartSucceeded = false,
         )
 
@@ -16,9 +16,9 @@ class ChromeFlagDeepLinkTest {
     }
 
     @Test
-    fun `decideStrategy falls back to ShizukuAmStart when ActionView fails`() {
+    fun `decideStrategy falls back to ShizukuAmStart when ActionView did not launch`() {
         val outcome = ChromeFlagDeepLink.decideStrategy(
-            actionViewSucceeded = false,
+            actionViewLaunched = false,
             shizukuAmStartSucceeded = true,
         )
 
@@ -28,7 +28,7 @@ class ChromeFlagDeepLinkTest {
     @Test
     fun `decideStrategy falls back to Clipboard when both intent paths fail`() {
         val outcome = ChromeFlagDeepLink.decideStrategy(
-            actionViewSucceeded = false,
+            actionViewLaunched = false,
             shizukuAmStartSucceeded = false,
         )
 
@@ -36,11 +36,12 @@ class ChromeFlagDeepLinkTest {
     }
 
     @Test
-    fun `decideStrategy short-circuits on first success even if later succeeds`() {
-        // ActionView success ALWAYS wins regardless of subsequent path success — the
-        // cascade is short-circuit, not "best of three".
+    fun `decideStrategy reports ActionView even when am start would also work`() {
+        // ActionView is now ADDITIVE — when it launches we ALSO copy the URL to the clipboard
+        // with a hint toast (lossless), so we don't need to ALSO run am start. The reported
+        // strategy is still ActionView because that's the user-visible launch attempt.
         val outcome = ChromeFlagDeepLink.decideStrategy(
-            actionViewSucceeded = true,
+            actionViewLaunched = true,
             shizukuAmStartSucceeded = true,
         )
 
