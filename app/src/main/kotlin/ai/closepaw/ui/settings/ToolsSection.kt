@@ -297,7 +297,13 @@ private fun BrowserScriptToolRow(
                 Switch(
                     checked = enabled,
                     enabled = !gate.pending,
-                    onCheckedChange = gate::setEnabled,
+                    // Always wipe a stale inline error on tap. setEnabled() also clears its own
+                    // error on the happy paths, but the explicit call here covers the early-bail
+                    // (pending) branch and makes the contract obvious to future readers.
+                    onCheckedChange = { value ->
+                        gate.clearError()
+                        gate.setEnabled(value)
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
                         checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,

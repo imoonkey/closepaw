@@ -222,4 +222,59 @@ class BrowserScriptToggleGateTest {
 
         assertThat(writeCount).isEqualTo(0)
     }
+
+    // ── BrowserScriptToggleGate (Compose state holder) ──────────────────────────────────
+
+    @Test
+    fun `clearError wipes a stale error from a prior failed gate run`() = runTest {
+        val persisted = mutableListOf<Boolean>()
+        val gate = BrowserScriptToggleGate(
+            scope = backgroundScope,
+            onPersist = { persisted += it },
+            gate = { BrowserScriptToggleError.ShizukuUnavailable },
+            ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+        )
+
+        gate.setEnabled(true)
+        // runTest with Unconfined dispatcher resolves the launch synchronously enough that the
+        // gate has settled by the time we observe state.
+        yield()
+
+        assertThat(gate.error).isEqualTo(BrowserScriptToggleError.ShizukuUnavailable)
+        assertThat(persisted).isEmpty()
+
+        gate.clearError()
+
+        assertThat(gate.error).isNull()
+    }
+
+    @Test
+    fun `clearError before setEnabled keeps gate behavior intact on retry`() = runTest {
+        val persisted = mutableListOf<Boolean>()
+        var attempt = 0
+        val gate = BrowserScriptToggleGate(
+            scope = backgroundScope,
+            onPersist = { persisted += it },
+            gate = {
+                // First attempt fails (e.g., Shizuku not yet granted), second succeeds (user
+                // returned and granted). Mirrors the call-site contract:
+                //     onCheckedChange = { gate.clearError(); gate.setEnabled(it) }
+                attempt++
+                if (attempt == 1) BrowserScriptToggleError.ShizukuPermissionDenied else null
+            },
+            ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+        )
+
+        gate.setEnabled(true)
+        yield()
+        assertThat(gate.error).isEqualTo(BrowserScriptToggleError.ShizukuPermissionDenied)
+
+        // What the Compose surface does on the next tap.
+        gate.clearError()
+        gate.setEnabled(true)
+        yield()
+
+        assertThat(gate.error).isNull()
+        assertThat(persisted).containsExactly(true)
+    }
 }

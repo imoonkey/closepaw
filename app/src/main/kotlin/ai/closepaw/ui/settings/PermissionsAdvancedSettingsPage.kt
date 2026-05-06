@@ -202,7 +202,13 @@ private fun BrowserAutomationToggle(
                 Switch(
                     checked = enabled,
                     enabled = !gate.pending,
-                    onCheckedChange = gate::setEnabled,
+                    // Mirror ToolsSection: wipe stale error on every tap so the user gets a
+                    // fresh attempt after they've gone off and fixed the underlying issue
+                    // (e.g. granted Shizuku) and come back.
+                    onCheckedChange = { value ->
+                        gate.clearError()
+                        gate.setEnabled(value)
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
                         checkedTrackColor = MaterialTheme.colorScheme.primaryContainer

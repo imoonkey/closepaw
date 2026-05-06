@@ -119,6 +119,13 @@ internal class BrowserScriptToggleGate internal constructor(
     var error by mutableStateOf<BrowserScriptToggleError?>(null)
         private set
 
+    /**
+     * Begin a toggle attempt. Compose call sites MUST invoke [clearError] immediately before
+     * this so any stale inline error is wiped on tap — that covers the early-bail branches in
+     * here (e.g. `pending == true && value == true`) where we would otherwise leave the
+     * previous error visible after the user has gone off, fixed the underlying issue, and come
+     * back to retry.
+     */
     fun setEnabled(value: Boolean) {
         if (!value) {
             error = null
