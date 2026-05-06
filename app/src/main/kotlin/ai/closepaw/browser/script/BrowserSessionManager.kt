@@ -21,6 +21,7 @@ import ai.closepaw.browser.cdp.wireless.AdbCryptoKeyStore
 import ai.closepaw.browser.cdp.wireless.AdbPairingClient
 import ai.closepaw.browser.cdp.wireless.AdbWireProtocolClient
 import ai.closepaw.browser.cdp.wireless.AdbWirelessManager
+import ai.closepaw.browser.cdp.wireless.PairOnceCache
 import ai.closepaw.browser.cdp.wireless.WirelessAdbSelfPairTransport
 import ai.closepaw.trace.TraceRecorder
 import java.io.Closeable
@@ -354,6 +355,7 @@ class BrowserSessionManager(
                 pairingClient = pairingClient,
                 wireClient = wireClient,
                 relayAuthToken = relayAuthToken,
+                pairOnceCache = PairOnceCache(context.applicationContext),
             )
             return ShizukuChromeDevtoolsBridge(
                 status = ShizukuStatusAdapter(),
