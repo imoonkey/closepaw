@@ -69,8 +69,24 @@ interface IChromeDevtoolsUserService {
      * which pubkeys are pre-authorized) or null if the file is unreadable / missing. Each line
      * is `<base64-pubkey> <name>` — caller substring-matches its own pubkey base64 to decide
      * whether the device already trusts us and pairing can be skipped.
+     *
+     * Lossy on the failure side: collapses EACCES, ENOENT, and other IO failures to null.
+     * Use [adbKeysReadStatus] when the caller needs to distinguish those cases (e.g. for the
+     * pair-once cache, which trusts EACCES but must NOT trust ENOENT).
      */
     String readAdbKeys();
+
+    /**
+     * Tri-state read state of `/data/misc/adb/adb_keys`, evaluated WITHOUT reading the
+     * contents — lets the caller distinguish "we can't see it but adbd may still trust us"
+     * from "the file is gone, adbd has no entries". Encoding (kept stable across versions):
+     *   0 = READABLE — the file exists and shell uid can read it; use [readAdbKeys] for content
+     *   1 = EACCES   — the file exists but shell uid cannot read it (locked OEMs that drop
+     *                  shell from the `adb` group, e.g. nubia P0110)
+     *   2 = MISSING  — the file does not exist (very early adbd state, /data wipe, etc.)
+     *   3 = OTHER    — any other failure mode (treat as "do not trust prior witnesses")
+     */
+    int adbKeysReadStatus();
 
     /**
      * Atomically replaces `/data/misc/adb/adb_keys` with [content] (write tmp + fsync →

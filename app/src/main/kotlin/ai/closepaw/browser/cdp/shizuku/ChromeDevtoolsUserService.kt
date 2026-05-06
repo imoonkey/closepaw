@@ -128,6 +128,37 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
         null
     }
 
+    /**
+     * Tri-state read state of `/data/misc/adb/adb_keys` — see AIDL doc for the encoding. Uses
+     * `Os.lstat` to disambiguate ENOENT (which `Os.access` collapses with EACCES into a single
+     * boolean false) from real "permission denied". The lstat / access pair has a TOCTOU window
+     * that's irrelevant here: we're asking "what's the most likely state right now", not
+     * synchronizing against an adbd write.
+     */
+    override fun adbKeysReadStatus(): Int = try {
+        Os.lstat(ADB_KEYS_PATH)
+        // File exists; check whether shell uid can read it.
+        if (Os.access(ADB_KEYS_PATH, OsConstants.R_OK)) {
+            ADB_KEYS_STATUS_READABLE
+        } else {
+            ADB_KEYS_STATUS_EACCES
+        }
+    } catch (e: android.system.ErrnoException) {
+        when (e.errno) {
+            OsConstants.ENOENT -> ADB_KEYS_STATUS_MISSING
+            // EACCES from lstat can happen if /data/misc/adb itself is unreadable to us; same
+            // semantics as "file exists but we can't see it" for cache purposes.
+            OsConstants.EACCES -> ADB_KEYS_STATUS_EACCES
+            else -> {
+                Log.w(TAG, "adbKeysReadStatus: unexpected errno=${e.errno}: ${e.message}")
+                ADB_KEYS_STATUS_OTHER
+            }
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "adbKeysReadStatus: unexpected: ${e.message}")
+        ADB_KEYS_STATUS_OTHER
+    }
+
     override fun writeAdbKeys(content: String): Boolean = try {
         // Atomic-rename for crash safety only — adbd reads /data/misc/adb/adb_keys at every
         // auth (libadbd_auth iterates the file when a peer sends A_AUTH SIGNATURE), so the new
@@ -397,6 +428,11 @@ class ChromeDevtoolsUserService() : IChromeDevtoolsUserService.Stub() {
     companion object {
         const val CHROME_DEVTOOLS_SOCKET = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET
         const val ADB_KEYS_PATH = "/data/misc/adb/adb_keys"
+        // Stable wire constants for [adbKeysReadStatus]; mirror the AIDL doc.
+        const val ADB_KEYS_STATUS_READABLE = 0
+        const val ADB_KEYS_STATUS_EACCES = 1
+        const val ADB_KEYS_STATUS_MISSING = 2
+        const val ADB_KEYS_STATUS_OTHER = 3
         private const val BUFFER = 4096
         private const val TAG = "ChromeDevtoolsUS"
         private const val MIN_PSK_LENGTH = 6

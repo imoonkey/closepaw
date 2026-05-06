@@ -319,8 +319,10 @@ class ShizukuUserServiceProvider internal constructor(
         // changed AIDL would let the new client transact against an old stub via shifted
         // transaction IDs — silently calling the wrong method. v4 adds the authToken
         // parameter to startTcpRelay; an upgraded client hitting a cached v3 stub would
-        // bypass token gating entirely.
-        const val USER_SERVICE_VERSION = 4
+        // bypass token gating entirely. v5 adds adbKeysReadStatus() for the pair-once cache
+        // EACCES-vs-missing distinction; without the bump, a v4 stub would 404-style fail
+        // the new transaction and the cache would silently degrade.
+        const val USER_SERVICE_VERSION = 5
         const val DEFAULT_PROCESS_SUFFIX = "chrome_devtools"
         const val DEFAULT_BIND_TIMEOUT_MS = 10_000L
     }

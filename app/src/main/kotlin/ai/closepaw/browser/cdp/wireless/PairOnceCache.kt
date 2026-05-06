@@ -62,12 +62,16 @@ class PairOnceCache(
         /**
          * SHA-256 of the US-ASCII bytes of [pubkeyBase64], rendered as unpadded base64. Two
          * sessions of the same RSA keypair produce identical fingerprints; rotation of the
-         * persisted keypair flips the fingerprint and forces a re-pair.
+         * persisted keypair flips the fingerprint and forces a re-pair. Trailing whitespace is
+         * stripped before hashing so a stray newline from one writer doesn't fork the cache key
+         * from the same logical pubkey.
          */
         fun fingerprintOf(pubkeyBase64: String): String {
             require(pubkeyBase64.isNotEmpty()) { "pubkeyBase64 must not be empty" }
+            val canonical = pubkeyBase64.trim()
+            require(canonical.isNotEmpty()) { "pubkeyBase64 must not be empty" }
             val digest = MessageDigest.getInstance("SHA-256")
-                .digest(pubkeyBase64.toByteArray(Charsets.US_ASCII))
+                .digest(canonical.toByteArray(Charsets.US_ASCII))
             return Base64.getEncoder().withoutPadding().encodeToString(digest)
         }
     }

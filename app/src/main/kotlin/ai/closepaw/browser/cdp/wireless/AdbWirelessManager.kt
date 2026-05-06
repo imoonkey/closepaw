@@ -1,5 +1,6 @@
 package ai.closepaw.browser.cdp.wireless
 
+import ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService
 import ai.closepaw.browser.cdp.shizuku.IChromeDevtoolsUserService
 import android.util.Log
 import java.io.IOException
@@ -68,14 +69,30 @@ class AdbWirelessManager(
      * dropped from the `adb` group). Callers that maintain a pair-once cache need the
      * distinction: only the [UNREADABLE] outcome justifies trusting the cache, because that's
      * the case where re-pairing every cold session is the bug we're working around.
+     *
+     * "Unreadable" here means **EACCES specifically** — see [IChromeDevtoolsUserService.adbKeysReadStatus].
+     * A missing file (ENOENT) or other IO failure must NOT be conflated with EACCES: in those
+     * cases adbd has likely forgotten our key, and trusting a stale cache would lock us out.
      */
     suspend fun pubkeyAuthorizationStatus(pubkeyBase64: String): AuthorizationStatus {
         if (pubkeyBase64.isEmpty()) return AuthorizationStatus.NOT_AUTHORIZED
-        val content = onBinder { it.readAdbKeys() } ?: return AuthorizationStatus.UNREADABLE
-        return if (content.contains(pubkeyBase64)) {
-            AuthorizationStatus.AUTHORIZED
-        } else {
-            AuthorizationStatus.NOT_AUTHORIZED
+        val readStatus = onBinder { it.adbKeysReadStatus() }
+        return when (readStatus) {
+            ChromeDevtoolsUserService.ADB_KEYS_STATUS_READABLE -> {
+                val content = onBinder { it.readAdbKeys() }
+                when {
+                    // adbKeysReadStatus said READABLE but readAdbKeys returned null → race or
+                    // partial failure between the two calls. Treat as NOT_AUTHORIZED — safer
+                    // to re-pair than to short-circuit on uncertain state.
+                    content == null -> AuthorizationStatus.NOT_AUTHORIZED
+                    content.contains(pubkeyBase64) -> AuthorizationStatus.AUTHORIZED
+                    else -> AuthorizationStatus.NOT_AUTHORIZED
+                }
+            }
+            ChromeDevtoolsUserService.ADB_KEYS_STATUS_EACCES -> AuthorizationStatus.UNREADABLE
+            // ADB_KEYS_STATUS_MISSING / ADB_KEYS_STATUS_OTHER → adbd has no entries (or we
+            // can't reason about its state); cache MUST NOT short-circuit.
+            else -> AuthorizationStatus.NOT_AUTHORIZED
         }
     }
 

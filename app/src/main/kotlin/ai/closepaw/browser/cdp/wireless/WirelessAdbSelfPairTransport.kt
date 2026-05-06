@@ -66,6 +66,14 @@ class WirelessAdbSelfPairTransport(
      * "true" from a previous bootstrap can't trigger a spurious invalidation later.
      */
     @Volatile private var lastBootstrapUsedCache = false
+    /**
+     * Fingerprint earned by a fresh pair that has NOT yet been confirmed by an mTLS handshake.
+     * The cache is only written after the next [wireClient] op succeeds — adbd's adb_keys
+     * reload is event-driven and a successful SPAKE2 round-trip does not guarantee adbd
+     * trusts the new key yet. Cleared on exchange failure (so a bad pair doesn't poison the
+     * cache) and on next-call success (so the witness is durable).
+     */
+    @Volatile private var pendingFingerprintCommit: String? = null
 
     private val relayLock = Any()
     private var relayServer: ServerSocket? = null
@@ -75,36 +83,44 @@ class WirelessAdbSelfPairTransport(
     override suspend fun exchange(request: ByteArray, timeoutMs: Int): ByteArray {
         val tlsPort = ensureBootstrapped()
         return try {
-            wireClient.exchange(
+            val response = wireClient.exchange(
                 host = LOCALHOST,
                 tlsPort = tlsPort,
                 destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
                 request = request,
                 handshakeTimeoutMs = timeoutMs,
             )
+            commitPendingFingerprint()
+            response
         } catch (t: Throwable) {
             // adbd may have rotated the TLS port (Wi-Fi flap, daemon restart) between bootstrap
             // and now; invalidate the cached port and retry once with a fresh bootstrap.
             // If the previous bootstrap skipped pairing on the strength of [pairOnceCache], the
             // failure is most likely "adbd doesn't actually trust us" — drop the cache entry so
             // the re-bootstrap re-pairs for real instead of short-circuiting again.
+            // If the previous bootstrap performed a fresh pair, drop the pending commit too:
+            // the pair did not survive mTLS, so we have no business writing the fingerprint to
+            // the cache.
             // TODO: if this retry path fires more than rarely in production, wire a counter so
             //  port-rotation rate becomes observable rather than silent.
             Log.w(TAG, "wireless-adb exchange failed; invalidating cached port and retrying once", t)
             cachedTlsPort = -1
+            pendingFingerprintCommit = null
             if (lastBootstrapUsedCache) {
                 Log.w(TAG, "wireless-adb exchange failed after pair-once cache short-circuit; invalidating cache")
                 lastBootstrapUsedCache = false
                 pairOnceCache?.let { runCatching { it.invalidate() } }
             }
             val fresh = ensureBootstrapped()
-            wireClient.exchange(
+            val response = wireClient.exchange(
                 host = LOCALHOST,
                 tlsPort = fresh,
                 destination = ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET,
                 request = request,
                 handshakeTimeoutMs = timeoutMs,
             )
+            commitPendingFingerprint()
+            response
         }
     }
 
@@ -169,10 +185,13 @@ class WirelessAdbSelfPairTransport(
         val keyPersisted = keyStore.isPersisted()
 
         if (keyPersisted && wirelessManager.isPubkeyAuthorized(pubkeyBase64)) {
+            // adbd's adb_keys file is readable AND already contains our pubkey — no need to
+            // wait for an mTLS round-trip to confirm. Record the cache witness immediately.
             Log.i(TAG, "wireless-adb pair skipped: pubkey already authorized")
             recordPairedFingerprint(pubkeyBase64)
             pruneStaleAdbKeysOnce(pubkeyBase64)
             lastBootstrapUsedCache = false
+            pendingFingerprintCommit = null
             return
         }
 
@@ -189,6 +208,7 @@ class WirelessAdbSelfPairTransport(
                 if (cache.getCachedFingerprint() == currentFp) {
                     Log.i(TAG, "wireless-adb pair skipped: adb_keys unreadable, pair-once cache hit")
                     lastBootstrapUsedCache = true
+                    pendingFingerprintCommit = null
                     return
                 }
             }
@@ -206,8 +226,23 @@ class WirelessAdbSelfPairTransport(
         // pair completion; settle briefly so the freshly-paired key is in adbd's accepted set
         // before the immediately-following mTLS handshake.
         runInterruptible(ioDispatcher) { Thread.sleep(POST_PAIR_SETTLE_MS) }
-        recordPairedFingerprint(pubkeyBase64)
+        // DEFER: don't write the cache yet. SPAKE2 success doesn't prove adbd actually loaded
+        // our key — only the next mTLS handshake does. The exchange-success path commits this;
+        // the exchange-failure path drops it.
         lastBootstrapUsedCache = false
+        pendingFingerprintCommit = if (pairOnceCache != null) {
+            PairOnceCache.fingerprintOf(pubkeyBase64)
+        } else {
+            null
+        }
+    }
+
+    private suspend fun commitPendingFingerprint() {
+        val fp = pendingFingerprintCommit ?: return
+        pendingFingerprintCommit = null
+        val cache = pairOnceCache ?: return
+        runCatching { cache.recordSuccessfulPair(fp) }
+            .onFailure { Log.w(TAG, "wireless-adb pair-once cache write failed (non-fatal)", it) }
     }
 
     private suspend fun recordPairedFingerprint(pubkeyBase64: String) {

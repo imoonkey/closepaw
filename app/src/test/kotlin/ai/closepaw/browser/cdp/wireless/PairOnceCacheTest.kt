@@ -108,6 +108,16 @@ class PairOnceCacheTest {
     }
 
     @Test
+    fun `fingerprintOf is invariant to surrounding whitespace`() {
+        // Defensive: a pubkey with a trailing newline (common when read from a file written by
+        // another tool) must produce the same fingerprint as the bare token, otherwise the
+        // cache forks per-writer.
+        val bare = PairOnceCache.fingerprintOf(SAMPLE_PUBKEY)
+        val padded = PairOnceCache.fingerprintOf("  ${SAMPLE_PUBKEY}\n")
+        assertThat(padded).isEqualTo(bare)
+    }
+
+    @Test
     fun `fingerprintOf rejects empty pubkey`() {
         try {
             PairOnceCache.fingerprintOf("")
@@ -225,10 +235,107 @@ class PairOnceCacheTest {
         val result = ctx.transport.exchange(byteArrayOf(0x01), timeoutMs = 1_000)
 
         assertThat(result).isEqualTo(byteArrayOf(0x42))
-        // After failure: cache was wiped, then the retry's successful pair re-populated it.
+        // After failure: cache was wiped, then the retry's successful pair re-populated it
+        // (commit happens only after the retry exchange succeeds).
         assertThat(ctx.cache.getCachedFingerprint())
             .isEqualTo(PairOnceCache.fingerprintOf(SAMPLE_PUBKEY))
         coVerify(exactly = 1) { ctx.pairing.pair(any(), FAKE_PAIR_PORT, any()) }
+    }
+
+    @Test
+    fun `transport does NOT cache fingerprint when fresh pair never confirms via mTLS`() = runTest {
+        // Critical safety property: a SPAKE2 pair handshake completes locally even if adbd's
+        // adb_keys reload is racing or our key gets dropped before the mTLS handshake. The cache
+        // MUST only commit after the next [wireClient.exchange] succeeds — otherwise an
+        // unconfirmed pair could lock us into a short-circuit loop on cold sessions where
+        // adb_keys is unreadable. Both the first and the retry exchange fail here; the cache
+        // must remain empty.
+        val ctx = TransportCtx()
+        ctx.stubPair()
+        coEvery { ctx.wireless.isPubkeyAuthorized(any()) } returns false
+        coEvery { ctx.wireless.pubkeyAuthorizationStatus(any()) } returns
+            AdbWirelessManager.AuthorizationStatus.UNREADABLE
+        coEvery { ctx.wire.exchange(any(), any(), any(), any(), any()) } throws
+            IOException("simulated mTLS handshake failure")
+
+        try {
+            ctx.transport.exchange(byteArrayOf(0x01), timeoutMs = 1_000)
+            throw AssertionError("expected IOException")
+        } catch (e: IOException) {
+            assertThat(e.message).contains("simulated mTLS")
+        }
+
+        // Pair ran (twice — once per bootstrap attempt) but the cache was never written: the
+        // mTLS handshake is the authoritative test of trust and it never succeeded.
+        assertThat(ctx.cache.getCachedFingerprint()).isNull()
+        coVerify(atLeast = 1) { ctx.pairing.pair(any(), FAKE_PAIR_PORT, any()) }
+    }
+
+    // ── AdbWirelessManager EACCES-vs-missing distinction (drives the cache gate) ──
+
+    @Test
+    fun `pubkeyAuthorizationStatus returns UNREADABLE only on EACCES`() = runTest {
+        val binder = mockk<ai.closepaw.browser.cdp.shizuku.IChromeDevtoolsUserService>(relaxed = true)
+        val manager = AdbWirelessManager(
+            binderProvider = { binder },
+            ioDispatcher = testDispatcher,
+        )
+        every { binder.adbKeysReadStatus() } returns
+            ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService.ADB_KEYS_STATUS_EACCES
+
+        val status = manager.pubkeyAuthorizationStatus(SAMPLE_PUBKEY)
+
+        assertThat(status).isEqualTo(AdbWirelessManager.AuthorizationStatus.UNREADABLE)
+        // CRITICAL: must NOT read the file when status is EACCES — there's nothing to read,
+        // and the contract is that EACCES alone determines UNREADABLE.
+        io.mockk.verify(exactly = 0) { binder.readAdbKeys() }
+    }
+
+    @Test
+    fun `pubkeyAuthorizationStatus returns NOT_AUTHORIZED when adb_keys is missing`() = runTest {
+        val binder = mockk<ai.closepaw.browser.cdp.shizuku.IChromeDevtoolsUserService>(relaxed = true)
+        val manager = AdbWirelessManager(
+            binderProvider = { binder },
+            ioDispatcher = testDispatcher,
+        )
+        every { binder.adbKeysReadStatus() } returns
+            ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService.ADB_KEYS_STATUS_MISSING
+
+        val status = manager.pubkeyAuthorizationStatus(SAMPLE_PUBKEY)
+
+        // adbd has no entries when the file is gone. Cache MUST NOT short-circuit; the caller
+        // re-pairs.
+        assertThat(status).isEqualTo(AdbWirelessManager.AuthorizationStatus.NOT_AUTHORIZED)
+    }
+
+    @Test
+    fun `pubkeyAuthorizationStatus returns NOT_AUTHORIZED on other read failures`() = runTest {
+        val binder = mockk<ai.closepaw.browser.cdp.shizuku.IChromeDevtoolsUserService>(relaxed = true)
+        val manager = AdbWirelessManager(
+            binderProvider = { binder },
+            ioDispatcher = testDispatcher,
+        )
+        every { binder.adbKeysReadStatus() } returns
+            ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService.ADB_KEYS_STATUS_OTHER
+
+        val status = manager.pubkeyAuthorizationStatus(SAMPLE_PUBKEY)
+
+        assertThat(status).isEqualTo(AdbWirelessManager.AuthorizationStatus.NOT_AUTHORIZED)
+    }
+
+    @Test
+    fun `pubkeyAuthorizationStatus reads file content when status is READABLE`() = runTest {
+        val binder = mockk<ai.closepaw.browser.cdp.shizuku.IChromeDevtoolsUserService>(relaxed = true)
+        val manager = AdbWirelessManager(
+            binderProvider = { binder },
+            ioDispatcher = testDispatcher,
+        )
+        every { binder.adbKeysReadStatus() } returns
+            ai.closepaw.browser.cdp.shizuku.ChromeDevtoolsUserService.ADB_KEYS_STATUS_READABLE
+        every { binder.readAdbKeys() } returns "OTHER alice@host\n$SAMPLE_PUBKEY ClosePaw@P0110\n"
+
+        assertThat(manager.pubkeyAuthorizationStatus(SAMPLE_PUBKEY))
+            .isEqualTo(AdbWirelessManager.AuthorizationStatus.AUTHORIZED)
     }
 
     // ── Helpers ──
