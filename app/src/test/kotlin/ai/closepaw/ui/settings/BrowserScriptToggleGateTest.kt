@@ -1,14 +1,23 @@
 package ai.closepaw.ui.settings
 
 import ai.closepaw.browser.setup.CommandLineWriter
+import ai.closepaw.platform.virtualdisplay.PermissionRequestResult
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Test
 
 /**
  * Coverage for the shared `browser_script` enable gate. Both the Tools toggle and the
  * Permissions Experimental toggle must call this helper, so every branch matters: a regression
  * here re-opens the back-door where one toggle persists ON without the gating the other does.
+ *
+ * The gate now requests Shizuku permission inline when binder is alive but consent is missing
+ * (recovers from the post-`adb install -r` UID-mismatch trap). The new tests pin the inline
+ * request behavior so we never quietly revert to the old "send user to Shizuku Manager" path.
  */
 class BrowserScriptToggleGateTest {
 
@@ -17,6 +26,7 @@ class BrowserScriptToggleGateTest {
         val result = gateBrowserScriptEnable(
             isShizukuAvailable = { false },
             hasShizukuPermission = { error("must not be called") },
+            requestShizukuPermission = { error("must not be called") },
             ensureCommandLineWritten = { error("must not be called") },
         )
 
@@ -24,21 +34,11 @@ class BrowserScriptToggleGateTest {
     }
 
     @Test
-    fun `returns ShizukuNeedsPermission when permission is false`() = runTest {
-        val result = gateBrowserScriptEnable(
-            isShizukuAvailable = { true },
-            hasShizukuPermission = { false },
-            ensureCommandLineWritten = { error("must not be called") },
-        )
-
-        assertThat(result).isEqualTo(BrowserScriptToggleError.ShizukuNeedsPermission)
-    }
-
-    @Test
     fun `returns WriteFailed when writer reports Failed`() = runTest {
         val result = gateBrowserScriptEnable(
             isShizukuAvailable = { true },
             hasShizukuPermission = { true },
+            requestShizukuPermission = { error("must not be called") },
             ensureCommandLineWritten = { CommandLineWriter.Outcome.Failed },
         )
 
@@ -50,6 +50,7 @@ class BrowserScriptToggleGateTest {
         val result = gateBrowserScriptEnable(
             isShizukuAvailable = { true },
             hasShizukuPermission = { true },
+            requestShizukuPermission = { error("must not be called") },
             ensureCommandLineWritten = { CommandLineWriter.Outcome.Written },
         )
 
@@ -62,6 +63,7 @@ class BrowserScriptToggleGateTest {
             val result = gateBrowserScriptEnable(
                 isShizukuAvailable = { true },
                 hasShizukuPermission = { true },
+                requestShizukuPermission = { error("must not be called") },
                 ensureCommandLineWritten = { CommandLineWriter.Outcome.AlreadyCorrect },
             )
 
@@ -78,6 +80,7 @@ class BrowserScriptToggleGateTest {
             gateBrowserScriptEnable(
                 isShizukuAvailable = { false },
                 hasShizukuPermission = { permissionCallCount++; true },
+                requestShizukuPermission = { error("must not be called") },
                 ensureCommandLineWritten = { CommandLineWriter.Outcome.Written },
             )
 
@@ -85,14 +88,138 @@ class BrowserScriptToggleGateTest {
         }
 
     @Test
-    fun `write is short-circuited — never spawns shell when permission missing`() = runTest {
-        var writeCallCount = 0
-        gateBrowserScriptEnable(
+    fun `write is short-circuited — never spawns shell when permission missing and request denied`() =
+        runTest {
+            var writeCallCount = 0
+            gateBrowserScriptEnable(
+                isShizukuAvailable = { true },
+                hasShizukuPermission = { false },
+                requestShizukuPermission = { PermissionRequestResult.Denied },
+                ensureCommandLineWritten = { writeCallCount++; CommandLineWriter.Outcome.Written },
+            )
+
+            assertThat(writeCallCount).isEqualTo(0)
+        }
+
+    // ── Inline permission request paths ─────────────────────────────────────────────────
+
+    @Test
+    fun `denied permission triggers inline request — granted result proceeds to write`() =
+        runTest {
+            var requestCount = 0
+            var writeCount = 0
+            // Permission flips to true after the request is granted, simulating Shizuku writing
+            // a fresh consent row keyed to the current UID.
+            var permissionGranted = false
+            val result = gateBrowserScriptEnable(
+                isShizukuAvailable = { true },
+                hasShizukuPermission = { permissionGranted },
+                requestShizukuPermission = {
+                    requestCount++
+                    permissionGranted = true
+                    PermissionRequestResult.Granted
+                },
+                ensureCommandLineWritten = {
+                    writeCount++
+                    CommandLineWriter.Outcome.Written
+                },
+            )
+
+            assertThat(requestCount).isEqualTo(1)
+            assertThat(writeCount).isEqualTo(1)
+            assertThat(result).isNull()
+        }
+
+    @Test
+    fun `denied permission triggers inline request — user denies returns ShizukuPermissionDenied`() =
+        runTest {
+            var writeCount = 0
+            val result = gateBrowserScriptEnable(
+                isShizukuAvailable = { true },
+                hasShizukuPermission = { false },
+                requestShizukuPermission = { PermissionRequestResult.Denied },
+                ensureCommandLineWritten = {
+                    writeCount++
+                    CommandLineWriter.Outcome.Written
+                },
+            )
+
+            assertThat(result).isEqualTo(BrowserScriptToggleError.ShizukuPermissionDenied)
+            assertThat(writeCount).isEqualTo(0)
+        }
+
+    @Test
+    fun `gateway error during request returns ShizukuUnavailable — surface as binder-dropped`() =
+        runTest {
+            val result = gateBrowserScriptEnable(
+                isShizukuAvailable = { true },
+                hasShizukuPermission = { false },
+                requestShizukuPermission = { PermissionRequestResult.Error },
+                ensureCommandLineWritten = { error("must not be called") },
+            )
+
+            assertThat(result).isEqualTo(BrowserScriptToggleError.ShizukuUnavailable)
+        }
+
+    @Test
+    fun `granted result with stale checkSelfPermission re-check returns ShizukuPermissionDenied`() =
+        runTest {
+            // Paranoia path: listener fires GRANTED but the underlying UID consent row was not
+            // written. Should not happen on a healthy Shizuku install, but if it does we must
+            // not silently proceed — the user needs actionable feedback.
+            val result = gateBrowserScriptEnable(
+                isShizukuAvailable = { true },
+                hasShizukuPermission = { false },
+                requestShizukuPermission = { PermissionRequestResult.Granted },
+                ensureCommandLineWritten = { error("must not be called") },
+            )
+
+            assertThat(result).isEqualTo(BrowserScriptToggleError.ShizukuPermissionDenied)
+        }
+
+    @Test
+    fun `already-granted path does not trigger inline request — no spurious dialog`() = runTest {
+        var requestCount = 0
+        val result = gateBrowserScriptEnable(
             isShizukuAvailable = { true },
-            hasShizukuPermission = { false },
-            ensureCommandLineWritten = { writeCallCount++; CommandLineWriter.Outcome.Written },
+            hasShizukuPermission = { true },
+            requestShizukuPermission = {
+                requestCount++
+                PermissionRequestResult.Granted
+            },
+            ensureCommandLineWritten = { CommandLineWriter.Outcome.Written },
         )
 
-        assertThat(writeCallCount).isEqualTo(0)
+        assertThat(requestCount).isEqualTo(0)
+        assertThat(result).isNull()
+    }
+
+    @Test
+    fun `cancellation mid-request — write never runs`() = runTest {
+        var writeCount = 0
+        val started = CompletableDeferred<Unit>()
+        val job = launch {
+            gateBrowserScriptEnable(
+                isShizukuAvailable = { true },
+                hasShizukuPermission = { false },
+                requestShizukuPermission = {
+                    started.complete(Unit)
+                    // Suspend forever, simulating a user who never taps Allow/Deny. Cancellation
+                    // of the parent coroutine should propagate here and unwind cleanly.
+                    delay(Long.MAX_VALUE)
+                    PermissionRequestResult.Granted
+                },
+                ensureCommandLineWritten = {
+                    writeCount++
+                    CommandLineWriter.Outcome.Written
+                },
+            )
+        }
+        started.await()
+        yield()
+        job.cancel()
+        job.join()
+
+        assertThat(writeCount).isEqualTo(0)
     }
 }

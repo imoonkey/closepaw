@@ -1,7 +1,9 @@
 package ai.closepaw.ui.settings
 
 import ai.closepaw.browser.setup.CommandLineWriter
+import ai.closepaw.platform.virtualdisplay.PermissionRequestResult
 import ai.closepaw.platform.virtualdisplay.ShizukuClient
+import ai.closepaw.platform.virtualdisplay.ShizukuRuntimeGateway
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,12 +28,22 @@ import kotlinx.coroutines.withContext
  * (or the Compose-friendly [rememberBrowserScriptToggleGate]). Direct calls to
  * `AppSettingsState.updateBrowserScriptEnabled(true)` are a back-door now that both surfaces
  * share state.
+ *
+ * When the binder is alive but permission is missing, the gate now requests Shizuku permission
+ * inline (Shizuku service shows its own system dialog) and waits for the result before
+ * deciding. This avoids the post-`adb install -r` trap where Shizuku Manager shows "granted"
+ * (matched by package name) but [Shizuku.checkSelfPermission] reports DENIED (matched by the
+ * fresh UID) — the only fix is for the app to call `requestPermission` so Shizuku writes a
+ * fresh consent row keyed to the new UID.
  */
 
 /** Categorized failures from the gated enable flow. */
 internal sealed interface BrowserScriptToggleError {
     data object ShizukuUnavailable : BrowserScriptToggleError
+    /** Permission missing and we did not (or could not) auto-trigger the consent dialog. */
     data object ShizukuNeedsPermission : BrowserScriptToggleError
+    /** User explicitly tapped Deny on the Shizuku consent dialog this turn. */
+    data object ShizukuPermissionDenied : BrowserScriptToggleError
     data object WriteFailed : BrowserScriptToggleError
 }
 
@@ -39,7 +51,9 @@ internal fun BrowserScriptToggleError.message(): String = when (this) {
     BrowserScriptToggleError.ShizukuUnavailable ->
         "Shizuku is not running. Start Shizuku first, then enable browser_script."
     BrowserScriptToggleError.ShizukuNeedsPermission ->
-        "Grant Shizuku permission to ClosePaw, then re-enable browser_script."
+        "Tap to grant Shizuku permission."
+    BrowserScriptToggleError.ShizukuPermissionDenied ->
+        "Permission denied. Tap to retry, or re-grant in Shizuku Manager."
     BrowserScriptToggleError.WriteFailed ->
         "Could not write Chrome's command-line file. Check Shizuku and try again."
 }
@@ -55,12 +69,30 @@ internal fun BrowserScriptToggleError.message(): String = when (this) {
 internal suspend fun gateBrowserScriptEnable(
     isShizukuAvailable: suspend () -> Boolean = { ShizukuClient().isAvailable() },
     hasShizukuPermission: suspend () -> Boolean = { ShizukuClient().hasPermission() },
+    requestShizukuPermission: suspend () -> PermissionRequestResult = {
+        ShizukuRuntimeGateway().requestPermissionAndAwait()
+    },
     ensureCommandLineWritten: suspend () -> CommandLineWriter.Outcome = {
         CommandLineWriter().ensureWritten()
     },
 ): BrowserScriptToggleError? {
     if (!isShizukuAvailable()) return BrowserScriptToggleError.ShizukuUnavailable
-    if (!hasShizukuPermission()) return BrowserScriptToggleError.ShizukuNeedsPermission
+    if (!hasShizukuPermission()) {
+        when (requestShizukuPermission()) {
+            PermissionRequestResult.Granted -> {
+                // Re-check once: defends against the listener firing with GRANTED while the
+                // underlying UID consent row was somehow not written (paranoia path; should not
+                // happen on a healthy Shizuku install).
+                if (!hasShizukuPermission()) {
+                    return BrowserScriptToggleError.ShizukuPermissionDenied
+                }
+            }
+            PermissionRequestResult.Denied ->
+                return BrowserScriptToggleError.ShizukuPermissionDenied
+            PermissionRequestResult.Error ->
+                return BrowserScriptToggleError.ShizukuUnavailable
+        }
+    }
     return when (ensureCommandLineWritten()) {
         CommandLineWriter.Outcome.Failed -> BrowserScriptToggleError.WriteFailed
         CommandLineWriter.Outcome.Written,
