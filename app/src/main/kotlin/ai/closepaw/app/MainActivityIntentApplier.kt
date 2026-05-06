@@ -4,6 +4,8 @@ import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.protocol.ApprovalMode
+import ai.closepaw.ui.settings.BrowserScriptToggleError
+import ai.closepaw.ui.settings.gateBrowserScriptEnable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -20,6 +22,11 @@ internal data class MainActivityIntentApplyResult(
  * init + disk I/O and must not block the main thread. Base URL override goes to
  * [AppSettingsState.openaiBaseUrl] (debug-only). Release builds no-op on every extra.
  *
+ * Toggling `browser_script` ON via intent goes through the same gate the UI toggle uses
+ * (Shizuku reachable + permission + writable command-line file). Persisting ON without the
+ * gate would leave the toggle UI showing ON for an unusable tool — same trap the UI gates
+ * against. Toggle OFF stays unconditional, mirroring the UI.
+ *
  * This function is `suspend`; callers must invoke it inside a coroutine so that
  * any session launch observing the credential state happens-after the writes.
  */
@@ -33,7 +40,8 @@ internal suspend fun applyIntentPayloadToSettings(
     currentPendingTraceRunId: String?,
     currentPendingExcludedTools: Set<String>,
     currentPendingApprovalMode: ApprovalMode?,
-    log: (String) -> Unit
+    log: (String) -> Unit,
+    browserScriptGate: suspend () -> BrowserScriptToggleError? = { gateBrowserScriptEnable() },
 ): MainActivityIntentApplyResult {
     if (!isDebugBuild) {
         return MainActivityIntentApplyResult(
@@ -96,8 +104,23 @@ internal suspend fun applyIntentPayloadToSettings(
         log("Debug mode set from intent: $enabled")
     }
     payload.browserScriptEnabled?.let { enabled ->
-        settingsState.updateBrowserScriptEnabled(enabled)
-        log("browser_script enabled set from intent: $enabled")
+        if (!enabled) {
+            // OFF is unconditional — never makes things worse, mirrors the UI toggle.
+            settingsState.updateBrowserScriptEnabled(false)
+            log("browser_script enabled set from intent: false")
+        } else {
+            // ON must clear the same gate the UI uses (Shizuku reachable + permission +
+            // writable command-line file). Otherwise QA can persist ON via adb intent on a
+            // device with no Shizuku, and the toggle UI later lies about a tool that can't
+            // run. Same contract as BrowserScriptToggleGate.
+            val gateError = browserScriptGate()
+            if (gateError == null) {
+                settingsState.updateBrowserScriptEnabled(true)
+                log("browser_script enabled set from intent: true (gate ok)")
+            } else {
+                log("browser_script enable from intent skipped: gate denied ($gateError)")
+            }
+        }
     }
 
     val pendingTraceEnabled =

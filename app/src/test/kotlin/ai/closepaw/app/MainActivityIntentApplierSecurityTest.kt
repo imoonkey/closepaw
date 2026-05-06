@@ -4,6 +4,7 @@ import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.protocol.ApprovalMode
+import ai.closepaw.ui.settings.BrowserScriptToggleError
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -143,7 +144,10 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceRunId = null,
             currentPendingExcludedTools = emptySet(),
             currentPendingApprovalMode = null,
-            log = {}
+            log = {},
+            // Inject a passing gate — we're testing that the rest of the apply path runs in
+            // debug mode, not the gate itself (separate test).
+            browserScriptGate = { null },
         )
 
         val cred = runBlocking { authStore.get(LLMProvider.OPENAI_API) }
@@ -153,4 +157,103 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(result.pendingApprovalMode).isEqualTo(ApprovalMode.AUTO_APPROVE)
         assertThat(settingsState.browserScriptEnabled).isTrue()
     }
+
+    // ── browser_script gating (debug-only path) ─────────────────────────────────────────
+
+    @Test
+    fun `debug build does NOT persist browser_script ON when gate denies`() = runBlocking<Unit> {
+        val payload = browserScriptPayload(enabled = true)
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            log = {},
+            browserScriptGate = { BrowserScriptToggleError.ShizukuUnavailable },
+        )
+
+        // Same contract as the UI toggle: never persist ON for an unusable tool.
+        assertThat(settingsState.browserScriptEnabled).isFalse()
+    }
+
+    @Test
+    fun `debug build persists browser_script ON when gate succeeds`() = runBlocking<Unit> {
+        val payload = browserScriptPayload(enabled = true)
+        var gateInvoked = 0
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            log = {},
+            browserScriptGate = { gateInvoked++; null },
+        )
+
+        assertThat(gateInvoked).isEqualTo(1)
+        assertThat(settingsState.browserScriptEnabled).isTrue()
+    }
+
+    @Test
+    fun `debug build persists browser_script OFF unconditionally — gate is bypassed`() =
+        runBlocking<Unit> {
+            // Pre-load to ON so we can observe the OFF transition.
+            settingsState.updateBrowserScriptEnabled(true)
+            val payload = browserScriptPayload(enabled = false)
+            var gateInvoked = 0
+
+            applyIntentPayloadToSettings(
+                payload = payload,
+                settingsState = settingsState,
+                modelLoadingStatusHolder = modelLoadingStatusHolder,
+                authStore = authStore,
+                isDebugBuild = true,
+                currentPendingTraceEnabled = null,
+                currentPendingTraceRunId = null,
+                currentPendingExcludedTools = emptySet(),
+                currentPendingApprovalMode = null,
+                log = {},
+                browserScriptGate = {
+                    gateInvoked++
+                    error("gate must not run for OFF — toggle off is unconditional")
+                },
+            )
+
+            assertThat(gateInvoked).isEqualTo(0)
+            assertThat(settingsState.browserScriptEnabled).isFalse()
+        }
+
+    private fun browserScriptPayload(enabled: Boolean): MainActivityIntentPayload =
+        MainActivityIntentPayload(
+            apiKey = null,
+            openRouterApiKey = null,
+            novitaApiKey = null,
+            openaiBaseUrl = null,
+            backendType = null,
+            agentMode = null,
+            perceptionMode = null,
+            platformMode = null,
+            mainModel = null,
+            executorModel = null,
+            maxTurns = null,
+            approvalMode = null,
+            browserScriptEnabled = enabled,
+            goalText = null,
+            freshSession = false,
+            debugMode = null,
+            traceEnabled = null,
+            traceRunId = null,
+            excludedTools = emptySet(),
+        )
 }
