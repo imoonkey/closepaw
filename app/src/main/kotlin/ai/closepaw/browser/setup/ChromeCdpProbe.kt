@@ -19,7 +19,13 @@ import kotlinx.coroutines.withContext
  * 1. **App-uid read** of `/proc/net/unix` (the file is world-readable on AOSP-spec builds —
  *    same way [ai.closepaw.browser.cdp.wireless.ProcNetTcpListeners] reads `/proc/net/tcp`).
  * 2. **Shell-uid fallback** via the optional [shellRunner] for OEMs where SELinux denies app-uid
- *    access. Without this, locked-down builds would always report Unknown and never confirm
+ *    access. We invoke `grep -F` directly (no `cat` of the full file) for two reasons:
+ *      a) Shizuku's `Process` plumbing on some OEM builds doesn't drain stdout in parallel with
+ *         the exit poll, so a 50 KB+ `cat /proc/net/unix` deadlocks the pipe and the runner
+ *         times out — observed on nubia P0110 / Android 16. `grep -F` returns ~100 bytes,
+ *         well under the pipe buffer, so the runner can read after exit without deadlock.
+ *      b) Lower latency on every device.
+ *    Without this fallback, locked-down builds would always report Unknown and never confirm
  *    success even when Chrome IS bound.
  *
  * Token matching is delegated to [DefaultDevtoolsDiagnostics.containsAbstractSocket] so this
@@ -48,10 +54,16 @@ class ChromeCdpProbe(
         // through to shell uid via Shizuku so the same kernel data is reachable.
         val runner = shellRunner ?: return@withContext Result.Unknown
         val shellResult = runCatching {
-            runner.run(arrayOf("sh", "-c", "cat $PROC_NET_UNIX_PATH"))
+            runner.run(arrayOf("grep", "-F", GREP_NEEDLE, PROC_NET_UNIX_PATH))
         }.getOrNull() ?: return@withContext Result.Unknown
-        if (shellResult.exitCode != 0) return@withContext Result.Unknown
-        parse(shellResult.stdout)
+        // grep exit codes: 0 = matched, 1 = no match (file readable), 2 = error reading file.
+        // Both 0 and 1 prove the file was readable via shell uid; only 2 (or our runner's -1
+        // sentinel for binder/timeout failure) means we genuinely cannot probe.
+        when (shellResult.exitCode) {
+            0 -> parse(shellResult.stdout)
+            1 -> Result.NotBound
+            else -> Result.Unknown
+        }
     }
 
     enum class Result { Bound, NotBound, Unknown }
@@ -59,6 +71,11 @@ class ChromeCdpProbe(
     companion object {
         private const val PROC_NET_UNIX_PATH = "/proc/net/unix"
         private val DEFAULT_PROC_NET_UNIX = File(PROC_NET_UNIX_PATH)
+        // Substring needle for grep — the strict token match still happens in
+        // DefaultDevtoolsDiagnostics.containsAbstractSocket so `@chrome_devtools_remote_unrelated`
+        // would be filtered out even though grep would surface the line.
+        internal const val GREP_NEEDLE =
+            "@" + ShizukuChromeDevtoolsBridge.CHROME_DEVTOOLS_SOCKET
 
         /**
          * Token-aware match — delegates to the runtime preflight parser so this probe and the

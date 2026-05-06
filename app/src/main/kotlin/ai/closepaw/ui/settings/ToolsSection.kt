@@ -3,6 +3,7 @@ package ai.closepaw.ui.settings
 import ai.closepaw.browser.setup.ChromeCdpProbe
 import ai.closepaw.browser.setup.ChromeFlagDeepLink
 import ai.closepaw.browser.setup.ShizukuShellRunner
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -155,17 +156,28 @@ private fun BrowserCdpStatusRow() {
             )
             CdpStatusUi.Bound -> StatusLine(label = "✓ Active")
             CdpStatusUi.NotBound, CdpStatusUi.Unknown -> {
+                // Honest status text. The previous "Could not check status (Shizuku?)" copy
+                // implied Shizuku was missing, but on a real nubia P0110 we observed it firing
+                // even when Shizuku was granted and active — the probe simply couldn't get a
+                // definitive answer. Tell the user that, and surface the manual-paste path
+                // below so they can recover without re-tapping Re-check forever.
                 StatusLine(
                     label = if (s is CdpStatusUi.NotBound) {
                         "✗ Chrome devtools socket not exposed"
                     } else {
-                        "✗ Could not check status (Shizuku?)"
+                        "? Cannot probe socket on this device"
                     },
                 )
                 Text(
-                    text = "Open Chrome's flags page, enable " +
-                            "“Enable command line on non-rooted devices”, " +
-                            "then restart Chrome.",
+                    text = if (s is CdpStatusUi.NotBound) {
+                        "Open Chrome's flags page, enable " +
+                                "“Enable command line on non-rooted devices”, " +
+                                "then restart Chrome."
+                    } else {
+                        "If you've already enabled the flag and restarted Chrome, " +
+                                "the agent will still try to connect when needed — the probe " +
+                                "just couldn't read the system file on this device."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -180,6 +192,21 @@ private fun BrowserCdpStatusRow() {
                 ) {
                     Text(text = "Open chrome://flags →", style = MaterialTheme.typography.labelLarge)
                 }
+                // Inline manual-paste recovery. Always rendered alongside the CTA so the user
+                // sees the URL even when ACTION_VIEW or `am start` "succeed" but Chrome
+                // silently drops the navigation (real, observed on nubia P0110). The Toast in
+                // ChromeFlagDeepLink is transient and frequently obscured by Chrome opening
+                // on top — this surface is durable.
+                FlagUrlInlineHelp(
+                    onCopy = {
+                        val ok = deepLink.copyFlagUrlToClipboard()
+                        Toast.makeText(
+                            context,
+                            if (ok) "URL copied to clipboard" else "Copy failed — try again",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    },
+                )
                 OutlinedButton(
                     onClick = { refreshTick++ },
                     modifier = Modifier.fillMaxWidth(),
@@ -187,6 +214,42 @@ private fun BrowserCdpStatusRow() {
                 ) {
                     Text(text = "Re-check", style = MaterialTheme.typography.labelLarge)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Manual-paste recovery: shows the chrome:// URL with a Copy button. Rendered alongside the
+ * CTA whenever the probe can't confirm the socket is bound, so the user has a durable surface
+ * (not a transient Toast) for when Chrome opens but drops the URL.
+ */
+@Composable
+private fun FlagUrlInlineHelp(onCopy: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Text(
+                text = "Chrome didn't open the flags page? Paste this URL manually:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = ChromeFlagDeepLink.FLAG_URL,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onCopy,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Text(text = "Copy URL", style = MaterialTheme.typography.labelLarge)
             }
         }
     }

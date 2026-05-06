@@ -49,6 +49,20 @@ class ChromeFlagDeepLinkTest {
     }
 
     @Test
+    fun `decideStrategy returning ShizukuAmStart still implies clipboard was populated`() {
+        // Lock in the ADDITIVE contract for the Shizuku branch — same silent-success risk as
+        // ActionView (am start exits 0 even when Chrome later drops the URL). The
+        // implementation in `open()` MUST also call copyUrlToClipboard() and showToast() for
+        // this branch; this test just asserts the strategy mapping that drives that code path.
+        val outcome = ChromeFlagDeepLink.decideStrategy(
+            actionViewLaunched = false,
+            shizukuAmStartSucceeded = true,
+        )
+
+        assertThat(outcome).isEqualTo(ChromeFlagDeepLink.Strategy.ShizukuAmStart)
+    }
+
+    @Test
     fun `flag URL points to the chrome flag we want`() {
         // Guard against typos in the flag slug — chrome flags page won't auto-correct, the
         // user would just see an empty flags page.

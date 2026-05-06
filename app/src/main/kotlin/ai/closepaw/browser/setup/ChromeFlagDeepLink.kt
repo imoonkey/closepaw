@@ -22,12 +22,14 @@ import kotlinx.coroutines.withContext
  *    when Chrome silently drops the URL on its end (a real, observed behaviour), the user has
  *    a one-paste manual recovery. The previous "return success right after `startActivity`"
  *    design caused a silent-success loop where the user kept tapping the CTA.
- * 2. **Shizuku am start** — `am start -d <url> -n com.android.chrome/...Main`. Reserved for
- *    when ACTION_VIEW genuinely cannot dispatch (no Chrome handler resolves, or it threw).
- *    The `am` command runs as shell uid, which bypasses the external-intent block, so Chrome
- *    treats the URL as same-origin and renders it.
+ * 2. **Shizuku am start + clipboard hint** — `am start -d <url> -n com.android.chrome/...Main`.
+ *    Used when ACTION_VIEW didn't dispatch (no Chrome handler resolves, or it threw). The
+ *    `am` command runs as shell uid, which bypasses the external-intent block, so Chrome
+ *    treats the URL as same-origin and renders it. Same silent-success risk as step 1 — `am`
+ *    exits 0 when dispatched even if Chrome later drops the URL — so this branch ALSO copies
+ *    the URL to the clipboard with the hint toast (additive, lossless).
  * 3. **Clipboard-only fallback** — copy the URL with a generic toast. Last resort for
- *    locked-down devices where neither path works.
+ *    locked-down devices where neither launch path works.
  *
  * The injected [ShellRunner] is REQUIRED so step 2 actually runs in production. Passing null
  * would make the cascade two-step and re-open the silent-success class of bug.
@@ -40,8 +42,10 @@ class ChromeFlagDeepLink(
 
     /**
      * Run the cascade and report the strategy that was attempted as the primary action. The
-     * clipboard hint is ADDITIVE on the ActionView path — the strategy still reports
-     * [Strategy.ActionView] when both fired, because that's the user-visible launch attempt.
+     * clipboard hint is ADDITIVE on every launch path (ActionView AND ShizukuAmStart) — the
+     * strategy still reports the user-visible launch attempt, but the clipboard is always
+     * populated so the inline UI in the Settings screen can guide the user through a
+     * manual paste even when the launch silently dropped the URL.
      */
     suspend fun open(): Strategy = withContext(ioDispatcher) {
         when (tryActionView()) {
@@ -55,6 +59,11 @@ class ChromeFlagDeepLink(
             }
             ActionViewOutcome.NoHandler, ActionViewOutcome.Threw -> {
                 if (tryShizukuAmStart()) {
+                    // Same silent-success risk as ActionView — `am start` exits 0 even when
+                    // Chrome later refuses or drops the navigation. Always copy + hint so the
+                    // user has a manual recovery.
+                    copyUrlToClipboard()
+                    showToast(LAUNCH_HINT_TOAST)
                     Strategy.ShizukuAmStart
                 } else {
                     copyUrlToClipboard()
@@ -64,6 +73,14 @@ class ChromeFlagDeepLink(
             }
         }
     }
+
+    /**
+     * Side-effect-free helper for the inline "Copy URL" button in [ToolsSection]: writes the
+     * flag URL to the clipboard and returns whether the write succeeded so the caller can
+     * decide whether to show a confirming snackbar. Does NOT touch toasts so the UI controls
+     * its own confirmation surface.
+     */
+    fun copyFlagUrlToClipboard(): Boolean = copyUrlToClipboard()
 
     enum class Strategy { ActionView, ShizukuAmStart, Clipboard }
 
@@ -114,20 +131,33 @@ class ChromeFlagDeepLink(
         false
     }
 
-    private fun copyUrlToClipboard() {
-        try {
-            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            cm?.setPrimaryClip(ClipData.newPlainText("chrome flag URL", FLAG_URL))
-        } catch (e: Throwable) {
-            Log.w(TAG, "clipboard copy failed", e)
+    private fun copyUrlToClipboard(): Boolean = try {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (cm != null) {
+            cm.setPrimaryClip(ClipData.newPlainText("chrome flag URL", FLAG_URL))
+            true
+        } else {
+            false
         }
+    } catch (e: Throwable) {
+        Log.w(TAG, "clipboard copy failed", e)
+        false
     }
 
     private fun showToast(message: String) {
+        // open() runs on Dispatchers.IO, which has no Looper — Toast.makeText fails with
+        // "Can't toast on a thread that has not called Looper.prepare()". Hop to the main
+        // looper so the toast actually renders. The inline help in ToolsSection is the
+        // durable surface for users who miss/dismiss the toast, but a working toast is still
+        // a useful confirmation when it does land.
         try {
-            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                runCatching {
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }.onFailure { Log.w(TAG, "toast failed", it) }
+            }
         } catch (e: Throwable) {
-            Log.w(TAG, "toast failed", e)
+            Log.w(TAG, "toast scheduling failed", e)
         }
     }
 
