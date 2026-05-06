@@ -44,6 +44,13 @@ class DialogStateTracker {
         /** Only present for `prompt`-type dialogs. */
         val defaultPrompt: String?,
         val hasBrowserHandler: Boolean,
+        /**
+         * Frame URL that owns the dialog, copied verbatim from `Page.javascriptDialogOpening`.
+         * Surfaced so recovery helpers can show the agent which page raised the modal — the
+         * page's own JS is frozen while a dialog is open, so `pageInfo()` cannot read
+         * `location.href` until the dialog is dismissed.
+         */
+        val url: String?,
     )
 
     private val states = mutableMapOf<String, DialogState>()

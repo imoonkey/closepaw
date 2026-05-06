@@ -47,10 +47,14 @@ class ChromeCdpClient(
     /**
      * Invoked after a successful target switch — either via the `targetId` option in [send]
      * (direct-page mode opens a fresh WS, attach mode opens a fresh CDP session). The callback
-     * runs on the same coroutine that issued [send] and is awaited before the user's command
-     * hits the wire, so the new target has core domains (`Page`/`Runtime`/`DOM`/`Network`)
-     * enabled before any command observes its events. Without this, dialog tracking — which
-     * relies on `Page.javascriptDialogOpening` — silently breaks after the first tab switch.
+     * receives the EXPLICIT session/target the activation produced, NOT a snapshot of mutable
+     * `activeSessionId`/`activeTargetId` — those globals can drift to a different value between
+     * the activation and the callback when another coroutine concurrently issues
+     * `cdp(..., {targetId: ...})`. The callback runs on the same coroutine that issued [send]
+     * and is awaited before the user's command hits the wire, so the new target has core
+     * domains (`Page`/`Runtime`/`DOM`/`Network`) enabled before any command observes its events.
+     * Without explicit identifiers the enable would race onto a sibling session and dialog
+     * tracking would silently go dark on the session the caller actually wanted.
      *
      * Bootstrap (`attachToFirstRealPage` / `useDirectPageTarget`) is NOT routed through this
      * callback because [BrowserSessionManager] runs `enableCoreDomains` immediately after.
@@ -58,7 +62,7 @@ class ChromeCdpClient(
      * pushing it through every test factory override.
      */
     @Volatile
-    var onTargetActivated: (suspend () -> Unit)? = null
+    var onTargetActivated: (suspend (sessionId: String?, targetId: String?) -> Unit)? = null
 
     val eventBuffer = ChromeCdpEventBuffer()
 
@@ -141,11 +145,11 @@ class ChromeCdpClient(
         if (options.targetId != null) {
             if (directPageWebSocketBase != null) {
                 val switched = switchDirectPageTarget(options.targetId)
-                if (switched) onTargetActivated?.invoke()
+                if (switched) onTargetActivated?.invoke(null, options.targetId)
                 return sendRaw(method, params, sessionId = null)
             }
             val sid = attachToTarget(options.targetId)
-            onTargetActivated?.invoke()
+            onTargetActivated?.invoke(sid, options.targetId)
             return sendRaw(method, params, sid)
         }
 
@@ -306,6 +310,7 @@ class ChromeCdpClient(
                         defaultPrompt = params["defaultPrompt"]?.jsonPrimitive?.contentOrNull,
                         hasBrowserHandler = params["hasBrowserHandler"]?.jsonPrimitive?.booleanOrNull
                             ?: false,
+                        url = params["url"]?.jsonPrimitive?.contentOrNull,
                     ),
                 )
             }
@@ -328,6 +333,7 @@ class ChromeCdpClient(
             put("message", state.message)
             put("defaultPrompt", state.defaultPrompt)
             put("hasBrowserHandler", state.hasBrowserHandler)
+            put("url", state.url)
         }
     }
 

@@ -4,6 +4,7 @@ import android.content.Context
 import ai.closepaw.browser.cdp.CdpConnection
 import ai.closepaw.browser.cdp.CdpConnectionFactory
 import ai.closepaw.browser.cdp.CdpConnectionClosedException
+import ai.closepaw.browser.cdp.CdpOptions
 import ai.closepaw.browser.cdp.ChromeCdpClient
 import ai.closepaw.browser.cdp.ChromeCdpTarget
 import ai.closepaw.browser.cdp.RelayAuthToken
@@ -161,8 +162,12 @@ class BrowserSessionManager(
         // switches targets via the `targetId` option. Each switch in direct-page mode opens
         // a fresh WS, and each attach in attach mode opens a fresh CDP session — neither
         // inherits the bootstrap `Page.enable`, so dialog tracking (and any other event
-        // subscription) silently breaks after the first tab switch without this hook.
-        client.onTargetActivated = { enableCoreDomains(client) }
+        // subscription) silently breaks after the first tab switch without this hook. The
+        // callback receives the EXPLICIT session/target produced by the activation so a
+        // racing parallel switch cannot redirect this enable onto a sibling session.
+        client.onTargetActivated = { sessionId, targetId ->
+            enableCoreDomainsFor(client, sessionId, targetId)
+        }
         return try {
             val version = bridgeHandle.bridge.fetchVersion()
             val targets = bridgeHandle.bridge.listPageTargets()
@@ -237,6 +242,30 @@ class BrowserSessionManager(
         client.send("Runtime.enable")
         client.send("DOM.enable")
         client.send("Network.enable")
+    }
+
+    /**
+     * Enables the core domains on a SPECIFIC session/target rather than the client's mutable
+     * active state. Used by the [ChromeCdpClient.onTargetActivated] hook so a racing parallel
+     * `cdp(..., {targetId: ...})` cannot redirect this enable batch onto a sibling session
+     * between the activation and the enable. In direct-page mode the targetId option re-enters
+     * `switchDirectPageTarget`, which short-circuits when `activeTargetId` already matches and
+     * therefore does not recursively fire the callback.
+     */
+    private suspend fun enableCoreDomainsFor(
+        client: ChromeCdpClient,
+        sessionId: String?,
+        targetId: String?,
+    ) {
+        val options = when {
+            sessionId != null -> CdpOptions(sessionId = sessionId)
+            targetId != null -> CdpOptions(targetId = targetId)
+            else -> CdpOptions()
+        }
+        client.send("Page.enable", options = options)
+        client.send("Runtime.enable", options = options)
+        client.send("DOM.enable", options = options)
+        client.send("Network.enable", options = options)
     }
 
     private fun markBroken(

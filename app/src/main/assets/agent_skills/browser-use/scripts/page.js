@@ -139,7 +139,9 @@ async function pageInfo() {
   const dialog = await cdp("ClosePaw.getDialog");
   if (dialog) {
     return {
-      url: null,
+      // dialog.url is the frame URL captured at javascriptDialogOpening — the only piece of
+      // page context still readable while page JS is frozen.
+      url: dialog.url || null,
       title: null,
       viewportWidth: null,
       viewportHeight: null,
@@ -152,7 +154,8 @@ async function pageInfo() {
       dialog: {
         type: dialog.type,
         message: dialog.message,
-        defaultPrompt: dialog.defaultPrompt
+        defaultPrompt: dialog.defaultPrompt,
+        url: dialog.url || null
       }
     };
   }
