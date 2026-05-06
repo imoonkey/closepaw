@@ -1,6 +1,8 @@
 package ai.closepaw.browser.setup
 
 import android.util.Log
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import rikka.shizuku.Shizuku
 
@@ -37,13 +39,7 @@ internal class ShizukuShellRunner(
             return ShellRunner.ShellResult(exitCode = -1, stdout = "")
         }
         return try {
-            if (!waitForProcess(process, timeoutSec, TimeUnit.SECONDS)) {
-                runCatching { process.destroy() }
-                Log.w(TAG, "shell timed out: ${command.joinToString(" ")}")
-                return ShellRunner.ShellResult(exitCode = -1, stdout = "")
-            }
-            val stdout = process.inputStream.bufferedReader().use { it.readText() }
-            ShellRunner.ShellResult(exitCode = process.exitValue(), stdout = stdout)
+            runDrained(process, timeoutSec)
         } catch (e: Throwable) {
             Log.w(TAG, "shell failed: ${command.joinToString(" ")}", e)
             ShellRunner.ShellResult(exitCode = -1, stdout = "")
@@ -69,39 +65,94 @@ internal class ShizukuShellRunner(
         return method.invoke(null, command, null, null) as Process
     }
 
-    /**
-     * ShizukuRemoteProcess throws IllegalArgumentException instead of
-     * IllegalThreadStateException when the process hasn't exited; mirror the workaround used
-     * by the existing virtualdisplay executor.
-     */
-    private fun waitForProcess(process: Process, timeout: Long, unit: TimeUnit): Boolean {
-        val startTime = System.nanoTime()
-        val remNanos = unit.toNanos(timeout)
-        var rem = remNanos
-        var sleepMs = 10L
-        do {
-            try {
-                process.exitValue()
-                return true
-            } catch (_: IllegalThreadStateException) {
-            } catch (e: IllegalArgumentException) {
-                if (e.message?.contains("process hasn't exited") != true) throw e
-            }
-            if (rem > 0) {
-                try {
-                    Thread.sleep(minOf(TimeUnit.NANOSECONDS.toMillis(rem) + 1, sleepMs))
-                    sleepMs = minOf(sleepMs * 2, 100L)
-                } catch (_: InterruptedException) {
-                    return false
-                }
-            }
-            rem = remNanos - (System.nanoTime() - startTime)
-        } while (rem > 0)
-        return false
-    }
-
     companion object {
         private const val TAG = "ShizukuShellRunner"
         private const val DEFAULT_TIMEOUT_SEC = 5L
+        private const val DRAIN_JOIN_TIMEOUT_MS = 1_000L
+
+        /**
+         * Wait for [process] to exit (or [timeoutSec] elapse) while concurrently draining its
+         * stdout and stderr. Without this, a child that emits more than the OS pipe buffer
+         * (~64 KiB on Linux) blocks inside its `write()` until the reader catches up — a serial
+         * "waitFor then read" trips our timeout instead. ChromeCdpProbe used to hit this with
+         * `cat /proc/net/unix` (~50 KiB on nubia P0110) before being narrowed to a `grep -F`.
+         *
+         * Stderr is read but discarded — not exposed on [ShellRunner.ShellResult] (no current
+         * caller needs it). Reader threads are daemons so they never keep the JVM alive on
+         * shutdown.
+         *
+         * Visible to JVM tests so they can drive a `ProcessBuilder`-spawned process through the
+         * exact same code path that production uses with Shizuku.
+         */
+        internal fun runDrained(process: Process, timeoutSec: Long): ShellRunner.ShellResult {
+            val stdoutBuf = ByteArrayOutputStream()
+            val stderrBuf = ByteArrayOutputStream()
+            val stdoutThread = drainerThread("ShellRunner-stdout", process.inputStream, stdoutBuf)
+            val stderrThread = drainerThread("ShellRunner-stderr", process.errorStream, stderrBuf)
+            stdoutThread.start()
+            stderrThread.start()
+            val exited = waitForProcess(process, timeoutSec, TimeUnit.SECONDS)
+            if (!exited) {
+                runCatching { process.destroy() }
+                Log.w(TAG, "shell timed out")
+                runCatching { stdoutThread.join(DRAIN_JOIN_TIMEOUT_MS) }
+                runCatching { stderrThread.join(DRAIN_JOIN_TIMEOUT_MS) }
+                return ShellRunner.ShellResult(exitCode = -1, stdout = "")
+            }
+            // Process has exited; drainers will hit EOF and return naturally. Join before
+            // reading the buffer to ensure the last bytes have landed.
+            runCatching { stdoutThread.join(DRAIN_JOIN_TIMEOUT_MS) }
+            runCatching { stderrThread.join(DRAIN_JOIN_TIMEOUT_MS) }
+            return ShellRunner.ShellResult(
+                exitCode = process.exitValue(),
+                stdout = stdoutBuf.toString(Charsets.UTF_8.name()),
+            )
+        }
+
+        private fun drainerThread(
+            name: String,
+            source: InputStream,
+            sink: ByteArrayOutputStream,
+        ): Thread {
+            return Thread({
+                try {
+                    source.use { it.copyTo(sink) }
+                } catch (_: Throwable) {
+                    // Stream closed early (e.g. process.destroy() on timeout). Whatever has
+                    // landed in `sink` is fine; nothing to recover.
+                }
+            }, name).apply { isDaemon = true }
+        }
+
+        /**
+         * ShizukuRemoteProcess throws IllegalArgumentException instead of
+         * IllegalThreadStateException when the process hasn't exited; mirror the workaround used
+         * by the existing virtualdisplay executor.
+         */
+        private fun waitForProcess(process: Process, timeout: Long, unit: TimeUnit): Boolean {
+            val startTime = System.nanoTime()
+            val remNanos = unit.toNanos(timeout)
+            var rem = remNanos
+            var sleepMs = 10L
+            do {
+                try {
+                    process.exitValue()
+                    return true
+                } catch (_: IllegalThreadStateException) {
+                } catch (e: IllegalArgumentException) {
+                    if (e.message?.contains("process hasn't exited") != true) throw e
+                }
+                if (rem > 0) {
+                    try {
+                        Thread.sleep(minOf(TimeUnit.NANOSECONDS.toMillis(rem) + 1, sleepMs))
+                        sleepMs = minOf(sleepMs * 2, 100L)
+                    } catch (_: InterruptedException) {
+                        return false
+                    }
+                }
+                rem = remNanos - (System.nanoTime() - startTime)
+            } while (rem > 0)
+            return false
+        }
     }
 }
