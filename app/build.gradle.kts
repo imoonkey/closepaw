@@ -181,4 +181,5 @@ dependencies {
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("io.mockk:mockk-android:1.13.9")
 }
