@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.agent.definition.AgentDefRegistry
+import ai.closepaw.agent.definition.standaloneToolsExcludedByPref
 import ai.closepaw.agent.cognition.prompt.AppSkillRepository
 import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.agent.cognition.prompt.EmptyAppSkillRepository
@@ -157,7 +158,8 @@ class SessionServices internal constructor(
                 agentRoleDef = AgentDefRegistry.mainFor(config.agentMode),
                 delegatableRoleDefs = AgentDefRegistry.delegatableRoles(),
                 termuxSnapshot = termuxSnapshot,
-                excludedTools = config.excludedTools,
+                excludedTools = config.excludedTools +
+                        standaloneToolsExcludedByPref(settingsStore.browserScriptEnabled.value),
                 context = context.applicationContext
             )
             val policyEngine = tooling.policyEngine

@@ -81,6 +81,8 @@ internal fun AgentBehaviorSettingsPage(
             SettingsSection(title = "Perception") {
                 PerceptionModeSelector(selectedMode = perceptionMode, onModeChange = onPerceptionModeChange)
             }
+            Spacer(modifier = Modifier.height(20.dp))
+            ToolsSection()
             Spacer(modifier = Modifier.height(32.dp))
         }
     }

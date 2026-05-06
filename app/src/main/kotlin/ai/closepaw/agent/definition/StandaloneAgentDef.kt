@@ -3,6 +3,19 @@ package ai.closepaw.agent.definition
 import ai.closepaw.agent.AgentExecutionRole
 import ai.closepaw.tool.ToolName
 
+/**
+ * Tools that StandaloneRoleDef declares statically but should be gated out of the LLM
+ * allowlist when their corresponding user pref is OFF. SessionServices merges this set
+ * into [ai.closepaw.protocol.SessionConfig.excludedTools] so the existing exclude path
+ * (consumed by SessionToolingBootstrapper.resolveAllowedToolNames) does the actual hiding.
+ *
+ * Why a separate seam: the static [StandaloneRoleDef] is referenced from other roles' tests
+ * and from AgentDefRegistry's allRoles list at class init, so we keep its allowedTools stable
+ * and let runtime gating live with the rest of the per-session resolution logic.
+ */
+internal fun standaloneToolsExcludedByPref(browserScriptEnabled: Boolean): Set<String> =
+    if (browserScriptEnabled) emptySet() else setOf(ToolName.BrowserScript.raw)
+
 internal val StandaloneRoleDef = AgentRoleDef(
     name = "standalone",
     executionRole = AgentExecutionRole.STANDALONE,

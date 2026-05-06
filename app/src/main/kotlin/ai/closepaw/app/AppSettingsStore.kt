@@ -62,6 +62,9 @@ class AppSettingsStore(private val context: Context) {
     private val _termuxShellEnabled = MutableStateFlow(loadTermuxShellEnabled())
     val termuxShellEnabled: StateFlow<Boolean> = _termuxShellEnabled.asStateFlow()
 
+    private val _browserScriptEnabled = MutableStateFlow(loadBrowserScriptEnabled())
+    val browserScriptEnabled: StateFlow<Boolean> = _browserScriptEnabled.asStateFlow()
+
     /** Plain prefs for non-secret settings only (model, turns, mode, etc.). */
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -140,6 +143,16 @@ class AppSettingsStore(private val context: Context) {
         _termuxShellEnabled.value = value
     }
 
+    fun loadBrowserScriptEnabled(): Boolean =
+        prefs().getBoolean(KEY_BROWSER_SCRIPT_ENABLED, DEFAULT_BROWSER_SCRIPT_ENABLED)
+
+    suspend fun setBrowserScriptEnabled(value: Boolean) {
+        withContext(Dispatchers.IO) {
+            prefs().edit().putBoolean(KEY_BROWSER_SCRIPT_ENABLED, value).apply()
+        }
+        _browserScriptEnabled.value = value
+    }
+
     fun saveExecutorModel(value: String?) {
         if (value == null) {
             prefs().edit().remove(KEY_EXECUTOR_MODEL).apply()
@@ -166,6 +179,7 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveBrowserScriptEnabled(value: Boolean) {
         prefs().edit().putBoolean(KEY_BROWSER_SCRIPT_ENABLED, value).apply()
+        _browserScriptEnabled.value = value
     }
 
     fun savePerceptionMode(value: String) {
