@@ -7,7 +7,10 @@ import ai.closepaw.browser.setup.ShizukuShellRunner
 import ai.closepaw.termux.NeedsSetupReason
 import ai.closepaw.termux.TermuxBridgeManager
 import ai.closepaw.termux.TermuxBridgeStatus
+import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -85,11 +88,24 @@ internal fun ToolsSection(
 private fun TermuxShellSettingsRow() {
     val context = LocalContext.current
     val appContext = context.applicationContext
+    val activity = remember(context) { context.findActivity() }
     val manager = remember(appContext) { TermuxBridgeManager.get(appContext) }
     val settingsStore = remember(appContext) { AppSettingsStore(appContext) }
     val bridgeStatus by manager.state.collectAsStateWithLifecycle()
     val termuxShellEnabled by settingsStore.termuxShellEnabled.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+
+    // Permission gate is null when LocalContext is not an Activity (Compose previews and the
+    // SettingsTermuxRowTest IntentRecordingContext) — in that case we silently skip the runtime
+    // request and fall back to the legacy behavior of just calling manager.setup() on tap. The
+    // permission flow only applies on real device runs where ComponentActivity is available.
+    val permissionGate = activity?.let {
+        rememberRunCommandPermissionGate(activity = it) { granted ->
+            if (granted) {
+                scope.launch(Dispatchers.IO) { manager.setup() }
+            }
+        }
+    }
 
     LaunchedEffect(manager, termuxShellEnabled) {
         if (termuxShellEnabled) {
@@ -117,6 +133,7 @@ private fun TermuxShellSettingsRow() {
     }
 
     val displayedStatus = if (termuxShellEnabled) bridgeStatus else TermuxBridgeStatus.Disabled
+    val permissionDisposition = permissionGate?.disposition()
     val rowAction: (() -> Unit)? =
         when (displayedStatus) {
             TermuxBridgeStatus.NotInstalled -> {
@@ -130,6 +147,10 @@ private fun TermuxShellSettingsRow() {
                     NeedsSetupReason.TERMUX_NOT_RUNNING -> {
                         { context.launchTermux() }
                     }
+                    NeedsSetupReason.PERMISSION_MISSING -> permissionRowAction(
+                        gate = permissionGate,
+                        runSetup = { scope.launch(Dispatchers.IO) { manager.setup() } },
+                    )
                     else -> {
                         { scope.launch(Dispatchers.IO) { manager.setup() } }
                     }
@@ -165,7 +186,7 @@ private fun TermuxShellSettingsRow() {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = displayedStatus.subtitle,
+                        text = displayedStatus.subtitleFor(permissionDisposition),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -182,7 +203,23 @@ private fun TermuxShellSettingsRow() {
                 Switch(
                     checked = termuxShellEnabled,
                     onCheckedChange = { enabled ->
-                        scope.launch { settingsStore.setTermuxShellEnabled(enabled) }
+                        scope.launch {
+                            settingsStore.setTermuxShellEnabled(enabled)
+                            if (enabled) {
+                                // Proactively request the dangerous permission so the user sees
+                                // the system dialog the first time they enable the toggle, instead
+                                // of having to enable → see "RUN_COMMAND missing" → tap the row →
+                                // see the dialog. Skipped silently when the gate is null (preview /
+                                // unit-test ContextWrapper) or when permission is already granted.
+                                when (permissionGate?.disposition()) {
+                                    RunCommandPermissionDisposition.Request ->
+                                        permissionGate.requestPermission()
+                                    RunCommandPermissionDisposition.OpenAppSettings ->
+                                        permissionGate.openAppSettings()
+                                    RunCommandPermissionDisposition.Granted, null -> Unit
+                                }
+                            }
+                        }
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
@@ -224,9 +261,55 @@ private val TermuxBridgeStatus.subtitle: String
             TermuxBridgeStatus.Disabled -> "Toggle to enable"
         }
 
+/**
+ * Subtitle that may vary with the runtime permission disposition. PERMISSION_MISSING is the
+ * only reason whose copy depends on disposition: the row text changes between "tap to grant"
+ * (system dialog still available) and "tap to open App Settings" (user picked Don't ask again
+ * and only the system Settings app can flip the grant back on).
+ */
+private fun TermuxBridgeStatus.subtitleFor(
+    permissionDisposition: RunCommandPermissionDisposition?,
+): String {
+    if (this is TermuxBridgeStatus.NeedsSetup &&
+        reason == NeedsSetupReason.PERMISSION_MISSING
+    ) {
+        return when (permissionDisposition) {
+            RunCommandPermissionDisposition.OpenAppSettings ->
+                "Permission permanently denied. Tap to open App Settings → Permissions."
+            RunCommandPermissionDisposition.Request,
+            RunCommandPermissionDisposition.Granted,
+            null -> "Tap to grant RUN_COMMAND permission to Termux."
+        }
+    }
+    return subtitle
+}
+
+/**
+ * Build the tap handler for the PERMISSION_MISSING reason. Routes through the gate's
+ * disposition: already-granted means the bridge state is stale (raced with another grant) so
+ * just retry setup; Request fires the system dialog; OpenAppSettings sends the user to the app
+ * details page so they can flip the toggle manually.
+ */
+private fun permissionRowAction(
+    gate: RunCommandPermissionGate?,
+    runSetup: () -> Unit,
+): () -> Unit = {
+    when (gate?.disposition()) {
+        RunCommandPermissionDisposition.Granted, null -> runSetup()
+        RunCommandPermissionDisposition.Request -> gate.requestPermission()
+        RunCommandPermissionDisposition.OpenAppSettings -> gate.openAppSettings()
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 private fun NeedsSetupReason.toDisplayText(): String =
     when (this) {
-        NeedsSetupReason.PERMISSION_MISSING -> "RUN_COMMAND permission missing. Grant the permission, then tap setup."
+        NeedsSetupReason.PERMISSION_MISSING -> "Tap to grant RUN_COMMAND permission to Termux."
         NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING ->
             "Allow external apps is disabled in Termux. Enable it, then tap setup."
         NeedsSetupReason.TERMUX_NOT_RUNNING ->
