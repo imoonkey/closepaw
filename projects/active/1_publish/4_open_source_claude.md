@@ -172,6 +172,51 @@ OPENROUTER_API_KEY=sk-or-your-key-here
 NOVITA_API_KEY=
 ```
 
+### 4.6 Release Workflow（tag → signed APK → GitHub Release）
+
+合并自 `open_source_release/note.md`：开源仓库 release 流程。
+
+`.github/workflows/release.yml`：
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+      - name: Build signed APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
+```
+
+依赖：`2_release_build_claude.md` 的 `signingConfigs` 必须先到位。
+GitHub Secrets 需配置：`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`。
+
 ## 验收标准
 
 - [ ] 根目录有可读的 README.md（含截图/GIF）
@@ -180,3 +225,4 @@ NOVITA_API_KEY=
 - [ ] 有 issue template 和 PR template
 - [ ] 有 .env.example
 - [ ] 有 SECURITY.md
+- [ ] tag 触发 release workflow 能产出签名 APK 并创建 GitHub Release
