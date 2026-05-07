@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ClosePaw</string>
-    <string name="accessibility_service_description">ClosePaw uses Accessibility to act as an on-device automation agent. It reads on-screen elements (text, buttons, layout) and performs taps, swipes, and text input on your behalf to complete tasks you explicitly request, such as opening an app or filling a form.\n\nThe service is only active during tasks you start from ClosePaw. It does not run in the background, does not continuously monitor other apps, and does not collect screen content outside of an active task. Screen data read during a task is sent to the LLM provider you configured (e.g. OpenAI or Anthropic) so the agent can decide the next step.\n\nYou are always in control: stop any task at any time from the floating capsule, and disable this service whenever you want via Android Settings &gt; Accessibility &gt; ClosePaw.</string>
+    <string name="accessibility_service_description">ClosePaw acts as an on-device automation agent. With your permission, it reads on-screen elements and performs taps, swipes, and text input only when you start a task. It does not run in the background or monitor other apps.</string>
 </resources>

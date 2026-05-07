@@ -67,12 +67,13 @@ fun PermissionStepContent(
     onSkip: () -> Unit,
     onContinue: () -> Unit = {}
 ) {
-    val (icon, description, consequence, ctaLabel) = permissionStepCopy(step)
+    val copy = permissionStepCopy(step)
+    var detailsExpanded by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Icon
         Icon(
-            imageVector = icon,
+            imageVector = copy.icon,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.secondary
@@ -82,15 +83,29 @@ fun PermissionStepContent(
 
         // Description
         Text(
-            text = description,
+            text = copy.description,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
+        // Optional expandable disclosure (LLM data flow + privacy policy).
+        if (copy.extendedDescription != null) {
+            TextButton(onClick = { detailsExpanded = !detailsExpanded }) {
+                Text(if (detailsExpanded) "Hide details" else "Data & privacy details")
+            }
+            if (detailsExpanded) {
+                Text(
+                    text = copy.extendedDescription,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // Status card
-        StatusCard(state = state, consequence = consequence)
+        StatusCard(state = state, consequence = copy.consequence)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -119,7 +134,7 @@ fun PermissionStepContent(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = state != PermissionStepState.OpeningSettings
                 ) {
-                    Text(ctaLabel)
+                    Text(copy.ctaLabel)
                 }
             }
         }
@@ -794,21 +809,22 @@ private data class PermissionCopy(
     val icon: ImageVector,
     val description: String,
     val consequence: String,
-    val ctaLabel: String
+    val ctaLabel: String,
+    val extendedDescription: String? = null
 )
 
 private fun permissionStepCopy(step: WizardStep): PermissionCopy = when (step) {
     WizardStep.Accessibility -> PermissionCopy(
         icon = Icons.Outlined.Security,
-        // TODO: replace placeholder Privacy Policy URL once the public repo is finalized.
         description = "Android only allows trusted automation through Accessibility. " +
-            "When you start a task, ClosePaw reads on-screen elements and performs taps, swipes, " +
-            "and text input to complete it. Screen content read during a task is sent to the LLM " +
-            "provider you chose (e.g. OpenAI, Anthropic) so the agent can decide the next step. " +
-            "ClosePaw does not run in the background and does not monitor other apps when no task is active. " +
-            "See our privacy policy for details: https://github.com/<owner>/<repo>/blob/main/PRIVACY_POLICY.md",
+            "ClosePaw uses it to read the screen and perform taps so it can complete the tasks you ask for.",
         consequence = "Without Accessibility, ClosePaw cannot automate tasks.",
-        ctaLabel = "Open Accessibility Settings"
+        ctaLabel = "Open Accessibility Settings",
+        // TODO: replace placeholder Privacy Policy URL once the public repo is finalized.
+        extendedDescription = "Active only when you start a task — ClosePaw does not run in the background or " +
+            "monitor other apps. Screen content read during a task is sent to the LLM provider you chose " +
+            "(e.g. OpenAI, Anthropic) so the agent can pick the next step.\n\n" +
+            "Privacy policy: https://github.com/<owner>/<repo>/blob/main/PRIVACY_POLICY.md"
     )
     WizardStep.Overlay -> PermissionCopy(
         icon = Icons.Outlined.Layers,
