@@ -820,11 +820,9 @@ private fun permissionStepCopy(step: WizardStep): PermissionCopy = when (step) {
             "ClosePaw uses it to read the screen and perform taps so it can complete the tasks you ask for.",
         consequence = "Without Accessibility, ClosePaw cannot automate tasks.",
         ctaLabel = "Open Accessibility Settings",
-        // TODO: replace placeholder Privacy Policy URL once the public repo is finalized.
         extendedDescription = "Active only when you start a task — ClosePaw does not run in the background or " +
             "monitor other apps. Screen content read during a task is sent to the LLM provider you chose " +
-            "(e.g. OpenAI, Anthropic) so the agent can pick the next step.\n\n" +
-            "Privacy policy: https://github.com/<owner>/<repo>/blob/main/PRIVACY_POLICY.md"
+            "(e.g. OpenAI, Anthropic) so the agent can pick the next step."
     )
     WizardStep.Overlay -> PermissionCopy(
         icon = Icons.Outlined.Layers,
