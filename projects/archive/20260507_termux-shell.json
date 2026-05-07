@@ -1,0 +1,1053 @@
+{
+  "termux-shell": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Termux Shell Tool",
+    "description": "Add termux_shell tool to ClosePaw via Termux bridge daemon. Full Linux bash shell capability through HTTP bridge on localhost, enabling workspace operations (file R/W, git, python, build tools) alongside existing UI automation. 6 phases: substrate, bridge daemon, bridge manager, shell tool, agent wiring, settings+QA.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/res/xml/network_security_config.xml",
+      "app/src/main/res/raw/closepaw_bridge_py",
+      "tools/termux-bridge/**",
+      "app/src/main/kotlin/ai/closepaw/termux/**",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/**",
+      "app/src/main/kotlin/ai/closepaw/session/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "termux_shell tool functional in BASIC and PRO modes",
+      "Mixed UI+workspace tasks pass",
+      "./gradlew clean assembleDebug lint test passes"
+    ],
+    "priority": "high",
+    "estimate": "xl",
+    "tags": [
+      "termux",
+      "workspace",
+      "general-agent"
+    ],
+    "created": "2026-05-02T01:12:15Z",
+    "updated": "2026-05-02T04:12:39Z"
+  },
+  "ts-phase1-substrate": {
+    "parent": "termux-shell",
+    "depends": [],
+    "state": "done",
+    "title": "Phase 1: Substrate (Manifest + Network + Resource)",
+    "description": "AndroidManifest.xml package visibility, network_security_config.xml localhost cleartext exception, bridge.py raw resource packaging, and verification tests.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/res/xml/network_security_config.xml",
+      "app/src/main/res/raw/closepaw_bridge_py",
+      "tools/termux-bridge/closepaw_bridge.py",
+      "app/build.gradle.kts"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "substrate"
+    ],
+    "created": "2026-05-02T01:12:21Z",
+    "updated": "2026-05-02T04:12:39Z",
+    "worktree": "termux-shell"
+  },
+  "ts-manifest-visibility": {
+    "parent": "ts-phase1-substrate",
+    "depends": [],
+    "state": "done",
+    "title": "AndroidManifest.xml: Termux package visibility + RUN_COMMAND",
+    "description": "Add Termux package visibility declaration and RUN_COMMAND service intent query to AndroidManifest.xml. Required for bootstrap flow to discover and communicate with Termux via RUN_COMMAND intent. Add com.termux.permission.RUN_COMMAND permission, <package android:name=\"com.termux\" /> in queries, and <intent><action android:name=\"com.termux.RUN_COMMAND\" /></intent> in queries.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/AndroidManifest.xml"
+    ],
+    "acceptCriteria": [
+      "rg -q \"com.termux.permission.RUN_COMMAND\" app/src/main/AndroidManifest.xml",
+      "rg -q \"com.termux\" app/src/main/AndroidManifest.xml",
+      "rg -q \"com.termux.RUN_COMMAND\" app/src/main/AndroidManifest.xml",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "substrate",
+      "manifest"
+    ],
+    "created": "2026-05-02T01:12:28Z",
+    "updated": "2026-05-02T01:41:55Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-manifest-visibility"
+  },
+  "ts-network-security": {
+    "parent": "ts-phase1-substrate",
+    "depends": [],
+    "state": "done",
+    "title": "network_security_config.xml: localhost cleartext exception",
+    "description": "Add 127.0.0.1 cleartext traffic exception to network_security_config.xml. Bridge daemon runs on localhost:18422 over HTTP. Narrow exception: only 127.0.0.1, includeSubdomains=false. base-config remains cleartextTrafficPermitted=false.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/res/xml/network_security_config.xml"
+    ],
+    "acceptCriteria": [
+      "rg -q \"127.0.0.1\" app/src/main/res/xml/network_security_config.xml",
+      "rg -q \"cleartextTrafficPermitted.*true\" app/src/main/res/xml/network_security_config.xml",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "substrate",
+      "network"
+    ],
+    "created": "2026-05-02T01:12:34Z",
+    "updated": "2026-05-02T01:41:55Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-network-security"
+  },
+  "ts-bridge-resource": {
+    "parent": "ts-phase1-substrate",
+    "depends": [],
+    "state": "done",
+    "title": "Bridge script packaging: res/raw + Gradle copy + version constant",
+    "description": "Create tools/termux-bridge/closepaw_bridge.py as canonical source with BRIDGE_VERSION = \"1\" at top. Add Gradle copy task to package it as app/src/main/res/raw/closepaw_bridge_py. The copy task ensures the raw resource is always byte-identical to the canonical source. Version constant appears in /v1/health response and is checked by TermuxBridgeManager for re-deploy decisions.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/closepaw_bridge.py",
+      "app/src/main/res/raw/closepaw_bridge_py",
+      "app/build.gradle.kts"
+    ],
+    "acceptCriteria": [
+      "test -f tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"BRIDGE_VERSION\" tools/termux-bridge/closepaw_bridge.py",
+      "Gradle copy task copies tools/termux-bridge/closepaw_bridge.py to res/raw/closepaw_bridge_py",
+      "./gradlew assembleDebug && test -f app/src/main/res/raw/closepaw_bridge_py"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "substrate",
+      "bridge"
+    ],
+    "created": "2026-05-02T01:12:43Z",
+    "updated": "2026-05-02T01:41:55Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-bridge-resource"
+  },
+  "ts-substrate-tests": {
+    "parent": "ts-phase1-substrate",
+    "depends": [
+      "ts-manifest-visibility",
+      "ts-network-security",
+      "ts-bridge-resource"
+    ],
+    "state": "done",
+    "title": "Substrate verification tests",
+    "description": "CI test: raw resource exists and contains expected BRIDGE_VERSION line. Instrumentation test: OkHttp can reach http://127.0.0.1 under release network security config (validates cleartext exception works). These tests gate Phase 2.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/termux/**",
+      "app/src/androidTest/kotlin/ai/closepaw/termux/**"
+    ],
+    "acceptCriteria": [
+      "JVM test asserts raw resource contains BRIDGE_VERSION line",
+      "Instrumentation test asserts OkHttp can connect to http://127.0.0.1 under release config",
+      "./gradlew test"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "substrate",
+      "test"
+    ],
+    "created": "2026-05-02T01:12:50Z",
+    "updated": "2026-05-02T01:50:48Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-substrate-tests"
+  },
+  "ts-review-phase1": {
+    "parent": "ts-phase1-substrate",
+    "depends": [
+      "ts-substrate-tests"
+    ],
+    "state": "done",
+    "title": "Codex review: Phase 1 Substrate",
+    "description": "Codex code-review of all Phase 1 changes: manifest, network_security_config, bridge resource packaging, and substrate tests.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase1_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "w-ts-review-phase1",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T01:59:32Z"
+  },
+  "ts-phase2-bridge-daemon": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-review-phase1"
+    ],
+    "state": "done",
+    "title": "Phase 2: Bridge Daemon (Host-Side Python)",
+    "description": "Implement the Python bridge daemon (~150 lines, stdlib only) that runs inside Termux. ThreadingHTTPServer on 127.0.0.1:18422 with /v1/exec and /v1/health endpoints. Handles process lifecycle, output capping, exec serialization, and idle shutdown.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "Host-side pytest passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge",
+      "python"
+    ],
+    "created": "2026-05-02T01:12:57Z",
+    "updated": "2026-05-02T04:12:39Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-server": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [],
+    "state": "done",
+    "title": "Bridge HTTP server + endpoints + pidfile management",
+    "description": "Implement ThreadingHTTPServer on 127.0.0.1:18422 with /v1/exec (POST) and /v1/health (GET) endpoints. Pidfile management: write {pid, port, version, identity: \"closepaw-bridge\"} on start. On startup: if pidfile exists, check identity → kill old bridge if ours, return port_in_use if not. Idempotent startup. All responses JSON. Health returns {status, version, identity}.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/closepaw_bridge.py"
+    ],
+    "acceptCriteria": [
+      "test -f tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"ThreadingHTTPServer\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"/v1/exec\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"/v1/health\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"closepaw-bridge\" tools/termux-bridge/closepaw_bridge.py",
+      "python3 tools/termux-bridge/closepaw_bridge.py --help || true"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge",
+      "python"
+    ],
+    "created": "2026-05-02T01:13:05Z",
+    "updated": "2026-05-02T02:27:28Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-bridge-daemon"
+  },
+  "ts-bridge-exec": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [
+      "ts-bridge-server"
+    ],
+    "state": "done",
+    "title": "Bridge exec: timeout, disconnect, output cap, exec lock",
+    "description": "Implement /v1/exec execution loop: subprocess.Popen([\"bash\", \"-c\", command]) with start_new_session=True for process-group kill. Two drain threads for stdout/stderr to avoid pipe deadlock. Process-group kill on timeout (os.killpg). Client disconnect detection (poll socket) triggers immediate kill. Output cap with independent stdout/stderr truncation: each has _truncated boolean and _ref path to artifact file in ~/.closepaw/artifacts/. Exec lock: only one /v1/exec at a time, busy returns HTTP 409. Non-zero exit code returns HTTP 200 with exit_code field.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/closepaw_bridge.py"
+    ],
+    "acceptCriteria": [
+      "rg -q \"exec_lock\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"SIGKILL\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"timed_out\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"stdout_truncated\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"stderr_truncated\" tools/termux-bridge/closepaw_bridge.py",
+      "rg -q \"409\" tools/termux-bridge/closepaw_bridge.py"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge",
+      "python"
+    ],
+    "created": "2026-05-02T01:13:15Z",
+    "updated": "2026-05-02T02:27:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-watchdog": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [
+      "ts-bridge-server"
+    ],
+    "state": "done",
+    "title": "Bridge idle watchdog (30 min auto-exit)",
+    "description": "Implement 30-minute idle watchdog. Track last request timestamp. Background thread checks periodically; if no /v1/exec or /v1/health received within 30 minutes, server shuts down gracefully. Saves battery on Android device.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/closepaw_bridge.py"
+    ],
+    "acceptCriteria": [
+      "rg -q \"watchdog\\|idle\" tools/termux-bridge/closepaw_bridge.py",
+      "Bridge auto-exits after 30 min of no requests"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "bridge",
+      "python"
+    ],
+    "created": "2026-05-02T01:13:21Z",
+    "updated": "2026-05-02T02:27:28Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-pytest": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [
+      "ts-bridge-exec",
+      "ts-bridge-watchdog"
+    ],
+    "state": "done",
+    "title": "Host-side pytest for bridge daemon",
+    "description": "Comprehensive host-side pytest suite covering: health endpoint, exec endpoint, timeout (process-group kill), exit code passthrough, output cap (stdout and stderr independently), artifact overflow (stdout_ref/stderr_ref), stale daemon pidfile handling, port conflict detection (port_in_use error), busy lock (409 on concurrent exec). Tests run against a real bridge process started in-process or subprocess.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "tools/termux-bridge/tests/**"
+    ],
+    "acceptCriteria": [
+      "test -d tools/termux-bridge/tests",
+      "cd tools/termux-bridge && python3 -m pytest tests/ -v",
+      "Tests cover: health, exec, timeout, exit code, output cap, stdout overflow, stderr overflow, stale daemon, port conflict, busy 409"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge",
+      "python",
+      "test"
+    ],
+    "created": "2026-05-02T01:13:28Z",
+    "updated": "2026-05-02T02:27:28Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-bridge-pytest"
+  },
+  "ts-review-phase2": {
+    "parent": "ts-phase2-bridge-daemon",
+    "depends": [
+      "ts-bridge-pytest"
+    ],
+    "state": "done",
+    "title": "Codex review: Phase 2 Bridge Daemon",
+    "description": "Codex code-review of bridge daemon: closepaw_bridge.py, exec loop, health endpoint, pidfile, output cap, idle watchdog, and host-side pytest.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase2_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "w-ts-review-phase2",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T02:27:28Z"
+  },
+  "ts-phase3-bridge-manager": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-review-phase2"
+    ],
+    "state": "done",
+    "title": "Phase 3: TermuxBridgeManager + Bootstrap",
+    "description": "Kotlin-side bridge lifecycle management: TermuxBridgeManager (process-wide singleton via Holder pattern), TermuxRunCommandAdapter for bootstrap, 4-step bootstrap flow, health polling, and settings integration.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/**",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "l",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "kotlin"
+    ],
+    "created": "2026-05-02T01:13:36Z",
+    "updated": "2026-05-02T04:12:39Z",
+    "worktree": "termux-shell"
+  },
+  "ts-bridge-manager-core": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [],
+    "state": "done",
+    "title": "TermuxBridgeManager core: Holder + StateFlow + status types",
+    "description": "Implement TermuxBridgeManagerHolder (process-wide singleton, double-check locking like AuthStoreHolder). TermuxBridgeManager with StateFlow<TermuxBridgeStatus>, Mutex-serialized setup/health/restart methods, and snapshot() returning immutable TermuxCapabilitySnapshot. Status sealed class: NotInstalled, NeedsSetup(reason), SetupInProgress, Ready, Disabled. TermuxCapabilitySnapshot data class: available (bridge ready AND user enabled), enabled (settings toggle), status (debug/logging).",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeStatus.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"TermuxBridgeManagerHolder\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"StateFlow\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"TermuxCapabilitySnapshot\" app/src/main/kotlin/ai/closepaw/termux/",
+      "rg -q \"TermuxBridgeStatus\" app/src/main/kotlin/ai/closepaw/termux/",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "kotlin"
+    ],
+    "created": "2026-05-02T01:13:48Z",
+    "updated": "2026-05-02T02:36:09Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-bridge-manager-core"
+  },
+  "ts-run-command-adapter": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [],
+    "state": "done",
+    "title": "TermuxRunCommandAdapter: RUN_COMMAND intent + PendingIntent result",
+    "description": "Implement TermuxRunCommandAdapter that sends RUN_COMMAND intents to Termux and receives results via PendingIntent BroadcastReceiver. Each call generates unique requestId to ignore stale/late results. Supports EXTRA_STDIN for bridge.py deployment via base64 encoding (avoids shell quoting). Returns RunCommandResult(stdout, stderr, exitCode). Handles SecurityException (permission missing) and ActivityNotFoundException (Termux not installed / allow-external-apps disabled).",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "rg -q \"RUN_COMMAND\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "rg -q \"PendingIntent\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "rg -q \"requestId\\|request_id\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "rg -q \"base64\\|Base64\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "kotlin"
+    ],
+    "created": "2026-05-02T01:13:56Z",
+    "updated": "2026-05-02T02:36:09Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-run-command-adapter"
+  },
+  "ts-bootstrap-flow": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [
+      "ts-bridge-manager-core",
+      "ts-run-command-adapter"
+    ],
+    "state": "done",
+    "title": "Termux detection + 4-step bootstrap flow",
+    "description": "Implement Termux detection via PackageManager (check com.termux installed). 4-step idempotent bootstrap with probe-derived readiness: Step 1 (Probe) - RUN_COMMAND echo CLOSEPAW_PROBE=ok, verify Termux initialized + allow-external-apps + permission. Step 2 (Install) - pkg install -y python git ripgrep, verify with which. Step 3 (Deploy) - deploy bridge.py via EXTRA_STDIN base64, create workspace/artifacts/logs dirs, verify CLOSEPAW_DEPLOY=ok marker. Step 4 (Start) - python3 ~/.closepaw/bridge.py &, poll /v1/health until ready with correct version. Each step has explicit success marker. Failure maps to NeedsSetup(reason).",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"CLOSEPAW_PROBE\" app/src/main/kotlin/ai/closepaw/termux/",
+      "rg -q \"CLOSEPAW_DEPLOY\" app/src/main/kotlin/ai/closepaw/termux/",
+      "rg -q \"pkg install\" app/src/main/kotlin/ai/closepaw/termux/",
+      "Bootstrap flow handles all 4 steps with idempotent re-entry",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "l",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "bootstrap"
+    ],
+    "created": "2026-05-02T01:14:07Z",
+    "updated": "2026-05-02T02:42:23Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase3-bootstrap-health"
+  },
+  "ts-health-lifecycle": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [
+      "ts-bootstrap-flow"
+    ],
+    "state": "done",
+    "title": "Health polling, restart, version mismatch, settings toggle",
+    "description": "Implement health polling at 30s interval via /v1/health. On bridge failure: restart via RUN_COMMAND. On version mismatch: re-deploy bridge.py from raw resource then restart. Enabled toggle persisted in AppSettingsStore. Health polling updates TermuxBridgeManager.state (affects next session, not current). Bridge 30-min idle watchdog handled server-side; client just restarts on next session if bridge exited.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"healthCheck\\|health_check\\|healthPoll\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"BRIDGE_VERSION\\|bridgeVersion\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
+      "rg -q \"termux\\|Termux\" app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "bridge-manager",
+      "lifecycle"
+    ],
+    "created": "2026-05-02T01:14:16Z",
+    "updated": "2026-05-02T02:42:23Z",
+    "worktree": "termux-shell"
+  },
+  "ts-review-phase3": {
+    "parent": "ts-phase3-bridge-manager",
+    "depends": [
+      "ts-health-lifecycle"
+    ],
+    "state": "done",
+    "title": "Codex review: Phase 3 Bridge Manager + Bootstrap",
+    "description": "Codex code-review of TermuxBridgeManager, TermuxRunCommandAdapter, bootstrap flow, health lifecycle, and settings toggle.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase3_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "w-ts-review-phase3",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T02:54:58Z"
+  },
+  "ts-phase4-shell-tool": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-review-phase3"
+    ],
+    "state": "done",
+    "title": "Phase 4: TermuxShellTool",
+    "description": "Implement TermuxShellTool as a ToolSpec, OkHttp HTTP client to bridge daemon, result mapping, ToolName registration, and turn ordering policy update.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/turn/TurnToolPolicy.kt"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "tool"
+    ],
+    "created": "2026-05-02T01:14:23Z",
+    "updated": "2026-05-02T04:12:39Z",
+    "worktree": "termux-shell"
+  },
+  "ts-shell-tool-impl": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [],
+    "state": "done",
+    "title": "TermuxShellTool: ToolSpec + OkHttp + cancellation",
+    "description": "Implement TermuxShellTool extending ToolSpec. Tool parameters: command (required), cwd (optional, defaults to workspace root), timeout_seconds (optional, default 120s, max 120s). OkHttp client with explicit read/call timeout = timeout_ms + 5000ms grace period (not OkHttp default 10s). Cancellable via suspendCancellableCoroutine with cont.invokeOnCancellation { call.cancel() }. Coroutine cancel -> Call.cancel() -> TCP disconnect -> bridge kills subprocess.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"ToolSpec\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"suspendCancellableCoroutine\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"invokeOnCancellation\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"timeout_ms.*5000\\|grace\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "tool",
+      "okhttp"
+    ],
+    "created": "2026-05-02T01:14:33Z",
+    "updated": "2026-05-02T03:04:18Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase4-tool"
+  },
+  "ts-shell-tool-result": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [
+      "ts-shell-tool-impl"
+    ],
+    "state": "done",
+    "title": "TermuxShellTool result mapping",
+    "description": "Implement result mapping from bridge HTTP responses to ToolExecutionResult. HTTP 200 with any exit_code -> Success (stdout/stderr/exit_code as tool output). HTTP 200 with timed_out=true -> Success (partial output + timeout info). HTTP 409 busy -> Failure (bridge busy, LLM can retry). HTTP 4xx/5xx -> Failure (transport/protocol error). Connection refused/timeout -> Failure (bridge not available). IOException -> Failure (network error). Non-zero exit code is NOT a Failure - it is informational for the LLM.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"Success\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"Failure\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"409\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "rg -q \"timed_out\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
+      "Non-zero exit code maps to Success, not Failure"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "tool"
+    ],
+    "created": "2026-05-02T01:14:42Z",
+    "updated": "2026-05-02T03:04:19Z",
+    "worktree": "termux-shell"
+  },
+  "ts-tool-registration": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [
+      "ts-shell-tool-impl"
+    ],
+    "state": "done",
+    "title": "ToolName + TurnToolPolicy for termux_shell",
+    "description": "Add TermuxShell to ToolName enum with isScreenChanging=false (auto-allow policy, same as existing shell tool). Update TurnToolPolicy: termux_shell must NOT be hoistable. Only cognitive tools (scratchpad, write_todos, remember_experience) are hoistable. termux_shell, shell, ask_user, activate_skill preserve LLM-returned order.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/turn/TurnToolPolicy.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"TermuxShell\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "rg -q \"termux_shell\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "TermuxShell.isScreenChanging == false",
+      "TurnToolPolicy does not hoist termux_shell",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "tool",
+      "policy"
+    ],
+    "created": "2026-05-02T01:14:51Z",
+    "updated": "2026-05-02T03:04:19Z",
+    "worktree": "termux-shell"
+  },
+  "ts-shell-tool-tests": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [
+      "ts-shell-tool-result",
+      "ts-tool-registration"
+    ],
+    "state": "done",
+    "title": "TermuxShellTool unit tests",
+    "description": "Unit tests for TermuxShellTool covering: JSON schema validation, result mapping (200 success, 200 timed_out, 409 busy, connection error), cancellation (Call.cancel() invoked on coroutine cancel), non-zero exit code handling (maps to Success not Failure), timeout parameter validation, OkHttp timeout configuration (timeout_ms + 5s grace).",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/tool/impl/TermuxShellToolTest.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/test/kotlin/ai/closepaw/tool/impl/TermuxShellToolTest.kt",
+      "Tests cover: schema, result mapping (200/409/error), cancellation, non-zero exit code, timeout config",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.tool.impl.TermuxShellToolTest\""
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "tool",
+      "test"
+    ],
+    "created": "2026-05-02T01:14:59Z",
+    "updated": "2026-05-02T03:09:54Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-shell-tool-tests"
+  },
+  "ts-review-phase4": {
+    "parent": "ts-phase4-shell-tool",
+    "depends": [
+      "ts-shell-tool-tests"
+    ],
+    "state": "done",
+    "title": "Codex review: Phase 4 TermuxShellTool",
+    "description": "Codex code-review of TermuxShellTool implementation: ToolSpec, OkHttp client, result mapping, cancellation, ToolName, TurnToolPolicy changes.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase4_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "w-ts-review-phase4",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T03:20:56Z"
+  },
+  "ts-phase5-agent-wiring": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-review-phase4"
+    ],
+    "state": "done",
+    "title": "Phase 5: Agent Wiring",
+    "description": "Wire TermuxShellTool into the agent system: shell description update, system prompt extension, conditional tool registration via TermuxCapabilitySnapshot, AgentRoleDef.resolve(), runner integration, PRO mode delegation contract, and checkpoint reload.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/definition/**",
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/runner/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "l",
+    "tags": [
+      "termux",
+      "agent",
+      "wiring"
+    ],
+    "created": "2026-05-02T01:15:07Z",
+    "updated": "2026-05-02T04:12:39Z",
+    "worktree": "termux-shell"
+  },
+  "ts-prompt-updates": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [],
+    "state": "done",
+    "title": "Shell description + system prompt extension",
+    "description": "Update existing shell tool description to clarify toybox scope and guide users to termux_shell for full toolchain. New description: \"Android toybox shell. Limited commands (ls, cat, stat, grep, etc.), no pipe/redirect. Use termux_shell for full toolchain (python/git etc).\" Add system prompt Workspace Shell section (injected when TermuxCapabilitySnapshot.available is true): termux_shell description, when-to-use-which-shell guidance, UI vs shell guidance, workspace path ~/closepaw/workspace/.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/**"
+    ],
+    "acceptCriteria": [
+      "rg -q \"toybox\" app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
+      "rg -q \"termux_shell\" app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
+      "rg -q \"Workspace Shell\" app/src/main/kotlin/ai/closepaw/agent/definition/",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "agent",
+      "prompt"
+    ],
+    "created": "2026-05-02T01:15:16Z",
+    "updated": "2026-05-02T03:32:14Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase5-prompt-reg"
+  },
+  "ts-conditional-registration": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [],
+    "state": "done",
+    "title": "Conditional tool registration + AgentRoleDef.resolve()",
+    "description": "Implement conditional tool registration: read TermuxCapabilitySnapshot (immutable, captured at session start) to decide whether to register TermuxShellTool. Add AgentRoleDef.resolve(snapshot, excludedTools) -> ResolvedAgentRole. ResolvedAgentRole contains adjusted allowedTools (base + termux_shell if available - excluded), systemPrompt (+ workspace section if tool exposed), and timeoutMs (150s for executor when termux available). Prompt injection follows tool exposure: if termux_shell excluded, workspace prompt section also excluded.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"TermuxCapabilitySnapshot\" app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/definition/",
+      "rg -q \"resolve\" app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "agent",
+      "registration"
+    ],
+    "created": "2026-05-02T01:15:25Z",
+    "updated": "2026-05-02T03:32:14Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase5-prompt-reg"
+  },
+  "ts-runner-wiring": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [
+      "ts-conditional-registration"
+    ],
+    "state": "done",
+    "title": "Runner wiring: SessionAgentRunner + IsolatedSubAgentRunner + role allow-lists",
+    "description": "Wire ResolvedAgentRole into SessionAgentRunner and IsolatedSubAgentRunner. Both read the resolved role (not raw AgentRoleDef). All 3 roles (Standalone, Planner, Executor) get termux_shell when available. Executor timeout increases to 150s when termux_shell is exposed (long-running commands need headroom above 120s bridge timeout + 5s grace). Snapshot capture path: SessionServices.create() -> SessionServices field -> SessionAgentRunner.start() -> AgentRoleDef.resolve() -> ResolvedAgentRole.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/runner/SessionAgentRunner.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/runner/IsolatedSubAgentRunner.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt"
+    ],
+    "acceptCriteria": [
+      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/runner/SessionAgentRunner.kt",
+      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/runner/IsolatedSubAgentRunner.kt",
+      "rg -q \"termuxSnapshot\\|termux_snapshot\\|TermuxCapability\" app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "rg -q \"150\" app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "agent",
+      "runner"
+    ],
+    "created": "2026-05-02T01:15:36Z",
+    "updated": "2026-05-02T03:35:56Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-phase5-prompt-reg"
+  },
+  "ts-pro-mode": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [
+      "ts-runner-wiring"
+    ],
+    "state": "done",
+    "title": "PRO mode delegation + checkpoint reload",
+    "description": "PRO mode: Planner runs workspace commands (termux_shell) directly, does not delegate to Executor. Planner prompt addition: \"For workspace commands (termux_shell), execute directly instead of delegating.\" delegate_task description unchanged: \"delegate ONE atomic UI action.\" Checkpoint reload: session restore at task boundary captures fresh TermuxCapabilitySnapshot (not serialized from old snapshot). SessionServices.create() is the single capture point. Integration tests: tool present/absent matches prompt present/absent.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/definition/PlannerAgentDef.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt"
+    ],
+    "acceptCriteria": [
+      "Planner prompt includes guidance to run termux_shell directly",
+      "delegate_task description still says UI action only",
+      "SessionServices.create() captures fresh TermuxCapabilitySnapshot on reload",
+      "Integration test: tool present iff prompt section present",
+      "./gradlew test"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "agent",
+      "pro-mode"
+    ],
+    "created": "2026-05-02T01:15:45Z",
+    "updated": "2026-05-02T03:40:13Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-pro-mode"
+  },
+  "ts-review-phase5": {
+    "parent": "ts-phase5-agent-wiring",
+    "depends": [
+      "ts-pro-mode"
+    ],
+    "state": "done",
+    "title": "Codex review: Phase 5 Agent Wiring",
+    "description": "Codex code-review of agent wiring: shell description, prompt extension, conditional registration, ResolvedAgentRole, runner wiring, PRO mode, checkpoint reload.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase5_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "w-ts-review-phase5",
+    "estimate": "s",
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T03:49:18Z"
+  },
+  "ts-phase6-settings-qa": {
+    "parent": "termux-shell",
+    "depends": [
+      "ts-review-phase5"
+    ],
+    "state": "done",
+    "title": "Phase 6: Settings UI + QA",
+    "description": "Settings UI for Termux Shell toggle in Agent Behavior page, and comprehensive QA: workspace tasks, UI regression, mixed tasks, turn ordering, cancellation, bootstrap recovery.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "settings",
+      "qa"
+    ],
+    "created": "2026-05-02T01:15:51Z",
+    "updated": "2026-05-02T04:12:39Z",
+    "worktree": "termux-shell"
+  },
+  "ts-settings-ui": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [],
+    "state": "done",
+    "title": "Agent Behavior settings: Termux Shell row",
+    "description": "Add Termux Shell row to Agent Behavior settings page. Three-state display: Ready, Needs Setup (tap to setup), Not Installed (tap to install). Toggle switch for enable/disable. Typed reason for debug (permission missing, allow-external-apps missing, packages missing, bridge outdated, health timeout, port_in_use). \"Setup changes apply next session\" messaging. Reads TermuxBridgeManager.state for current status.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "Settings UI shows Termux Shell row with 3-state indicator",
+      "Toggle persists to AppSettingsStore",
+      "\"applies next session\" message shown on state change",
+      "./gradlew assembleDebug"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "settings",
+      "ui"
+    ],
+    "created": "2026-05-02T01:15:59Z",
+    "updated": "2026-05-02T03:57:13Z",
+    "worktree": "termux-shell",
+    "agent": "w-ts-settings-ui"
+  },
+  "ts-qa-workspace": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [
+      "ts-settings-ui"
+    ],
+    "state": "done",
+    "title": "QA: workspace tasks + UI regression + mixed tasks",
+    "description": "End-to-end QA: (1) Pure workspace task in BASIC mode - run a command via termux_shell, verify output. (2) Pure workspace task in PRO mode - Planner uses termux_shell directly. (3) Pure UI task - verify no regression in mobile_action/system_button/etc. (4) Mixed UI+workspace task - combine UI navigation with termux_shell file operations in single session.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [],
+    "acceptCriteria": [
+      "Pure workspace task passes in BASIC mode",
+      "Pure workspace task passes in PRO mode (Planner runs shell directly)",
+      "Pure UI task passes with no regression",
+      "Mixed UI+workspace task completes successfully"
+    ],
+    "requireHumanReview": true,
+    "resources": [
+      "Android device with Termux installed and configured"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "qa"
+    ],
+    "created": "2026-05-02T01:16:07Z",
+    "updated": "2026-05-02T06:02:28Z",
+    "worktree": "termux-shell",
+    "blockReason": "external",
+    "note": "Verified on emulator-5554 (AndroidWorldAvd, Android 13, Termux 0.118.1): /v1/exec happy path returns expected payload; env propagation works; non-zero exit_code passes through as Success; timeout returns timed_out=true with exit_code=null; workspace_escape rejected; bootstrap completes after fixing 3 bugs (see commit cdfe52a0)."
+  },
+  "ts-qa-ordering-cancel": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [
+      "ts-settings-ui"
+    ],
+    "state": "done",
+    "title": "QA: turn ordering + cancellation",
+    "description": "Test turn ordering: mobile_action + termux_shell in same turn must NOT be reordered (both non-hoistable). Only cognitive tools (scratchpad, write_todos) hoist ahead. Test cancellation: stop session during long-running termux_shell command -> verify bridge subprocess killed promptly (not waiting 120s timeout). Verify OkHttp Call.cancel() -> TCP disconnect -> bridge process-group kill.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [],
+    "acceptCriteria": [
+      "Turn ordering test: mobile_action + termux_shell preserve LLM order",
+      "Cancellation test: session stop during long command kills subprocess within seconds",
+      "./gradlew test (ordering policy unit tests)"
+    ],
+    "resources": [
+      "Android device with Termux installed and configured"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "qa",
+      "ordering",
+      "cancellation"
+    ],
+    "created": "2026-05-02T01:16:16Z",
+    "updated": "2026-05-02T06:02:28Z",
+    "worktree": "termux-shell",
+    "blockReason": "external",
+    "note": "Verified on emulator-5554: client-disconnect kills process group (sleep PID gone within 1s of curl --max-time disconnect); exec_lock releases immediately so next /v1/exec succeeds. Turn-ordering is unit-tested (TurnToolPolicyTest)."
+  },
+  "ts-qa-bootstrap": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [
+      "ts-settings-ui"
+    ],
+    "state": "done",
+    "title": "QA: bootstrap step failures + recovery",
+    "description": "Test each bootstrap step failure and recovery: Step 1 (Probe) - Termux not installed, permission missing, allow-external-apps disabled. Step 2 (Install) - pkg install failure, partial install recovery. Step 3 (Deploy) - bridge.py write failure, re-deploy on version mismatch. Step 4 (Start) - bridge start failure, health check timeout. Also test: checkpoint/reload does not resurrect dead bridge (fresh snapshot at SessionServices.create()). Each failure shows typed reason in Settings UI.",
+    "design": "projects/active/coding/final/cn/design.md",
+    "scope": [],
+    "acceptCriteria": [
+      "Each bootstrap step failure produces correct typed reason",
+      "Recovery from each failure mode succeeds on retry",
+      "Checkpoint reload captures fresh snapshot (dead bridge not resurrected)",
+      "Settings UI shows appropriate status for each failure"
+    ],
+    "requireHumanReview": true,
+    "resources": [
+      "Android device with Termux (may need to simulate failures via package removal, permission revocation)"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "qa",
+      "bootstrap"
+    ],
+    "created": "2026-05-02T01:16:24Z",
+    "updated": "2026-05-02T06:02:28Z",
+    "worktree": "termux-shell",
+    "blockReason": "external",
+    "note": "Verified on emulator-5554: cold-start probe captures live state (cold-start fix wired); 4-step bootstrap reaches Ready (probe/install/deploy/start). Bootstrap surfaced 3 production bugs that are now fixed: probe err=-1 misclassification, missing which binary, NotInstalled tap stuck on F-Droid. Bootstrap recovery on transient failure (e.g., emulator clock skew → apt date check) confirmed via retry."
+  },
+  "ts-review-phase6": {
+    "parent": "ts-phase6-settings-qa",
+    "depends": [
+      "ts-qa-workspace",
+      "ts-qa-ordering-cancel",
+      "ts-qa-bootstrap"
+    ],
+    "state": "done",
+    "title": "Codex review: Phase 6 Settings UI + QA",
+    "description": "Codex code-review of settings UI, QA test results, and overall integration. Final sign-off before merge.",
+    "worktree": "termux-shell",
+    "scope": [],
+    "acceptCriteria": [
+      "codex review completed",
+      "review written to projects/active/termux_shell/reviews/phase6_review.md",
+      "no high-severity findings remain unaddressed"
+    ],
+    "agent": "w-ts-review-phase6",
+    "estimate": "s",
+    "requireHumanReview": true,
+    "created": "2026-05-02T01:32:15Z",
+    "updated": "2026-05-02T04:10:31Z"
+  }
+}

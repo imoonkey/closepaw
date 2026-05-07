@@ -1,28 +1,4 @@
 {
-  "open-source-release": {
-    "parent": null,
-    "depends": [],
-    "state": "ready",
-    "title": "Open Source Release",
-    "description": "README.md + LICENSE + CONTRIBUTING.md + SECURITY.md + .env.example + GitHub Actions CI (build+lint+test on PR) + release workflow (tag → signed APK → GitHub Release)。",
-    "design": "doc/todo/open_source_release/note.md",
-    "scope": [
-      "README.md",
-      "LICENSE",
-      "CONTRIBUTING.md",
-      "SECURITY.md",
-      ".github/workflows/**"
-    ],
-    "acceptCriteria": [
-      "README.md exists with install guide and quick start",
-      "LICENSE file exists (MIT or Apache 2.0)",
-      "CONTRIBUTING.md and SECURITY.md exist",
-      "GitHub Actions CI runs build+lint+test on PR",
-      "Release workflow produces signed APK on tag"
-    ],
-    "note": "Pending human review — design not yet discussed",
-    "updated": "2026-04-08T03:10:00+08:00"
-  },
   "phase2-utility": {
     "parent": null,
     "depends": [],
@@ -223,2339 +199,332 @@
     "blockReason": "human-review",
     "requireHumanReview": true
   },
-  "browser-cdp-runtime": {
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "title": "Browser CDP Script Runtime",
-    "description": "Implement ClosePaw's minimal browser automation path: one raw browser_script tool backed by Android Chrome CDP through Shizuku, a hidden WebView JS host exposing only cdp(), browser-use skill snippets, session lifecycle wiring, policy gates, and verification.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/**",
-      "app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
-      "app/src/main/kotlin/ai/closepaw/session/**",
-      "app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt",
-      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
-      "app/src/main/assets/agent_skills/browser-use/**",
-      "app/src/test/kotlin/ai/closepaw/browser/**",
-      "projects/active/browser/**"
-    ],
-    "acceptCriteria": [
-      "All child tasks are done",
-      "projects/active/browser/cn/design_codex.md remains the implementation source of truth",
-      "Production Shizuku UserService transport works on at least one real device (no debug TCP fallback)",
-      "Agent (LLM) successfully drives a browser_script call end-to-end via debug-run.sh"
-    ],
-    "note": "MILESTONE DONE 2026-05-04 11:00. All 16 leaves done (browser-script-host-cancel-guard + browser-screenshot-artifact-formatting were the last two). Plus the supporting browser-phase5 milestone (10 leaves, 1 cancelled) closed 2026-05-03. Production-ready: nubia P0110 + emulator-5556 full agent chain PASS, cascade USER_SERVICE → WIRELESS_ADB_SELF_PAIR, -1791 net source lines through cleanup, all defensive sleeps + try-catches re-evaluated, screenshot artifact pattern (helper writes to TraceRecorder, returns path), cancel-guard for WebView race. Real-device evidence in debug-output/run_20260503_*/.",
-    "priority": "high",
-    "estimate": "xl",
-    "tags": [
-      "browser",
-      "cdp",
-      "shizuku"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-04T18:00:52Z"
-  },
-  "browser-reference": {
-    "parent": "browser-cdp-runtime",
-    "depends": [],
-    "state": "done",
-    "title": "Browser harness reference alignment",
-    "description": "Keep the browser-harness reference available and ensure the design records the browser-harness behaviors ClosePaw is copying.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      ".reference/browser-harness/**",
-      "projects/active/browser/**"
-    ],
-    "acceptCriteria": [
-      "test -d .reference/browser-harness",
-      "rg -q \"Browser-Harness Details\" projects/active/browser/cn/design_codex.md",
-      "rg -q \"browser-harness\" projects/active/browser/cn/design_codex.md"
-    ],
-    "note": "Verified locally before seeding orchestrate task graph.",
-    "priority": "normal",
-    "estimate": "xs",
-    "tags": [
-      "browser",
-      "docs"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-01T19:32:36Z"
-  },
-  "browser-cdp-bridge-spike": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-reference"
-    ],
-    "state": "done",
-    "agent": "w-bridge-spike",
-    "title": "Spike Shizuku Chrome DevTools bridge",
-    "description": "Implement the first transport spike for Android Chrome CDP: connect to chrome_devtools_remote directly if possible, fall back to Shizuku UserService, read /json/version, list page targets, and return precise setup errors for each failure mode.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/**",
-      "app/src/main/kotlin/ai/closepaw/platform/virtualdisplay/Shizuku*.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/**"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt",
-      "rg -q \"chrome_devtools_remote\" app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku",
-      "Implementation/tests expose distinct setup errors for Shizuku unavailable, Shizuku permission missing, Chrome not running, DevTools socket missing, app-process socket inaccessible, UserService socket inaccessible, and malformed HTTP/WebSocket response",
-      "./gradlew test"
-    ],
-    "resources": [
-      "For manual confirmation: Android device with Chrome installed, Shizuku available, and Chrome DevTools socket setup path testable. If unavailable, implementation must still expose deterministic setup errors and unit-testable parsing/diagnostics."
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "cdp",
-      "shizuku"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-01T19:34:55Z",
-    "note": "Done. AC pass; 3 codex review rounds applied. Follow-up: browser-cdp-bridge-spike-hardening covers UserService callback identity + unbind-on-failure leak from round 3 review."
-  },
-  "browser-cdp-bridge-spike-hardening": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-cdp-bridge-spike"
-    ],
-    "state": "done",
-    "title": "Harden ShizukuUserServiceProvider callback lifecycle",
-    "description": "Address two High findings carried over from browser-cdp-bridge-spike round 3 review:\n1. ServiceConnection callbacks (onServiceConnected/Disconnected/BindingDied/NullBinding) do not verify they belong to the current connection or that the provider is not closed; a stale callback from a prior bind cycle can corrupt state or resume a newer pending obtain(). Add a per-bind generation/connection-identity token and ignore stale callbacks.\n2. Failure callbacks (onServiceDisconnected/onBindingDied/onNullBinding) call completeWithError but do not call unbind; failed binds can leak until session shutdown. Clear connection state and call unbindUserService on each terminal failure callback.\n3. Add tests for: stale callback after timeout/close (must be ignored), unbind asserted for each failure callback, no race between old callback and new obtain().",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuUserServiceProvider.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuUserServiceProviderTest.kt"
-    ],
-    "acceptCriteria": [
-      "ServiceConnection callbacks verify connection identity (e.g., generation token) before mutating state",
-      "All terminal failure callbacks (disconnect-before-connect, onNullBinding, onBindingDied) call unbindUserService",
-      "Tests assert unbind on each failure callback and assert stale callback is ignored after close()",
-      "./gradlew :app:testDebugUnitTest --tests 'ai.closepaw.browser.cdp.shizuku.*'"
-    ],
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "cdp",
-      "shizuku",
-      "follow-up"
-    ],
-    "created": "2026-05-01T22:00:00Z",
-    "updated": "2026-05-03T19:20:23Z",
-    "agent": "w-spike-harden",
-    "note": "DONE — commits 445362ca + ff873f25 merged to main 2026-05-03 12:20. Codex round-2 APPROVE. Single-flight + refcounted awaiters pattern; concurrent obtain() callers share one CompletableDeferred; binder.bind() runs exactly once per cycle; cycle torn down only when last awaiter abandons it. Post-onServiceConnected cancellation atomically clears inflight before completing deferred. 15/15 tests."
-  },
-  "browser-cdp-client-core": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-cdp-bridge-spike"
-    ],
-    "state": "done",
-    "agent": "w-cdp-client",
-    "title": "Implement ChromeCdpClient core",
-    "description": "Build the Kotlin CDP client around the bridge: open the WebSocket, send raw commands, match responses by id, attach to the first real page, route browser/page domains correctly, buffer events, and recover once from stale active sessions.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/**",
-      "app/src/test/kotlin/ai/closepaw/browser/**"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
-      "rg -q \"Target.attachToTarget\" app/src/main/kotlin/ai/closepaw/browser/cdp",
-      "rg -q \"Session with given id not found\" app/src/main/kotlin/ai/closepaw/browser/cdp app/src/test/kotlin/ai/closepaw/browser",
-      "./gradlew test"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "cdp"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-01T19:34:55Z"
-  },
-  "browser-script-host": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-cdp-client-core"
-    ],
-    "state": "done",
-    "agent": "w-script-host",
-    "title": "Implement hidden WebView browser script host",
-    "description": "Implement BrowserScriptRunner and prelude: hidden local WebView, async wrapper, @JavascriptInterface bridge exposing only send/done, global cdp() promise bridge, strict WebView lockdown, timeout, cancellation, and raw CDP result propagation.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/script/**",
-      "app/src/test/kotlin/ai/closepaw/browser/**"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
-      "test -f app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptPrelude.kt",
-      "rg -q \"globalThis.cdp\" app/src/main/kotlin/ai/closepaw/browser/script",
-      "! rg -q \"globalThis\\\\.(sleep|log|pageJs|newTab|clickAt|typeText)\" app/src/main/kotlin/ai/closepaw/browser/script",
-      "./gradlew test"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "webview",
-      "script-host"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-01T19:34:55Z",
-    "note": "Done. AC pass; 3 codex review rounds applied. Follow-up: browser-script-host-cancel-guard covers remaining onPageFinished/eval-callback cancellation race from round 3 review."
-  },
-  "browser-script-host-cancel-guard": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-script-host"
-    ],
-    "state": "done",
-    "title": "Add cancellation guard to ScriptHostWebViewClient page-load callbacks",
-    "description": "Address one High finding carried over from browser-script-host round 3 review: ScriptHostWebViewClient has no cancellation guard in onPageFinished or in the evaluateJavascript callback. If timeout/cancellation happens while pageReady.await() is pending, a queued onPageFinished or eval callback can run before cleanup and start arbitrary agent JS. A long script can block the main thread before the drain destroys the WebView.\n\nFix: have onPageFinished and the prelude-eval callback check the runner's cancelled flag (already wired) BEFORE injecting prelude / evaluating user script. If cancelled, do nothing (cleanup will tear down the WebView). Add a JVM test using a fake WebViewClient adapter that asserts cancellation observed before onPageFinished prevents prelude injection.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/script/**"
-    ],
-    "acceptCriteria": [
-      "ScriptHostWebViewClient.onPageFinished checks the cancelled flag before injecting the prelude",
-      "Prelude evaluateJavascript callback checks the cancelled flag before evaluating user script",
-      "JVM test asserts cancellation prevents prelude injection / user script evaluation",
-      "./gradlew :app:testDebugUnitTest --tests 'ai.closepaw.browser.script.*'"
-    ],
-    "priority": "normal",
-    "estimate": "xs",
-    "tags": [
-      "browser",
-      "webview",
-      "follow-up"
-    ],
-    "created": "2026-05-01T22:30:00Z",
-    "updated": "2026-05-04T18:02:19Z",
-    "agent": "w-cancel-guard",
-    "note": "DONE — original commit 0a1e5443, cherry-picked to main as 4634d4f8 (rebase required after screenshot-fmt advanced main; auto-merged clean). Codex APPROVE no findings. 2 guards (top of onPageFinished + inside prelude-eval callback) protect against post-cancellation queued WebView callbacks running arbitrary agent JS or blocking main thread. Page-load orchestration extracted into top-level handlePageFinished for testability. 4 unit tests cover cancel-before, cancel-during-prelude, happy path, re-entrant onPageFinished. Build green (assembleDebug + testDebugUnitTest + lint)."
-  },
-  "browser-script-tool": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-script-host"
-    ],
-    "state": "done",
-    "agent": "w-script-tool",
-    "title": "Add browser_script tool shell",
-    "description": "Add BrowserScriptTool as the single agent-facing tool: validate script and timeout, enforce execution-time browser capability gates, call BrowserScriptRunner, return compact output, and persist raw metadata to trace/debug plumbing.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/**",
-      "app/src/test/kotlin/ai/closepaw/tool/**"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
-      "rg -q \"browser_script\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
-      "rg -q \"\\\\[truncated: original_chars=\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt app/src/test/kotlin/ai/closepaw/browser app/src/test/kotlin/ai/closepaw/tool",
-      "rg -q \"browser-use\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt app/src/test/kotlin/ai/closepaw/browser app/src/test/kotlin/ai/closepaw/tool",
-      "./gradlew test"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "tool"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-01T19:34:55Z"
-  },
-  "browser-session-integration": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-script-tool"
-    ],
-    "state": "done",
-    "agent": "w-session-integ",
-    "title": "Wire browser runtime into session lifecycle and policy",
-    "description": "Integrate BrowserSessionManager with SessionServices, ToolRegistry, ToolName, AppSettingsStore, and PolicyEngine. Keep Android Context/WebView ownership out of SessionToolingBootstrapper, close browser resources on shutdown, and make browser_script ask in SMART regardless of Chrome's NORMAL app tier.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
-      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
-      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
-      "app/src/main/kotlin/ai/closepaw/app/AppSettingsState.kt",
-      "app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt",
-      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
-      "app/src/test/kotlin/ai/closepaw/**"
-    ],
-    "acceptCriteria": [
-      "rg -q \"BrowserSessionManager\" app/src/main/kotlin/ai/closepaw/session/SessionServices.kt app/src/main/kotlin/ai/closepaw/browser/script",
-      "rg -q \"BrowserScript\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
-      "rg -q \"browser_script\" app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt app/src/main/kotlin/ai/closepaw/session",
-      "PolicyEngine tests verify browser_script asks in SMART for com.android.chrome even though Chrome is NORMAL",
-      "./gradlew test"
-    ],
-    "priority": "critical",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "session",
-      "policy"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-01T19:34:55Z"
-  },
-  "browser-use-skill-v0": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-session-integration"
-    ],
-    "state": "done",
-    "agent": "w-skill-v0",
-    "title": "Bundle browser-use skill and snippet bundles",
-    "description": "Package browser-use as an agent skill installed under context.filesDir/skills/browser-use, with SKILL.md guidance and grouped snippet bundles page.js, tabs.js, and input.js. SKILL.md must include absolute installed script paths so the agent can read snippets with shell cat.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/assets/agent_skills/browser-use/**",
-      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/**",
-      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
-      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/**",
-      "app/src/test/kotlin/ai/closepaw/browser/**"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/main/assets/agent_skills/browser-use/SKILL.md",
-      "test -f app/src/main/assets/agent_skills/browser-use/scripts/page.js",
-      "test -f app/src/main/assets/agent_skills/browser-use/scripts/tabs.js",
-      "test -f app/src/main/assets/agent_skills/browser-use/scripts/input.js",
-      "rg -q \"{{SKILL_DIR}}\" app/src/main/assets/agent_skills/browser-use/SKILL.md",
-      "Tests verify browser-use is installed/copied to context.filesDir/skills/browser-use and SKILL.md gets absolute script paths",
-      "./gradlew test"
-    ],
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "skill"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-01T19:34:56Z"
-  },
-  "browser-verification": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-use-skill-v0"
-    ],
-    "state": "done",
-    "agent": "w-verify",
-    "title": "Automated verification for Browser CDP runtime",
-    "description": "Run automated unit/build verification for the completed Browser CDP runtime before final review and real-device QA.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/test/kotlin/ai/closepaw/browser/**",
-      "app/src/main/kotlin/ai/closepaw/browser/**",
-      "app/src/main/assets/agent_skills/browser-use/**",
-      "projects/active/browser/**"
-    ],
-    "acceptCriteria": [
-      "./gradlew test",
-      "./gradlew assembleDebug",
-      "rg -q \"Unit tests 覆盖\" projects/active/browser/cn/design_codex.md",
-      "rg -q \"browser-use/scripts/\" projects/active/browser/cn/design_codex.md"
-    ],
-    "resources": [],
-    "requireHumanReview": false,
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "verification",
-      "automated"
-    ],
-    "created": "2026-05-01T19:32:36Z",
-    "updated": "2026-05-01T19:37:05Z"
-  },
-  "browser-holistic-review": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-verification"
-    ],
-    "state": "done",
-    "agent": "w-holistic",
-    "title": "Holistic review of Browser CDP runtime changes",
-    "description": "Review the full Browser CDP runtime change set against the design for KISS, security/policy, session lifecycle, Shizuku/CDP transport, WebView host hardening, browser-use skill packaging, tests, and docs. Document findings and make sure critical/high issues are fixed or converted into follow-up tasks before completion.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "projects/active/browser/holistic_review.md"
-    ],
-    "acceptCriteria": [
-      "test -f projects/active/browser/holistic_review.md",
-      "rg -q \"KISS\" projects/active/browser/holistic_review.md",
-      "rg -q \"Security/policy\" projects/active/browser/holistic_review.md",
-      "rg -q \"Session lifecycle\" projects/active/browser/holistic_review.md",
-      "rg -q \"No open critical/high findings\" projects/active/browser/holistic_review.md"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "review"
-    ],
-    "created": "2026-05-01T19:36:46Z",
-    "updated": "2026-05-01T19:36:46Z"
-  },
-  "browser-cdp-websocket-shizuku-tunnel": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-holistic-review"
-    ],
-    "state": "done",
-    "title": "Tunnel CDP WebSocket through Shizuku/localabstract",
-    "description": "Holistic review High #1: ChromeCdpClient currently connects to the CDP WebSocket via OkHttp on a normal network URL, but on production devices the chrome_devtools_remote socket is only reachable through the Shizuku app-process or UserService transport. Implement a real Shizuku/localabstract-backed WebSocket transport so the WS handshake + frames go through the same Shizuku tunnel as the bootstrap HTTP. Replace the OkHttp connection or wrap it behind a transport that proxies through the bridge. Add tests for handshake, message round-trip, and clean close.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/**",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/**"
-    ],
-    "acceptCriteria": [
-      "CDP WebSocket connects through Shizuku app-process or UserService transport, not direct OkHttp",
-      "Tests assert WS handshake + frame round-trip + close work over the Shizuku tunnel",
-      "./gradlew test"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "cdp",
-      "shizuku",
-      "follow-up"
-    ],
-    "created": "2026-05-02T00:00:00Z",
-    "updated": "2026-05-03T17:45:10Z",
-    "note": "Wired and shipped via bridge.resolveWebSocketHost(). BrowserSessionManager.kt:143-148 rewrites the WS URL onto the Shizuku-mediated host:port; ShizukuChromeDevtoolsBridge.kt:105-126 handles USER_SERVICE / WIRELESS_ADB_SELF_PAIR / HOST_MEDIATED_RELAY. Real-device QA on nubia P0110 (Phase 4 PASS, commit bdf622ca) exercised Page.navigate / Runtime.evaluate over CDP-WS through the wireless relay end-to-end. Shape differs from the original `replace OkHttp with WS-over-Shizuku` framing — instead the URL gets rewritten and OkHttp talks to a localhost relay that pumps through the adb tunnel — but the engineering goal (CDP WS does not traverse external network) is met. Stress/leak coverage carved out as browser-phase5-ws-relay-stress."
-  },
-  "browser-screenshot-artifact-formatting": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-holistic-review"
-    ],
-    "state": "done",
-    "title": "screenshot() helper writes to artifact + returns file path",
-    "description": "Original framing was wrong (intercept Page.captureScreenshot bytes in BrowserScriptBridge — fragile, has to special-case CDP methods, breaks if CDP adds more byte-returning methods). Correct framing: agent-script-layer concern. screenshot() helper in page.js writes the bytes to the trace dir via TraceRecorder.storeBytes (already exists at app/src/main/kotlin/ai/closepaw/trace/TraceRecorder.kt:27, returns TraceArtifactRef with .path) and returns the on-device path instead of base64. Agent gets a path it can adb-pull / hash / hand to follow-up tools, but does not eat 100-500KB base64 in its context window.\n\nCurrent state:\n- app/src/main/assets/agent_skills/browser-use/scripts/page.js screenshot() returns {data: result.data, format, widthCss, ...} — base64 inline.\n- app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptJsInterface.kt only exposes send + done — no artifact API to JS.\n- app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt:52 already injects TraceRecorder (currently @Suppress unused).\n\nImplementation:\n1. Plumb TraceRecorder through to BrowserScriptJsInterface (add to constructor).\n2. Add @JavascriptInterface fun storeArtifact(kind: String, filenameHint: String, base64: String, mimeType: String?): String? that decodes base64, calls traceRecorder.storeBytes(kind, filenameHint, bytes, mimeType, description), returns ref?.path (or null if recorder disabled — JS treats null path as missing).\n3. Modify page.js screenshot(): after CDP call, const path = await bridge.storeArtifact(`browser-script`, `screenshot-${Date.now()}.${format}`, result.data, `image/${format}`). Return {path, format, widthCss, heightCss, devicePixelRatio, scale, estimatedBytes}. NO data field.\n4. SKILL.md: update screenshot description — `screenshot() returns a path on device, not raw bytes. The trace dir for the current session is also where agent.log lives. Use the path with shell tools if you need to inspect; do not paste bytes into your context.`\n5. Tests: BrowserScriptJsInterface unit test for storeArtifact (verify base64 decode + storeBytes called + path returned). page.js doc/example update.\n6. Real-device sanity: dispatch ./scripts/debug-run.sh `Take a screenshot of example.com and tell me where you saved it` on nubia or emulator-5556 — verify the agent gets a path, not a base64 blob, in tool output.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptJsInterface.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
-      "app/src/main/assets/agent_skills/browser-use/scripts/page.js",
-      "app/src/main/assets/agent_skills/browser-use/SKILL.md",
-      "app/src/test/kotlin/ai/closepaw/browser/script/**"
-    ],
-    "acceptCriteria": [
-      "BrowserScriptJsInterface gains storeArtifact(kind, filenameHint, base64, mimeType) JS-callable method",
-      "TraceRecorder plumbed from BrowserSessionManager to BrowserScriptJsInterface (no longer @Suppress unused)",
-      "page.js screenshot() returns {path, format, widthCss, heightCss, devicePixelRatio, scale, estimatedBytes} — no data field",
-      "SKILL.md screenshot guidance updated to reflect path-not-bytes contract",
-      "Unit test asserts: base64 decode + storeBytes called with correct kind/filenameHint/mimeType + returned path matches ref.path",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
-      "Real-device sanity run on nubia or emulator-5556: agent screenshot returns a path string in tool output (no base64 blob > 1KB visible in agent.log)"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "tool",
-      "follow-up"
-    ],
-    "created": "2026-05-02T00:00:00Z",
-    "updated": "2026-05-04T17:57:34Z",
-    "agent": "w-screenshot-fmt",
-    "note": "DONE — commit 5f2920eb merged to main 2026-05-04 10:57. Codex APPROVE (Low caveat: FileTraceRecorder returns ref even on enqueue failure — non-blocker, browser closes before trace recorder). Reframed from original `intercept Page.captureScreenshot in bridge` (rejected as fragile/special-cased) to agent-script-layer fix: page.js screenshot() writes via TraceRecorder.storeBytes + returns absolute on-device path. New BrowserScriptJsInterface.storeArtifact JS API exposed via BrowserScriptPrelude.globalThis.storeArtifact (mirrors cdp() pattern). Path: /storage/emulated/0/Android/data/ai.closepaw/files/inspection-trace/<runId>/artifacts/<filename>. 4 unit tests. SKILL.md updated. Real-device E2E blocked by independent OpenAIIoException on nubia (worker noted, not regression)."
-  },
-  "browser-cdp-command-timeout-recovery": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-holistic-review"
-    ],
-    "state": "done",
-    "title": "Map CDP command timeouts to JS rejection + broken/recovery decision",
-    "description": "Holistic review High #5: ChromeCdpClient.sendRaw() times out with TimeoutCancellationException, but BrowserScriptBridge.dispatch() rethrows all CancellationException instead of rejecting the specific CDP promise. The script then waits for the global tool timeout; BrowserSessionManager does not mark the CDP connection broken for that path. Map per-command timeouts to a typed CDP error that rejects the JS promise with a recognizable code/name; decide whether the per-command timeout should mark the client broken (probably yes after N consecutive timeouts, configurable). Add tests for promise rejection, trace outcome, and next-call recovery semantics.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpCommand.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptBridge.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/**"
-    ],
-    "acceptCriteria": [
-      "Per-command CDP timeout rejects the originating JS promise with typed CdpException (not coroutine cancellation)",
-      "Repeated/decision-rule timeouts can mark the client broken so next browser_script call reconnects",
-      "Tests cover promise rejection, broken transition policy, and next-call recovery",
-      "./gradlew test"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "cdp",
-      "follow-up"
-    ],
-    "created": "2026-05-02T00:00:00Z",
-    "updated": "2026-05-03T17:45:19Z",
-    "note": "DONE per KISS — typed CDP timeout error + JS promise rejection both shipped. ChromeCdpClient.kt:199-210 catches TimeoutCancellationException and rethrows as CdpException(-1, `CDP command ... timed out after Nms`). BrowserScriptBridge.kt:77-87 catches CdpException and rejects the JS promise via rejectScript(name=`CdpException`, code, message). The script no longer waits for the global tool timeout on a per-command timeout. The `mark client broken after N consecutive timeouts` policy from the original task is intentionally NOT implemented — it was flagged in the original description as `probably yes, configurable`, which is hypothetical scope. Per CLAUDE.md (KISS, `Do not design for hypothetical future requirements`), close as done. Reopen if a real-device incident shows transport-level breakage masquerading as per-command timeouts."
-  },
-  "browser-real-device-qa": {
-    "parent": "browser-cdp-runtime",
-    "depends": [
-      "browser-holistic-review"
-    ],
-    "state": "done",
-    "agent": "w-claude-fix",
-    "note": "PASS. Production transport cascade is USER_SERVICE → WIRELESS_ADB_SELF_PAIR. USER_SERVICE (Shizuku-spawned shell-context UserService over LocalSocket) is the primary path on AOSP/userdebug + any device where Shizuku ends up in u:r:su:s0; PASS on emulator-5554 (Phase 1 baseline). WIRELESS_ADB_SELF_PAIR (Shizuku spawns shell-uid helper that drives IAdbManager.allowWirelessDebugging + enablePairingByQrCode with our own PSK; in-app TLS-PSK pair + mTLS adb client A_OPENs localabstract:chrome_devtools_remote through adbd) is the only fallback when SELinux denies shell-context UserService connectto on the abstract socket; PASS on nubia P0110 (locked OEM Android 16, no root, no PC). Three intermediate transports were removed in commit task/del-transports: APP_PROCESS (never worked — untrusted_app cannot connectto another app's abstract socket), HOST_MEDIATED_RELAY (required PC-side adb forward+reverse, contradicts in-device autonomy), CHROME_TCP_LOOPBACK (Chrome ignores /data/local/tmp/chrome-command-line without per-profile chrome://flags toggle). Historical Phase 1/2/3 evidence remains in projects/active/browser/cn/diag_20260502_wireless_adb_spike/ + diag_20260503_phase4_handoff.md.",
-    "title": "Real-device QA for Browser CDP use case",
-    "description": "Run one real-device browser automation use case through browser_script and the installed browser-use snippets. Exercise page open, title/content read through CDP, screenshot evidence, tab creation or switching, and return to the original tab. Document the device/app build, setup, steps, result, and evidence.",
-    "design": "projects/active/browser/cn/design_codex.md",
-    "scope": [
-      "projects/active/browser/real_device_qa.md"
-    ],
-    "acceptCriteria": [
-      "test -f projects/active/browser/real_device_qa.md",
-      "rg -q \"Device\" projects/active/browser/real_device_qa.md",
-      "rg -q \"Use case\" projects/active/browser/real_device_qa.md",
-      "rg -q \"browser_script\" projects/active/browser/real_device_qa.md",
-      "rg -q \"title\" projects/active/browser/real_device_qa.md",
-      "rg -q \"screenshot\" projects/active/browser/real_device_qa.md",
-      "rg -q \"tab\" projects/active/browser/real_device_qa.md",
-      "rg -q \"PASS\" projects/active/browser/real_device_qa.md"
-    ],
-    "resources": [
-      "Android device with Shizuku permission granted, Chrome installed/running, and Browser CDP runtime built into the installed app."
-    ],
-    "requireHumanReview": true,
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "qa",
-      "manual-device"
-    ],
-    "created": "2026-05-01T19:36:46Z",
-    "updated": "2026-05-01T19:36:46Z"
-  },
-  "termux-shell": {
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "title": "Termux Shell Tool",
-    "description": "Add termux_shell tool to ClosePaw via Termux bridge daemon. Full Linux bash shell capability through HTTP bridge on localhost, enabling workspace operations (file R/W, git, python, build tools) alongside existing UI automation. 6 phases: substrate, bridge daemon, bridge manager, shell tool, agent wiring, settings+QA.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/AndroidManifest.xml",
-      "app/src/main/res/xml/network_security_config.xml",
-      "app/src/main/res/raw/closepaw_bridge_py",
-      "tools/termux-bridge/**",
-      "app/src/main/kotlin/ai/closepaw/termux/**",
-      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
-      "app/src/main/kotlin/ai/closepaw/agent/definition/**",
-      "app/src/main/kotlin/ai/closepaw/session/**"
-    ],
-    "acceptCriteria": [
-      "All child tasks done",
-      "termux_shell tool functional in BASIC and PRO modes",
-      "Mixed UI+workspace tasks pass",
-      "./gradlew clean assembleDebug lint test passes"
-    ],
-    "priority": "high",
-    "estimate": "xl",
-    "tags": [
-      "termux",
-      "workspace",
-      "general-agent"
-    ],
-    "created": "2026-05-02T01:12:15Z",
-    "updated": "2026-05-02T04:12:39Z"
-  },
-  "ts-phase1-substrate": {
-    "parent": "termux-shell",
-    "depends": [],
-    "state": "done",
-    "title": "Phase 1: Substrate (Manifest + Network + Resource)",
-    "description": "AndroidManifest.xml package visibility, network_security_config.xml localhost cleartext exception, bridge.py raw resource packaging, and verification tests.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/AndroidManifest.xml",
-      "app/src/main/res/xml/network_security_config.xml",
-      "app/src/main/res/raw/closepaw_bridge_py",
-      "tools/termux-bridge/closepaw_bridge.py",
-      "app/build.gradle.kts"
-    ],
-    "acceptCriteria": [
-      "All child tasks done",
-      "./gradlew assembleDebug passes"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "termux",
-      "substrate"
-    ],
-    "created": "2026-05-02T01:12:21Z",
-    "updated": "2026-05-02T04:12:39Z",
-    "worktree": "termux-shell"
-  },
-  "ts-manifest-visibility": {
-    "parent": "ts-phase1-substrate",
-    "depends": [],
-    "state": "done",
-    "title": "AndroidManifest.xml: Termux package visibility + RUN_COMMAND",
-    "description": "Add Termux package visibility declaration and RUN_COMMAND service intent query to AndroidManifest.xml. Required for bootstrap flow to discover and communicate with Termux via RUN_COMMAND intent. Add com.termux.permission.RUN_COMMAND permission, <package android:name=\"com.termux\" /> in queries, and <intent><action android:name=\"com.termux.RUN_COMMAND\" /></intent> in queries.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/AndroidManifest.xml"
-    ],
-    "acceptCriteria": [
-      "rg -q \"com.termux.permission.RUN_COMMAND\" app/src/main/AndroidManifest.xml",
-      "rg -q \"com.termux\" app/src/main/AndroidManifest.xml",
-      "rg -q \"com.termux.RUN_COMMAND\" app/src/main/AndroidManifest.xml",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "xs",
-    "tags": [
-      "termux",
-      "substrate",
-      "manifest"
-    ],
-    "created": "2026-05-02T01:12:28Z",
-    "updated": "2026-05-02T01:41:55Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-manifest-visibility"
-  },
-  "ts-network-security": {
-    "parent": "ts-phase1-substrate",
-    "depends": [],
-    "state": "done",
-    "title": "network_security_config.xml: localhost cleartext exception",
-    "description": "Add 127.0.0.1 cleartext traffic exception to network_security_config.xml. Bridge daemon runs on localhost:18422 over HTTP. Narrow exception: only 127.0.0.1, includeSubdomains=false. base-config remains cleartextTrafficPermitted=false.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/res/xml/network_security_config.xml"
-    ],
-    "acceptCriteria": [
-      "rg -q \"127.0.0.1\" app/src/main/res/xml/network_security_config.xml",
-      "rg -q \"cleartextTrafficPermitted.*true\" app/src/main/res/xml/network_security_config.xml",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "xs",
-    "tags": [
-      "termux",
-      "substrate",
-      "network"
-    ],
-    "created": "2026-05-02T01:12:34Z",
-    "updated": "2026-05-02T01:41:55Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-network-security"
-  },
-  "ts-bridge-resource": {
-    "parent": "ts-phase1-substrate",
-    "depends": [],
-    "state": "done",
-    "title": "Bridge script packaging: res/raw + Gradle copy + version constant",
-    "description": "Create tools/termux-bridge/closepaw_bridge.py as canonical source with BRIDGE_VERSION = \"1\" at top. Add Gradle copy task to package it as app/src/main/res/raw/closepaw_bridge_py. The copy task ensures the raw resource is always byte-identical to the canonical source. Version constant appears in /v1/health response and is checked by TermuxBridgeManager for re-deploy decisions.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "tools/termux-bridge/closepaw_bridge.py",
-      "app/src/main/res/raw/closepaw_bridge_py",
-      "app/build.gradle.kts"
-    ],
-    "acceptCriteria": [
-      "test -f tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"BRIDGE_VERSION\" tools/termux-bridge/closepaw_bridge.py",
-      "Gradle copy task copies tools/termux-bridge/closepaw_bridge.py to res/raw/closepaw_bridge_py",
-      "./gradlew assembleDebug && test -f app/src/main/res/raw/closepaw_bridge_py"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "termux",
-      "substrate",
-      "bridge"
-    ],
-    "created": "2026-05-02T01:12:43Z",
-    "updated": "2026-05-02T01:41:55Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-bridge-resource"
-  },
-  "ts-substrate-tests": {
-    "parent": "ts-phase1-substrate",
-    "depends": [
-      "ts-manifest-visibility",
-      "ts-network-security",
-      "ts-bridge-resource"
-    ],
-    "state": "done",
-    "title": "Substrate verification tests",
-    "description": "CI test: raw resource exists and contains expected BRIDGE_VERSION line. Instrumentation test: OkHttp can reach http://127.0.0.1 under release network security config (validates cleartext exception works). These tests gate Phase 2.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/test/kotlin/ai/closepaw/termux/**",
-      "app/src/androidTest/kotlin/ai/closepaw/termux/**"
-    ],
-    "acceptCriteria": [
-      "JVM test asserts raw resource contains BRIDGE_VERSION line",
-      "Instrumentation test asserts OkHttp can connect to http://127.0.0.1 under release config",
-      "./gradlew test"
-    ],
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "termux",
-      "substrate",
-      "test"
-    ],
-    "created": "2026-05-02T01:12:50Z",
-    "updated": "2026-05-02T01:50:48Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-substrate-tests"
-  },
-  "ts-phase2-bridge-daemon": {
-    "parent": "termux-shell",
-    "depends": [
-      "ts-review-phase1"
-    ],
-    "state": "done",
-    "title": "Phase 2: Bridge Daemon (Host-Side Python)",
-    "description": "Implement the Python bridge daemon (~150 lines, stdlib only) that runs inside Termux. ThreadingHTTPServer on 127.0.0.1:18422 with /v1/exec and /v1/health endpoints. Handles process lifecycle, output capping, exec serialization, and idle shutdown.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "tools/termux-bridge/**"
-    ],
-    "acceptCriteria": [
-      "All child tasks done",
-      "Host-side pytest passes"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "bridge",
-      "python"
-    ],
-    "created": "2026-05-02T01:12:57Z",
-    "updated": "2026-05-02T04:12:39Z",
-    "worktree": "termux-shell"
-  },
-  "ts-bridge-server": {
-    "parent": "ts-phase2-bridge-daemon",
-    "depends": [],
-    "state": "done",
-    "title": "Bridge HTTP server + endpoints + pidfile management",
-    "description": "Implement ThreadingHTTPServer on 127.0.0.1:18422 with /v1/exec (POST) and /v1/health (GET) endpoints. Pidfile management: write {pid, port, version, identity: \"closepaw-bridge\"} on start. On startup: if pidfile exists, check identity → kill old bridge if ours, return port_in_use if not. Idempotent startup. All responses JSON. Health returns {status, version, identity}.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "tools/termux-bridge/closepaw_bridge.py"
-    ],
-    "acceptCriteria": [
-      "test -f tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"ThreadingHTTPServer\" tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"/v1/exec\" tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"/v1/health\" tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"closepaw-bridge\" tools/termux-bridge/closepaw_bridge.py",
-      "python3 tools/termux-bridge/closepaw_bridge.py --help || true"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "bridge",
-      "python"
-    ],
-    "created": "2026-05-02T01:13:05Z",
-    "updated": "2026-05-02T02:27:28Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-bridge-daemon"
-  },
-  "ts-bridge-exec": {
-    "parent": "ts-phase2-bridge-daemon",
-    "depends": [
-      "ts-bridge-server"
-    ],
-    "state": "done",
-    "title": "Bridge exec: timeout, disconnect, output cap, exec lock",
-    "description": "Implement /v1/exec execution loop: subprocess.Popen([\"bash\", \"-c\", command]) with start_new_session=True for process-group kill. Two drain threads for stdout/stderr to avoid pipe deadlock. Process-group kill on timeout (os.killpg). Client disconnect detection (poll socket) triggers immediate kill. Output cap with independent stdout/stderr truncation: each has _truncated boolean and _ref path to artifact file in ~/.closepaw/artifacts/. Exec lock: only one /v1/exec at a time, busy returns HTTP 409. Non-zero exit code returns HTTP 200 with exit_code field.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "tools/termux-bridge/closepaw_bridge.py"
-    ],
-    "acceptCriteria": [
-      "rg -q \"exec_lock\" tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"SIGKILL\" tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"timed_out\" tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"stdout_truncated\" tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"stderr_truncated\" tools/termux-bridge/closepaw_bridge.py",
-      "rg -q \"409\" tools/termux-bridge/closepaw_bridge.py"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "bridge",
-      "python"
-    ],
-    "created": "2026-05-02T01:13:15Z",
-    "updated": "2026-05-02T02:27:28Z",
-    "worktree": "termux-shell"
-  },
-  "ts-bridge-watchdog": {
-    "parent": "ts-phase2-bridge-daemon",
-    "depends": [
-      "ts-bridge-server"
-    ],
-    "state": "done",
-    "title": "Bridge idle watchdog (30 min auto-exit)",
-    "description": "Implement 30-minute idle watchdog. Track last request timestamp. Background thread checks periodically; if no /v1/exec or /v1/health received within 30 minutes, server shuts down gracefully. Saves battery on Android device.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "tools/termux-bridge/closepaw_bridge.py"
-    ],
-    "acceptCriteria": [
-      "rg -q \"watchdog\\|idle\" tools/termux-bridge/closepaw_bridge.py",
-      "Bridge auto-exits after 30 min of no requests"
-    ],
-    "priority": "normal",
-    "estimate": "xs",
-    "tags": [
-      "termux",
-      "bridge",
-      "python"
-    ],
-    "created": "2026-05-02T01:13:21Z",
-    "updated": "2026-05-02T02:27:28Z",
-    "worktree": "termux-shell"
-  },
-  "ts-bridge-pytest": {
-    "parent": "ts-phase2-bridge-daemon",
-    "depends": [
-      "ts-bridge-exec",
-      "ts-bridge-watchdog"
-    ],
-    "state": "done",
-    "title": "Host-side pytest for bridge daemon",
-    "description": "Comprehensive host-side pytest suite covering: health endpoint, exec endpoint, timeout (process-group kill), exit code passthrough, output cap (stdout and stderr independently), artifact overflow (stdout_ref/stderr_ref), stale daemon pidfile handling, port conflict detection (port_in_use error), busy lock (409 on concurrent exec). Tests run against a real bridge process started in-process or subprocess.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "tools/termux-bridge/tests/**"
-    ],
-    "acceptCriteria": [
-      "test -d tools/termux-bridge/tests",
-      "cd tools/termux-bridge && python3 -m pytest tests/ -v",
-      "Tests cover: health, exec, timeout, exit code, output cap, stdout overflow, stderr overflow, stale daemon, port conflict, busy 409"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "bridge",
-      "python",
-      "test"
-    ],
-    "created": "2026-05-02T01:13:28Z",
-    "updated": "2026-05-02T02:27:28Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-bridge-pytest"
-  },
-  "ts-phase3-bridge-manager": {
-    "parent": "termux-shell",
-    "depends": [
-      "ts-review-phase2"
-    ],
-    "state": "done",
-    "title": "Phase 3: TermuxBridgeManager + Bootstrap",
-    "description": "Kotlin-side bridge lifecycle management: TermuxBridgeManager (process-wide singleton via Holder pattern), TermuxRunCommandAdapter for bootstrap, 4-step bootstrap flow, health polling, and settings integration.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/termux/**",
-      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt"
-    ],
-    "acceptCriteria": [
-      "All child tasks done",
-      "./gradlew test"
-    ],
-    "priority": "high",
-    "estimate": "l",
-    "tags": [
-      "termux",
-      "bridge-manager",
-      "kotlin"
-    ],
-    "created": "2026-05-02T01:13:36Z",
-    "updated": "2026-05-02T04:12:39Z",
-    "worktree": "termux-shell"
-  },
-  "ts-bridge-manager-core": {
-    "parent": "ts-phase3-bridge-manager",
-    "depends": [],
-    "state": "done",
-    "title": "TermuxBridgeManager core: Holder + StateFlow + status types",
-    "description": "Implement TermuxBridgeManagerHolder (process-wide singleton, double-check locking like AuthStoreHolder). TermuxBridgeManager with StateFlow<TermuxBridgeStatus>, Mutex-serialized setup/health/restart methods, and snapshot() returning immutable TermuxCapabilitySnapshot. Status sealed class: NotInstalled, NeedsSetup(reason), SetupInProgress, Ready, Disabled. TermuxCapabilitySnapshot data class: available (bridge ready AND user enabled), enabled (settings toggle), status (debug/logging).",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
-      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeStatus.kt"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
-      "rg -q \"TermuxBridgeManagerHolder\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
-      "rg -q \"StateFlow\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
-      "rg -q \"TermuxCapabilitySnapshot\" app/src/main/kotlin/ai/closepaw/termux/",
-      "rg -q \"TermuxBridgeStatus\" app/src/main/kotlin/ai/closepaw/termux/",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "bridge-manager",
-      "kotlin"
-    ],
-    "created": "2026-05-02T01:13:48Z",
-    "updated": "2026-05-02T02:36:09Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-bridge-manager-core"
-  },
-  "ts-run-command-adapter": {
-    "parent": "ts-phase3-bridge-manager",
-    "depends": [],
-    "state": "done",
-    "title": "TermuxRunCommandAdapter: RUN_COMMAND intent + PendingIntent result",
-    "description": "Implement TermuxRunCommandAdapter that sends RUN_COMMAND intents to Termux and receives results via PendingIntent BroadcastReceiver. Each call generates unique requestId to ignore stale/late results. Supports EXTRA_STDIN for bridge.py deployment via base64 encoding (avoids shell quoting). Returns RunCommandResult(stdout, stderr, exitCode). Handles SecurityException (permission missing) and ActivityNotFoundException (Termux not installed / allow-external-apps disabled).",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
-      "rg -q \"RUN_COMMAND\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
-      "rg -q \"PendingIntent\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
-      "rg -q \"requestId\\|request_id\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
-      "rg -q \"base64\\|Base64\" app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "bridge-manager",
-      "kotlin"
-    ],
-    "created": "2026-05-02T01:13:56Z",
-    "updated": "2026-05-02T02:36:09Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-run-command-adapter"
-  },
-  "ts-bootstrap-flow": {
-    "parent": "ts-phase3-bridge-manager",
-    "depends": [
-      "ts-bridge-manager-core",
-      "ts-run-command-adapter"
-    ],
-    "state": "done",
-    "title": "Termux detection + 4-step bootstrap flow",
-    "description": "Implement Termux detection via PackageManager (check com.termux installed). 4-step idempotent bootstrap with probe-derived readiness: Step 1 (Probe) - RUN_COMMAND echo CLOSEPAW_PROBE=ok, verify Termux initialized + allow-external-apps + permission. Step 2 (Install) - pkg install -y python git ripgrep, verify with which. Step 3 (Deploy) - deploy bridge.py via EXTRA_STDIN base64, create workspace/artifacts/logs dirs, verify CLOSEPAW_DEPLOY=ok marker. Step 4 (Start) - python3 ~/.closepaw/bridge.py &, poll /v1/health until ready with correct version. Each step has explicit success marker. Failure maps to NeedsSetup(reason).",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt"
-    ],
-    "acceptCriteria": [
-      "rg -q \"CLOSEPAW_PROBE\" app/src/main/kotlin/ai/closepaw/termux/",
-      "rg -q \"CLOSEPAW_DEPLOY\" app/src/main/kotlin/ai/closepaw/termux/",
-      "rg -q \"pkg install\" app/src/main/kotlin/ai/closepaw/termux/",
-      "Bootstrap flow handles all 4 steps with idempotent re-entry",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "l",
-    "tags": [
-      "termux",
-      "bridge-manager",
-      "bootstrap"
-    ],
-    "created": "2026-05-02T01:14:07Z",
-    "updated": "2026-05-02T02:42:23Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-phase3-bootstrap-health"
-  },
-  "ts-health-lifecycle": {
-    "parent": "ts-phase3-bridge-manager",
-    "depends": [
-      "ts-bootstrap-flow"
-    ],
-    "state": "done",
-    "title": "Health polling, restart, version mismatch, settings toggle",
-    "description": "Implement health polling at 30s interval via /v1/health. On bridge failure: restart via RUN_COMMAND. On version mismatch: re-deploy bridge.py from raw resource then restart. Enabled toggle persisted in AppSettingsStore. Health polling updates TermuxBridgeManager.state (affects next session, not current). Bridge 30-min idle watchdog handled server-side; client just restarts on next session if bridge exited.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
-      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt"
-    ],
-    "acceptCriteria": [
-      "rg -q \"healthCheck\\|health_check\\|healthPoll\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
-      "rg -q \"BRIDGE_VERSION\\|bridgeVersion\" app/src/main/kotlin/ai/closepaw/termux/TermuxBridgeManager.kt",
-      "rg -q \"termux\\|Termux\" app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "normal",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "bridge-manager",
-      "lifecycle"
-    ],
-    "created": "2026-05-02T01:14:16Z",
-    "updated": "2026-05-02T02:42:23Z",
-    "worktree": "termux-shell"
-  },
-  "ts-phase4-shell-tool": {
-    "parent": "termux-shell",
-    "depends": [
-      "ts-review-phase3"
-    ],
-    "state": "done",
-    "title": "Phase 4: TermuxShellTool",
-    "description": "Implement TermuxShellTool as a ToolSpec, OkHttp HTTP client to bridge daemon, result mapping, ToolName registration, and turn ordering policy update.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
-      "app/src/main/kotlin/ai/closepaw/agent/turn/TurnToolPolicy.kt"
-    ],
-    "acceptCriteria": [
-      "All child tasks done",
-      "./gradlew test"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "tool"
-    ],
-    "created": "2026-05-02T01:14:23Z",
-    "updated": "2026-05-02T04:12:39Z",
-    "worktree": "termux-shell"
-  },
-  "ts-shell-tool-impl": {
-    "parent": "ts-phase4-shell-tool",
-    "depends": [],
-    "state": "done",
-    "title": "TermuxShellTool: ToolSpec + OkHttp + cancellation",
-    "description": "Implement TermuxShellTool extending ToolSpec. Tool parameters: command (required), cwd (optional, defaults to workspace root), timeout_seconds (optional, default 120s, max 120s). OkHttp client with explicit read/call timeout = timeout_ms + 5000ms grace period (not OkHttp default 10s). Cancellable via suspendCancellableCoroutine with cont.invokeOnCancellation { call.cancel() }. Coroutine cancel -> Call.cancel() -> TCP disconnect -> bridge kills subprocess.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "rg -q \"ToolSpec\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "rg -q \"suspendCancellableCoroutine\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "rg -q \"invokeOnCancellation\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "rg -q \"timeout_ms.*5000\\|grace\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "tool",
-      "okhttp"
-    ],
-    "created": "2026-05-02T01:14:33Z",
-    "updated": "2026-05-02T03:04:18Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-phase4-tool"
-  },
-  "ts-shell-tool-result": {
-    "parent": "ts-phase4-shell-tool",
-    "depends": [
-      "ts-shell-tool-impl"
-    ],
-    "state": "done",
-    "title": "TermuxShellTool result mapping",
-    "description": "Implement result mapping from bridge HTTP responses to ToolExecutionResult. HTTP 200 with any exit_code -> Success (stdout/stderr/exit_code as tool output). HTTP 200 with timed_out=true -> Success (partial output + timeout info). HTTP 409 busy -> Failure (bridge busy, LLM can retry). HTTP 4xx/5xx -> Failure (transport/protocol error). Connection refused/timeout -> Failure (bridge not available). IOException -> Failure (network error). Non-zero exit code is NOT a Failure - it is informational for the LLM.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt"
-    ],
-    "acceptCriteria": [
-      "rg -q \"Success\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "rg -q \"Failure\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "rg -q \"409\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "rg -q \"timed_out\" app/src/main/kotlin/ai/closepaw/tool/impl/TermuxShellTool.kt",
-      "Non-zero exit code maps to Success, not Failure"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "termux",
-      "tool"
-    ],
-    "created": "2026-05-02T01:14:42Z",
-    "updated": "2026-05-02T03:04:19Z",
-    "worktree": "termux-shell"
-  },
-  "ts-tool-registration": {
-    "parent": "ts-phase4-shell-tool",
-    "depends": [
-      "ts-shell-tool-impl"
-    ],
-    "state": "done",
-    "title": "ToolName + TurnToolPolicy for termux_shell",
-    "description": "Add TermuxShell to ToolName enum with isScreenChanging=false (auto-allow policy, same as existing shell tool). Update TurnToolPolicy: termux_shell must NOT be hoistable. Only cognitive tools (scratchpad, write_todos, remember_experience) are hoistable. termux_shell, shell, ask_user, activate_skill preserve LLM-returned order.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
-      "app/src/main/kotlin/ai/closepaw/agent/turn/TurnToolPolicy.kt"
-    ],
-    "acceptCriteria": [
-      "rg -q \"TermuxShell\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
-      "rg -q \"termux_shell\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
-      "TermuxShell.isScreenChanging == false",
-      "TurnToolPolicy does not hoist termux_shell",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "xs",
-    "tags": [
-      "termux",
-      "tool",
-      "policy"
-    ],
-    "created": "2026-05-02T01:14:51Z",
-    "updated": "2026-05-02T03:04:19Z",
-    "worktree": "termux-shell"
-  },
-  "ts-shell-tool-tests": {
-    "parent": "ts-phase4-shell-tool",
-    "depends": [
-      "ts-shell-tool-result",
-      "ts-tool-registration"
-    ],
-    "state": "done",
-    "title": "TermuxShellTool unit tests",
-    "description": "Unit tests for TermuxShellTool covering: JSON schema validation, result mapping (200 success, 200 timed_out, 409 busy, connection error), cancellation (Call.cancel() invoked on coroutine cancel), non-zero exit code handling (maps to Success not Failure), timeout parameter validation, OkHttp timeout configuration (timeout_ms + 5s grace).",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/test/kotlin/ai/closepaw/tool/impl/TermuxShellToolTest.kt"
-    ],
-    "acceptCriteria": [
-      "test -f app/src/test/kotlin/ai/closepaw/tool/impl/TermuxShellToolTest.kt",
-      "Tests cover: schema, result mapping (200/409/error), cancellation, non-zero exit code, timeout config",
-      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.tool.impl.TermuxShellToolTest\""
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "termux",
-      "tool",
-      "test"
-    ],
-    "created": "2026-05-02T01:14:59Z",
-    "updated": "2026-05-02T03:09:54Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-shell-tool-tests"
-  },
-  "ts-phase5-agent-wiring": {
-    "parent": "termux-shell",
-    "depends": [
-      "ts-review-phase4"
-    ],
-    "state": "done",
-    "title": "Phase 5: Agent Wiring",
-    "description": "Wire TermuxShellTool into the agent system: shell description update, system prompt extension, conditional tool registration via TermuxCapabilitySnapshot, AgentRoleDef.resolve(), runner integration, PRO mode delegation contract, and checkpoint reload.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/agent/definition/**",
-      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
-      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
-      "app/src/main/kotlin/ai/closepaw/agent/runner/**"
-    ],
-    "acceptCriteria": [
-      "All child tasks done",
-      "./gradlew test"
-    ],
-    "priority": "high",
-    "estimate": "l",
-    "tags": [
-      "termux",
-      "agent",
-      "wiring"
-    ],
-    "created": "2026-05-02T01:15:07Z",
-    "updated": "2026-05-02T04:12:39Z",
-    "worktree": "termux-shell"
-  },
-  "ts-prompt-updates": {
-    "parent": "ts-phase5-agent-wiring",
-    "depends": [],
-    "state": "done",
-    "title": "Shell description + system prompt extension",
-    "description": "Update existing shell tool description to clarify toybox scope and guide users to termux_shell for full toolchain. New description: \"Android toybox shell. Limited commands (ls, cat, stat, grep, etc.), no pipe/redirect. Use termux_shell for full toolchain (python/git etc).\" Add system prompt Workspace Shell section (injected when TermuxCapabilitySnapshot.available is true): termux_shell description, when-to-use-which-shell guidance, UI vs shell guidance, workspace path ~/closepaw/workspace/.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
-      "app/src/main/kotlin/ai/closepaw/agent/definition/**"
-    ],
-    "acceptCriteria": [
-      "rg -q \"toybox\" app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
-      "rg -q \"termux_shell\" app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt",
-      "rg -q \"Workspace Shell\" app/src/main/kotlin/ai/closepaw/agent/definition/",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "termux",
-      "agent",
-      "prompt"
-    ],
-    "created": "2026-05-02T01:15:16Z",
-    "updated": "2026-05-02T03:32:14Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-phase5-prompt-reg"
-  },
-  "ts-conditional-registration": {
-    "parent": "ts-phase5-agent-wiring",
-    "depends": [],
-    "state": "done",
-    "title": "Conditional tool registration + AgentRoleDef.resolve()",
-    "description": "Implement conditional tool registration: read TermuxCapabilitySnapshot (immutable, captured at session start) to decide whether to register TermuxShellTool. Add AgentRoleDef.resolve(snapshot, excludedTools) -> ResolvedAgentRole. ResolvedAgentRole contains adjusted allowedTools (base + termux_shell if available - excluded), systemPrompt (+ workspace section if tool exposed), and timeoutMs (150s for executor when termux available). Prompt injection follows tool exposure: if termux_shell excluded, workspace prompt section also excluded.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
-      "app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt"
-    ],
-    "acceptCriteria": [
-      "rg -q \"TermuxCapabilitySnapshot\" app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
-      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/definition/",
-      "rg -q \"resolve\" app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "agent",
-      "registration"
-    ],
-    "created": "2026-05-02T01:15:25Z",
-    "updated": "2026-05-02T03:32:14Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-phase5-prompt-reg"
-  },
-  "ts-runner-wiring": {
-    "parent": "ts-phase5-agent-wiring",
-    "depends": [
-      "ts-conditional-registration"
-    ],
-    "state": "done",
-    "title": "Runner wiring: SessionAgentRunner + IsolatedSubAgentRunner + role allow-lists",
-    "description": "Wire ResolvedAgentRole into SessionAgentRunner and IsolatedSubAgentRunner. Both read the resolved role (not raw AgentRoleDef). All 3 roles (Standalone, Planner, Executor) get termux_shell when available. Executor timeout increases to 150s when termux_shell is exposed (long-running commands need headroom above 120s bridge timeout + 5s grace). Snapshot capture path: SessionServices.create() -> SessionServices field -> SessionAgentRunner.start() -> AgentRoleDef.resolve() -> ResolvedAgentRole.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/agent/runner/SessionAgentRunner.kt",
-      "app/src/main/kotlin/ai/closepaw/agent/runner/IsolatedSubAgentRunner.kt",
-      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt"
-    ],
-    "acceptCriteria": [
-      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/runner/SessionAgentRunner.kt",
-      "rg -q \"ResolvedAgentRole\" app/src/main/kotlin/ai/closepaw/agent/runner/IsolatedSubAgentRunner.kt",
-      "rg -q \"termuxSnapshot\\|termux_snapshot\\|TermuxCapability\" app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
-      "rg -q \"150\" app/src/main/kotlin/ai/closepaw/agent/definition/AgentRoleDef.kt",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "agent",
-      "runner"
-    ],
-    "created": "2026-05-02T01:15:36Z",
-    "updated": "2026-05-02T03:35:56Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-phase5-prompt-reg"
-  },
-  "ts-pro-mode": {
-    "parent": "ts-phase5-agent-wiring",
-    "depends": [
-      "ts-runner-wiring"
-    ],
-    "state": "done",
-    "title": "PRO mode delegation + checkpoint reload",
-    "description": "PRO mode: Planner runs workspace commands (termux_shell) directly, does not delegate to Executor. Planner prompt addition: \"For workspace commands (termux_shell), execute directly instead of delegating.\" delegate_task description unchanged: \"delegate ONE atomic UI action.\" Checkpoint reload: session restore at task boundary captures fresh TermuxCapabilitySnapshot (not serialized from old snapshot). SessionServices.create() is the single capture point. Integration tests: tool present/absent matches prompt present/absent.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/agent/definition/PlannerAgentDef.kt",
-      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt"
-    ],
-    "acceptCriteria": [
-      "Planner prompt includes guidance to run termux_shell directly",
-      "delegate_task description still says UI action only",
-      "SessionServices.create() captures fresh TermuxCapabilitySnapshot on reload",
-      "Integration test: tool present iff prompt section present",
-      "./gradlew test"
-    ],
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "termux",
-      "agent",
-      "pro-mode"
-    ],
-    "created": "2026-05-02T01:15:45Z",
-    "updated": "2026-05-02T03:40:13Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-pro-mode"
-  },
-  "ts-phase6-settings-qa": {
-    "parent": "termux-shell",
-    "depends": [
-      "ts-review-phase5"
-    ],
-    "state": "done",
-    "title": "Phase 6: Settings UI + QA",
-    "description": "Settings UI for Termux Shell toggle in Agent Behavior page, and comprehensive QA: workspace tasks, UI regression, mixed tasks, turn ordering, cancellation, bootstrap recovery.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
-    ],
-    "acceptCriteria": [
-      "All child tasks done"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "settings",
-      "qa"
-    ],
-    "created": "2026-05-02T01:15:51Z",
-    "updated": "2026-05-02T04:12:39Z",
-    "worktree": "termux-shell"
-  },
-  "ts-settings-ui": {
-    "parent": "ts-phase6-settings-qa",
-    "depends": [],
-    "state": "done",
-    "title": "Agent Behavior settings: Termux Shell row",
-    "description": "Add Termux Shell row to Agent Behavior settings page. Three-state display: Ready, Needs Setup (tap to setup), Not Installed (tap to install). Toggle switch for enable/disable. Typed reason for debug (permission missing, allow-external-apps missing, packages missing, bridge outdated, health timeout, port_in_use). \"Setup changes apply next session\" messaging. Reads TermuxBridgeManager.state for current status.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
-    ],
-    "acceptCriteria": [
-      "Settings UI shows Termux Shell row with 3-state indicator",
-      "Toggle persists to AppSettingsStore",
-      "\"applies next session\" message shown on state change",
-      "./gradlew assembleDebug"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "settings",
-      "ui"
-    ],
-    "created": "2026-05-02T01:15:59Z",
-    "updated": "2026-05-02T03:57:13Z",
-    "worktree": "termux-shell",
-    "agent": "w-ts-settings-ui"
-  },
-  "ts-qa-workspace": {
-    "parent": "ts-phase6-settings-qa",
-    "depends": [
-      "ts-settings-ui"
-    ],
-    "state": "done",
-    "title": "QA: workspace tasks + UI regression + mixed tasks",
-    "description": "End-to-end QA: (1) Pure workspace task in BASIC mode - run a command via termux_shell, verify output. (2) Pure workspace task in PRO mode - Planner uses termux_shell directly. (3) Pure UI task - verify no regression in mobile_action/system_button/etc. (4) Mixed UI+workspace task - combine UI navigation with termux_shell file operations in single session.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [],
-    "acceptCriteria": [
-      "Pure workspace task passes in BASIC mode",
-      "Pure workspace task passes in PRO mode (Planner runs shell directly)",
-      "Pure UI task passes with no regression",
-      "Mixed UI+workspace task completes successfully"
-    ],
-    "requireHumanReview": true,
-    "resources": [
-      "Android device with Termux installed and configured"
-    ],
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "qa"
-    ],
-    "created": "2026-05-02T01:16:07Z",
-    "updated": "2026-05-02T06:02:28Z",
-    "worktree": "termux-shell",
-    "blockReason": "external",
-    "note": "Verified on emulator-5554 (AndroidWorldAvd, Android 13, Termux 0.118.1): /v1/exec happy path returns expected payload; env propagation works; non-zero exit_code passes through as Success; timeout returns timed_out=true with exit_code=null; workspace_escape rejected; bootstrap completes after fixing 3 bugs (see commit cdfe52a0)."
-  },
-  "ts-qa-ordering-cancel": {
-    "parent": "ts-phase6-settings-qa",
-    "depends": [
-      "ts-settings-ui"
-    ],
-    "state": "done",
-    "title": "QA: turn ordering + cancellation",
-    "description": "Test turn ordering: mobile_action + termux_shell in same turn must NOT be reordered (both non-hoistable). Only cognitive tools (scratchpad, write_todos) hoist ahead. Test cancellation: stop session during long-running termux_shell command -> verify bridge subprocess killed promptly (not waiting 120s timeout). Verify OkHttp Call.cancel() -> TCP disconnect -> bridge process-group kill.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [],
-    "acceptCriteria": [
-      "Turn ordering test: mobile_action + termux_shell preserve LLM order",
-      "Cancellation test: session stop during long command kills subprocess within seconds",
-      "./gradlew test (ordering policy unit tests)"
-    ],
-    "resources": [
-      "Android device with Termux installed and configured"
-    ],
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "termux",
-      "qa",
-      "ordering",
-      "cancellation"
-    ],
-    "created": "2026-05-02T01:16:16Z",
-    "updated": "2026-05-02T06:02:28Z",
-    "worktree": "termux-shell",
-    "blockReason": "external",
-    "note": "Verified on emulator-5554: client-disconnect kills process group (sleep PID gone within 1s of curl --max-time disconnect); exec_lock releases immediately so next /v1/exec succeeds. Turn-ordering is unit-tested (TurnToolPolicyTest)."
-  },
-  "ts-qa-bootstrap": {
-    "parent": "ts-phase6-settings-qa",
-    "depends": [
-      "ts-settings-ui"
-    ],
-    "state": "done",
-    "title": "QA: bootstrap step failures + recovery",
-    "description": "Test each bootstrap step failure and recovery: Step 1 (Probe) - Termux not installed, permission missing, allow-external-apps disabled. Step 2 (Install) - pkg install failure, partial install recovery. Step 3 (Deploy) - bridge.py write failure, re-deploy on version mismatch. Step 4 (Start) - bridge start failure, health check timeout. Also test: checkpoint/reload does not resurrect dead bridge (fresh snapshot at SessionServices.create()). Each failure shows typed reason in Settings UI.",
-    "design": "projects/active/coding/final/cn/design.md",
-    "scope": [],
-    "acceptCriteria": [
-      "Each bootstrap step failure produces correct typed reason",
-      "Recovery from each failure mode succeeds on retry",
-      "Checkpoint reload captures fresh snapshot (dead bridge not resurrected)",
-      "Settings UI shows appropriate status for each failure"
-    ],
-    "requireHumanReview": true,
-    "resources": [
-      "Android device with Termux (may need to simulate failures via package removal, permission revocation)"
-    ],
-    "priority": "normal",
-    "estimate": "m",
-    "tags": [
-      "termux",
-      "qa",
-      "bootstrap"
-    ],
-    "created": "2026-05-02T01:16:24Z",
-    "updated": "2026-05-02T06:02:28Z",
-    "worktree": "termux-shell",
-    "blockReason": "external",
-    "note": "Verified on emulator-5554: cold-start probe captures live state (cold-start fix wired); 4-step bootstrap reaches Ready (probe/install/deploy/start). Bootstrap surfaced 3 production bugs that are now fixed: probe err=-1 misclassification, missing which binary, NotInstalled tap stuck on F-Droid. Bootstrap recovery on transient failure (e.g., emulator clock skew → apt date check) confirmed via retry."
-  },
-  "ts-review-phase1": {
-    "parent": "ts-phase1-substrate",
-    "depends": [
-      "ts-substrate-tests"
-    ],
-    "state": "done",
-    "title": "Codex review: Phase 1 Substrate",
-    "description": "Codex code-review of all Phase 1 changes: manifest, network_security_config, bridge resource packaging, and substrate tests.",
-    "worktree": "termux-shell",
-    "scope": [],
-    "acceptCriteria": [
-      "codex review completed",
-      "review written to projects/active/termux_shell/reviews/phase1_review.md",
-      "no high-severity findings remain unaddressed"
-    ],
-    "agent": "w-ts-review-phase1",
-    "estimate": "s",
-    "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T01:59:32Z"
-  },
-  "ts-review-phase2": {
-    "parent": "ts-phase2-bridge-daemon",
-    "depends": [
-      "ts-bridge-pytest"
-    ],
-    "state": "done",
-    "title": "Codex review: Phase 2 Bridge Daemon",
-    "description": "Codex code-review of bridge daemon: closepaw_bridge.py, exec loop, health endpoint, pidfile, output cap, idle watchdog, and host-side pytest.",
-    "worktree": "termux-shell",
-    "scope": [],
-    "acceptCriteria": [
-      "codex review completed",
-      "review written to projects/active/termux_shell/reviews/phase2_review.md",
-      "no high-severity findings remain unaddressed"
-    ],
-    "agent": "w-ts-review-phase2",
-    "estimate": "s",
-    "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T02:27:28Z"
-  },
-  "ts-review-phase3": {
-    "parent": "ts-phase3-bridge-manager",
-    "depends": [
-      "ts-health-lifecycle"
-    ],
-    "state": "done",
-    "title": "Codex review: Phase 3 Bridge Manager + Bootstrap",
-    "description": "Codex code-review of TermuxBridgeManager, TermuxRunCommandAdapter, bootstrap flow, health lifecycle, and settings toggle.",
-    "worktree": "termux-shell",
-    "scope": [],
-    "acceptCriteria": [
-      "codex review completed",
-      "review written to projects/active/termux_shell/reviews/phase3_review.md",
-      "no high-severity findings remain unaddressed"
-    ],
-    "agent": "w-ts-review-phase3",
-    "estimate": "s",
-    "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T02:54:58Z"
-  },
-  "ts-review-phase4": {
-    "parent": "ts-phase4-shell-tool",
-    "depends": [
-      "ts-shell-tool-tests"
-    ],
-    "state": "done",
-    "title": "Codex review: Phase 4 TermuxShellTool",
-    "description": "Codex code-review of TermuxShellTool implementation: ToolSpec, OkHttp client, result mapping, cancellation, ToolName, TurnToolPolicy changes.",
-    "worktree": "termux-shell",
-    "scope": [],
-    "acceptCriteria": [
-      "codex review completed",
-      "review written to projects/active/termux_shell/reviews/phase4_review.md",
-      "no high-severity findings remain unaddressed"
-    ],
-    "agent": "w-ts-review-phase4",
-    "estimate": "s",
-    "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T03:20:56Z"
-  },
-  "ts-review-phase5": {
-    "parent": "ts-phase5-agent-wiring",
-    "depends": [
-      "ts-pro-mode"
-    ],
-    "state": "done",
-    "title": "Codex review: Phase 5 Agent Wiring",
-    "description": "Codex code-review of agent wiring: shell description, prompt extension, conditional registration, ResolvedAgentRole, runner wiring, PRO mode, checkpoint reload.",
-    "worktree": "termux-shell",
-    "scope": [],
-    "acceptCriteria": [
-      "codex review completed",
-      "review written to projects/active/termux_shell/reviews/phase5_review.md",
-      "no high-severity findings remain unaddressed"
-    ],
-    "agent": "w-ts-review-phase5",
-    "estimate": "s",
-    "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T03:49:18Z"
-  },
-  "ts-review-phase6": {
-    "parent": "ts-phase6-settings-qa",
-    "depends": [
-      "ts-qa-workspace",
-      "ts-qa-ordering-cancel",
-      "ts-qa-bootstrap"
-    ],
-    "state": "done",
-    "title": "Codex review: Phase 6 Settings UI + QA",
-    "description": "Codex code-review of settings UI, QA test results, and overall integration. Final sign-off before merge.",
-    "worktree": "termux-shell",
-    "scope": [],
-    "acceptCriteria": [
-      "codex review completed",
-      "review written to projects/active/termux_shell/reviews/phase6_review.md",
-      "no high-severity findings remain unaddressed"
-    ],
-    "agent": "w-ts-review-phase6",
-    "estimate": "s",
-    "requireHumanReview": true,
-    "created": "2026-05-02T01:32:15Z",
-    "updated": "2026-05-02T04:10:31Z"
-  },
-  "browser-phase5": {
-    "parent": null,
-    "depends": [
-      "browser-cdp-runtime"
-    ],
-    "state": "done",
-    "title": "Browser Phase 5 — Cleanup, simplification, and QA expansion",
-    "description": "Follow-up work after Phase 4 PASS (wireless-ADB self-pair on nubia P0110, no PC, no root). Two themes: (a) clean up the cumulative scars from spike→assumption→patch cycles — delete dead transports (APP_PROCESS, HOST_MEDIATED_RELAY, CHROME_TCP_LOOPBACK), simplify the bridge cascade and error block, prune defensive sleeps; (b) close out functional gaps — pair-once optimization, emulator regression after bricking, WebSocket relay stress test, cross-device QA across stock-AOSP OEMs. Source of truth: projects/active/browser/cn/diag_20260503_phase4_handoff.md outstanding items 1-8.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/**",
-      "app/src/main/aidl/ai/closepaw/browser/cdp/shizuku/**",
-      "app/src/test/kotlin/ai/closepaw/browser/**",
-      "scripts/setup-cdp-relay.sh",
-      "projects/active/browser/**"
-    ],
-    "acceptCriteria": [
-      "All child tasks done",
-      "ShizukuChromeDevtoolsBridge cascade collapsed to USER_SERVICE → WIRELESS_ADB_SELF_PAIR (single fallback)",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint stays green at HEAD",
-      "real_device_qa.md Phase 4 section still PASSes after cleanup (no regression)"
-    ],
-    "priority": "normal",
-    "estimate": "l",
-    "tags": [
-      "browser",
-      "cdp",
-      "phase5",
-      "cleanup"
-    ],
-    "created": "2026-05-03T17:31:00Z",
-    "updated": "2026-05-04T01:12:40Z",
-    "note": "MILESTONE DONE 2026-05-03 18:13. 9/10 leaves done (cross-device-qa cancelled per user — no devices); 1 task (browser-cdp-bridge-spike-hardening) absorbed from browser-cdp-runtime parent. Cascade collapsed USER_SERVICE → WIRELESS_ADB_SELF_PAIR; -1791 net source lines. Final SHAs: pair-once f4e662af, del-transports 1516206c+a0a8c866, spike-harden 445362ca+ff873f25, emu-reg 78ed9245+fa59f520, adb-keys-cleanup 9226e9e7+095228ff, ws-relay-stress 88998bf4+9778209f, qa-mid dd0632ea, bridge-simplify 55dea889+af4b8a98, soft-todos e99d4cc3, qa-final 13631f44. All real-device evidence in debug-output/run_20260503_*. Phase 5 final-gate PASS on nubia P0110."
-  },
-  "browser-phase5-pair-once": {
-    "parent": "browser-phase5",
-    "depends": [],
-    "state": "done",
-    "title": "Pair-once: stop re-pairing every cold session",
-    "description": "Every fresh ClosePaw process re-runs the full TLS-PSK SPAKE2 pair handshake even though the RSA keypair persists under filesDir/adb_self_pair/ and adbd already has the pubkey in /data/misc/adb/adb_keys. Cost: ~1s extra latency + one extra adb_keys entry per cold session. Root cause: AdbWirelessManager.isPubkeyAuthorized(fingerprint) always returns false because the fingerprint formats do not line up — we hash the X.509 SubjectPublicKeyInfo DER but adbd hashes a different byte sequence. Fix sketch: change AdbCryptoKeyStore.fingerprint() to return SHA-256(AndroidPubkey.encode(pubkey)) — the 524-byte adbd-format input — or have it return the raw base64-encoded AndroidPubkey blob; change AdbWirelessManager.isPubkeyAuthorized to take that base64 string and substring-match against adb_keys content (read via shell-uid binder). See handoff outstanding item #1.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbCryptoKeyStore.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbWirelessManager.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/WirelessAdbSelfPairTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ChromeDevtoolsUserService.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/wireless/**"
-    ],
-    "acceptCriteria": [
-      "AdbWirelessManager.isPubkeyAuthorized returns true on second cold session when adb_keys still contains our pubkey",
-      "Second consecutive run logs `wireless-adb pair skipped: pubkey already authorized` instead of `wireless-adb pairing complete`",
-      "adb_keys does not gain a new entry on a re-run when the prior entry is still present",
-      "./gradlew :app:testDebugUnitTest --tests `ai.closepaw.browser.cdp.wireless.*` passes"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "cdp",
-      "wireless-adb",
-      "phase5"
-    ],
-    "created": "2026-05-03T17:31:16Z",
-    "updated": "2026-05-03T18:41:05Z",
-    "agent": "w-pair-once",
-    "note": "DONE — commit f4e662af merged to main 2026-05-03 11:38. Codex review APPROVE-WITH-NITS: (1) substring match on adb_keys could false-positive on a key blob in a comment/host-label position — not a real-world concern but worth tightening to first-token-per-line later; (2) readAdbKeys() exposes full file to app uid (other apps pubkeys included) — cleaner fix is service-side boolean match. Both Low; tracked under browser-phase5-soft-todos as nits if budget allows."
-  },
-  "browser-phase5-emulator-regression": {
-    "parent": "browser-phase5",
-    "depends": [],
-    "state": "done",
-    "title": "Restore emulator-5554 and re-verify Phase 4 path",
-    "description": "emulator-5554 went offline mid-debug after `setprop persist.adb.tls.trace 1; stop adbd; start adbd`. `adb reconnect` does not recover. Agent drives this end-to-end:\n1. Check `adb devices` — if emulator-5554 still offline, kill it (`adb -s emulator-5554 emu kill` may fail; otherwise `pkill -f qemu-system.*-5554`) and restart via `~/android-sdk/emulator/emulator @<avd> -no-snapshot &`. List AVDs with `~/android-sdk/emulator/emulator -list-avds`.\n2. Alternative: emulator-5556 is already running and available. If restarting -5554 is flaky, target -5556 instead — task acceptCriteria say `emulator` not specifically -5554.\n3. Once emulator shows `device`, ensure Wi-Fi connected: `adb -s <emu> shell cmd wifi connect-network AndroidWifi open` (synthetic AndroidWifi; BSSID 02:15:b2:00:01:00).\n4. Run wireless self-pair flow: `ANDROID_SERIAL=<emu> DEBUG_AUTO_APPROVE=true ./scripts/debug-run.sh \"Use browser_script to fetch document.title from open https://example.com\"`\n5. Verify logcat shows `WirelessAdbSelfPair: wireless-adb pairing complete` and agent answers `document.title is \"Example Domain\"`.\n6. Append PASS row to projects/active/browser/real_device_qa.md with debug-output run dir.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "projects/active/browser/real_device_qa.md",
-      "debug-output/**"
-    ],
-    "acceptCriteria": [
-      "An emulator (emulator-5554 OR emulator-5556) shows `device` in `adb devices`",
-      "Wireless self-pair PASS on the chosen emulator — logcat contains `WirelessAdbSelfPair: wireless-adb pairing complete`",
-      "Agent run via debug-run.sh returns `document.title is \"Example Domain\"`",
-      "real_device_qa.md Phase 4 section gets an emulator PASS row alongside nubia P0110",
-      "debug-output/run_<ts>/ dir cited in real_device_qa.md exists with agent.log + logcat_full.log"
-    ],
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "cdp",
-      "qa",
-      "phase5"
-    ],
-    "created": "2026-05-03T17:31:31Z",
-    "updated": "2026-05-03T20:00:31Z",
-    "agent": "w-emu-reg",
-    "note": "DONE WITH CAVEAT — commits 78ed9245 + fa59f520 merged to main 2026-05-03 12:59. Wireless-ADB self-pair PASS on emulator-5556 (full stack: pair handshake + mTLS + post-mTLS A_CNXN + A_OPEN dispatch). Agent CDP chain BLOCKED on emulator: Chrome stable 109 channel + non-debuggable APK gate DevToolsServer::IsAllowed() — same Phase 2 limitation, not a Phase 5 regression. Worker tried 5 chrome distribution sources (APKMirror/APKPure/Chromium snapshots) within budget — none worked for Android x86_64. Phase 5 wireless-adb regression concern (the actual goal of this task) is met. Full agent chain remains nubia-only validation. 4 setup quirks captured in real_device_qa.md: Shizuku APK manual install, start.sh trigger via View command, Shizuku auth table independent of pm grant, emulator clock drift breaks TLS."
-  },
-  "browser-phase5-ws-relay-stress": {
-    "parent": "browser-phase5",
-    "depends": [],
-    "state": "done",
-    "title": "WebSocket relay stress test (multi-call, leak detection)",
-    "description": "WirelessAdbSelfPairTransport.ensureWebSocketRelayPort() and ShizukuChromeDevtoolsBridge.resolveWebSocketHost() WIRELESS_ADB_SELF_PAIR dispatch are wired and have been exercised in practice (Page.navigate / Runtime.evaluate over CDP did go through the relay during the `Example Domain` run). What is missing: an explicit `1 connect, N round trips, no leaks` stress test. A 5-minute run with multiple sequential browser_script calls on the same BrowserSessionManager would catch any leak. See handoff outstanding item #3.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/WirelessAdbSelfPairTransport.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/wireless/**",
-      "projects/active/browser/real_device_qa.md"
-    ],
-    "acceptCriteria": [
-      "Real-device run executes ≥10 sequential browser_script calls on one BrowserSessionManager without re-pair or socket leak",
-      "/proc/<closepaw-pid>/fd count does not grow more than +2 across the 10-call run (relay accept loop fd + AdbStream pair)",
-      "logcat shows no `Too many open files` or `EMFILE` errors",
-      "real_device_qa.md Phase 4 gains a `WS relay stress` row with PASS"
-    ],
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "cdp",
-      "qa",
-      "phase5"
-    ],
-    "created": "2026-05-03T17:31:43Z",
-    "updated": "2026-05-03T21:16:39Z",
-    "agent": "w-ws-stress",
-    "note": "DONE — commits 88998bf4 (harness) + 9778209f (round-2 fixes) + rebase merged to main 2026-05-03 14:16. Codex round-2 APPROVE-WITH-NITS (only nit was unrelated CloudStream OOM in full test suite). 5 JVM stress tests + per-iter logcat scan + barrier-gated single-flight test + close()-resets-relayPort fix. Real-device PASS on nubia P0110: pid stable, per-iter socket_fd_delta=0, per-iter fd_delta=-2, EMFILE=0, all 10 iters GOAL_ACHIEVED via WIRELESS_ADB_SELF_PAIR. NOTE: nubia OEM denies shell uid read access to /data/misc/adb/adb_keys, so pair-once isPubkeyAuthorized always returns false on this device — re-pair runs every iteration, harmless to the leak check but means pair-once optimization is OEM-dependent (not a Phase 5 regression; documented in runbook caveats)."
-  },
-  "browser-phase5-delete-dead-transports": {
-    "parent": "browser-phase5",
-    "depends": [],
-    "state": "done",
-    "title": "Delete dead transports (APP_PROCESS, HOST_MEDIATED_RELAY, CHROME_TCP_LOOPBACK)",
-    "description": "Three transports add cost and noise but no value:\n(a) APP_PROCESS (AppProcessLocalSocketTransport) — never works on stock Android. Untrusted_app cannot connectto another apps abstract socket (no TE allow rule + MLS category mismatch). No phase of QA observed it succeed.\n(b) HOST_MEDIATED_RELAY (HostMediatedCdpRelayTransport) — needs PC-side `adb forward`/`reverse`, contradicts in-device autonomy. Was the only working path on locked OEMs before Phase 4; superseded.\n(c) CHROME_TCP_LOOPBACK (ChromeRemoteDebugPortTransport, the Phase 2 attempt) — empirically blocked by chromes per-profile flag requirement, kept `wired but null in production`.\n\nAfter deletion the cascade collapses to APP_PROCESS-removed → USER_SERVICE → WIRELESS_ADB_SELF_PAIR. Bridge constructor: 4 transport slots → 1. httpGet cascade: ~80 → ~25 lines. DevtoolsSetupError: 9 sealed subtypes → 4-5. See handoff outstanding item #7 + the Phase 2 sub-bullet of item #8.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/AppProcessLocalSocketTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/HostMediatedCdpRelayTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ChromeRemoteDebugPortTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/DevtoolsSetupError.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ChromeDevtoolsUserService.kt",
-      "app/src/main/aidl/ai/closepaw/browser/cdp/shizuku/IChromeDevtoolsUserService.aidl",
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/shizuku/HostMediatedCdpRelayTransportTest.kt",
-      "scripts/setup-cdp-relay.sh",
-      "projects/active/browser/real_device_qa.md"
-    ],
-    "acceptCriteria": [
-      "AppProcessLocalSocketTransport, HostMediatedCdpRelayTransport, ChromeRemoteDebugPortTransport classes deleted",
-      "Their tests deleted; setup-cdp-relay.sh deleted",
-      "DevtoolsSetupError no longer contains AppProcessSocketInaccessible, HostMediatedRelayUnreachable, ChromeRemoteDebuggingFlagNotEnabled",
-      "TransportLabel enum no longer contains APP_PROCESS, HOST_MEDIATED_RELAY, CHROME_TCP_LOOPBACK",
-      "ShizukuChromeDevtoolsBridge constructor takes single fallback transport slot (wireless), with USER_SERVICE retained",
-      "AIDL no longer exposes ensureChromeRemoteDebugPort or related helpers",
-      "real_device_qa.md Phase 1 / Phase 2 / Phase 3 sections become a single archived note explaining the removal commit",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
-      "Real-device QA on nubia P0110 still PASSes after deletion (`document.title is \"Example Domain\"`)"
-    ],
-    "priority": "normal",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "cdp",
-      "cleanup",
-      "phase5"
-    ],
-    "created": "2026-05-03T17:32:07Z",
-    "updated": "2026-05-03T19:17:30Z",
-    "agent": "w-del-transports",
-    "note": "DONE — commits 1516206c (refactor) + a0a8c866 (review fixes) + rebase merged to main 2026-05-03 12:18. Codex round-2 APPROVE. -1985/+193 net delta across 16 files. USER_SERVICE_VERSION bumped 1→2. Stragglers scrubbed in tasks.json + real_device_qa.md + capability gate / bridge / cdp client comments."
-  },
-  "browser-phase5-bridge-simplify": {
-    "parent": "browser-phase5",
-    "depends": [
-      "browser-phase5-delete-dead-transports",
-      "browser-phase5-pair-once",
-      "browser-cdp-bridge-spike-hardening",
-      "browser-phase5-qa-mid"
-    ],
-    "state": "done",
-    "title": "Simplify ShizukuChromeDevtoolsBridge: cascade, error block, defensive sleeps",
-    "description": "Once dead transports are deleted (browser-phase5-delete-dead-transports) and pair-once lands (browser-phase5-pair-once), the bridge should collapse to a clean shape. Specific things to clean:\n- Cascade in httpGet collapses to APP_PROCESS-removed → user → wireless; error logic becomes `first DevtoolsSetupError wins, otherwise WirelessAdbSelfPairUnavailable`. End-block error-priority logic touching appError/userError/wirelessError/relayUnreachable goes away.\n- DEFAULT_TIMEOUT_MS bumped 4_000 → 30_000 because chromes /json/version did not EOF — with readUntilHttpComplete this is no longer needed; restore 4s default and let script-level timeout cap the outer budget.\n- POST_CNXN_SETTLE_MS (200ms) and POST_PAIR_SETTLE_MS (500ms) defensive sleeps added during debug — re-evaluate; if still needed, document why; if not, delete.\n- WirelessAdbSelfPairTransport.exchange outer try/catch with Log.e re-throw was added because the bridges runCatching swallowed exceptions. Re-evaluate after cascade simplifies.\n- WirelessAdbSelfPairTransport.isReachable() does a currentBssid() shell-out via Shizuku binder during preflight. Collapse to a single check after cascade simplifies.\n- AdbWirelessManager.isPubkeyAuthorized — delete if not fixed by browser-phase5-pair-once; ensure consistency.\n- UserServiceTransport.binder made public in commit ec4d2e92. Either keep with named accessor + WHY comment or refactor AdbWirelessManager to take the same UserServiceProvider the bridge uses.\n- Comments + docs: keep load-bearing AOSP-line-number comments; prune narration. Per CLAUDE.md `Default to writing no comments`.\n- Tests: AdbWireProtocolClientTests in-process FakeAdbd already mirrors post-mTLS contract — add coverage for readUntilHttpComplete: Content-Length response, no-Content-Length response, A_CLSE before headers complete, A_CLSE after partial body.\n\nSee handoff outstanding item #8.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/DevtoolsSetupError.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/AppProcessLocalSocketTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/WirelessAdbSelfPairTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbWireProtocolClient.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbWirelessManager.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/wireless/AdbWireProtocolClientTest.kt"
-    ],
-    "acceptCriteria": [
-      "ShizukuChromeDevtoolsBridge.httpGet cascade is ≤30 lines (was ~80)",
-      "DevtoolsSetupError has ≤6 sealed subtypes (was 9)",
-      "DEFAULT_TIMEOUT_MS restored to 4_000 (or new value documented with WHY)",
-      "POST_CNXN_SETTLE_MS and POST_PAIR_SETTLE_MS either deleted or each carries a one-line WHY comment",
-      "AdbWireProtocolClientTest gains 4 readUntilHttpComplete cases (Content-Length, no-Content-Length, A_CLSE-before-headers, A_CLSE-after-partial-body)",
-      "Total NET line delta is ≥200 lines deleted across the changed files",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
-      "Real-device QA on nubia P0110 still PASSes (no regression on the agent run)"
-    ],
-    "priority": "normal",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "cdp",
-      "cleanup",
-      "phase5"
-    ],
-    "created": "2026-05-03T17:32:35Z",
-    "updated": "2026-05-04T00:50:28Z",
-    "agent": "w-bridge-simplify",
-    "note": "DONE — commits 55dea889 + af4b8a98 merged to main 2026-05-03 17:11. Codex round-2 APPROVE clean. DEFAULT_TIMEOUT_MS 30s→4s; httpGet body 33→29 lines; settle sleeps kept w/ WHY; outer try/catch removed (cause chained via WirelessAdbSelfPairUnavailable.message appending Underlying cause: ClassName: msg); +4 readUntilHttpComplete tests with strict truncation semantics (IOException on partial headers/body); FakeAdbd refactored to parameterize chunks. nubia QA PASS. DevtoolsSetupError held at 7 (UserServiceSocketInaccessible load-bearing per reviewer note)."
-  },
-  "browser-phase5-adb-keys-cleanup": {
-    "parent": "browser-phase5",
-    "depends": [
-      "browser-phase5-pair-once"
-    ],
-    "state": "done",
-    "title": "adb_keys cleanup utility (unpair helper)",
-    "description": "Until pair-once lands, /data/misc/adb/adb_keys accumulates one entry per cold session. There is no built-in cleanup. Eventually adbds iteration over the file becomes O(N) per handshake. Not urgent but worth adding a disablePairing + unpairDevice helper that prunes our old entries. Becomes much smaller once browser-phase5-pair-once lands (no new entries per run), but a one-time cleanup of accumulated entries is still useful. See handoff outstanding item #4.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbWirelessManager.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ChromeDevtoolsUserService.kt",
-      "app/src/main/aidl/ai/closepaw/browser/cdp/shizuku/IChromeDevtoolsUserService.aidl"
-    ],
-    "acceptCriteria": [
-      "Helper method that prunes ClosePaw-named entries from adb_keys (matched by `ClosePaw@<MODEL>` suffix or pubkey)",
-      "Helper invoked at most once per cold session (idempotent)",
-      "After helper runs, adb_keys contains exactly one ClosePaw entry (the current keypair)",
-      "./gradlew :app:testDebugUnitTest passes"
-    ],
-    "priority": "low",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "cdp",
-      "wireless-adb",
-      "phase5"
-    ],
-    "created": "2026-05-03T17:32:47Z",
-    "updated": "2026-05-03T21:09:10Z",
-    "agent": "w-adb-keys",
-    "note": "DONE — commits 9226e9e7 (helper) + 095228ff (review fixes) merged to main 2026-05-03 13:08. Codex round-2 APPROVE no findings. AIDL writeAdbKeys with: Os.stat metadata capture, RandomAccessFile.fd.sync() body, Os.chmod + chown + reflective SELinux.restorecon best-effort, atomic rename, parent dir fsync, orphan tmp cleanup. Token-based prune (\\s+ split, AOSP-compatible). USER_SERVICE_VERSION 2→3. 26 tests, 0 failures. Helper invoked once per cold session via @Volatile prunedThisSession in WirelessAdbSelfPairTransport.ensurePaired pair-skip branch."
-  },
-  "browser-phase5-cross-device-qa": {
-    "parent": "browser-phase5",
-    "depends": [],
-    "state": "cancelled",
-    "title": "Cross-device QA: Samsung, Xiaomi, OPPO, OnePlus, Vivo, Honor",
-    "description": "Phase 4 verified only on nubia P0110 (Android 16, OEM build with stripped Wireless Debugging UI). The spike research argued the path should work on any Android 11+ device that grants MANAGE_DEBUGGING to com.android.shell — that is stock AOSP plus the OEMs we care about. No empirical validation across that set yet. See handoff outstanding item #5.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "projects/active/browser/real_device_qa.md"
-    ],
-    "acceptCriteria": [
-      "Wireless self-pair PASS verified on at least 3 of: Samsung, Xiaomi, OPPO, OnePlus, Vivo, Honor",
-      "Each device PASS row added to real_device_qa.md Phase 4 section with logcat evidence and debug-output run dir",
-      "Any device that FAILs gets a separate sub-task with logcat + diagnosis"
-    ],
-    "priority": "normal",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "cdp",
-      "qa",
-      "phase5"
-    ],
-    "requireHumanReview": true,
-    "created": "2026-05-03T17:32:58Z",
-    "updated": "2026-05-03T17:54:07Z",
-    "note": "CANCELLED — scope shrunk by user 2026-05-03. Original target (Samsung/Xiaomi/OPPO/OnePlus/Vivo/Honor) requires devices we do not have. Reduced scope (nubia + emulator) is fully covered: nubia P0110 already PASS in Phase 4 (commit bdf622ca); emulator-5554 covered by browser-phase5-emulator-regression. If we acquire stock-AOSP OEM devices later, file a fresh task."
-  },
-  "browser-phase5-soft-todos": {
-    "parent": "browser-phase5",
-    "depends": [
-      "browser-phase5-bridge-simplify"
-    ],
-    "state": "done",
-    "title": "Soft TODOs from Phase 4 diff",
-    "description": "Three small items noted during Phase 4 development:\n- AdbWireProtocolClient.kt:69 — `runCatching { Message.write(out, A_CLSE, …) }` is best-effort cleanup. Consider whether to surface the close failure in tests.\n- WirelessAdbSelfPairTransport.kt:73 — the retry-once on cached-port-rotation is defensive; if observed in production, log the rate.\n- AdbPairingClient.kt — uses LGPL spake2-android via JitPack. License-clean for a proprietary app (dynamic linking) but if license policy ever tightens, port BoringSSL spake25519.c to Apache-2.0 (~600 lines of crypto). Triage now: confirm LGPL is acceptable for ClosePaw or schedule the port. See handoff outstanding item #6.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbWireProtocolClient.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/WirelessAdbSelfPairTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbPairingClient.kt"
-    ],
-    "acceptCriteria": [
-      "AdbWireProtocolClient close-failure: either test added or one-line WHY-comment justifying silent best-effort",
-      "WirelessAdbSelfPairTransport.kt:73 retry: either rate-counter wired or one-line comment scheduling removal",
-      "AdbPairingClient LGPL decision documented (in code comment or handoff doc): keep dynamic-linked LGPL OR schedule port to Apache-2.0 SPAKE2 — with rationale"
-    ],
-    "priority": "low",
-    "estimate": "xs",
-    "tags": [
-      "browser",
-      "cdp",
-      "phase5",
-      "follow-up"
-    ],
-    "created": "2026-05-03T17:33:12Z",
-    "updated": "2026-05-04T00:54:16Z",
-    "agent": "w-soft-todos",
-    "note": "DONE — commit e99d4cc3 merged to main 2026-05-03 17:53. +11 comment-only lines across 3 files. (1) AdbWireProtocolClient close-failure: WHY comment on best-effort A_CLSE write. (2) WirelessAdbSelfPairTransport retry: TODO scheduling rate-counter if observed in production. (3) AdbPairingClient: LGPL-3.0 spake2-android documented as license-clean via dynamic linking (LGPL §4(d)) with BoringSSL escape hatch noted."
-  },
-  "browser-phase5-qa-mid": {
-    "parent": "browser-phase5",
-    "depends": [
-      "browser-phase5-delete-dead-transports",
-      "browser-phase5-pair-once"
-    ],
-    "state": "done",
-    "title": "Mid-cleanup regression gate (post delete + pair-once)",
-    "description": "Mid-cleanup regression gate. Agent drives nubia P0110 (`100.64.43.95:5555`) end-to-end after the two upstream tasks land + merge to main:\n1. After orchestrator merges browser-phase5-pair-once + browser-phase5-delete-dead-transports to main, this task runs from main HEAD.\n2. Setup: `./scripts/setup.sh` to install fresh APK + start Shizuku.\n3. Force fresh pair: `adb -s 100.64.43.95:5555 shell run-as ai.closepaw rm -rf files/adb_self_pair`\n4. Strip host plumbing: `adb -s 100.64.43.95:5555 forward --remove-all && adb -s 100.64.43.95:5555 reverse --remove-all`\n5. Cold session 1: `ANDROID_SERIAL=100.64.43.95:5555 DEBUG_AUTO_APPROVE=true ./scripts/debug-run.sh \"Use browser_script to fetch document.title from open https://example.com\"` — capture logcat from this run.\n6. Cold session 2 (no rm -rf this time): same command. Verify logcat now shows `wireless-adb pair skipped: pubkey already authorized` (the pair-once observable).\n7. Verify adb_keys not growing: `adb -s 100.64.43.95:5555 shell wc -l /data/misc/adb/adb_keys` before and after session 2 returns the same count.\n8. Verify deleted transport labels absent: `grep -E `APP_PROCESS|HOST_MEDIATED_RELAY|CHROME_TCP_LOOPBACK` <session-2-logcat>` returns no hits.\n9. Append PASS row to real_device_qa.md.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "projects/active/browser/real_device_qa.md",
-      "debug-output/**"
-    ],
-    "acceptCriteria": [
-      "Cold session on nubia P0110 returns `document.title is \"Example Domain\"`",
-      "Second consecutive cold session logcat contains `wireless-adb pair skipped: pubkey already authorized`",
-      "wc -l on /data/misc/adb/adb_keys is identical before and after session 2",
-      "logcat from session 2 contains zero references to APP_PROCESS, HOST_MEDIATED_RELAY, CHROME_TCP_LOOPBACK transport labels",
-      "real_device_qa.md gains a `Phase 5 mid-gate` PASS row with debug-output/ run dir cited",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes on main HEAD"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "cdp",
-      "qa",
-      "phase5",
-      "regression-gate"
-    ],
-    "created": "2026-05-03T17:48:40Z",
-    "updated": "2026-05-03T23:25:32Z",
-    "agent": "w-qa-mid",
-    "note": "DONE — commit dd0632ea merged to main 2026-05-03 16:25. PASS (soft). HARD criteria all met: 2 cold sessions return Example Domain, zero deleted-transport refs in logcat, build green (1494 tests). SOFT: pair-once skip not observable on nubia (OEM denies shell-uid read of /data/misc/adb/adb_keys: EACCES) — pre-existing constraint, adbd handles re-pair as idempotent. Bonus fix: test heap 512m→2g (Phase 5 cumulative test load OOMed at 512m: Conscrypt + BC + OpenAI SDK + MockWebServer + WS relay stress)."
-  },
-  "browser-phase5-qa-final": {
-    "parent": "browser-phase5",
-    "depends": [
-      "browser-phase5-pair-once",
-      "browser-phase5-emulator-regression",
-      "browser-phase5-ws-relay-stress",
-      "browser-phase5-delete-dead-transports",
-      "browser-phase5-bridge-simplify",
-      "browser-phase5-adb-keys-cleanup",
-      "browser-phase5-soft-todos"
-    ],
-    "state": "done",
-    "title": "Final Phase 5 regression gate",
-    "description": "Final Phase 5 regression gate. Agent drives nubia P0110 (`100.64.43.95:5555`) end-to-end after all Phase 5 work merges to main:\n1. Setup: `./scripts/setup.sh`\n2. Cold session: `adb -s 100.64.43.95:5555 shell run-as ai.closepaw rm -rf files/adb_self_pair && adb -s 100.64.43.95:5555 forward --remove-all && adb -s 100.64.43.95:5555 reverse --remove-all` then debug-run.sh once. Verify Example Domain answer.\n3. Re-pair check: re-run debug-run.sh (no rm -rf). Verify `wireless-adb pair skipped` log + 0 new adb_keys entries.\n4. WS relay stress: capture `adb shell pidof ai.closepaw` then `adb shell ls /proc/<pid>/fd | wc -l`. Run debug-run.sh 10 more times sequentially without restarting the app between calls (use the runbook left by ws-relay-stress task). Re-capture fd count. Assert delta ≤ +2.\n5. Cascade-clean check: `wc -l app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt` and inspect httpGet body length — assert ≤ 30 lines for the cascade.\n6. Source-clean check: `grep -r `AppProcessLocalSocketTransport\\|HostMediatedCdpRelayTransport\\|ChromeRemoteDebugPortTransport` app/src/ projects/active/browser/cn/diag_*.md` returns zero hits in source (archived notes ok).\n7. logcat post-stress: `adb logcat -d | grep -E `Too many open files|EMFILE`` returns no hits.\n8. Append PASS row to real_device_qa.md citing debug-output/ run dirs.",
-    "design": "projects/active/browser/cn/diag_20260503_phase4_handoff.md",
-    "scope": [
-      "projects/active/browser/real_device_qa.md",
-      "debug-output/**"
-    ],
-    "acceptCriteria": [
-      "nubia P0110 cold-session agent run returns `document.title is \"Example Domain\"`",
-      "Second cold session logs `wireless-adb pair skipped: pubkey already authorized`; adb_keys gains 0 entries",
-      "ShizukuChromeDevtoolsBridge.httpGet body is ≤30 lines (post bridge-simplify)",
-      "Source tree contains zero refs to AppProcessLocalSocketTransport, HostMediatedCdpRelayTransport, ChromeRemoteDebugPortTransport",
-      "10 sequential browser_script calls without re-pair: /proc/<pid>/fd delta ≤ +2; logcat free of EMFILE/`Too many open files`",
-      "real_device_qa.md gains a `Phase 5 final-gate PASS` row citing debug-output/ run dir",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes on main HEAD"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "cdp",
-      "qa",
-      "phase5",
-      "regression-gate"
-    ],
-    "requireHumanReview": false,
-    "created": "2026-05-03T17:48:57Z",
-    "updated": "2026-05-04T01:12:40Z",
-    "agent": "w-qa-final",
-    "note": "DONE — commit 13631f44 merged to main 2026-05-03 18:13. PASS (soft). All acceptance: build green, zero refs to deleted transports, httpGet body 27 lines (≤30), cold-pair Example Domain (run_20260503_175805), re-pair Example Domain (run_20260503_175919), WS stress 10 iters pid stable + socket_fd_delta=0 + EMFILE=0 (ws-stress-20260503_180036). Cascade verified on nubia: UserService denied (connectto SELinux) → WirelessAdbSelfPair bootstraps → browser_script SUCCESS. Soft: pair-once skip not observable on nubia (OEM denies shell-uid read of adb_keys, inherited from qa-mid finding)."
-  },
-  "browser-phase6": {
-    "parent": null,
-    "depends": [
-      "browser-cdp-runtime",
-      "browser-phase5"
-    ],
-    "state": "done",
-    "title": "Browser Phase 6 — Security + dependency fixes from milestone review",
-    "description": "Address findings from codex milestone review (8a8bbcf4..cb4df0e6) before declaring browser stack production-ready. 1 Critical (unauthenticated localhost CDP relay) + 5 High (WS idle timeout, target-switch leak, storeArtifact DoS, BouncyCastle CVE, LGPL compliance) + 3 Medium + 1 Low. User direction: Critical takes path B (per-session unguessable token, KISS — no in-process CdpConnection rewrite); LGPL takes investigate-first (swap to common dep if available, else proper NOTICE compliance — no reimplementing crypto).",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/**",
-      "app/src/main/aidl/**",
-      "app/src/main/assets/agent_skills/browser-use/**",
-      "app/build.gradle.kts",
-      "app/src/test/kotlin/ai/closepaw/browser/**"
-    ],
-    "acceptCriteria": [
-      "All child tasks done",
-      "Codex re-review of the cumulative diff returns APPROVE or APPROVE-WITH-NITS (no Critical or High)",
-      "Real-device QA on nubia P0110 PASSes after all fixes",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint green at HEAD"
-    ],
-    "priority": "high",
-    "estimate": "l",
-    "tags": [
-      "browser",
-      "security",
-      "phase6"
-    ],
-    "created": "2026-05-04T19:58:30Z",
-    "updated": "2026-05-04T22:45:01Z",
-    "note": "MILESTONE DONE 2026-05-04 15:44. All 8 leaves done (cdp-relay-auth Critical / ws-idle / target-switch / storeartifact-quota + scope-fix / bc-cve / spake-replace / medium-cleanup / qa) — addresses 1 Critical + 5 High + 3 Medium + 1 Low from codex milestone review (8a8bbcf4..cb4df0e6). Final SHAs: bc-cve 9776a573, quota 4b29c45d + scope f6886f4a, ws-idle 9ed206f6, target-leak c21368b9+bf471b67+d4296713, relay-auth 2462bf0d+b60d4ac5+6dc2af3a, spake bc9e43e0+732e34b8+88ee07b9, cleanup eada8cc4, qa cef6d4c7+6ff2ec60. Browser stack now production-ready: token-gated relay (constant-time verify, slowloris total-deadline), WS idle survives 30s+, target switch atomic via switchMutex + per-LiveConnection pending, storeArtifact 50MB/call + 500MB/session (true session scope w/ atomic CAS), BC 1.84 (CVE closed), spake2-android (LGPL) replaced by net.i2p.crypto:eddsa (CC0). nubia + emulator-5556 PASS."
-  },
-  "browser-phase6-cdp-relay-auth": {
-    "parent": "browser-phase6",
-    "depends": [],
-    "state": "done",
-    "title": "[CRITICAL] Token-gate localhost CDP relay (path B)",
-    "description": "Codex Critical: WirelessAdbSelfPairTransport.kt:82 + ChromeDevtoolsUserService.kt:214 bind 127.0.0.1:0 and accept ANY local TCP client, then proxy to chrome_devtools_remote with full ClosePaw/Shizuku/adbd privilege. Any other app on device can scan local ports during a browser_script session and drive Chrome DevTools (read cookies, navigate, exfiltrate password manager).\n\nUser chose path B: per-session unguessable token, NOT path A (eliminate TCP relay → in-process CdpConnection rewrite). Keep architecture, add gate.\n\nDesign:\n1. On relay accept(), expect first incoming bytes to be the WebSocket Upgrade request that ChromeCdpClient sends. Inject a custom header `X-ClosePaw-Token: <random32bytes-hex>` in the OkHttp WebSocket builder.\n2. Generate token in the bridge per session (SecureRandom.nextBytes(32) → hex). Pass token to ChromeCdpClient (via the ws URL builder or headers).\n3. Relay accept loop: read up to 4KB of HTTP request line + headers, parse, verify `X-ClosePaw-Token: <expected>`. If missing/mismatch, 403 + close. If match, strip the header and proxy bytes to chrome_devtools_remote socket.\n4. Apply to BOTH transports (USER_SERVICE relay in ChromeDevtoolsUserService + WIRELESS_ADB_SELF_PAIR relay in WirelessAdbSelfPairTransport).\n\nKEEP IT SIMPLE — do not rewrite OkHttp WS to a custom CDP client. Just header check.",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/WirelessAdbSelfPairTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ChromeDevtoolsUserService.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/**"
-    ],
-    "acceptCriteria": [
-      "Both relays generate per-session token (SecureRandom 32 bytes hex) on first activation",
-      "Relay accept loop parses inbound HTTP request and rejects with 403 if X-ClosePaw-Token header missing or wrong",
-      "ChromeCdpClient injects X-ClosePaw-Token header in WS Upgrade",
-      "Test: connect to relay port without token → 403; with wrong token → 403; with correct token → proxied through (use a fake CDP server)",
-      "Real-device sanity on nubia: agent run still PASSes (token plumbed correctly through bridge → client)",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
-    ],
-    "priority": "critical",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "security",
-      "phase6",
-      "critical"
-    ],
-    "created": "2026-05-04T19:58:30Z",
-    "updated": "2026-05-04T21:02:22Z",
-    "agent": "w-p6-relay-auth",
-    "note": "DONE — Critical fix merged 2026-05-04 14:02. 3 commits: fe9abfe9 (token gate base) + 0f84a511 (USER_SERVICE_VERSION 4 + per-read soTimeout) + 350adb49 (TOTAL pre-auth deadline against byte-dribble slowloris). Codex round-3 APPROVE. RelayAuthToken.readHttpRequestHead enforces total wall-clock deadline (5s default) — per-iter remaining = deadline - elapsed; setReadTimeout(remaining) so socket per-read cap walks down with budget. Constant-time verify (32-byte hex SecureRandom). OkHttp injects X-ClosePaw-Token in WS Upgrade. Both relays parity-tested. Real-device PASS on emulator-5556 (token-gated relay → Example Domain). 16 RelayAuthTokenTest + 9 wireless stress + 6 ChromeDevtoolsUserService relay tests."
-  },
-  "browser-phase6-ws-idle-timeout": {
-    "parent": "browser-phase6",
-    "depends": [],
-    "state": "done",
-    "title": "[HIGH] Separate WS connect timeout from post-open idle behavior",
-    "description": "Codex High #1: AdbTlsClient.kt:97 + AdbWireProtocolClient.kt:40 give the WebSocket stream a 10s socket read timeout inherited from the handshake setup. An idle CDP WebSocket dies after 10s even though script-level (30-120s) and command-level (4s default) budgets are different. Effect: a long-running browser_script that waits between CDP commands gets the socket killed mid-flight.\n\nFix: separate the connect/handshake timeout (keep at 10s) from post-open behavior. After WS upgrade succeeds, set socket timeout to 0 (infinite) OR a much longer idle (5min). Add a regression test where a CDP WS sits idle for >10s and the next command still works.",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbTlsClient.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbWireProtocolClient.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/wireless/**"
-    ],
-    "acceptCriteria": [
-      "Post-open WS sets socket SO_TIMEOUT to 0 (or documented long idle) after the handshake completes",
-      "Connect/handshake timeout retained at 10s (or current value) for setup",
-      "Test: simulate idle gap > 10s, then send a CDP frame — assert it succeeds",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "security",
-      "phase6"
-    ],
-    "created": "2026-05-04T19:58:30Z",
-    "updated": "2026-05-04T20:21:58Z",
-    "agent": "w-p6-ws-idle",
-    "note": "DONE — commit 9ed206f6 merged to main 2026-05-04 13:21. Codex round-1 found High but only via stale-branch artifact; round-2 not needed (same code, post-rebase). Root cause: AdbTlsClient.connectWithStls set SO_TIMEOUT on wrapping SSLSocket → persisted onto long-lived AdbStream killing idle CDP/WS at 10s. Fix: TlsChannel.setIdleReadTimeoutMs(ms) accessor; openOnChannel calls setIdleReadTimeoutMs(0) after handshakeAndOpen returns OKAY. Param rename timeoutMs → handshakeTimeoutMs at public surfaces. 2 new tests (TrackingTlsChannel + real-socket idle gap)."
-  },
-  "browser-phase6-target-switch-leak": {
-    "parent": "browser-phase6",
-    "depends": [],
-    "state": "done",
-    "title": "[HIGH] Close previous direct WS on target switch",
-    "description": "Codex High #2: ChromeCdpClient.kt:170 — direct target switching (e.g., switching tabs via direct attach) parks old WebSockets and never closes them until session teardown. A tab-heavy script can leak live WS connections + fds across one browser session. Fix: when switching, close the previous direct page connection cleanly (NOT marking client broken — switching is normal). Or route target switching through browser-level attach instead.",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/**"
-    ],
-    "acceptCriteria": [
-      "Target switch closes previous direct WS without marking client broken",
-      "Test: open N targets in sequence → only 1 active WS connection at a time (assert via fd count or open-WS ref count)",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "security",
-      "phase6"
-    ],
-    "created": "2026-05-04T19:58:30Z",
-    "updated": "2026-05-04T20:50:50Z",
-    "agent": "w-p6-target-leak",
-    "note": "DONE — commits c21368b9 + bf471b67 + d4296713 merged to main 2026-05-04 13:50. Codex round-3 APPROVE clean. Stack: (1) close previous WS via LiveConnection wrapper, (2) per-LiveConnection pending map for isolation, (3) switchMutex serializes switches + per-connection synchronized lock atomicizes addPending vs closeQuietly. closeQuietly drains pending with CdpException(reason) BEFORE close; sendRaw addPending checks closed flag inside lock and rejects with CdpException; markTransportBroken re-checks current === source. 4 new tests (close-on-switch, in-flight rejection, concurrent-switch no-orphan, sendRaw-on-switched-away). 1518/1518 tests."
-  },
-  "browser-phase6-storeartifact-quota": {
-    "parent": "browser-phase6",
-    "depends": [],
-    "state": "done",
-    "title": "[HIGH] storeArtifact size + quota guards (DoS protection)",
-    "description": "Codex High #3: BrowserScriptJsInterface.kt:30 storeArtifact decodes arbitrary base64 with NO size/quota check. A malicious or buggy script can OOM the app or fill trace storage. Path traversal is handled by FileTraceRecorder; DoS is not.\n\nFix: enforce limits per call AND per session.\n- Per-call max base64 length (e.g., 50MB encoded → ~37MB decoded)\n- Per-session total artifact bytes ceiling (e.g., 500MB)\n- On exceed: log warning + return null (gracefully fail, dont crash)\n- Tests: oversized blob rejected, cumulative cap enforced",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptJsInterface.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/script/BrowserScriptJsInterfaceTest.kt"
-    ],
-    "acceptCriteria": [
-      "storeArtifact rejects (returns null + warns) when single base64 string > MAX_BYTES_PER_CALL",
-      "storeArtifact rejects when cumulative session bytes > MAX_BYTES_PER_SESSION",
-      "Tests cover: under-limit happy path, over-per-call limit, over-cumulative limit",
-      "Constants documented with WHY (chosen ceilings)",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "security",
-      "phase6"
-    ],
-    "created": "2026-05-04T19:58:30Z",
-    "updated": "2026-05-04T22:34:47Z",
-    "agent": "w-p6-quota",
-    "note": "DONE — original commit 4b29c45d + scope-fix f6886f4a both merged. Original landed per-call (50MB) + per-session (500MB) caps; QA gate found session counter was per-call due to JsInterface-per-call lifecycle. browser-phase6-quota-scope-fix lifted the counter to BrowserSessionManager (truly session-scoped, survives markBroken reconnects) + atomic CAS reservation.",
-    "blockReason": "verification-failed"
-  },
-  "browser-phase6-bc-cve": {
-    "parent": "browser-phase6",
-    "depends": [],
-    "state": "done",
-    "title": "[HIGH] Bump BouncyCastle to 1.84+ (CVE)",
-    "description": "Codex High #4: app/build.gradle.kts:140 pins bcpkix-jdk18on:1.78.1 + bcprov-jdk18on:1.78.1, both have public CVEs. Need >=1.84. GHSA-4cx2-fc23-5wg6 + others.\n\nFix: bump both to latest 1.84.x or current stable. Run :app:testDebugUnitTest to confirm no behavior regression (BC API changes between 1.78 → 1.84 should be minimal but verify).",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "app/build.gradle.kts"
-    ],
-    "acceptCriteria": [
-      "bcpkix-jdk18on and bcprov-jdk18on at >= 1.84",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
-      "Wireless-adb tests still pass (TLS + cert paths use BC)"
-    ],
-    "priority": "high",
-    "estimate": "xs",
-    "tags": [
-      "browser",
-      "security",
-      "phase6"
-    ],
-    "created": "2026-05-04T19:58:30Z",
-    "updated": "2026-05-04T20:09:29Z",
-    "agent": "w-p6-bc-cve",
-    "note": "DONE — commit 9776a573 merged to main 2026-05-04 13:09. BouncyCastle 1.78.1 → 1.84 (latest stable on Maven Central), closes GHSA-4cx2-fc23-5wg6. Build + tests + lint green. Skipped review (xs version-bump task, low risk)."
-  },
-  "browser-phase6-spake-replace": {
-    "parent": "browser-phase6",
-    "depends": [],
-    "state": "done",
-    "title": "[HIGH] Replace spake2-android with popular-lib equivalent (no human gate, KISS)",
-    "description": "Codex High #5: AdbPairingClient.kt depends on com.github.MuntashirAkon.spake2-java:spake2-android:2.2.1 (LGPL-3.0 via JitPack). Source-comment-only LGPL declaration insufficient + APK packaging excludes license/notice files. spake2-android is a personal port by MuntashirAkon, not a major library.\n\n**User direction (final, no human gate)**: ALWAYS replace. Goal: drop the spake2-android dep entirely. KISS — prefer popular high-level deps; minimize new crypto code; do not reimplement SPAKE2 from scratch.\n\n## Decision tree\n\n1. **Best**: a popular library exposes wire-compatible SPAKE2-25519 with adbds exact params (label=`adb pair client\\0` / `adb pair server\\0`, SHA-256 transcript, 16-byte AES-128-GCM key). → Swap the dep, delete spake2-android. Probably <50 lines of code change.\n\n2. **Acceptable fallback**: no popular lib has high-level SPAKE2-25519, but a popular lib (BouncyCastle ≥1.84, libsodium-jni, Tink) has Curve25519 + SHA-256 + HKDF primitives. → Write the SPAKE2-25519 protocol GLUE on top of those primitives (NOT a from-scratch crypto impl — just the message-format / point-arithmetic glue per the well-defined SPAKE2-25519 spec). Reference: BoringSSL `crypto/curve25519/spake25519.c` algorithm only, NOT line-by-line port. Keep glue ≤200 lines + heavy unit tests against AOSP test vectors. Document the popular lib used + which primitives are pulled in.\n\n3. **Forbidden**: write Curve25519 / SHA / GCM / HKDF primitives from scratch. Those are catastrophically error-prone.\n\n## Investigation order (preference for `popular`)\n\n1. **BouncyCastle 1.84+**: by then bc-cve task has bumped it. Check `org.bouncycastle.crypto.agreement.SPAKE2Plus*` / `org.bouncycastle.crypto.agreement.JPAKE*` — does any support Curve25519 + the exact adbd transcript labels? Most likely candidate for path 1 (high-level swap).\n2. **Google Tink (Android)**: `com.google.crypto.tink:tink-android` — has subtle.SubtleCrypto including some PAKE primitives. Check.\n3. **libsodium-jni** (terl/lazysodium-android): Curve25519 + SHA-256 + HKDF + AES-GCM all present. Best fallback for path 2.\n\n## Workflow\n\n1. Spend ≤30 min on path 1. If a popular lib exposes wire-compatible SPAKE2-25519, dispatch the swap.\n2. If not, fall to path 2: pick the most-popular Android-friendly lib with Curve25519+SHA+HKDF+AES-GCM (likely Tink or BouncyCastle), write the SPAKE2 protocol glue (≤200 lines, well-commented per AOSP wire format), test against vectors generated by the OLD spake2-android (golden test).\n3. Either way: delete spake2-android dep from build.gradle.kts + settings.gradle.kts.\n4. Rebuild + run nubia cold-pair: must still get Example Domain.\n5. Commit.\n\nHard cap: 90 min including investigation. Whichever path lands, no LGPL exposure remaining.",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "app/build.gradle.kts",
-      "settings.gradle.kts",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbPairingClient.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/Spake2*.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/cdp/wireless/**",
-      "projects/active/browser/cn/diag_20260504_spake_alternatives.md"
-    ],
-    "acceptCriteria": [
-      "spake2-android dependency removed from build.gradle.kts AND settings.gradle.kts JitPack repo entry (if no other JitPack dep needs it)",
-      "AdbPairingClient.kt no longer imports any com.github.MuntashirAkon.* class",
-      "Replacement uses a popular library (BouncyCastle / Tink / libsodium-jni); investigation doc projects/active/browser/cn/diag_20260504_spake_alternatives.md documents which one and why",
-      "If new SPAKE2 glue code was written: ≤ 200 lines, has golden test against AOSP wire format vectors (e.g., recorded handshakes from prior spake2-android runs)",
-      "Real-device pair PASS on nubia: cold-pair returns Example Domain via WIRELESS_ADB_SELF_PAIR (wire-compatible with adbd)",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
-      "grep -r `MuntashirAkon\\|spake2-android` app/ build.gradle.kts settings.gradle.kts → zero hits"
-    ],
-    "requireHumanReview": false,
-    "priority": "high",
-    "estimate": "m",
-    "tags": [
-      "browser",
-      "license",
-      "phase6"
-    ],
-    "created": "2026-05-04T19:58:30Z",
-    "updated": "2026-05-04T21:43:51Z",
-    "agent": "w-p6-spake",
-    "note": "DONE — commits 2232189b + 732e34b8 + 88ee07b9 trailing-ws merged 2026-05-04 14:42. Path 1 empty (BC 1.78-1.84/Tink/lazysodium none have wire-compat SPAKE2-25519). Path 2 chosen: net.i2p.crypto:eddsa:0.3.0 (CC0, 25k+ Maven Central deps) + 183-line Spake25519.kt glue port of BoringSSL spake25519.c (M/N from kSpakeMSmallPrecomp/kSpakeNSmallPrecomp row 0 pre-multiplied by cofactor 8, password-scalar hack matches BoringSSL, LSB-first double-and-add). ISC notice added. JitPack repo dropped, libspake2.so (~3MB) gone from APK. KAT vectors self-pinned (no upstream — BoringSSL itself has TODO). 8/8 Spake25519Test (KAT + invalid-length + malformed-point + state-machine misuse). Real-device PASS on nubia in cumulative state (token-gate + LiveConnection + spake all together, pair complete in 1.4s)."
-  },
-  "browser-phase6-medium-cleanup": {
-    "parent": "browser-phase6",
-    "depends": [
-      "browser-phase6-cdp-relay-auth"
-    ],
-    "state": "done",
-    "title": "[MEDIUM] Provider isolation + adb_keys ceiling + outdated comment",
-    "description": "Three Medium + 1 Low from codex review:\n\n1. **WirelessAdbProviders.kt:38**: provider installation is process-global and changes crypto/TLS provider order for the whole app after browser runtime starts. Fix: prefer provider-qualified calls when used inside browser code (e.g., MessageDigest.getInstance(`SHA-256`, `BC`)), or scope the provider install to browser session lifecycle instead of permanent.\n\n2. **WirelessAdbSelfPairTransport.kt:132**: pair-once fallback is correctness-safe but duplicates adb_keys indefinitely on OEMs where shell cannot read the file (nubia is one such OEM). Add a hard ceiling — if our pubkey appears > N times in adb_keys (N=10), skip writeAdbKeys to avoid unbounded growth. Or schedule a periodic prune call regardless of pair-once skip detection.\n\n3. **AdbWireProtocolClient.kt:84**: 200ms post-CNXN sleep is empirical. Acceptable for now per Phase 5 review; this task does NOT fix the timing — it just adds device matrix evidence (run on emulator-5556 + nubia, document that the sleep is needed/not-needed per device).\n\n4. **ChromeDevtoolsUserService.kt:27**: comment still says shell UID is `typically allowed` to connectto Chromes abstract socket. Milestone evidence (nubia, emulator) shows locked/non-debuggable images commonly deny it. Reword to match cascade reality.",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/WirelessAdbProviders.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/WirelessAdbSelfPairTransport.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbWireProtocolClient.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ChromeDevtoolsUserService.kt"
-    ],
-    "acceptCriteria": [
-      "Provider mutation either scoped to browser session OR each crypto call inside browser/cdp/wireless uses provider-qualified getInstance(`...`, `BC`)",
-      "Adb_keys hard ceiling (N=10) enforced in pruneStaleAdbKeysOnce or equivalent",
-      "200ms sleep documented with device matrix evidence (which devices need it, which dont)",
-      "ChromeDevtoolsUserService comment updated to match nubia/emulator reality",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
-    ],
-    "priority": "normal",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "phase6",
-      "cleanup"
-    ],
-    "created": "2026-05-04T19:58:30Z",
-    "updated": "2026-05-04T21:59:01Z",
-    "agent": "w-p6-cleanup",
-    "note": "DONE — commit eada8cc4 merged 2026-05-04 14:58. (1) Provider isolation: WirelessAdbProviders + AdbTlsClient — BC/Conscrypt addProvider (appended) instead of insertProviderAt(_,1); all browser TLS/BC consumers provider-qualified. SSLContext.getInstance(`TLSv1.3`) → with explicit `Conscrypt`. (2) adb_keys ceiling: AdbWirelessManager.pruneAdbKeys + mostFrequentPubkeyCount helper — skip write if any pubkey > 10 times (MAX_DUPLICATE_PUBKEY_LINES=10), 2 new tests. (3) POST_CNXN_SETTLE_MS: comment annotated with device matrix (emulator-5556 + nubia PASS, no per-device minimization run — explicit doc-only scope). (4) ChromeDevtoolsUserService comment reworded — locked OEM builds commonly deny shell-UID connectto. Skipped review (Medium scope, build green)."
-  },
-  "browser-phase6-qa": {
-    "parent": "browser-phase6",
-    "depends": [
-      "browser-phase6-cdp-relay-auth",
-      "browser-phase6-ws-idle-timeout",
-      "browser-phase6-target-switch-leak",
-      "browser-phase6-storeartifact-quota",
-      "browser-phase6-bc-cve",
-      "browser-phase6-spake-replace",
-      "browser-phase6-medium-cleanup",
-      "browser-phase6-quota-scope-fix"
-    ],
-    "state": "done",
-    "title": "[GATE] Phase 6 final QA + codex re-review",
-    "description": "Final gate before declaring browser stack production-ready. Verify:\n1. Token gate WORKS: try connecting to relay port from a separate process WITHOUT the token → must be rejected. Then with the token → must succeed. (curl-based negative test on nubia.)\n2. WS idle: keep CDP session idle 30s, then send a command — must succeed.\n3. Target switch: open 5 tabs in sequence, verify only one active WS at a time (adb shell ls /proc/<pid>/fd | wc -l before/after).\n4. storeArtifact DoS: send a 100MB blob, verify rejection.\n5. BC version: ./gradlew dependencies | grep bouncycastle → >= 1.84.\n6. SPAKE2 / LGPL: verify the chosen path landed (either no spake2-android in deps, or NOTICE file in APK).\n7. Full agent chain: nubia P0110 cold-pair returns Example Domain via WIRELESS_ADB_SELF_PAIR (no regression).\n8. Codex re-review: dispatch a codex worker to re-review main HEAD vs cb4df0e6 (the previous milestone end). Must return APPROVE or APPROVE-WITH-NITS — no new Critical or High.",
-    "design": "projects/active/browser/cn/diag_20260504_milestone_review.md",
-    "scope": [
-      "projects/active/browser/real_device_qa.md",
-      "debug-output/**"
-    ],
-    "acceptCriteria": [
-      "Token gate negative test: external process connecting to relay port without token gets 403/closed",
-      "Token gate positive test: ChromeCdpClient with correct token succeeds",
-      "Idle WS test: 30s idle then command succeeds",
-      "Target switch: multi-tab session shows ≤1 active direct WS at a time",
-      "storeArtifact 100MB blob rejected",
-      "bouncycastle >= 1.84 in dependencies",
-      "spake2-android either removed OR NOTICE file present in APK",
-      "Nubia cold-pair Example Domain PASS",
-      "Codex re-review verdict APPROVE or APPROVE-WITH-NITS (no Critical/High)",
-      "real_device_qa.md gains Phase 6 final-gate PASS row",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "qa",
-      "phase6",
-      "regression-gate"
-    ],
-    "created": "2026-05-04T19:58:31Z",
-    "updated": "2026-05-04T22:45:01Z",
-    "agent": "w-p6-qa-r2",
-    "blockReason": "dependency",
-    "note": "DONE — round-2 PASS commit 6ff2ec60 merged 2026-05-04 15:44. Round 1 found 6/7 PASS but storeArtifact session-quota scope bug; round 2 verifies the fix (sessionDecodedBytes lifted to BrowserSessionManager, atomic CAS getAndAccumulate, reservation released on failure paths). 85 targeted JVM tests across 8 suites: 0 failures. Codex r2 APPROVE all sub-checks with file:line citations, no new Critical/High. All round-1 PASS items still hold (token gate, WS idle, target switch, BC 1.84, LGPL/SPAKE2 purge, full chain on emulator-5556)."
-  },
-  "browser-phase6-quota-scope-fix": {
-    "parent": "browser-phase6",
-    "depends": [],
-    "state": "done",
-    "title": "[HIGH] storeArtifact session quota: lift to session-scoped owner + atomic CAS",
-    "description": "Phase 6 final QA gate found scope bug in browser-phase6-storeartifact-quota (commit 4b29c45d). BrowserScriptJsInterface owns sessionDecodedBytes AtomicLong, but the JsInterface is created fresh in every BrowserScriptRunner.run() call (BrowserScriptRunner.kt:75). The runner IS session-scoped, but the JsInterface is per-call. Therefore the documented 500MB session cap is actually 500MB per-browser_script-invocation; sustained DoS via repeated calls within one agent session fills /sdcard.\n\nRequired:\n1. Lift sessionDecodedBytes from BrowserScriptJsInterface to BrowserScriptRunner or BrowserSessionManager (whichever is session-scoped).\n2. Atomic compare-and-add (CAS) reservation, not check-then-add. AtomicLong.compareAndSet loop or AtomicLong.getAndAccumulate with overflow check.\n3. Per-call cap (50MB) stays in JsInterface (or lifts too, doesn't matter).\n4. New unit test: spawn multiple BrowserScriptRunner.run() calls in one session, assert cumulative cap is honored across them.",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptJsInterface.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
-      "app/src/test/kotlin/ai/closepaw/browser/script/**"
-    ],
-    "acceptCriteria": [
-      "sessionDecodedBytes (or equivalent) is owned by a session-scoped object (BrowserScriptRunner or BrowserSessionManager), NOT by BrowserScriptJsInterface",
-      "Reservation uses atomic CAS / getAndAccumulate semantics (no check-then-add race)",
-      "New unit test spawns >=2 BrowserScriptRunner.run() calls within one session, asserts cumulative cap rejects on N+1th call when sum exceeds cap",
-      "Per-call cap (50MB) still enforced",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
-      "Re-run codex review (or existing review session) confirms storeArtifact quota now session-scoped"
-    ],
-    "priority": "high",
-    "estimate": "s",
-    "tags": [
-      "browser",
-      "security",
-      "phase6"
-    ],
-    "created": "2026-05-04T22:24:56Z",
-    "updated": "2026-05-04T22:34:13Z",
-    "agent": "w-p6-quota-scope",
-    "note": "DONE — commit f6886f4a (or cherry-picked) merged 2026-05-04 15:33. sessionDecodedBytes moved to BrowserSessionManager (outlives JsInterface AND Runner, survives markBroken reconnects — closes force-reconnect-to-reset-quota attack). runnerFactory signature gained AtomicLong; threaded to JsInterface. storeArtifact uses getAndAccumulate atomic CAS for reserve-or-refuse. Recorder-null/throw paths release reservation via addAndGet(-byteCount). 2 new tests: multi-instance shared AtomicLong + BrowserSessionManagerTest asserts same AtomicLong across runnerFactory + markBroken reconnects."
-  },
-  "browser-tool-settings": {
+  "publish-oss-release": {
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "Browser tool Settings UI — toggle + CDP-status + chrome flag CTA",
-    "description": "Surface browser_script in AgentBehavior settings as a Tools section toggle. When ON, show status row (✓ Active or ✗ Chrome devtools not exposed) + CTA to open chrome://flags#enable-command-line-on-non-rooted-devices when not active. Auto-write /data/local/tmp/chrome-command-line via Shizuku on toggle ON (silent). Detect via shell `cat /proc/net/unix | grep chrome_devtools_remote`. Three CTA fallbacks: ACTION_VIEW intent → Shizuku am start → clipboard.\n\nDoes NOT touch onboarding flow. KISS — user manually toggles the chrome flag (one-time); ClosePaw just makes that easy to find. Full design at projects/active/browser_setting/design.md.",
-    "design": "projects/active/browser_setting/design.md",
+    "title": "Open Source Release Ready (路径 A)",
+    "description": "把仓库整理为可对外公开的开源 repo：补齐 LICENSE、README、CONTRIBUTING、SECURITY、CI、release workflow、签名。预计 2-3 天。详情见 projects/active/1_publish/。",
+    "design": "projects/active/1_publish/publish_gap_codex.md",
+    "acceptCriteria": [
+      "所有子任务 done",
+      "GitHub release 可由 tag 触发产出签名 APK"
+    ],
+    "created": "2026-05-07T18:14:48Z",
+    "updated": "2026-05-07T18:14:48Z"
+  },
+  "publish-license-notice": {
+    "parent": "publish-oss-release",
+    "depends": [],
+    "state": "ready",
+    "title": "LICENSE + NOTICE + Leap SDK 协议确认",
+    "description": "选 Apache 2.0 作为开源协议（兼容 Android 全家桶/Shizuku/HiddenApiBypass），在根目录创建 LICENSE 全文。创建 NOTICE 列出所有第三方依赖及其协议。确认 ai.liquid.leap:leap-sdk 协议状态——若是 proprietary，需在 README 中说明或考虑 oss flavor。详见 projects/active/1_publish/1_legal_claude.md。",
+    "design": "projects/active/1_publish/1_legal_claude.md",
     "scope": [
-      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
-      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsModels.kt",
-      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
-      "app/src/main/kotlin/ai/closepaw/browser/setup/**",
-      "app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt"
+      "LICENSE",
+      "NOTICE"
     ],
     "acceptCriteria": [
-      "New Tools section in AgentBehavior settings page",
-      "browser_script toggle wired to persisted user pref (default OFF)",
-      "Toggle ON: status row appears within 500ms",
-      "Status ✓ when /proc/net/unix contains @chrome_devtools_remote, ✗ otherwise",
-      "Status ✗: CTA button opens chrome://flags via Intent → Shizuku am start → clipboard fallback chain",
-      "Re-check button re-detects without page reload",
-      "Toggle ON auto-writes /data/local/tmp/chrome-command-line via Shizuku (silent, idempotent)",
-      "Toggle OFF removes browser_script from agent tool allowlist",
-      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
-      "UI screenshots for 3 states (off / on + ✓ / on + ✗ + CTA)"
+      "test -f LICENSE && grep -q \"Apache License\" LICENSE",
+      "test -f NOTICE",
+      "NOTICE 列出所有 runtime 依赖及其协议",
+      "Leap SDK 协议状态在 README 或 NOTICE 中明确说明"
     ],
-    "priority": "normal",
+    "estimate": "s",
+    "created": "2026-05-07T18:15:16Z",
+    "updated": "2026-05-07T18:15:16Z"
+  },
+  "publish-readme-contributing": {
+    "parent": "publish-oss-release",
+    "depends": [
+      "publish-license-notice"
+    ],
+    "state": "ready",
+    "title": "README + CONTRIBUTING + SECURITY",
+    "description": "根目录创建 README.md（含产品介绍、quick start、build 指南、demo gif/截图）、CONTRIBUTING.md（开发流程、code style、PR 流程、Apache 2.0 协议声明）、SECURITY.md（漏洞上报渠道）。详见 projects/active/1_publish/4_open_source_claude.md。",
+    "design": "projects/active/1_publish/4_open_source_claude.md",
+    "scope": [
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md"
+    ],
+    "acceptCriteria": [
+      "test -f README.md && grep -qi \"quick start\" README.md",
+      "test -f CONTRIBUTING.md",
+      "test -f SECURITY.md",
+      "README 含 demo 截图或 GIF 链接"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:15:17Z",
+    "updated": "2026-05-07T18:15:17Z"
+  },
+  "publish-ci-templates": {
+    "parent": "publish-oss-release",
+    "depends": [],
+    "state": "ready",
+    "title": "GitHub CI + issue/PR templates + CODEOWNERS",
+    "description": "添加 .github/workflows/ci.yml（PR 触发 build/lint/test）、.github/ISSUE_TEMPLATE/bug_report.md、.github/pull_request_template.md、.github/CODEOWNERS。注意确认 Leap SDK 在 CI 环境是否需要 maven secret，必要时配 secret 或开 oss flavor 跳过。详见 projects/active/1_publish/4_open_source_claude.md。",
+    "design": "projects/active/1_publish/4_open_source_claude.md",
+    "scope": [
+      ".github/workflows/ci.yml",
+      ".github/ISSUE_TEMPLATE/**",
+      ".github/pull_request_template.md",
+      ".github/CODEOWNERS"
+    ],
+    "acceptCriteria": [
+      "test -f .github/workflows/ci.yml",
+      "CI workflow 跑通 ./gradlew assembleDebug + lint + test",
+      "test -f .github/pull_request_template.md",
+      "test -f .github/ISSUE_TEMPLATE/bug_report.md"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:15:17Z",
+    "updated": "2026-05-07T18:15:17Z"
+  },
+  "publish-signing-keystore": {
+    "parent": "publish-oss-release",
+    "depends": [],
+    "state": "ready",
+    "title": "Release keystore + signingConfigs + 版本 bump 0.1.0",
+    "description": "生成 release keystore 并保存到本地（不入 git，确认 .gitignore 含 *.keystore）。在 app/build.gradle.kts 添加 signingConfigs（密码读 env：KEYSTORE_PATH/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD）。把 versionCode/versionName 提取到 gradle.properties，初值 versionName=0.1.0、versionCode=1。R8 已开启，需做完整功能回归（accessibility + LLM + Shizuku）。详见 projects/active/1_publish/2_release_build_claude.md。",
+    "design": "projects/active/1_publish/2_release_build_claude.md",
+    "scope": [
+      "app/build.gradle.kts",
+      "gradle.properties",
+      ".gitignore"
+    ],
+    "acceptCriteria": [
+      "grep -q signingConfigs app/build.gradle.kts",
+      "版本 0.1.0 写入 gradle.properties 或 app/build.gradle.kts",
+      "grep -q keystore .gitignore",
+      "KEYSTORE_PATH/PASSWORD/ALIAS env 下 ./gradlew assembleRelease 产出签名 APK",
+      "签名 release APK 在真机/模拟器上 accessibility + LLM + Shizuku 功能正常"
+    ],
     "estimate": "m",
-    "tags": [
-      "browser",
-      "ui",
-      "settings"
+    "created": "2026-05-07T18:15:17Z",
+    "updated": "2026-05-07T18:15:17Z"
+  },
+  "publish-release-workflow": {
+    "parent": "publish-oss-release",
+    "depends": [
+      "publish-signing-keystore"
     ],
-    "created": "2026-05-05T04:38:43Z",
-    "updated": "2026-05-05T04:38:43Z"
+    "state": "ready",
+    "title": "Release workflow（tag → signed APK → GitHub Release）",
+    "description": "添加 .github/workflows/release.yml，tag 触发：decode keystore（base64 secret） → ./gradlew assembleRelease → 上传 APK 到 GitHub Release。GitHub Secrets 配 KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD。详见 projects/active/1_publish/4_open_source_claude.md 4.6。",
+    "design": "projects/active/1_publish/4_open_source_claude.md",
+    "scope": [
+      ".github/workflows/release.yml"
+    ],
+    "acceptCriteria": [
+      "test -f .github/workflows/release.yml",
+      "workflow 在 v* tag 触发",
+      "实际 tag push 后产出 GitHub Release 含签名 APK"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:15:17Z",
+    "updated": "2026-05-07T18:15:17Z"
+  },
+  "publish-play-store": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Play Store 提审 Ready (路径 B)",
+    "description": "Play Store 上架前置工作：隐私政策、无障碍合规材料、API key 加密、权限收紧、商店素材、Data Safety、Accessibility Declaration、内测提审。预计 1-2 周，存在高不确定性（无障碍审核）。详见 projects/active/1_publish/。",
+    "design": "projects/active/1_publish/publish_gap_codex.md",
+    "acceptCriteria": [
+      "所有子任务 done",
+      "Play Console 内测轨道有可下载版本"
+    ],
+    "note": "高风险：Google 可能拒绝 AI 自动化的无障碍用途。Accessibility Declaration（2.7）是最大不确定性。",
+    "created": "2026-05-07T18:15:48Z",
+    "updated": "2026-05-07T18:15:48Z"
+  },
+  "publish-privacy-policy": {
+    "parent": "publish-play-store",
+    "depends": [],
+    "state": "ready",
+    "title": "PRIVACY_POLICY.md（英文）+ 公开托管",
+    "description": "根目录创建 PRIVACY_POLICY.md（英文版，Play Store 要求）：数据收集（屏幕内容、截图、用户输入）、数据传输（LLM provider）、数据存储（API key、会话历史本地）、用户控制（关闭无障碍、清除本地数据、选 provider）。把 markdown 公开托管（GitHub raw / GitHub Pages），获取可填到 Play Console 的 URL。详见 projects/active/1_publish/3_privacy_claude.md。",
+    "design": "projects/active/1_publish/3_privacy_claude.md",
+    "scope": [
+      "PRIVACY_POLICY.md"
+    ],
+    "acceptCriteria": [
+      "test -f PRIVACY_POLICY.md",
+      "PRIVACY_POLICY.md 是英文版",
+      "覆盖：数据收集 / 数据传输 / 数据存储 / 用户控制",
+      "有公开可访问 URL（写入 Play Console）"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:15:48Z",
+    "updated": "2026-05-07T18:15:48Z"
+  },
+  "publish-a11y-disclosure": {
+    "parent": "publish-play-store",
+    "depends": [],
+    "state": "ready",
+    "title": "无障碍 description 详写 + 首启 consent dialog",
+    "description": "1) 把 strings.xml 中 accessibility_service_description 从 \"AI agent that can navigate Android UI to accomplish goals\" 扩写为详细说明（用途、何时激活、用户控制权、不在后台运行）。2) 在首次启用无障碍服务时弹 consent dialog：说明读屏行为、LLM 数据流向、隐私政策链接、要求明确同意。详见 projects/active/1_publish/3_privacy_claude.md。",
+    "design": "projects/active/1_publish/3_privacy_claude.md",
+    "scope": [
+      "app/src/main/res/values/strings.xml",
+      "app/src/main/res/xml/agent_accessibility_config.xml",
+      "app/src/main/kotlin/**"
+    ],
+    "acceptCriteria": [
+      "accessibility_service_description 字符串 > 200 字符并覆盖用途/控制权",
+      "首次启用无障碍触发 consent dialog（含隐私政策链接）",
+      "用户拒绝 consent 后无障碍流程不进入",
+      "./gradlew test passes"
+    ],
+    "estimate": "m",
+    "created": "2026-05-07T18:15:48Z",
+    "updated": "2026-05-07T18:15:48Z"
+  },
+  "publish-encrypted-prefs": {
+    "parent": "publish-play-store",
+    "depends": [],
+    "state": "ready",
+    "title": "API key 迁移到 EncryptedSharedPreferences",
+    "description": "AppSettingsStore 中 API key 当前以明文存 SharedPreferences。引入 androidx.security:security-crypto，用 MasterKey + EncryptedSharedPreferences 重写存储层。提供从旧明文 prefs 一次性迁移到加密 prefs 的逻辑（migrate-on-read 即可）。同时移除 AppSettingsStore 从外部存储读 api_key.txt 的代码（与 2.4 storage 整改对齐）。详见 projects/active/1_publish/3_privacy_claude.md。",
+    "design": "projects/active/1_publish/3_privacy_claude.md",
+    "scope": [
+      "app/src/main/kotlin/**/AppSettingsStore*",
+      "app/build.gradle.kts"
+    ],
+    "acceptCriteria": [
+      "AppSettingsStore 使用 EncryptedSharedPreferences",
+      "存量明文 API key 自动迁移到加密 prefs",
+      "AppSettingsStore 不再读外部存储 api_key.txt",
+      "./gradlew test passes"
+    ],
+    "estimate": "m",
+    "created": "2026-05-07T18:15:48Z",
+    "updated": "2026-05-07T18:15:48Z"
+  },
+  "publish-storage-permissions-cleanup": {
+    "parent": "publish-play-store",
+    "depends": [
+      "publish-encrypted-prefs"
+    ],
+    "state": "ready",
+    "title": "移除 READ/WRITE_EXTERNAL_STORAGE 权限",
+    "description": "AndroidManifest.xml 删掉 READ_EXTERNAL_STORAGE / WRITE_EXTERNAL_STORAGE。审查所有外部存储读写代码，迁到 app-private storage 或 SAF。修复 ScopedStorage lint warning。详见 projects/active/1_publish/3_privacy_claude.md。注意与 2.3 的 api_key.txt 整改对齐。",
+    "design": "projects/active/1_publish/3_privacy_claude.md",
+    "scope": [
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/kotlin/**"
+    ],
+    "acceptCriteria": [
+      "! grep -q READ_EXTERNAL_STORAGE app/src/main/AndroidManifest.xml",
+      "! grep -q WRITE_EXTERNAL_STORAGE app/src/main/AndroidManifest.xml",
+      "./gradlew lint 不再有 ScopedStorage warning",
+      "./gradlew assembleDebug 通过且 app 启动正常"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:15:48Z",
+    "updated": "2026-05-07T18:15:48Z"
+  },
+  "publish-play-console-account": {
+    "parent": "publish-play-store",
+    "depends": [],
+    "state": "ready",
+    "title": "注册 Google Play Console 开发者账号",
+    "description": "注册 Google Play Console 开发者账号，$25 一次性注册费。如果以公司身份发布需要 D-U-N-S 号（个人开发者不需要）。完成身份验证。详见 projects/active/1_publish/5_play_store_claude.md。",
+    "design": "projects/active/1_publish/5_play_store_claude.md",
+    "acceptCriteria": [
+      "Google Play Console 开发者账号已注册并通过身份验证",
+      "可登录 console 创建应用条目"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:16:17Z",
+    "updated": "2026-05-07T18:16:17Z"
+  },
+  "publish-store-assets": {
+    "parent": "publish-play-store",
+    "depends": [],
+    "state": "ready",
+    "title": "Play Store 商店素材：icon、feature graphic、截图、文案",
+    "description": "导出 512x512 app icon。设计 1024x500 feature graphic。准备 4-8 张手机截图（主界面、任务执行中、Smart Capsule overlay、设置页面）。撰写 short description（≤80 chars）和 full description（≤4000 chars，含 PRIVACY/REQUIREMENTS 段）。详见 projects/active/1_publish/5_play_store_claude.md。",
+    "design": "projects/active/1_publish/5_play_store_claude.md",
+    "scope": [
+      "docs/play-store/**"
+    ],
+    "acceptCriteria": [
+      "512x512 PNG icon 已导出",
+      "1024x500 feature graphic 已设计",
+      "至少 4 张手机截图已准备",
+      "Short description ≤80 chars 已写",
+      "Full description ≤4000 chars 已写"
+    ],
+    "estimate": "m",
+    "created": "2026-05-07T18:16:17Z",
+    "updated": "2026-05-07T18:16:17Z"
+  },
+  "publish-a11y-declaration": {
+    "parent": "publish-play-store",
+    "depends": [
+      "publish-a11y-disclosure"
+    ],
+    "state": "ready",
+    "title": "Accessibility Service Declaration + demo 视频（高风险）",
+    "description": "在 Play Console App content 填写 Accessibility Service Declaration，强调用途/用户控制/不后台运行。录制 2-3 分钟 demo 视频展示用户启动任务 → agent 读屏执行 → 用户停止。措辞策略：app 是 assistive technology、用户主动触发、无后台数据收集、类比 Voice Access。Google 可能拒绝 AI 操控手机 的无障碍用途，准备申诉策略。详见 projects/active/1_publish/5_play_store_claude.md。",
+    "design": "projects/active/1_publish/5_play_store_claude.md",
+    "acceptCriteria": [
+      "demo 视频已录制（2-3 分钟，YouTube 链接可用）",
+      "Play Console Accessibility Declaration 已填写",
+      "Core functionality justification 已撰写",
+      "申诉策略草案已准备（被 reject 后用）"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "note": "最大上架风险：Google 可能拒绝 AI 自动化无障碍用途。需要产品形态收敛 + 强调 assistive 定位。",
+    "created": "2026-05-07T18:16:17Z",
+    "updated": "2026-05-07T18:16:17Z"
+  },
+  "publish-data-safety": {
+    "parent": "publish-play-store",
+    "depends": [
+      "publish-privacy-policy"
+    ],
+    "state": "ready",
+    "title": "Play Console Data Safety 表 + Content Rating",
+    "description": "Play Console Data Safety 表填写：屏幕内容（收集临时/共享给 LLM/App functionality）、API keys（本地存储/不共享/Authentication）、任务文本（本地存储/共享给 LLM/App functionality）。Content Rating 走 IARC 问卷，标注 user-generated content。详见 projects/active/1_publish/5_play_store_claude.md。",
+    "design": "projects/active/1_publish/5_play_store_claude.md",
+    "acceptCriteria": [
+      "Play Console Data Safety 表全部条目已填写",
+      "Data Safety 与 PRIVACY_POLICY.md 一致",
+      "Content Rating IARC 问卷已完成"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:16:17Z",
+    "updated": "2026-05-07T18:16:17Z"
+  },
+  "publish-internal-testing": {
+    "parent": "publish-play-store",
+    "depends": [
+      "publish-signing-keystore",
+      "publish-privacy-policy",
+      "publish-a11y-disclosure",
+      "publish-encrypted-prefs",
+      "publish-storage-permissions-cleanup",
+      "publish-play-console-account",
+      "publish-store-assets",
+      "publish-a11y-declaration",
+      "publish-data-safety"
+    ],
+    "state": "ready",
+    "title": "内测轨道（Internal Testing）首次提审",
+    "description": "把签名 AAB 上传到 Internal Testing 轨道（审核较宽松）。等待审核反馈，按反馈迭代。如果被 reject，按 publish-a11y-declaration 的申诉策略响应。备选：GitHub Releases 直发 APK 不受影响。详见 projects/active/1_publish/5_play_store_claude.md。",
+    "design": "projects/active/1_publish/5_play_store_claude.md",
+    "acceptCriteria": [
+      "签名 AAB 已上传到 Internal Testing",
+      "Play Console 审核通过或获得明确反馈",
+      "内测链接可分发"
+    ],
+    "estimate": "m",
+    "created": "2026-05-07T18:16:17Z",
+    "updated": "2026-05-07T18:16:17Z"
   }
 }

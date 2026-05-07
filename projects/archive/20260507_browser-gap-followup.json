@@ -1,0 +1,400 @@
+{
+  "browser-gap-followup": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Browser gap follow-ups (post-CDP-runtime)",
+    "description": "Follow-up work surfaced by the 2026-05-05 documented-gap audit (projects/active/browser/documented_gaps.md). Codex re-review identified 3 WORTH-IT gaps + 1 NICE-TO-HAVE doc cleanup that survived the 6bebf52b..092f01ed commit range. Children: settings UI (browser-tool-settings, M), pair-once cache (M), dialog tracking (M), design-doc dedup (XS).",
+    "design": "projects/active/browser/documented_gaps.md",
+    "acceptCriteria": [
+      "All child tasks done"
+    ],
+    "priority": "normal",
+    "tags": [
+      "browser",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T23:23:03Z",
+    "updated": "2026-05-05T23:23:03Z"
+  },
+  "browser-tool-settings": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "Browser tool Settings UI — toggle + CDP-status + chrome flag CTA",
+    "description": "Surface browser_script in AgentBehavior settings as a Tools section toggle. When ON, show status row (✓ Active or ✗ Chrome devtools not exposed) + CTA to open chrome://flags#enable-command-line-on-non-rooted-devices when not active. Auto-write /data/local/tmp/chrome-command-line via Shizuku on toggle ON (silent). Detect via shell `cat /proc/net/unix | grep chrome_devtools_remote`. Three CTA fallbacks: ACTION_VIEW intent → Shizuku am start → clipboard.\n\nDoes NOT touch onboarding flow. KISS — user manually toggles the chrome flag (one-time); ClosePaw just makes that easy to find. Full design at projects/active/browser_setting/design.md.",
+    "design": "projects/active/browser_setting/design.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsModels.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/setup/**",
+      "app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt"
+    ],
+    "acceptCriteria": [
+      "New Tools section in AgentBehavior settings page",
+      "browser_script toggle wired to persisted user pref (default OFF)",
+      "Toggle ON: status row appears within 500ms",
+      "Status ✓ when /proc/net/unix contains @chrome_devtools_remote, ✗ otherwise",
+      "Status ✗: CTA button opens chrome://flags via Intent → Shizuku am start → clipboard fallback chain",
+      "Re-check button re-detects without page reload",
+      "Toggle ON auto-writes /data/local/tmp/chrome-command-line via Shizuku (silent, idempotent)",
+      "Toggle OFF removes browser_script from agent tool allowlist",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
+      "UI screenshots for 3 states (off / on + ✓ / on + ✗ + CTA)"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "ui",
+      "settings",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T04:38:43Z",
+    "updated": "2026-05-06T01:03:16Z",
+    "agent": "w-browser-tool-settings",
+    "note": "3 commits: e563b6a5 + 53514ef8 + 2dbbeff1. Codex caught 9 issues across 3 review rounds, all fixed. Final R4 review found one debug-only bypass (MainActivityIntentApplier.kt:98) — accepted as debug-only QA path. Emulator UI smoke (qa report 2026-05-05): SHIP AS-IS — all UX checks PASS; CTA cascade not visually verified (no Chrome on emu). Created browser-tool-settings-debug-intent-gate (blocked, human review) and browser-tool-settings-clear-error (low priority polish) as follow-ups."
+  },
+  "browser-pair-once-cache": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "Pair-once cache for locked-OEM cold sessions",
+    "description": "On locked OEMs (e.g. nubia P0110) /data/misc/adb/adb_keys is unreadable for the Shizuku UserService UID, so AdbWirelessManager.isPubkeyAuthorized() returns false (ChromeDevtoolsUserService.kt:121-128 reads null → AdbWirelessManager.kt:62-65 → false), and WirelessAdbSelfPairTransport.kt:143-155 re-pairs every cold session. Add an app-side cache (DataStore preference) of the local pubkey fingerprint after the first successful pair so subsequent cold sessions can skip the spake2 pairing roundtrip even when adb_keys is unreadable. Cache invalidated on pubkey rotation.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/AdbWirelessManager.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/WirelessAdbSelfPairTransport.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/wireless/PairOnceCache.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/cdp/wireless/PairOnceCacheTest.kt"
+    ],
+    "acceptCriteria": [
+      "PairOnceCache persists local pubkey fingerprint after first successful pair",
+      "WirelessAdbSelfPairTransport short-circuits to TLS connect when cache hit and adb_keys is unreadable",
+      "Cache invalidated when local pubkey changes (rotation)",
+      "test -f app/src/test/kotlin/ai/closepaw/browser/cdp/wireless/PairOnceCacheTest.kt",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.browser.cdp.wireless.PairOnceCacheTest\"",
+      "./gradlew :app:assembleDebug :app:lint passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T23:23:44Z",
+    "updated": "2026-05-06T00:18:47Z",
+    "agent": "w-browser-pair-once-cache",
+    "note": "committed 6e8e0e8d + fix-up 46a2999d (CRITICAL ordering + HIGH EACCES distinction). Codex re-review APPROVE. Cache active in production via WirelessAdbSelfPairTransport ctor, but BrowserSessionManager call site still passes null — wiring deferred to browser-pair-once-wiring task (depends on browser-dialog-tracking)."
+  },
+  "browser-dialog-tracking": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "CDP dialog state tracking + pageInfo() surface",
+    "description": "Design at projects/active/browser/design_codex.md:519-526 and follow-up holistic_review.md:106 specify subscribing to Page.javascriptDialogOpening / Page.javascriptDialogClosed and surfacing the dialog state through pageInfo(). HEAD enables Page domain (BrowserSessionManager.kt:229-233) but ChromeCdpClient.kt:46,161,263 only buffers generic events and assets/agent_skills/browser-use/scripts/page.js:134-148 reports no dialog state. Add a per-session dialog tracker keyed by page target, expose .dialog (open/closed + message + type + defaultPrompt) on pageInfo() return, and add cdp.dismissDialog() / cdp.acceptDialog() helpers.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpEventBuffer.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
+      "app/src/main/assets/agent_skills/browser-use/scripts/page.js",
+      "app/src/test/kotlin/ai/closepaw/browser/cdp/**"
+    ],
+    "acceptCriteria": [
+      "Page.javascriptDialogOpening / Page.javascriptDialogClosed wired into a per-target dialog tracker",
+      "pageInfo() return includes .dialog field with type/message/defaultPrompt when open, null when closed",
+      "browser-use skill exposes cdp.acceptDialog(promptText?) and cdp.dismissDialog() helpers",
+      "Unit tests cover open/close transitions and target-switch isolation",
+      "./gradlew :app:testDebugUnitTest passes",
+      "./gradlew :app:assembleDebug :app:lint passes"
+    ],
+    "priority": "low",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "cdp",
+      "skill",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T23:23:44Z",
+    "updated": "2026-05-06T00:26:41Z",
+    "agent": "w-browser-dialog-tracking",
+    "note": "committed d1ff15a8 + fix-up 8d4b029c (HIGH explicit session binding + MEDIUM dialog URL surface). Codex re-review APPROVE."
+  },
+  "browser-design-doc-dedup": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "Dedupe non-cn design_codex.md and update reviewer ref",
+    "description": "Both projects/active/browser/design_codex.md and projects/active/browser/cn/design_codex.md exist; the former is stale. eng_plan_review_claude.md:4 still points at the non-cn copy. Decide canonical (cn/ is the source of truth per browser-cdp-runtime task spec) and either delete the stale duplicate or replace it with a one-line redirect, then fix the reviewer ref.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "projects/active/browser/design_codex.md",
+      "projects/active/browser/eng_plan_review_claude.md"
+    ],
+    "acceptCriteria": [
+      "Only one canonical browser design_codex.md remains (or stale one is a one-line redirect)",
+      "eng_plan_review_claude.md:4 points at the canonical path",
+      "grep -r design_codex.md projects/active/browser/ | grep -v cn/ has no stale references"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "docs",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T23:23:44Z",
+    "updated": "2026-05-05T23:29:10Z",
+    "agent": "w-browser-design-doc-dedup"
+  },
+  "browser-pair-once-wiring": {
+    "parent": "browser-gap-followup",
+    "depends": [
+      "browser-dialog-tracking"
+    ],
+    "state": "done",
+    "title": "Wire PairOnceCache into BrowserSessionManager",
+    "description": "Trivial follow-up: PairOnceCache landed in 6e8e0e8d but defaults to null in WirelessAdbSelfPairTransport. Wire it up at BrowserSessionManager.kt:322 (the production WirelessAdbSelfPairTransport(...) call site). Pass `PairOnceCache(context)` as the new pairOnceCache parameter. Deferred from browser-pair-once-cache to avoid scope conflict with concurrent browser-dialog-tracking work on the same file.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt"
+    ],
+    "acceptCriteria": [
+      "BrowserSessionManager.kt:322 (or wherever WirelessAdbSelfPairTransport is constructed) passes a real PairOnceCache instance, not null",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku",
+      "gap-followup",
+      "wiring"
+    ],
+    "created": "2026-05-06T00:00:47Z",
+    "updated": "2026-05-06T00:47:05Z",
+    "agent": "w-browser-pair-once-wiring"
+  },
+  "browser-tool-settings-debug-intent-gate": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "Decide: gate browser_script via MainActivityIntentApplier debug intent",
+    "description": "Codex round-4 review of browser-tool-settings noted that MainActivityIntentApplier.kt:98 accepts browserScriptEnabled=true from `adb shell am start --ez BROWSER_SCRIPT_ENABLED true ...` and calls settingsState.updateBrowserScriptEnabled(enabled) directly, bypassing the BrowserScriptToggleGate that both UI toggles now use. Impact: a QA script can persist browser_script=true with no Shizuku — toggle shows ON but tool will not work.\n\nDecision needed: (a) route the debug intent through the gate (clean but harms QA workflows that pre-configure via adb), (b) leave as-is and document (current state — release builds no-op anyway), (c) add a separate test-only escape hatch (over-engineering).\n\nPunted because debug-only path with no security impact.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityIntentApplier.kt"
+    ],
+    "acceptCriteria": [
+      "Decision documented in this tasks.json note OR implemented",
+      "If gated: ./gradlew :app:assembleDebug :app:testDebugUnitTest passes",
+      "If documented: clear comment in MainActivityIntentApplier.kt explaining the bypass intent"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "ui",
+      "settings",
+      "gap-followup",
+      "debug-only"
+    ],
+    "blockReason": "human-review",
+    "created": "2026-05-06T00:43:14Z",
+    "updated": "2026-05-06T15:58:19Z",
+    "agent": "w-three-bugs-bundle",
+    "note": "Commit ba0a9b7d — applyIntentPayloadToSettings now takes browserScriptGate (default = production gate). ON goes through gate (skips persist if Shizuku unavailable); OFF stays unconditional; release builds still no-op via early return. Three new tests."
+  },
+  "browser-tool-settings-clear-error": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "BrowserScriptToggleGate: wire clearError() to dismiss inline error",
+    "description": "Emulator QA found the gate exposes clearError() in BrowserScriptToggleGate but neither Compose surface (ToolsSection.BrowserScriptToolRow, PermissionsAdvancedSettingsPage.BrowserAutomationToggle) calls it. Once the inline error appears, it persists until the user re-taps the switch. Pick one of: tap-to-dismiss on the error text, auto-clear after N seconds, or auto-clear on next toggle interaction. Recommended: auto-clear when user starts a new toggle attempt.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "Inline error in both surfaces clears on next user interaction with the toggle",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "ui",
+      "settings",
+      "polish",
+      "gap-followup"
+    ],
+    "created": "2026-05-06T01:03:16Z",
+    "updated": "2026-05-06T15:58:19Z",
+    "agent": "w-three-bugs-bundle",
+    "note": "Commit 862989e7 — both Compose surfaces call gate.clearError() before setEnabled() on tap. Contract documented on BrowserScriptToggleGate.setEnabled."
+  },
+  "browser-cdp-probe-shizuku-fallback-bug": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "ChromeCdpProbe Shizuku fallback fails on nubia P0110",
+    "description": "Nubia QA found ChromeCdpProbe returns Unknown despite the @chrome_devtools_remote socket being bound. The app-uid /proc/net/unix read fails (SELinux on this OEM, expected) and the Shizuku-backed `cat /proc/net/unix` fallback also fails for some reason — needs investigation. CTA path still works so the user is not blocked, but the Tools section status row never flips to ✓ Active even after a fully-correct config. Reduces user confidence that the feature is on. Investigate the Shizuku exec failure mode (logcat around ChromeCdpProbe.probe()), then either fix the Shizuku path or document the limitation in the status row copy.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/setup/ChromeCdpProbe.kt"
+    ],
+    "acceptCriteria": [
+      "Status row shows ✓ Active on nubia P0110 when Chrome is configured + running with --remote-debugging-socket-name=chrome_devtools_remote, OR clear documented limitation in status copy explaining why",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "ui",
+      "settings",
+      "shizuku",
+      "gap-followup",
+      "nubia"
+    ],
+    "created": "2026-05-06T01:50:22Z",
+    "updated": "2026-05-06T02:37:06Z",
+    "agent": "w-fix-probe-and-cta",
+    "note": "Root cause: ShizukuShellRunner pipe deadlock on large stdout (cat /proc/net/unix is ~50KB). Fix in commit 05b6c95e: switched to grep -F (~100 bytes). Verified live on nubia (codex confirmed grep_exit=0 = socket bound). Honest Unknown copy + durable inline help block also added."
+  },
+  "browser-cta-shizuku-clipboard-additive": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "ChromeFlagDeepLink: make ShizukuAmStart branch additive too (clipboard hint)",
+    "description": "Nubia QA found that when Strategy.ShizukuAmStart succeeds at dispatch but Chrome silently drops the chrome:// URL (real on this device), there is no clipboard write or toast — user is left looking at Chromes previous tab with no clue what happened. ACTION_VIEW already does this lossless additive pattern (commit 2dbbeff1). Apply the same pattern to the ShizukuAmStart branch: copy URL + toast even when am start succeeds, so the user always has a clipboard backup.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/setup/ChromeFlagDeepLink.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/setup/ChromeFlagDeepLinkTest.kt"
+    ],
+    "acceptCriteria": [
+      "ShizukuAmStart branch in ChromeFlagDeepLink.open() also copies URL to clipboard + shows hint toast",
+      "ChromeFlagDeepLinkTest updated/new test asserts the additive behavior",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "setup",
+      "ui",
+      "polish",
+      "gap-followup",
+      "nubia"
+    ],
+    "created": "2026-05-06T01:50:22Z",
+    "updated": "2026-05-06T02:37:06Z",
+    "agent": "w-fix-probe-and-cta",
+    "note": "Fixed in commit 05b6c95e. ShizukuAmStart branch now additive (clipboard + toast). Bonus root cause found: showToast was called from Dispatchers.IO so Toast.makeText silently no-opd — now hops to main looper. Plus durable inline help with Copy URL button so users never depend on transient toasts."
+  },
+  "browser-shellrunner-deadlock": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "ShizukuShellRunner pipe deadlock for large stdout",
+    "description": "Codex review of commit 05b6c95e flagged: ShizukuShellRunner waits for process exit BEFORE draining stdout, so any command emitting more than the pipe buffer (~64KB) deadlocks until the 5s timeout. ChromeCdpProbe worked around this by using grep -F instead of cat, but future ShellRunner callers will repeat the failure mode silently. Fix: drain stdout in parallel with the exit poll (background reader thread or ProcessBuilder.redirectOutput to a temp file). Until fixed, add a TODO/warning in ShizukuShellRunner that calls must keep stdout small.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/setup/ShellRunner.kt"
+    ],
+    "acceptCriteria": [
+      "ShizukuShellRunner can return >100KB of stdout without deadlocking (test with: cat /proc/net/unix or similar)",
+      "Existing ShellRunner callers (ChromeCdpProbe via grep, CommandLineWriter, etc.) still work",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "shizuku",
+      "gap-followup",
+      "infrastructure"
+    ],
+    "created": "2026-05-06T02:37:06Z",
+    "updated": "2026-05-06T15:58:19Z",
+    "agent": "w-three-bugs-bundle",
+    "note": "Commit a14e539a — reader threads drain stdout/stderr in parallel with waitFor. ShellRunnerTest covers 100k-line seq (~588 KiB) regression + parallel stderr flood. ChromeCdpProbe still uses grep (the workaround stays for efficiency)."
+  },
+  "browser-tools-section-termux-move": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "agent": "w-tools-section-termux-move",
+    "title": "Move TermuxShellSettingsRow into the Tools section",
+    "description": "User-requested UI consistency: termux_shell should live in the Tools section alongside browser_script, not in the Execution section where it currently sits (commit 8425650a). Move TermuxShellSettingsRow under ToolsSection so both agent tools render together.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt"
+    ],
+    "acceptCriteria": [
+      "TermuxShellSettingsRow is rendered inside the Tools section alongside the BrowserScript toggle row",
+      "Existing termux row behavior (state indicator, action handlers, gating, persistence) preserved",
+      "SettingsTermuxRowTest still passes (./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.SettingsTermuxRowTest)",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "termux",
+      "ui",
+      "settings",
+      "polish",
+      "gap-followup"
+    ],
+    "created": "2026-05-06T02:41:44Z",
+    "updated": "2026-05-06T02:58:44Z",
+    "note": "Termux row + helpers moved into ToolsSection.kt; row order Termux→BrowserScript preserves SettingsTermuxRowTest isToggleable()[0] contract. 42/42 instrumented tests pass across nubia + 2 emulators."
+  },
+  "browser-shizuku-permission-request": {
+    "parent": "browser-gap-followup",
+    "depends": [],
+    "state": "done",
+    "agent": "w-shizuku-permission-request",
+    "title": "Gate: request Shizuku permission inline when binder OK but UID grant stale",
+    "description": "Investigation w-investigate-shizuku-gate found root cause for nubia user-blocking issue: after `adb install -r`, package gets a fresh UID (10322 → 10326). Shizuku tracks per-package consent by UID in /data/local/tmp/shizuku/shizuku.json. Shizuku Manager UI matches by package name and shows ✓ granted, but Shizuku.checkSelfPermission() in ClosePaw process queries by UID and returns DENIED. Gate falls into ShizukuNeedsPermission branch.\n\nFix: when gateBrowserScriptEnable() detects pingBinder() succeeds + checkSelfPermission() == DENIED, call Shizuku.requestPermission(reqCode) (already exposed at ShizukuRuntimeGateway.kt:33-35) which triggers Shizuku consent dialog. Wire OnRequestPermissionResultListener back so the gate retries after the user grants. Improve error copy to say re-grant rather than grant.",
+    "design": "projects/active/browser/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/BrowserScriptToggleGate.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/platform/virtualdisplay/ShizukuRuntimeGateway.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/BrowserScriptToggleGateTest.kt"
+    ],
+    "acceptCriteria": [
+      "When pingBinder() succeeds AND checkSelfPermission() returns DENIED, gate calls Shizuku.requestPermission(reqCode) instead of failing immediately",
+      "After user grants in Shizuku consent dialog, gate retries and (if write succeeds) persists pref=true",
+      "If user denies the consent dialog, gate surfaces a clear error and pref stays OFF",
+      "Inline error copy distinguishes never-granted vs stale-grant",
+      "Unit test covers: PERMISSION_DENIED + binder OK → requestPermission called; grant result → retry path; deny result → ShizukuNeedsPermission",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
+      "Manual verify on nubia P0110 (100.64.43.95:5555): tap toggle ON → Shizuku consent dialog appears → tap grant → toggle persists ON without needing to manually re-toggle in Shizuku Manager"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "ui",
+      "settings",
+      "shizuku",
+      "gap-followup",
+      "nubia"
+    ],
+    "created": "2026-05-06T04:50:43Z",
+    "updated": "2026-05-06T05:08:08Z",
+    "note": "Verified live on nubia. UID-mismatch reproduced; consent dialog appears; grant persists across cold start. 12/12 unit tests pass. Compose plumbing turned out unneeded — Shizuku.requestPermission is a static API per worker analysis + existing DisplayModeSection precedent."
+  }
+}

@@ -1,0 +1,526 @@
+{
+  "browser-cdp-runtime": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Browser CDP Script Runtime",
+    "description": "Implement ClosePaw's minimal browser automation path: one raw browser_script tool backed by Android Chrome CDP through Shizuku, a hidden WebView JS host exposing only cdp(), browser-use skill snippets, session lifecycle wiring, policy gates, and verification.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/**",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "app/src/main/kotlin/ai/closepaw/session/**",
+      "app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/assets/agent_skills/browser-use/**",
+      "app/src/test/kotlin/ai/closepaw/browser/**",
+      "projects/active/browser/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks are done",
+      "projects/active/browser/cn/design_codex.md remains the implementation source of truth",
+      "Production Shizuku UserService transport works on at least one real device (no debug TCP fallback)",
+      "Agent (LLM) successfully drives a browser_script call end-to-end via debug-run.sh"
+    ],
+    "note": "MILESTONE DONE 2026-05-04 11:00. All 16 leaves done (browser-script-host-cancel-guard + browser-screenshot-artifact-formatting were the last two). Plus the supporting browser-phase5 milestone (10 leaves, 1 cancelled) closed 2026-05-03. Production-ready: nubia P0110 + emulator-5556 full agent chain PASS, cascade USER_SERVICE → WIRELESS_ADB_SELF_PAIR, -1791 net source lines through cleanup, all defensive sleeps + try-catches re-evaluated, screenshot artifact pattern (helper writes to TraceRecorder, returns path), cancel-guard for WebView race. Real-device evidence in debug-output/run_20260503_*/.",
+    "priority": "high",
+    "estimate": "xl",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-04T18:00:52Z"
+  },
+  "browser-reference": {
+    "parent": "browser-cdp-runtime",
+    "depends": [],
+    "state": "done",
+    "title": "Browser harness reference alignment",
+    "description": "Keep the browser-harness reference available and ensure the design records the browser-harness behaviors ClosePaw is copying.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      ".reference/browser-harness/**",
+      "projects/active/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -d .reference/browser-harness",
+      "rg -q \"Browser-Harness Details\" projects/active/browser/cn/design_codex.md",
+      "rg -q \"browser-harness\" projects/active/browser/cn/design_codex.md"
+    ],
+    "note": "Verified locally before seeding orchestrate task graph.",
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "docs"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:32:36Z"
+  },
+  "browser-cdp-bridge-spike": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-reference"
+    ],
+    "state": "done",
+    "agent": "w-bridge-spike",
+    "title": "Spike Shizuku Chrome DevTools bridge",
+    "description": "Implement the first transport spike for Android Chrome CDP: connect to chrome_devtools_remote directly if possible, fall back to Shizuku UserService, read /json/version, list page targets, and return precise setup errors for each failure mode.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/**",
+      "app/src/main/kotlin/ai/closepaw/platform/virtualdisplay/Shizuku*.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuChromeDevtoolsBridge.kt",
+      "rg -q \"chrome_devtools_remote\" app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku",
+      "Implementation/tests expose distinct setup errors for Shizuku unavailable, Shizuku permission missing, Chrome not running, DevTools socket missing, app-process socket inaccessible, UserService socket inaccessible, and malformed HTTP/WebSocket response",
+      "./gradlew test"
+    ],
+    "resources": [
+      "For manual confirmation: Android device with Chrome installed, Shizuku available, and Chrome DevTools socket setup path testable. If unavailable, implementation must still expose deterministic setup errors and unit-testable parsing/diagnostics."
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z",
+    "note": "Done. AC pass; 3 codex review rounds applied. Follow-up: browser-cdp-bridge-spike-hardening covers UserService callback identity + unbind-on-failure leak from round 3 review."
+  },
+  "browser-cdp-bridge-spike-hardening": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-cdp-bridge-spike"
+    ],
+    "state": "done",
+    "title": "Harden ShizukuUserServiceProvider callback lifecycle",
+    "description": "Address two High findings carried over from browser-cdp-bridge-spike round 3 review:\n1. ServiceConnection callbacks (onServiceConnected/Disconnected/BindingDied/NullBinding) do not verify they belong to the current connection or that the provider is not closed; a stale callback from a prior bind cycle can corrupt state or resume a newer pending obtain(). Add a per-bind generation/connection-identity token and ignore stale callbacks.\n2. Failure callbacks (onServiceDisconnected/onBindingDied/onNullBinding) call completeWithError but do not call unbind; failed binds can leak until session shutdown. Clear connection state and call unbindUserService on each terminal failure callback.\n3. Add tests for: stale callback after timeout/close (must be ignored), unbind asserted for each failure callback, no race between old callback and new obtain().",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuUserServiceProvider.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/cdp/shizuku/ShizukuUserServiceProviderTest.kt"
+    ],
+    "acceptCriteria": [
+      "ServiceConnection callbacks verify connection identity (e.g., generation token) before mutating state",
+      "All terminal failure callbacks (disconnect-before-connect, onNullBinding, onBindingDied) call unbindUserService",
+      "Tests assert unbind on each failure callback and assert stale callback is ignored after close()",
+      "./gradlew :app:testDebugUnitTest --tests 'ai.closepaw.browser.cdp.shizuku.*'"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku",
+      "follow-up"
+    ],
+    "created": "2026-05-01T22:00:00Z",
+    "updated": "2026-05-03T19:20:23Z",
+    "agent": "w-spike-harden",
+    "note": "DONE — commits 445362ca + ff873f25 merged to main 2026-05-03 12:20. Codex round-2 APPROVE. Single-flight + refcounted awaiters pattern; concurrent obtain() callers share one CompletableDeferred; binder.bind() runs exactly once per cycle; cycle torn down only when last awaiter abandons it. Post-onServiceConnected cancellation atomically clears inflight before completing deferred. 15/15 tests."
+  },
+  "browser-cdp-client-core": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-cdp-bridge-spike"
+    ],
+    "state": "done",
+    "agent": "w-cdp-client",
+    "title": "Implement ChromeCdpClient core",
+    "description": "Build the Kotlin CDP client around the bridge: open the WebSocket, send raw commands, match responses by id, attach to the first real page, route browser/page domains correctly, buffer events, and recover once from stale active sessions.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/**",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
+      "rg -q \"Target.attachToTarget\" app/src/main/kotlin/ai/closepaw/browser/cdp",
+      "rg -q \"Session with given id not found\" app/src/main/kotlin/ai/closepaw/browser/cdp app/src/test/kotlin/ai/closepaw/browser",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "cdp"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z"
+  },
+  "browser-script-host": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-cdp-client-core"
+    ],
+    "state": "done",
+    "agent": "w-script-host",
+    "title": "Implement hidden WebView browser script host",
+    "description": "Implement BrowserScriptRunner and prelude: hidden local WebView, async wrapper, @JavascriptInterface bridge exposing only send/done, global cdp() promise bridge, strict WebView lockdown, timeout, cancellation, and raw CDP result propagation.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/script/**",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
+      "test -f app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptPrelude.kt",
+      "rg -q \"globalThis.cdp\" app/src/main/kotlin/ai/closepaw/browser/script",
+      "! rg -q \"globalThis\\\\.(sleep|log|pageJs|newTab|clickAt|typeText)\" app/src/main/kotlin/ai/closepaw/browser/script",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "webview",
+      "script-host"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z",
+    "note": "Done. AC pass; 3 codex review rounds applied. Follow-up: browser-script-host-cancel-guard covers remaining onPageFinished/eval-callback cancellation race from round 3 review."
+  },
+  "browser-script-host-cancel-guard": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-script-host"
+    ],
+    "state": "done",
+    "title": "Add cancellation guard to ScriptHostWebViewClient page-load callbacks",
+    "description": "Address one High finding carried over from browser-script-host round 3 review: ScriptHostWebViewClient has no cancellation guard in onPageFinished or in the evaluateJavascript callback. If timeout/cancellation happens while pageReady.await() is pending, a queued onPageFinished or eval callback can run before cleanup and start arbitrary agent JS. A long script can block the main thread before the drain destroys the WebView.\n\nFix: have onPageFinished and the prelude-eval callback check the runner's cancelled flag (already wired) BEFORE injecting prelude / evaluating user script. If cancelled, do nothing (cleanup will tear down the WebView). Add a JVM test using a fake WebViewClient adapter that asserts cancellation observed before onPageFinished prevents prelude injection.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/script/**"
+    ],
+    "acceptCriteria": [
+      "ScriptHostWebViewClient.onPageFinished checks the cancelled flag before injecting the prelude",
+      "Prelude evaluateJavascript callback checks the cancelled flag before evaluating user script",
+      "JVM test asserts cancellation prevents prelude injection / user script evaluation",
+      "./gradlew :app:testDebugUnitTest --tests 'ai.closepaw.browser.script.*'"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "browser",
+      "webview",
+      "follow-up"
+    ],
+    "created": "2026-05-01T22:30:00Z",
+    "updated": "2026-05-04T18:02:19Z",
+    "agent": "w-cancel-guard",
+    "note": "DONE — original commit 0a1e5443, cherry-picked to main as 4634d4f8 (rebase required after screenshot-fmt advanced main; auto-merged clean). Codex APPROVE no findings. 2 guards (top of onPageFinished + inside prelude-eval callback) protect against post-cancellation queued WebView callbacks running arbitrary agent JS or blocking main thread. Page-load orchestration extracted into top-level handlePageFinished for testability. 4 unit tests cover cancel-before, cancel-during-prelude, happy path, re-entrant onPageFinished. Build green (assembleDebug + testDebugUnitTest + lint)."
+  },
+  "browser-script-tool": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-script-host"
+    ],
+    "state": "done",
+    "agent": "w-script-tool",
+    "title": "Add browser_script tool shell",
+    "description": "Add BrowserScriptTool as the single agent-facing tool: validate script and timeout, enforce execution-time browser capability gates, call BrowserScriptRunner, return compact output, and persist raw metadata to trace/debug plumbing.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/**",
+      "app/src/test/kotlin/ai/closepaw/tool/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "rg -q \"browser_script\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt",
+      "rg -q \"\\\\[truncated: original_chars=\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt app/src/test/kotlin/ai/closepaw/browser app/src/test/kotlin/ai/closepaw/tool",
+      "rg -q \"browser-use\" app/src/main/kotlin/ai/closepaw/tool/impl/BrowserScriptTool.kt app/src/test/kotlin/ai/closepaw/browser app/src/test/kotlin/ai/closepaw/tool",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "tool"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z"
+  },
+  "browser-session-integration": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-script-tool"
+    ],
+    "state": "done",
+    "agent": "w-session-integ",
+    "title": "Wire browser runtime into session lifecycle and policy",
+    "description": "Integrate BrowserSessionManager with SessionServices, ToolRegistry, ToolName, AppSettingsStore, and PolicyEngine. Keep Android Context/WebView ownership out of SessionToolingBootstrapper, close browser resources on shutdown, and make browser_script ask in SMART regardless of Chrome's NORMAL app tier.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsState.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
+      "app/src/test/kotlin/ai/closepaw/**"
+    ],
+    "acceptCriteria": [
+      "rg -q \"BrowserSessionManager\" app/src/main/kotlin/ai/closepaw/session/SessionServices.kt app/src/main/kotlin/ai/closepaw/browser/script",
+      "rg -q \"BrowserScript\" app/src/main/kotlin/ai/closepaw/tool/ToolName.kt",
+      "rg -q \"browser_script\" app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt app/src/main/kotlin/ai/closepaw/session",
+      "PolicyEngine tests verify browser_script asks in SMART for com.android.chrome even though Chrome is NORMAL",
+      "./gradlew test"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "session",
+      "policy"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:55Z"
+  },
+  "browser-use-skill-v0": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-session-integration"
+    ],
+    "state": "done",
+    "agent": "w-skill-v0",
+    "title": "Bundle browser-use skill and snippet bundles",
+    "description": "Package browser-use as an agent skill installed under context.filesDir/skills/browser-use, with SKILL.md guidance and grouped snippet bundles page.js, tabs.js, and input.js. SKILL.md must include absolute installed script paths so the agent can read snippets with shell cat.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/assets/agent_skills/browser-use/**",
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/assets/agent_skills/browser-use/SKILL.md",
+      "test -f app/src/main/assets/agent_skills/browser-use/scripts/page.js",
+      "test -f app/src/main/assets/agent_skills/browser-use/scripts/tabs.js",
+      "test -f app/src/main/assets/agent_skills/browser-use/scripts/input.js",
+      "rg -q \"{{SKILL_DIR}}\" app/src/main/assets/agent_skills/browser-use/SKILL.md",
+      "Tests verify browser-use is installed/copied to context.filesDir/skills/browser-use and SKILL.md gets absolute script paths",
+      "./gradlew test"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "skill"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:34:56Z"
+  },
+  "browser-verification": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-use-skill-v0"
+    ],
+    "state": "done",
+    "agent": "w-verify",
+    "title": "Automated verification for Browser CDP runtime",
+    "description": "Run automated unit/build verification for the completed Browser CDP runtime before final review and real-device QA.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/browser/**",
+      "app/src/main/kotlin/ai/closepaw/browser/**",
+      "app/src/main/assets/agent_skills/browser-use/**",
+      "projects/active/browser/**"
+    ],
+    "acceptCriteria": [
+      "./gradlew test",
+      "./gradlew assembleDebug",
+      "rg -q \"Unit tests 覆盖\" projects/active/browser/cn/design_codex.md",
+      "rg -q \"browser-use/scripts/\" projects/active/browser/cn/design_codex.md"
+    ],
+    "resources": [],
+    "requireHumanReview": false,
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "verification",
+      "automated"
+    ],
+    "created": "2026-05-01T19:32:36Z",
+    "updated": "2026-05-01T19:37:05Z"
+  },
+  "browser-holistic-review": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-verification"
+    ],
+    "state": "done",
+    "agent": "w-holistic",
+    "title": "Holistic review of Browser CDP runtime changes",
+    "description": "Review the full Browser CDP runtime change set against the design for KISS, security/policy, session lifecycle, Shizuku/CDP transport, WebView host hardening, browser-use skill packaging, tests, and docs. Document findings and make sure critical/high issues are fixed or converted into follow-up tasks before completion.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "projects/active/browser/holistic_review.md"
+    ],
+    "acceptCriteria": [
+      "test -f projects/active/browser/holistic_review.md",
+      "rg -q \"KISS\" projects/active/browser/holistic_review.md",
+      "rg -q \"Security/policy\" projects/active/browser/holistic_review.md",
+      "rg -q \"Session lifecycle\" projects/active/browser/holistic_review.md",
+      "rg -q \"No open critical/high findings\" projects/active/browser/holistic_review.md"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "review"
+    ],
+    "created": "2026-05-01T19:36:46Z",
+    "updated": "2026-05-01T19:36:46Z"
+  },
+  "browser-cdp-websocket-shizuku-tunnel": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-holistic-review"
+    ],
+    "state": "done",
+    "title": "Tunnel CDP WebSocket through Shizuku/localabstract",
+    "description": "Holistic review High #1: ChromeCdpClient currently connects to the CDP WebSocket via OkHttp on a normal network URL, but on production devices the chrome_devtools_remote socket is only reachable through the Shizuku app-process or UserService transport. Implement a real Shizuku/localabstract-backed WebSocket transport so the WS handshake + frames go through the same Shizuku tunnel as the bootstrap HTTP. Replace the OkHttp connection or wrap it behind a transport that proxies through the bridge. Add tests for handshake, message round-trip, and clean close.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/**",
+      "app/src/test/kotlin/ai/closepaw/browser/cdp/**"
+    ],
+    "acceptCriteria": [
+      "CDP WebSocket connects through Shizuku app-process or UserService transport, not direct OkHttp",
+      "Tests assert WS handshake + frame round-trip + close work over the Shizuku tunnel",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "browser",
+      "cdp",
+      "shizuku",
+      "follow-up"
+    ],
+    "created": "2026-05-02T00:00:00Z",
+    "updated": "2026-05-03T17:45:10Z",
+    "note": "Wired and shipped via bridge.resolveWebSocketHost(). BrowserSessionManager.kt:143-148 rewrites the WS URL onto the Shizuku-mediated host:port; ShizukuChromeDevtoolsBridge.kt:105-126 handles USER_SERVICE / WIRELESS_ADB_SELF_PAIR / HOST_MEDIATED_RELAY. Real-device QA on nubia P0110 (Phase 4 PASS, commit bdf622ca) exercised Page.navigate / Runtime.evaluate over CDP-WS through the wireless relay end-to-end. Shape differs from the original `replace OkHttp with WS-over-Shizuku` framing — instead the URL gets rewritten and OkHttp talks to a localhost relay that pumps through the adb tunnel — but the engineering goal (CDP WS does not traverse external network) is met. Stress/leak coverage carved out as browser-phase5-ws-relay-stress."
+  },
+  "browser-screenshot-artifact-formatting": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-holistic-review"
+    ],
+    "state": "done",
+    "title": "screenshot() helper writes to artifact + returns file path",
+    "description": "Original framing was wrong (intercept Page.captureScreenshot bytes in BrowserScriptBridge — fragile, has to special-case CDP methods, breaks if CDP adds more byte-returning methods). Correct framing: agent-script-layer concern. screenshot() helper in page.js writes the bytes to the trace dir via TraceRecorder.storeBytes (already exists at app/src/main/kotlin/ai/closepaw/trace/TraceRecorder.kt:27, returns TraceArtifactRef with .path) and returns the on-device path instead of base64. Agent gets a path it can adb-pull / hash / hand to follow-up tools, but does not eat 100-500KB base64 in its context window.\n\nCurrent state:\n- app/src/main/assets/agent_skills/browser-use/scripts/page.js screenshot() returns {data: result.data, format, widthCss, ...} — base64 inline.\n- app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptJsInterface.kt only exposes send + done — no artifact API to JS.\n- app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt:52 already injects TraceRecorder (currently @Suppress unused).\n\nImplementation:\n1. Plumb TraceRecorder through to BrowserScriptJsInterface (add to constructor).\n2. Add @JavascriptInterface fun storeArtifact(kind: String, filenameHint: String, base64: String, mimeType: String?): String? that decodes base64, calls traceRecorder.storeBytes(kind, filenameHint, bytes, mimeType, description), returns ref?.path (or null if recorder disabled — JS treats null path as missing).\n3. Modify page.js screenshot(): after CDP call, const path = await bridge.storeArtifact(`browser-script`, `screenshot-${Date.now()}.${format}`, result.data, `image/${format}`). Return {path, format, widthCss, heightCss, devicePixelRatio, scale, estimatedBytes}. NO data field.\n4. SKILL.md: update screenshot description — `screenshot() returns a path on device, not raw bytes. The trace dir for the current session is also where agent.log lives. Use the path with shell tools if you need to inspect; do not paste bytes into your context.`\n5. Tests: BrowserScriptJsInterface unit test for storeArtifact (verify base64 decode + storeBytes called + path returned). page.js doc/example update.\n6. Real-device sanity: dispatch ./scripts/debug-run.sh `Take a screenshot of example.com and tell me where you saved it` on nubia or emulator-5556 — verify the agent gets a path, not a base64 blob, in tool output.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptJsInterface.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptRunner.kt",
+      "app/src/main/assets/agent_skills/browser-use/scripts/page.js",
+      "app/src/main/assets/agent_skills/browser-use/SKILL.md",
+      "app/src/test/kotlin/ai/closepaw/browser/script/**"
+    ],
+    "acceptCriteria": [
+      "BrowserScriptJsInterface gains storeArtifact(kind, filenameHint, base64, mimeType) JS-callable method",
+      "TraceRecorder plumbed from BrowserSessionManager to BrowserScriptJsInterface (no longer @Suppress unused)",
+      "page.js screenshot() returns {path, format, widthCss, heightCss, devicePixelRatio, scale, estimatedBytes} — no data field",
+      "SKILL.md screenshot guidance updated to reflect path-not-bytes contract",
+      "Unit test asserts: base64 decode + storeBytes called with correct kind/filenameHint/mimeType + returned path matches ref.path",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
+      "Real-device sanity run on nubia or emulator-5556: agent screenshot returns a path string in tool output (no base64 blob > 1KB visible in agent.log)"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "tool",
+      "follow-up"
+    ],
+    "created": "2026-05-02T00:00:00Z",
+    "updated": "2026-05-04T17:57:34Z",
+    "agent": "w-screenshot-fmt",
+    "note": "DONE — commit 5f2920eb merged to main 2026-05-04 10:57. Codex APPROVE (Low caveat: FileTraceRecorder returns ref even on enqueue failure — non-blocker, browser closes before trace recorder). Reframed from original `intercept Page.captureScreenshot in bridge` (rejected as fragile/special-cased) to agent-script-layer fix: page.js screenshot() writes via TraceRecorder.storeBytes + returns absolute on-device path. New BrowserScriptJsInterface.storeArtifact JS API exposed via BrowserScriptPrelude.globalThis.storeArtifact (mirrors cdp() pattern). Path: /storage/emulated/0/Android/data/ai.closepaw/files/inspection-trace/<runId>/artifacts/<filename>. 4 unit tests. SKILL.md updated. Real-device E2E blocked by independent OpenAIIoException on nubia (worker noted, not regression)."
+  },
+  "browser-cdp-command-timeout-recovery": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-holistic-review"
+    ],
+    "state": "done",
+    "title": "Map CDP command timeouts to JS rejection + broken/recovery decision",
+    "description": "Holistic review High #5: ChromeCdpClient.sendRaw() times out with TimeoutCancellationException, but BrowserScriptBridge.dispatch() rethrows all CancellationException instead of rejecting the specific CDP promise. The script then waits for the global tool timeout; BrowserSessionManager does not mark the CDP connection broken for that path. Map per-command timeouts to a typed CDP error that rejects the JS promise with a recognizable code/name; decide whether the per-command timeout should mark the client broken (probably yes after N consecutive timeouts, configurable). Add tests for promise rejection, trace outcome, and next-call recovery semantics.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpClient.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/cdp/ChromeCdpCommand.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserScriptBridge.kt",
+      "app/src/main/kotlin/ai/closepaw/browser/script/BrowserSessionManager.kt",
+      "app/src/test/kotlin/ai/closepaw/browser/**"
+    ],
+    "acceptCriteria": [
+      "Per-command CDP timeout rejects the originating JS promise with typed CdpException (not coroutine cancellation)",
+      "Repeated/decision-rule timeouts can mark the client broken so next browser_script call reconnects",
+      "Tests cover promise rejection, broken transition policy, and next-call recovery",
+      "./gradlew test"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "cdp",
+      "follow-up"
+    ],
+    "created": "2026-05-02T00:00:00Z",
+    "updated": "2026-05-03T17:45:19Z",
+    "note": "DONE per KISS — typed CDP timeout error + JS promise rejection both shipped. ChromeCdpClient.kt:199-210 catches TimeoutCancellationException and rethrows as CdpException(-1, `CDP command ... timed out after Nms`). BrowserScriptBridge.kt:77-87 catches CdpException and rejects the JS promise via rejectScript(name=`CdpException`, code, message). The script no longer waits for the global tool timeout on a per-command timeout. The `mark client broken after N consecutive timeouts` policy from the original task is intentionally NOT implemented — it was flagged in the original description as `probably yes, configurable`, which is hypothetical scope. Per CLAUDE.md (KISS, `Do not design for hypothetical future requirements`), close as done. Reopen if a real-device incident shows transport-level breakage masquerading as per-command timeouts."
+  },
+  "browser-real-device-qa": {
+    "parent": "browser-cdp-runtime",
+    "depends": [
+      "browser-holistic-review"
+    ],
+    "state": "done",
+    "agent": "w-claude-fix",
+    "note": "PASS. Production transport cascade is USER_SERVICE → WIRELESS_ADB_SELF_PAIR. USER_SERVICE (Shizuku-spawned shell-context UserService over LocalSocket) is the primary path on AOSP/userdebug + any device where Shizuku ends up in u:r:su:s0; PASS on emulator-5554 (Phase 1 baseline). WIRELESS_ADB_SELF_PAIR (Shizuku spawns shell-uid helper that drives IAdbManager.allowWirelessDebugging + enablePairingByQrCode with our own PSK; in-app TLS-PSK pair + mTLS adb client A_OPENs localabstract:chrome_devtools_remote through adbd) is the only fallback when SELinux denies shell-context UserService connectto on the abstract socket; PASS on nubia P0110 (locked OEM Android 16, no root, no PC). Three intermediate transports were removed in commit task/del-transports: APP_PROCESS (never worked — untrusted_app cannot connectto another app's abstract socket), HOST_MEDIATED_RELAY (required PC-side adb forward+reverse, contradicts in-device autonomy), CHROME_TCP_LOOPBACK (Chrome ignores /data/local/tmp/chrome-command-line without per-profile chrome://flags toggle). Historical Phase 1/2/3 evidence remains in projects/active/browser/cn/diag_20260502_wireless_adb_spike/ + diag_20260503_phase4_handoff.md.",
+    "title": "Real-device QA for Browser CDP use case",
+    "description": "Run one real-device browser automation use case through browser_script and the installed browser-use snippets. Exercise page open, title/content read through CDP, screenshot evidence, tab creation or switching, and return to the original tab. Document the device/app build, setup, steps, result, and evidence.",
+    "design": "projects/active/browser/cn/design_codex.md",
+    "scope": [
+      "projects/active/browser/real_device_qa.md"
+    ],
+    "acceptCriteria": [
+      "test -f projects/active/browser/real_device_qa.md",
+      "rg -q \"Device\" projects/active/browser/real_device_qa.md",
+      "rg -q \"Use case\" projects/active/browser/real_device_qa.md",
+      "rg -q \"browser_script\" projects/active/browser/real_device_qa.md",
+      "rg -q \"title\" projects/active/browser/real_device_qa.md",
+      "rg -q \"screenshot\" projects/active/browser/real_device_qa.md",
+      "rg -q \"tab\" projects/active/browser/real_device_qa.md",
+      "rg -q \"PASS\" projects/active/browser/real_device_qa.md"
+    ],
+    "resources": [
+      "Android device with Shizuku permission granted, Chrome installed/running, and Browser CDP runtime built into the installed app."
+    ],
+    "requireHumanReview": true,
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "browser",
+      "qa",
+      "manual-device"
+    ],
+    "created": "2026-05-01T19:36:46Z",
+    "updated": "2026-05-01T19:36:46Z"
+  }
+}

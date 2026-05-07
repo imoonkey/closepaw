@@ -1,0 +1,172 @@
+{
+  "termux-gap-followup": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Termux gap follow-ups (post-merge)",
+    "description": "Follow-up work surfaced by the 2026-05-05 documented-gap audit (projects/active/termux_shell/documented_gaps.md). Codex re-review identified 3 WORTH-IT test/UX gaps + 1 NICE-TO-HAVE row tweak that survived the 5046c6b9..d97ea1c2 range. Children: adapter parser tests (S), bridge UTF-8 test (XS), Settings row action fixes (S), Compose row tests (M, lower priority).",
+    "design": "projects/active/termux_shell/documented_gaps.md",
+    "acceptCriteria": [
+      "All child tasks done"
+    ],
+    "priority": "normal",
+    "tags": [
+      "termux",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T23:23:09Z",
+    "updated": "2026-05-05T23:23:09Z"
+  },
+  "termux-adapter-tests": {
+    "parent": "termux-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "TermuxRunCommandAdapter result-parsing JVM tests (regression)",
+    "description": "TermuxRunCommandAdapterTest.kt was added in c4dc3839 then deleted in 9a6def5e (FGS auto-wake revert). The parser logic at app/src/main/kotlin/ai/closepaw/termux/TermuxRunCommandAdapter.kt:200 (toRunCommandError) and :221 (toRunCommandResult) is now untested at the JVM layer. The cdfe52a0 emulator-QA bug (probe error mapping with err=-1) would have been caught at JVM time. Re-add coverage for: success result, non-zero exit, allow-external-apps missing, TERMUX_NOT_RUNNING, TERMUX_RUN_COMMAND_UNAVAILABLE, err=-1 generic failure, stale request id.",
+    "design": "projects/active/termux_shell/documented_gaps.md",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/termux/TermuxRunCommandAdapterTest.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/test/kotlin/ai/closepaw/termux/TermuxRunCommandAdapterTest.kt",
+      "Tests cover: success, non-zero exit, allow-external-apps missing, TERMUX_NOT_RUNNING, TERMUX_RUN_COMMAND_UNAVAILABLE, err=-1, stale request id",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.termux.TermuxRunCommandAdapterTest\" passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "test",
+      "gap-followup",
+      "regression"
+    ],
+    "created": "2026-05-05T23:24:23Z",
+    "updated": "2026-05-05T23:44:27Z",
+    "agent": "w-termux-adapter-tests"
+  },
+  "termux-bridge-utf8-test": {
+    "parent": "termux-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "Bridge invalid-UTF-8 pytest fixture",
+    "description": "tools/termux-bridge/closepaw_bridge.py:133 writes raw artifact bytes and :143 decodes with errors=replace, but tools/termux-bridge/tests/test_closepaw_bridge.py has no fixture proving non-UTF-8 stdout returns U+FFFD without crashing. Add a pytest that runs a command emitting binary bytes (e.g. `printf \"\\xff\\xfe hello\"`) and asserts: 200 OK, decoded body contains U+FFFD replacement chars, raw artifact file contains the original bytes byte-for-byte.",
+    "design": "projects/active/termux_shell/documented_gaps.md",
+    "scope": [
+      "tools/termux-bridge/tests/test_closepaw_bridge.py"
+    ],
+    "acceptCriteria": [
+      "New pytest in tools/termux-bridge/tests/test_closepaw_bridge.py covers invalid-UTF-8 stdout",
+      "Asserts decoded text contains \\ufffd",
+      "Asserts <call_id>_stdout artifact preserves raw bytes byte-for-byte",
+      "cd tools/termux-bridge && pytest passes"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "termux",
+      "bridge",
+      "test",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T23:24:23Z",
+    "updated": "2026-05-05T23:29:28Z",
+    "agent": "w-termux-bridge-utf8-test"
+  },
+  "termux-row-action-fixes": {
+    "parent": "termux-gap-followup",
+    "depends": [],
+    "state": "done",
+    "title": "Settings row action fixes: TERMUX_NOT_RUNNING launches Termux, NotInstalled goes straight to F-Droid",
+    "description": "Two related Settings-row tweaks in app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt (combined into one task because both touch the same row-action branch and conflict if parallelized).\n\n1) TERMUX_NOT_RUNNING (mapped at TermuxBridgeManager.kt:322, declared at TermuxBridgeStatus.kt:23): copy at AgentBehaviorSettingsPage.kt:219 says \"open Termux once\" but the row tap at :118 still calls manager.setup(). Replace with a launchTermux() Intent (Termux MainActivity), then re-probe on resume so the user does not have to hunt for the app.\n\n2) NotInstalled row at :107 still calls manager.setup() before falling back to F-Droid even though the install probe (TermuxBridgeDependencies.kt:60, manager line 258, commit 6f06c64c) already proved Termux is absent. Tap should open F-Droid (or Play-Store fallback) directly.",
+    "design": "projects/active/termux_shell/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "TERMUX_NOT_RUNNING row tap launches Termux MainActivity via Intent",
+      "After launching Termux, returning to Settings re-probes status",
+      "NotInstalled row tap opens F-Droid Termux page directly (no intermediate setup() call)",
+      "Existing setup() retry path preserved for other NeedsSetupReason values",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "ui",
+      "settings",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T23:24:23Z",
+    "updated": "2026-05-05T23:35:38Z",
+    "agent": "w-termux-row-action-fixes",
+    "note": "codex flagged MEDIUM about openTermuxInstallPage Play-Store fallback — out of scope (pre-existing helper from 6f06c64c, Play-Store Termux is actively broken so fallback would be user-hostile)"
+  },
+  "termux-settings-row-compose-tests": {
+    "parent": "termux-gap-followup",
+    "depends": [
+      "termux-row-action-fixes"
+    ],
+    "state": "done",
+    "title": "TermuxShellSettingsRow Compose/presenter tests",
+    "description": "TermuxShellSettingsRow at app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt:86,95,105 owns probe/action/toggle behavior, while SettingsAgentBehaviorTest.kt:24 only covers executor dropdowns. Row landed in 8425650a with no row test follow-up. Add Compose UI tests covering: 3-state indicator (Ready / Needs Setup / Not Installed), toggle persistence, action button branches per NeedsSetupReason. Depends on termux-row-action-fixes so tests cover the corrected actions.",
+    "design": "projects/active/termux_shell/documented_gaps.md",
+    "scope": [
+      "app/src/androidTest/kotlin/ai/closepaw/qa/SettingsTermuxRowTest.kt"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/androidTest/kotlin/ai/closepaw/qa/SettingsTermuxRowTest.kt",
+      "Tests cover 3-state indicator, toggle persistence, action branches (TERMUX_NOT_RUNNING launch, NotInstalled F-Droid, retry-setup for others)",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.SettingsTermuxRowTest passes"
+    ],
+    "priority": "low",
+    "estimate": "m",
+    "tags": [
+      "termux",
+      "settings",
+      "test",
+      "ui",
+      "gap-followup"
+    ],
+    "created": "2026-05-05T23:24:23Z",
+    "updated": "2026-05-06T00:57:03Z",
+    "agent": "w-termux-settings-row-compose-tests",
+    "note": "14/14 pass on emulator-5554 in 54s. Worker also fixed BrowserRealDeviceQaInstrumentedTest stale signature from tool-settings."
+  },
+  "termux-runtime-permission-grant": {
+    "parent": "termux-gap-followup",
+    "depends": [],
+    "state": "done",
+    "agent": "w-investigate-termux-permission",
+    "title": "Termux row: request RUN_COMMAND permission inline (runtime dangerous permission)",
+    "description": "Investigation w-investigate-termux-permission found Termux declares RUN_COMMAND as prot=dangerous; ClosePaw declares it in manifest but never calls requestPermissions() at runtime, so on first launch (and any reinstall after a grant decision is wiped) the row shows PERMISSION_MISSING and tap just loops SecurityException. Fix mirrors the Shizuku permission flow (commit 6efd47ea): when reason is PERMISSION_MISSING, tap should call ActivityCompat.requestPermissions and proceed on grant; toggle ON should proactively request; permanent-denial fallback opens App Details Settings.",
+    "design": "projects/active/termux_shell/documented_gaps.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/termux/**",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt"
+    ],
+    "acceptCriteria": [
+      "Tapping the Termux Shell row when reason is PERMISSION_MISSING triggers the system permission dialog (not just retry setup)",
+      "On grant: row auto-retries setup() and persists to Ready",
+      "On deny: row stays Needs Setup with clear copy",
+      "On permanent denial (Don't ask again): tap opens ACTION_APPLICATION_DETAILS_SETTINGS for ClosePaw",
+      "Proactively requests on toggle ON to avoid the first-launch broken-look",
+      "Already-granted path: no spurious dialog",
+      "./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lint passes",
+      "Manual verify on nubia after pm revoke + reinstall: tap toggle ON → system dialog appears → grant → row goes Ready"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "termux",
+      "ui",
+      "settings",
+      "permission",
+      "gap-followup",
+      "nubia"
+    ],
+    "created": "2026-05-06T17:15:03Z",
+    "updated": "2026-05-06T17:30:34Z",
+    "note": "Commit 47fa647c. Used rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) — modern Compose path, no suspend bridge needed. Pure classifyRunCommandPermission(isGranted, hasAttempted, shouldShowRationale) matrix → Granted | Request | OpenAppSettings. hasAttempted process-scoped to disambiguate shouldShowRationale=false (returned both before first ask AND after Don't ask again). 6/6 unit tests pass. Verified live on nubia: pm revoke + toggle ON → system dialog → grant → Ready; toggle OFF/ON already-granted → no spurious dialog; row tap from PERMISSION_MISSING state → dialog → grant → Ready."
+  }
+}
