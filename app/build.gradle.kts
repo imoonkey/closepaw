@@ -5,6 +5,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    // Generates open_source_licenses.{json,html} from runtime deps; copies the
+    // JSON into src/main/assets so the in-app "Open Source Licenses" page can
+    // render the live dependency graph at runtime.
+    id("com.jaredsburrows.license") version "0.9.8"
 }
 
 android {
@@ -92,6 +96,25 @@ val copyClosePawBridge by tasks.registering(Copy::class) {
 
 tasks.named("preBuild") {
     dependsOn(copyClosePawBridge)
+}
+
+// gradle-license-plugin config: emit JSON only and have the plugin copy it
+// into src/main/assets/open_source_licenses.json so OpenSourceLicensesPage can
+// load it via AssetManager. HTML is a noisy artifact in version control; the
+// JSON drives a native Compose list instead of a WebView.
+licenseReport {
+    generateJsonReport = true
+    generateHtmlReport = false
+    generateCsvReport = false
+    generateTextReport = false
+    copyJsonReportToAssets = true
+}
+
+// Surface the license JSON to debug builds too. The plugin auto-wires
+// `licenseReleaseReport` into the release `assets` task, but debug needs an
+// explicit hook so the in-app page works in regular `assembleDebug` builds.
+afterEvaluate {
+    tasks.findByName("mergeDebugAssets")?.dependsOn("licenseDebugReport")
 }
 
 // Kotlin 2.3.0 compilerOptions DSL (replaces deprecated kotlinOptions)

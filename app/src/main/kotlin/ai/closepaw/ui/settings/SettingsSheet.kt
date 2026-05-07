@@ -32,6 +32,7 @@ enum class SettingsPage {
     LLM_AUTH,
     AGENT_BEHAVIOR,
     PERMISSIONS_ADVANCED,
+    OPEN_SOURCE_LICENSES,
 }
 
 @Composable
@@ -178,6 +179,10 @@ fun SettingsSheet(
                     onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss
+                )
+                SettingsPage.OPEN_SOURCE_LICENSES -> OpenSourceLicensesPage(
+                    onBack = { settingsPage = SettingsPage.HOME },
+                    onClose = onDismiss,
                 )
             }
         }

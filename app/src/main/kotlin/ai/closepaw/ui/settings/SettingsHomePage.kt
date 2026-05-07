@@ -94,6 +94,13 @@ internal fun SettingsHomePage(
                 onClick = { onNavigate(SettingsPage.PERMISSIONS_ADVANCED) }
             )
 
+            SectionHeader("About")
+            SettingsNavigationRow(
+                title = "Open Source Licenses",
+                subtitle = "ClosePaw is Apache 2.0 · view third-party notices",
+                onClick = { onNavigate(SettingsPage.OPEN_SOURCE_LICENSES) }
+            )
+
             Fleuron()
 
             Text(
