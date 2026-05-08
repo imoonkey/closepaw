@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-05-08: Display Mode selector reflects persisted choice
+
+**What changed:**
+- Fixed **Settings → Permissions & Advanced → Display Mode** so the selector highlights the persisted user choice instead of being overridden by the live session's effective platform mode.
+- Added a separate `Current session: ...` row when an effective platform mode is present, preserving the runtime truth without making the selector look stuck.
+- Added a Compose instrumented regression test for the case where the live session is Accessibility but the user selects Virtual Display for the next session.
+
+**Why:**
+- On a nubia P0110 with Shizuku ready, tapping Virtual Display could appear to do nothing while an Accessibility-mode session still reported `effectiveMode=ACCESSIBILITY`. The setting was saved correctly, but the UI selected state was rendering the effective mode instead of the persisted preference.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/settings/DisplayModeSection.kt`, `app/src/androidTest/kotlin/ai/closepaw/qa/DisplayModeSettingsTest.kt`
+**Verification:** `./gradlew :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin`, `ANDROID_SERIAL=100.64.43.95:5555 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.DisplayModeSettingsTest` (4/4 PASS on P0110), `./gradlew :app:lintDebug`, real-device visual check on P0110 showing Virtual Display selected with `Shizuku ready`.
+**Commit:** `1c6c759d`
+**Next:** None.
+**Blockers:** None.
+
 ## 2026-05-05: termux_shell tool: Linux bash for the agent via Termux bridge
 
 **What changed:**
