@@ -11,9 +11,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -26,7 +29,8 @@ import org.junit.runner.RunWith
  * Covers spm-qa-coverage:
  *  (a) selector toggle invokes onPlatformModeChange with correct PlatformMode
  *  (b) Virtual Display option is a no-op when ShizukuStatus is Unavailable
- *  (c) Home subtitle reflects effectivePlatformMode (chip present/absent)
+ *  (c) selector selection reflects persisted intent, not live effective mode
+ *  (d) Home subtitle reflects effectivePlatformMode (chip present/absent)
  */
 @RunWith(AndroidJUnit4::class)
 class DisplayModeSettingsTest {
@@ -85,7 +89,29 @@ class DisplayModeSettingsTest {
         compose.onNodeWithText("Shizuku not running").assertExists()
     }
 
-    // (c) Home subtitle includes ' · VD' / ' · A11y' chip from effectivePlatformMode,
+    @Test fun selector_selection_reflects_persisted_mode_not_effective_mode() {
+        compose.setContent {
+            var mode by remember { mutableStateOf(PlatformMode.ACCESSIBILITY) }
+            ClosePawTheme {
+                DisplayModeSection(
+                    persistedMode = mode,
+                    effectiveMode = PlatformMode.ACCESSIBILITY,
+                    status = ShizukuStatus.Ready,
+                    onModeChange = { mode = it },
+                    onLearnMore = {},
+                    onGrant = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("display-mode-virtual-display").performClick()
+
+        compose.onNodeWithTag("display-mode-virtual-display").assertIsSelected()
+        compose.onNodeWithTag("display-mode-accessibility").assertIsNotSelected()
+        compose.onNodeWithText("Current session: Accessibility").assertExists()
+    }
+
+    // (d) Home subtitle includes ' · VD' / ' · A11y' chip from effectivePlatformMode,
     //     and omits it when null.
     @Test fun home_subtitle_reflects_effective_platform_mode() {
         var current: PlatformMode? by mutableStateOf<PlatformMode?>(null)

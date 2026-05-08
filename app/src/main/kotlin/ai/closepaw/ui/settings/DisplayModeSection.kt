@@ -28,10 +28,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 
 private const val SHIZUKU_PERMISSION_REQUEST_CODE = 1001
 private const val SHIZUKU_HELP_URL = "https://shizuku.rikka.app"
+private const val ACCESSIBILITY_MODE_TAG = "display-mode-accessibility"
+private const val VIRTUAL_DISPLAY_MODE_TAG = "display-mode-virtual-display"
 
 @Composable
 internal fun DisplayModeSection(
@@ -66,7 +71,7 @@ internal fun DisplayModeSection(
     onLearnMore: () -> Unit,
     onGrant: () -> Unit,
 ) {
-    val displayedMode = effectiveMode ?: persistedMode
+    val selectedMode = persistedMode
     val virtualDisplayEnabled = status == ShizukuStatus.Ready
 
     SettingsSection(title = "Display Mode") {
@@ -77,19 +82,25 @@ internal fun DisplayModeSection(
             ) {
                 ModeOption(
                     label = "Accessibility",
-                    selected = displayedMode == PlatformMode.ACCESSIBILITY,
+                    selected = selectedMode == PlatformMode.ACCESSIBILITY,
                     enabled = true,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag(ACCESSIBILITY_MODE_TAG),
                     onClick = { onModeChange(PlatformMode.ACCESSIBILITY) }
                 )
                 ModeOption(
                     label = "Virtual Display",
-                    selected = displayedMode == PlatformMode.VIRTUAL_DISPLAY,
+                    selected = selectedMode == PlatformMode.VIRTUAL_DISPLAY,
                     enabled = virtualDisplayEnabled,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag(VIRTUAL_DISPLAY_MODE_TAG),
                     onClick = { onModeChange(PlatformMode.VIRTUAL_DISPLAY) }
                 )
             }
+
+            effectiveMode?.let { EffectiveModeRow(it) }
 
             ShizukuStatusRow(
                 status = status,
@@ -119,6 +130,7 @@ private fun ModeOption(
     }
     Surface(
         modifier = modifier
+            .semantics { this.selected = selected }
             .clickable(enabled = enabled, onClick = onClick),
         color = if (enabled) containerColor else containerColor.copy(alpha = 0.5f),
         shape = RoundedCornerShape(12.dp)
@@ -136,6 +148,22 @@ private fun ModeOption(
                 color = contentColor
             )
         }
+    }
+}
+
+@Composable
+private fun EffectiveModeRow(effectiveMode: PlatformMode) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = "Current session: ${effectiveMode.displayLabel()}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
     }
 }
 
@@ -193,4 +221,9 @@ private fun ShizukuStatusRow(
             }
         }
     }
+}
+
+private fun PlatformMode.displayLabel(): String = when (this) {
+    PlatformMode.ACCESSIBILITY -> "Accessibility"
+    PlatformMode.VIRTUAL_DISPLAY -> "Virtual Display"
 }
