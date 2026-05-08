@@ -28,6 +28,10 @@ internal class AgentServiceViewerBridge(
         overlayControllerProvider()?.onMainAppVisible()
     }
 
+    fun onMainAppHidden() {
+        overlayControllerProvider()?.onMainAppHidden()
+    }
+
     fun openViewer() {
         openViewerActivity()
     }

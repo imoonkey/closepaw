@@ -116,6 +116,15 @@ class ServiceOverlayController(
     private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     private var userLocation = OverlayUserLocation.MAIN_APP
 
+    /**
+     * Sticky lifecycle flag set by MainActivity.onResume / onPause. Authoritative over
+     * accessibility window-state events: while the host activity is resumed we treat
+     * userLocation as MAIN_APP and ignore stale/queued window-state events from other
+     * apps that would otherwise flip it back to OTHER_APP and surface the system overlay
+     * on top of the in-app capsule.
+     */
+    private var isMainAppResumed = false
+
     /** User preference: capsule or island while overlays are visible (A11y/VD). */
     private var showPreference = ShowPreference.ISLAND
 
@@ -261,8 +270,28 @@ class ServiceOverlayController(
      * guarantees MAIN_APP invariants: no system capsule/island/glow on top of in-app Compose UI.
      */
     fun onMainAppVisible() {
+        isMainAppResumed = true
         if (userLocation != OverlayUserLocation.MAIN_APP) {
             userLocation = OverlayUserLocation.MAIN_APP
+            updateContext()
+        }
+        applyVisibility()
+    }
+
+    /**
+     * MainActivity onStop callback. Releases the sticky MAIN_APP guard and force-flips
+     * userLocation to OTHER_APP, since by definition MainActivity is no longer on screen.
+     *
+     * Necessary because the foreground app's window-state event often arrives BEFORE
+     * onStop and gets dropped by the guard above. Without this fallback, userLocation
+     * stays stuck at MAIN_APP and the overlay never appears on the new app. If the new
+     * foreground turns out to be the VD viewer, the next window-state event corrects it.
+     */
+    fun onMainAppHidden() {
+        if (!isMainAppResumed) return
+        isMainAppResumed = false
+        if (userLocation != OverlayUserLocation.OTHER_APP) {
+            userLocation = OverlayUserLocation.OTHER_APP
             updateContext()
         }
         applyVisibility()
@@ -370,6 +399,18 @@ class ServiceOverlayController(
             className = className,
             displayId = displayId,
         ) ?: return
+
+        // While MainActivity is resumed, ignore non-self window events so a queued
+        // event from a previously-foregrounded app can't flip userLocation back to
+        // OTHER_APP and surface the system overlay over our own UI.
+        if (isMainAppResumed && nextLocation != OverlayUserLocation.MAIN_APP) {
+            Log.d(
+                logTag,
+                "Ignoring window event while MainActivity resumed: pkg=$packageName, " +
+                    "class=$className, displayId=$displayId, would-be=$nextLocation"
+            )
+            return
+        }
 
         if (nextLocation != userLocation) {
             Log.d(

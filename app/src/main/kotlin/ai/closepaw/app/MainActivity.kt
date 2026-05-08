@@ -323,6 +323,16 @@ class MainActivity : ComponentActivity() {
         retryPendingAutoStartGoalIfReady()
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Use onStop, NOT onPause: between onPause and onStop the activity is
+        // still drawn on screen (e.g. when launching another app, the new app's
+        // accessibility event fires before this activity is fully hidden). We
+        // want to keep the overlay suppressed for that whole window so the
+        // floating capsule does not flash over our own still-visible UI.
+        AgentService.instance?.onMainAppHidden()
+    }
+
     override fun onDestroy() {
         pendingGoalRunnable?.let { window.decorView.removeCallbacks(it) }
         pendingGoalRunnable = null

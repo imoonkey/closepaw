@@ -381,6 +381,10 @@ class AgentService : AccessibilityService() {
         viewerBridge.onMainAppVisible()
     }
 
+    fun onMainAppHidden() {
+        viewerBridge.onMainAppHidden()
+    }
+
     private fun openViewerActivity() {
         try {
             val intent =
