@@ -2,6 +2,7 @@ package ai.closepaw.app
 
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
+import ai.closepaw.auth.FakeSharedPreferences
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.ui.settings.BrowserScriptToggleError
@@ -17,7 +18,7 @@ class MainActivityIntentApplierSecurityTest {
 
     private val settingsState = AppSettingsState(mockk(relaxed = true))
     private val modelLoadingStatusHolder = ModelLoadingStatusHolder(settingsState)
-    private val authStore = AuthStore(mockk(relaxed = true))
+    private val authStore = AuthStore(mockk(relaxed = true), prefsProvider = { FakeSharedPreferences() })
 
     @Test
     fun `production build ignores all sensitive intent extras`() = runBlocking<Unit> {

@@ -216,7 +216,7 @@
   "publish-license-notice": {
     "parent": "publish-oss-release",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "LICENSE + 自动生成 NOTICE + in-app licenses 页面",
     "description": "1) 选 Apache 2.0 作为开源协议（兼容 Android 全家桶/Shizuku/HiddenApiBypass），根目录创建 LICENSE 全文。2) 引入 com.jaredsburrows:gradle-license-plugin（或 Google 官方 oss-licenses-plugin），扫所有 runtime 依赖自动生成 NOTICE 文件。手写 NOTICE 是反模式，依赖一升级就漏。3) 在 app Settings 加 \"Open Source Licenses\" 入口展示生成的 licenses 列表（Play Store 审核会看）。4) 确认 ai.liquid.leap:leap-sdk 协议状态——若是 proprietary，需在 README 中说明或考虑 oss flavor。详见 projects/active/1_publish/1_legal_claude.md。",
     "design": "projects/active/1_publish/1_legal_claude.md",
@@ -234,7 +234,8 @@
     ],
     "estimate": "s",
     "created": "2026-05-07T18:15:16Z",
-    "updated": "2026-05-07T18:29:18Z"
+    "updated": "2026-05-07T19:37:09Z",
+    "agent": "w-publish-license-notice"
   },
   "publish-ci-templates": {
     "parent": "publish-oss-release",
@@ -330,48 +331,55 @@
     "parent": "publish-play-store",
     "depends": [],
     "state": "ready",
-    "title": "PRIVACY_POLICY.md（英文）+ 公开托管",
-    "description": "根目录创建 PRIVACY_POLICY.md（英文版，Play Store 要求）：数据收集（屏幕内容、截图、用户输入）、数据传输（LLM provider）、数据存储（API key、会话历史本地）、用户控制（关闭无障碍、清除本地数据、选 provider）。把 markdown 公开托管（GitHub raw / GitHub Pages），获取可填到 Play Console 的 URL。详见 projects/active/1_publish/3_privacy_claude.md。",
+    "title": "PRIVACY_POLICY.md（英文）+ 公开托管 + 接入 onboarding",
+    "description": "根目录创建 PRIVACY_POLICY.md（英文版，Play Store 要求）：数据收集（屏幕内容、截图、用户输入）、数据传输（LLM provider）、数据存储（API key、会话历史本地）、用户控制（关闭无障碍、清除本地数据、选 provider）。把 markdown 公开托管（GitHub raw / GitHub Pages），获取可填到 Play Console 的 URL。\n\n获得 URL 后接入：\n- OnboardingSteps.kt 中 WizardStep.Accessibility 的 extendedDescription 加 \"Privacy policy: <real URL>\"（前置 task publish-a11y-disclosure 已留好接入点，URL 来这里填）\n- README 加链接\n\n详见 projects/active/1_publish/3_privacy_claude.md。",
     "design": "projects/active/1_publish/3_privacy_claude.md",
     "scope": [
-      "PRIVACY_POLICY.md"
+      "PRIVACY_POLICY.md",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt",
+      "README.md"
     ],
     "acceptCriteria": [
       "test -f PRIVACY_POLICY.md",
       "PRIVACY_POLICY.md 是英文版",
       "覆盖：数据收集 / 数据传输 / 数据存储 / 用户控制",
-      "有公开可访问 URL（写入 Play Console）"
+      "有公开可访问 URL（写入 Play Console）",
+      "OnboardingSteps WizardStep.Accessibility extendedDescription 引用真实 Privacy Policy URL",
+      "README 含 Privacy Policy 链接"
     ],
     "estimate": "s",
     "created": "2026-05-07T18:15:48Z",
-    "updated": "2026-05-07T18:15:48Z"
+    "updated": "2026-05-07T21:51:59Z"
   },
   "publish-a11y-disclosure": {
     "parent": "publish-play-store",
     "depends": [],
-    "state": "ready",
-    "title": "无障碍 description 详写 + 首启 consent dialog",
-    "description": "1) 把 strings.xml 中 accessibility_service_description 从 \"AI agent that can navigate Android UI to accomplish goals\" 扩写为详细说明（用途、何时激活、用户控制权、不在后台运行）。2) 在首次启用无障碍服务时弹 consent dialog：说明读屏行为、LLM 数据流向、隐私政策链接、要求明确同意。详见 projects/active/1_publish/3_privacy_claude.md。",
+    "state": "done",
+    "title": "无障碍 Play 审核 disclosure 强化（onboarding copy + strings.xml）",
+    "description": "现状：onboarding 已有 WizardStep.Accessibility 这一步（OnboardingSteps.kt 中 permissionStepCopy），用户主动点 \"Open Accessibility Settings\" 跳转系统设置启用——这就是 affirmative consent 流程。但当前 copy 对 Play 审核而言不够，缺三件 Play 政策必查的内容：(a) 屏幕内容会发给 LLM 提供商；(b) 隐私政策链接；(c) 不在后台运行的明确说明。strings.xml 里 accessibility_service_description 也太简单（这是 Android 系统 Settings 里看服务时展开的描述，Play 审核也看）。\n\n要做的事（窄）：\n1. 重写 OnboardingSteps.kt 中 WizardStep.Accessibility 的 description（保留同样视觉布局，只扩 copy），加入 LLM 数据流向 / 隐私政策链接 / not-in-background 保证。\n2. 重写 strings.xml 中 accessibility_service_description 为 200+ 字符详细版（覆盖：服务做什么 / 何时激活 / 何时不激活 / 用户控制权）。\n\n不做：不新增独立 consent dialog，不动 onboarding 结构。Affirmative consent 由用户主动点 Open Accessibility Settings 提供，符合 Play 政策（Voice Access 同模式）。\n\n详见 projects/active/1_publish/3_privacy_claude.md, projects/active/1_publish/5_play_store_claude.md。",
     "design": "projects/active/1_publish/3_privacy_claude.md",
     "scope": [
       "app/src/main/res/values/strings.xml",
       "app/src/main/res/xml/agent_accessibility_config.xml",
-      "app/src/main/kotlin/**"
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt"
     ],
     "acceptCriteria": [
-      "accessibility_service_description 字符串 > 200 字符并覆盖用途/控制权",
-      "首次启用无障碍触发 consent dialog（含隐私政策链接）",
-      "用户拒绝 consent 后无障碍流程不进入",
-      "./gradlew test passes"
+      "accessibility_service_description 字符串 > 200 字符且覆盖：服务做什么 / 何时激活 / 用户控制权",
+      "OnboardingSteps WizardStep.Accessibility description 提到 LLM 数据流向 + 隐私政策链接 + not-in-background 保证",
+      "./gradlew assembleDebug 通过",
+      "./gradlew test 通过",
+      "UI 视觉无明显断行/溢出"
     ],
-    "estimate": "m",
+    "estimate": "s",
     "created": "2026-05-07T18:15:48Z",
-    "updated": "2026-05-07T18:15:48Z"
+    "updated": "2026-05-07T21:51:58Z",
+    "agent": "w-publish-a11y-disclosure",
+    "note": "Done at 334d4390 (3 commits: c47a977d expand, 08a5b1e0 tighten+collapsible, 334d4390 drop placeholder URL). Worker added collapsible extendedDescription field to onboarding step (better UX than long always-shown copy). Privacy policy URL deferred to publish-privacy-policy — wiring real URL into OnboardingSteps.kt extendedDescription is part of that task."
   },
   "publish-encrypted-prefs": {
     "parent": "publish-play-store",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "API key 迁移到 EncryptedSharedPreferences",
     "description": "AppSettingsStore 中 API key 当前以明文存 SharedPreferences。引入 androidx.security:security-crypto，用 MasterKey + EncryptedSharedPreferences 重写存储层。提供从旧明文 prefs 一次性迁移到加密 prefs 的逻辑（migrate-on-read 即可）。同时移除 AppSettingsStore 从外部存储读 api_key.txt 的代码（与 2.4 storage 整改对齐）。详见 projects/active/1_publish/3_privacy_claude.md。",
     "design": "projects/active/1_publish/3_privacy_claude.md",
@@ -387,12 +395,14 @@
     ],
     "estimate": "m",
     "created": "2026-05-07T18:15:48Z",
-    "updated": "2026-05-07T18:15:48Z"
+    "updated": "2026-05-07T19:51:55Z",
+    "agent": "w-publish-encrypted-prefs",
+    "note": "Superseded — AuthStore (app/src/main/kotlin/ai/closepaw/auth/AuthStore.kt) already implements EncryptedSharedPreferences + MasterKey AES256_GCM with memory-only fallback for all LLM provider credentials. AppSettingsStore has no API key fields. Codex gap doc was stale. No code change required. Follow-up opportunity: surface AuthStore.encryptionDegraded as UI warning so users know when keys are memory-only (separate task)."
   },
   "publish-storage-permissions-cleanup": {
     "parent": "publish-play-store",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "移除 READ/WRITE_EXTERNAL_STORAGE（targetSdk 36 下已无效）",
     "description": "AndroidManifest.xml 中声明的 READ_EXTERNAL_STORAGE / WRITE_EXTERNAL_STORAGE 在 targetSdk=36 下系统已完全忽略（Scoped Storage 自 API 30 起 / READ_MEDIA_* 自 API 33 起），属于 historical residue。代码实际使用：(1) BrowserScriptJsInterface 截图写到 /sdcard/Android/data/<package>/ — 这是 app-private external dir，API 19+ 无需任何权限；(2) WorkspaceShellPromptSection 提示 agent 用 Termux shell cp 文件，那是 Termux 的权限不是本 app 的。删掉这两行 manifest，无功能变化。修复 ScopedStorage lint warning，减少 Play 审核 friction，简化 Data Safety 表。详见 projects/active/1_publish/3_privacy_claude.md。⚠️ 与 publish-encrypted-prefs 的依赖只是文档分组习惯，技术上无强依赖；可独立完成。",
     "design": "projects/active/1_publish/3_privacy_claude.md",
@@ -408,7 +418,8 @@
     ],
     "estimate": "xs",
     "created": "2026-05-07T18:15:48Z",
-    "updated": "2026-05-07T18:58:21Z"
+    "updated": "2026-05-07T19:32:37Z",
+    "agent": "w-publish-storage-permissions-cleanup"
   },
   "publish-play-console-account": {
     "parent": "publish-play-store",
