@@ -3,13 +3,12 @@ package ai.closepaw.llm
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.auth.CodexHeaders
+import ai.closepaw.auth.FakeSharedPreferences
 import ai.closepaw.auth.MissingCredential
 import android.content.Context
-import androidx.security.crypto.MasterKey
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkConstructor
 import io.mockk.unmockkAll
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -54,16 +53,12 @@ class LLMClientFactoryTest {
 
     private val catalog = ModelCatalog.fromJson(catalogJson)
     private lateinit var context: Context
+    private lateinit var fakePrefs: FakeSharedPreferences
 
     @Before
     fun setUp() {
         context = mockk(relaxed = true)
-        // Force AuthStore into encryption-degraded (memory-only) mode.
-        mockkConstructor(MasterKey.Builder::class)
-        every { anyConstructed<MasterKey.Builder>().setKeyScheme(any()) } returns
-                mockk(relaxed = true) {
-                    every { build() } throws RuntimeException("Keystore unavailable")
-                }
+        fakePrefs = FakeSharedPreferences()
     }
 
     @After
@@ -71,7 +66,7 @@ class LLMClientFactoryTest {
         unmockkAll()
     }
 
-    private fun realStore(): AuthStore = AuthStore(context)
+    private fun realStore(): AuthStore = AuthStore(context, prefsProvider = { fakePrefs })
 
     @Test
     fun `create returns OpenAIResponseClient for response api`() = runBlocking {

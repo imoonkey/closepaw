@@ -5,6 +5,7 @@ import android.content.res.AssetManager
 import com.google.common.truth.Truth.assertThat
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
+import ai.closepaw.auth.FakeSharedPreferences
 import ai.closepaw.auth.MissingCredential
 import ai.closepaw.llm.ChatCompletionClient
 import ai.closepaw.llm.LLMProvider
@@ -32,7 +33,7 @@ class SessionServicesProviderRoutingTest {
   @Test
   fun `openrouter model works without openai key`() {
     val context = contextWithCatalog()
-    val authStore = AuthStore(context)
+    val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
       authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-or-test"))
     }
@@ -61,7 +62,7 @@ class SessionServicesProviderRoutingTest {
   @Test
   fun `pro mode validates executor model provider key`() {
     val context = contextWithCatalog()
-    val authStore = AuthStore(context)
+    val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
       authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-openai-test"))
     }

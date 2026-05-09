@@ -2,13 +2,11 @@ package ai.closepaw.ui.settings
 
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
+import ai.closepaw.auth.FakeSharedPreferences
 import ai.closepaw.llm.LLMProvider
 import android.content.Context
-import androidx.security.crypto.MasterKey
 import com.google.common.truth.Truth.assertThat
-import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkConstructor
 import io.mockk.unmockkAll
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -31,24 +29,22 @@ import org.junit.Test
 class LlmAuthApiKeyPersistTest {
 
     private lateinit var context: Context
+    private lateinit var fakePrefs: FakeSharedPreferences
 
     @Before
     fun setUp() {
         context = mockk(relaxed = true)
-        // Force AuthStore into encryption-degraded (memory-only) mode for JVM.
-        mockkConstructor(MasterKey.Builder::class)
-        every { anyConstructed<MasterKey.Builder>().setKeyScheme(any()) } returns
-            mockk(relaxed = true) {
-                every { build() } throws RuntimeException("Keystore unavailable")
-            }
+        fakePrefs = FakeSharedPreferences()
     }
 
     @After
     fun tearDown() = unmockkAll()
 
+    private fun newAuthStore(): AuthStore = AuthStore(context, prefsProvider = { fakePrefs })
+
     @Test
     fun `last keystroke wins across three rapid debounced persists`() = runTest {
-        val authStore = AuthStore(context)
+        val authStore = newAuthStore()
         val mutex = Mutex()
         val pending = arrayOf<Job?>(null)
         val provider = LLMProvider.OPENAI_API
@@ -79,7 +75,7 @@ class LlmAuthApiKeyPersistTest {
 
     @Test
     fun `mutex preserves launch order when writes overlap past debounce`() = runTest {
-        val authStore = AuthStore(context)
+        val authStore = newAuthStore()
         val mutex = Mutex()
         val pending = arrayOf<Job?>(null)
         val provider = LLMProvider.OPENAI_API

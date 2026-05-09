@@ -17,9 +17,14 @@ import kotlinx.serialization.json.Json
 /**
  * Unified credential store for all cloud LLM providers.
  *
- * Keyed by [LLMProvider]`.name`. Backed by [EncryptedSharedPreferences] with an
- * in-memory fallback when platform encryption is unavailable (same degraded-mode
- * semantics as the legacy `OAuthCredentialStore`).
+ * Keyed by [LLMProvider]`.name`. Backed by [EncryptedSharedPreferences] in
+ * production via the default [prefsProvider]. Tests inject a fake provider so
+ * JVM unit tests don't need Android Keystore.
+ *
+ * If [prefsProvider] throws (e.g. EncryptedSharedPreferences fails to init on
+ * a device with broken Keystore), the exception bubbles up — no silent
+ * memory-only fallback. Caller decides whether to surface a "secure storage
+ * unavailable" error to the user.
  *
  * OAuth token refresh for Codex is serialized through [refreshMutex] so concurrent
  * callers don't race. Network refresh is delegated to an injected [refresher].
@@ -30,41 +35,35 @@ class AuthStore(
         throw NotImplementedError("refresher not configured")
     },
     private val nowMs: () -> Long = System::currentTimeMillis,
+    private val prefsProvider: (Context) -> SharedPreferences = ::defaultEncryptedPrefs,
 ) {
     companion object {
         private const val TAG = "AuthStore"
-        private const val PREFS_NAME = "auth_store"
+        internal const val PREFS_NAME = "auth_store"
         private const val REFRESH_BUFFER_MS = 5 * 60 * 1000L
-    }
 
-    private var _prefs: SharedPreferences? = null
-    @Volatile private var _encryptionDegraded = false
-    private val memory = ConcurrentHashMap<String, AuthCredential>()
-    private val generations = ConcurrentHashMap<String, AtomicLong>()
-    private val refreshMutex = Mutex()
-    private val json = Json { ignoreUnknownKeys = true }
-
-    val encryptionDegraded: Boolean get() = _encryptionDegraded
-
-    private fun prefs(): SharedPreferences? {
-        if (_encryptionDegraded) return null
-        _prefs?.let { return it }
-        return try {
+        internal fun defaultEncryptedPrefs(context: Context): SharedPreferences {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
-            EncryptedSharedPreferences.create(
+            return EncryptedSharedPreferences.create(
                 context,
                 PREFS_NAME,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            ).also { _prefs = it }
-        } catch (e: Exception) {
-            Log.w(TAG, "EncryptedSharedPreferences unavailable, memory-only: ${e.message}")
-            _encryptionDegraded = true
-            null
+            )
         }
+    }
+
+    @Volatile private var _prefs: SharedPreferences? = null
+    private val generations = ConcurrentHashMap<String, AtomicLong>()
+    private val refreshMutex = Mutex()
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private fun prefs(): SharedPreferences {
+        _prefs?.let { return it }
+        return prefsProvider(context).also { _prefs = it }
     }
 
     suspend fun get(provider: LLMProvider): AuthCredential? = read(provider.name)
@@ -155,34 +154,20 @@ class AuthStore(
     }
 
     private fun read(key: String): AuthCredential? {
-        val p = prefs()
-        if (p == null) return memory[key]
+        val raw = prefs().getString(key, null) ?: return null
         return try {
-            val raw = p.getString(key, null) ?: return memory[key]
             json.decodeFromString<StoredCredential>(raw).toDomain()
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to read $key: ${e.message}")
-            memory[key]
+            Log.w(TAG, "Failed to parse $key: ${e.message}")
+            null
         }
     }
 
     private fun write(key: String, cred: AuthCredential?) {
-        val p = prefs()
-        if (p == null) {
-            if (cred == null) memory.remove(key) else memory[key] = cred
-            return
-        }
-        try {
-            val editor = p.edit()
-            if (cred == null) editor.remove(key)
-            else editor.putString(key, json.encodeToString(cred.toStored()))
-            editor.apply()
-            // Keep memory in sync as a write-through (harmless when reading back from prefs).
-            if (cred == null) memory.remove(key) else memory[key] = cred
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to write $key: ${e.message}")
-            if (cred == null) memory.remove(key) else memory[key] = cred
-        }
+        val editor = prefs().edit()
+        if (cred == null) editor.remove(key)
+        else editor.putString(key, json.encodeToString(cred.toStored()))
+        editor.apply()
     }
 
     @Serializable

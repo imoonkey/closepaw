@@ -2,11 +2,8 @@ package ai.closepaw.auth
 
 import ai.closepaw.llm.LLMProvider
 import android.content.Context
-import androidx.security.crypto.MasterKey
 import com.google.common.truth.Truth.assertThat
-import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkConstructor
 import io.mockk.unmockkAll
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
@@ -21,21 +18,18 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * JVM unit tests that force encryption-degraded (memory-only) mode so no real
- * EncryptedSharedPreferences is touched. Mirrors `OAuthCredentialStoreFailClosedTest`.
+ * JVM unit tests for AuthStore. Uses [FakeSharedPreferences] via the
+ * [AuthStore.prefsProvider] hook, so no Android Keystore is needed.
  */
 class AuthStoreTest {
 
     private lateinit var context: Context
+    private lateinit var fakePrefs: FakeSharedPreferences
 
     @Before
     fun setUp() {
         context = mockk(relaxed = true)
-        mockkConstructor(MasterKey.Builder::class)
-        every { anyConstructed<MasterKey.Builder>().setKeyScheme(any()) } returns
-            mockk(relaxed = true) {
-                every { build() } throws RuntimeException("Keystore unavailable")
-            }
+        fakePrefs = FakeSharedPreferences()
     }
 
     @After
@@ -44,7 +38,7 @@ class AuthStoreTest {
     private fun newStore(
         now: () -> Long = System::currentTimeMillis,
         refresher: suspend (String) -> AuthCredential.OAuth = { error("unused") },
-    ) = AuthStore(context, refresher, now)
+    ) = AuthStore(context, refresher, now, prefsProvider = { fakePrefs })
 
     @Test
     fun `api key set get has clear`() = runBlocking {
@@ -254,22 +248,14 @@ class AuthStoreTest {
     }
 
     @Test
-    fun `encryption-degraded mode supports full lifecycle`() = runBlocking {
-        val store = newStore()
-        // Force prefs() -> degraded path by triggering any write.
-        store.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("k1"))
-        assertThat(store.encryptionDegraded).isTrue()
-
-        assertThat(store.has(LLMProvider.OPENAI_API)).isTrue()
-        assertThat(store.requireApiKey(LLMProvider.OPENAI_API)).isEqualTo("k1")
-
-        store.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("k2"))
-        assertThat(store.requireApiKey(LLMProvider.OPENROUTER)).isEqualTo("k2")
-        assertThat(store.requireApiKey(LLMProvider.OPENAI_API)).isEqualTo("k1")
-
-        store.clear(LLMProvider.OPENAI_API)
-        assertThat(store.has(LLMProvider.OPENAI_API)).isFalse()
-        assertThat(store.has(LLMProvider.OPENROUTER)).isTrue()
+    fun `prefsProvider exception bubbles up`() {
+        val failing = AuthStore(
+            context,
+            prefsProvider = { throw RuntimeException("Keystore unavailable") },
+        )
+        assertThrows(RuntimeException::class.java) {
+            runBlocking { failing.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("k1")) }
+        }
     }
 
     @Test
