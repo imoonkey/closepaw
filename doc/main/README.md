@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-05-05 (termux_shell integration)
+> Last updated: 2026-05-09 (release-prep wave 1: LICENSE/NOTICE, Open Source Licenses screen, AuthStore fail-fast, Play accessibility disclosure copy)
 
 ## Quick Start
 

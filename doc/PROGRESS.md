@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-05-09: Release-prep wave 1 — open-source readiness + Play disclosure hardening
+
+**What changed:**
+- Added `LICENSE` (Apache 2.0) and `NOTICE` at repo root. Wired `com.jaredsburrows.license:0.9.8` to auto-generate `app/src/main/assets/open_source_licenses.json` (140 deps), surfaced via new **Settings → About → Open Source Licenses** screen (`OpenSourceLicensesPage.kt`). Leap SDK explicitly listed as proprietary "Leap Terms of Use".
+- Removed `READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE` from `AndroidManifest.xml` — both are no-ops on `targetSdk=36` (Scoped Storage / `READ_MEDIA_*` since API 30/33). Eliminates `ScopedStorage` lint warning and reduces Play Store review surface; no functional change (browser screenshots already use `getExternalFilesDir()`, agent file ops go via Termux shell with its own permissions).
+- Expanded onboarding Accessibility step copy: short default + collapsible **Data & privacy details** disclosing LLM data flow + not-in-background guarantee. Rewrote `accessibility_service_description` in `strings.xml` to a ~265-char three-sentence version covering what / when / not-in-background — required surface for Play accessibility-service review. Privacy Policy URL placeholder dropped; will be wired in by `publish-privacy-policy`.
+- Refactored `AuthStore` to remove the silent encryption-degraded fallback. Constructor now takes `prefsProvider: (Context) -> SharedPreferences` (default = `defaultEncryptedPrefs`); if init throws on a broken-Keystore device the exception bubbles up — caller decides UX. Removed `_encryptionDegraded` flag (no consumer existed), in-memory fallback map, and all silent-fallback branches in `read()`/`write()`. Added `FakeSharedPreferences` test helper; 5 test files migrated from `mockkConstructor(MasterKey.Builder)` pattern to explicit DI.
+
+**Why:**
+- Path-A (open source release) prep per `projects/active/1_publish/`. Leap SDK proprietary status needs to be surfaced for legal clarity. Auto-generated NOTICE avoids handwritten drift.
+- Storage perms were historical residue inflating Manifest with permissions that grant nothing on the target SDK — pure hygiene before Play submission.
+- Onboarding's existing "Open Accessibility Settings" CTA already serves as affirmative consent (Voice-Access pattern); it needed Play-grade disclosure copy, not a separate consent dialog. Decision: enhance existing UX, don't add friction.
+- `AuthStore.encryptionDegraded` was never read by any caller — silent fallback meant a user on a broken-Keystore device would silently lose API keys on restart and blame the app. Fail-fast is more honest. Tests' use of degraded mode for testability was the only real consumer; explicit DI is the cleaner replacement.
+
+**Key files:**
+- `LICENSE`, `NOTICE`, `app/build.gradle.kts`, `app/src/main/assets/open_source_licenses.json`
+- `app/src/main/kotlin/ai/closepaw/ui/settings/{OpenSourceLicensesPage,SettingsHomePage,SettingsSheet}.kt`
+- `app/src/main/AndroidManifest.xml`
+- `app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt`, `app/src/main/res/values/strings.xml`
+- `app/src/main/kotlin/ai/closepaw/auth/AuthStore.kt`
+- `app/src/test/kotlin/ai/closepaw/auth/{AuthStoreTest,FakeSharedPreferences}.kt` + 4 other test files
+
+**Verification:**
+- `./gradlew :app:assembleDebug` — green (build + R8 keep rules + license report regen)
+- `./gradlew :app:testDebugUnitTest` — full JVM suite green after DI rewire
+- `./gradlew :app:licenseReleaseReport` — produces 140-entry JSON including Leap proprietary entry
+- Lint no longer reports `ScopedStorage`
+
+**Commit:** `4dc69872..6c611782` (5 implementation + 1 chore)
+**Next:** Wave 2 — `publish-readme-security` (README + SECURITY.md, GitHub Private Vulnerability Reporting), `publish-signing-keystore` (release keystore + dual-machine OS keychain backup + signingConfigs + version 0.1.0), `publish-release-workflow` (tag → signed APK → GitHub Release; configured but not triggered).
+**Blockers:** None for path A. Path B (Play Store) is queued behind wave 2 + privacy policy hosting.
+
 ## 2026-05-08: Display Mode selector reflects persisted choice
 
 **What changed:**
