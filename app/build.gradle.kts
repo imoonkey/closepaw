@@ -21,10 +21,27 @@ android {
         // If we need to support Android < 12, consider a cloud-only flavor.
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (project.findProperty("VERSION_CODE") as String).toInt()
+        versionName = project.findProperty("VERSION_NAME") as String
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Release signing reads from environment so the keystore + password never
+    // touch the repo. `scripts/release-build.sh` wires these from
+    // ~/secrets/closepaw/. If env is unset (e.g. local debug builds, IDE sync),
+    // we fall back to null and the release variant simply won't be signed —
+    // debug builds use Android's default debug keystore and are unaffected.
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+            if (!keystorePath.isNullOrBlank() && file(keystorePath).exists()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS") ?: "closepaw"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -40,6 +57,10 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("boolean", "INSECURE_SSL_FOR_EVAL", "false")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
         }
     }
 
