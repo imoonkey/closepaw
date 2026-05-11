@@ -267,27 +267,29 @@
     "depends": [],
     "state": "ready",
     "title": "Release keystore + signingConfigs + 双机备份 + 版本 bump 0.1.0",
-    "description": "密码方案：双机各用 OS 自带 secret store。Ubuntu desktop 用 GNOME Keyring (libsecret-tools 提供 secret-tool)，macOS laptop 用 Keychain (内置 security 命令)。两边存同一个密码。\n\n步骤：\n\n[人 30 秒] 1) Desktop（如缺）安装 libsecret-tools：sudo apt install -y libsecret-tools。\n[人 30 秒] 2) Desktop 跑 secret-tool store --label=\"closepaw release keystore\" service closepaw user keystore-password，输入新密码（建议 openssl rand -base64 32 生成）。\n[人 30 秒] 3) Laptop 跑 security add-generic-password -a closepaw -s closepaw-release-keystore -w，输入同一个密码。\n\n[Agent] 4) Desktop 上 RELEASE_KEYSTORE_PASSWORD=$(secret-tool lookup service closepaw user keystore-password)，然后 keytool -genkeypair -storetype PKCS12 -keystore ~/secrets/closepaw/release.keystore -alias closepaw -keyalg RSA -keysize 2048 -validity 10000 -storepass \"$RELEASE_KEYSTORE_PASSWORD\" -keypass \"$RELEASE_KEYSTORE_PASSWORD\" -dname \"CN=ClosePaw,O=ClosePaw,C=CN\"。\n[Agent] 5) ssh moonkey@laptop \"mkdir -p ~/secrets/closepaw\" && scp ~/secrets/closepaw/release.keystore moonkey@laptop:~/secrets/closepaw/。\n[Agent] 6) 校验两机 sha256 一致。\n[Agent] 7) 在 app/build.gradle.kts 加 signingConfigs，密码读 env：KEYSTORE_PATH/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD。把 versionCode/versionName 提到 gradle.properties，初值 versionName=0.1.0、versionCode=1。\n[Agent] 8) 确认 .gitignore 含 *.keystore *.jks。\n[Agent] 9) export 必要 env，跑 ./gradlew assembleRelease 验证 desktop 出签名 APK。\n[人] 10) Laptop 上同样 export 跑一次验证（跨机一致）。\n\n⚠️ Keystore 一旦丢失 = app 身份永久丢失，所有用户必须卸载重装才能升级，所以双机备份是底线。\n⚠️ 本任务只 setup 本地构建，不 push 任何东西到 GitHub。\n⚠️ 整个流程密码不落盘、不写日志：keyring → env var → keytool/gradle 直接消化，shell 退出 env 自动清。\n详见 projects/active/1_publish/2_release_build_claude.md。",
+    "description": "密码方案：文件保存（与 keystore 同信任边界）。两边各持一份 ~/secrets/closepaw/release.keystore.password (mode 600)，跟 .keystore 文件同步过去。\n\n步骤：\n\n[Agent] 1) mkdir -p ~/secrets/closepaw, chmod 700 ~/secrets/closepaw\n[Agent] 2) openssl rand -base64 32 > ~/secrets/closepaw/release.keystore.password, chmod 600 同文件\n[Agent] 3) PASSWORD=$(cat ~/secrets/closepaw/release.keystore.password); keytool -genkeypair -v -storetype PKCS12 -keystore ~/secrets/closepaw/release.keystore -alias closepaw -keyalg RSA -keysize 2048 -validity 10000 -storepass \"$PASSWORD\" -keypass \"$PASSWORD\" -dname \"CN=ClosePaw,O=ClosePaw Authors,C=CN\"; chmod 600 ~/secrets/closepaw/release.keystore\n[Agent] 4) ssh moonkey@laptop \"mkdir -p ~/secrets/closepaw && chmod 700 ~/secrets/closepaw\"\n[Agent] 5) scp ~/secrets/closepaw/release.keystore ~/secrets/closepaw/release.keystore.password moonkey@laptop:~/secrets/closepaw/, ssh laptop \"chmod 600 ~/secrets/closepaw/release.keystore ~/secrets/closepaw/release.keystore.password\"\n[Agent] 6) 校验两机 sha256 一致\n[Agent] 7) 在 app/build.gradle.kts 加 signingConfigs，密码读 env：KEYSTORE_PATH/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD\n[Agent] 8) 把 versionCode/versionName 提到 gradle.properties，初值 versionName=0.1.0、versionCode=1\n[Agent] 9) 确认 .gitignore 含 *.keystore *.jks（防误提交）\n[Agent] 10) 写一个简单的 scripts/release-build.sh wrapper：从 ~/secrets/closepaw/ 读密码 export env 然后跑 ./gradlew assembleRelease\n[Agent] 11) 跑 scripts/release-build.sh 验证 desktop 出签名 APK\n[人 30 秒] 12) Laptop 上跑 scripts/release-build.sh 同样验证（你自己 ssh 进去跑一下确认跨机一致；agent 也能远程触发但你看一眼更稳）\n\n⚠️ Keystore 一旦丢失 = app 身份永久丢失，所有用户必须卸载重装才能升级。双机备份是底线。考虑额外 USB/云盘 cold backup（可选）。\n⚠️ 本任务只 setup 本地构建，不 push 任何东西到 GitHub。\n\n详见 projects/active/1_publish/2_release_build_claude.md。",
     "design": "projects/active/1_publish/2_release_build_claude.md",
     "scope": [
       "app/build.gradle.kts",
       "gradle.properties",
-      ".gitignore"
+      ".gitignore",
+      "scripts/release-build.sh"
     ],
     "acceptCriteria": [
-      "Desktop GNOME Keyring 中 service=closepaw user=keystore-password 可读",
-      "Laptop Keychain 中 closepaw-release-keystore 可读",
-      "两处密码一致",
-      "~/secrets/closepaw/release.keystore 在 desktop 和 laptop 都存在且 sha256 一致",
+      "~/secrets/closepaw/release.keystore 存在 mode 600 in desktop 和 laptop",
+      "~/secrets/closepaw/release.keystore.password 存在 mode 600 in desktop 和 laptop",
+      "两机 keystore 文件 sha256 一致",
+      "两机 password 文件内容一致",
       "grep -q signingConfigs app/build.gradle.kts",
       "版本 0.1.0 写入 gradle.properties 或 app/build.gradle.kts",
       "grep -qE \"keystore|jks\" .gitignore",
-      "Desktop 和 Laptop 都能 ./gradlew assembleRelease 产出签名 APK",
-      "签名 release APK 在真机/模拟器上 accessibility + LLM + Shizuku 功能正常"
+      "test -x scripts/release-build.sh",
+      "Desktop scripts/release-build.sh 产出签名 APK，jarsigner -verify 通过",
+      "Laptop scripts/release-build.sh 产出签名 APK，jarsigner -verify 通过"
     ],
     "estimate": "m",
     "created": "2026-05-07T18:15:17Z",
-    "updated": "2026-05-07T19:07:33Z"
+    "updated": "2026-05-11T22:23:19Z"
   },
   "publish-release-workflow": {
     "parent": "publish-oss-release",
