@@ -93,6 +93,15 @@
 # ── HiddenApiBypass ─────────────────────────────────────────────────────
 -keep class org.lsposed.hiddenapibypass.** { *; }
 
+# ── SnakeYAML ───────────────────────────────────────────────────────────
+# SkillFrontmatterParser uses Yaml().load<Map<String, Any?>>() — pure
+# Map/List loading, no JavaBean introspection. snakeyaml still references
+# java.beans.* in its bean-introspector code path, which is absent on
+# Android, so we silence those warnings and keep the parser internals R8
+# would otherwise prune (constructors/representers are looked up by name).
+-dontwarn java.beans.**
+-keep class org.yaml.snakeyaml.** { *; }
+
 # ── Compose ─────────────────────────────────────────────────────────────
 # Default rules ship with AGP; add extras for @Stable / composable lookups.
 -keep class androidx.compose.runtime.** { *; }
