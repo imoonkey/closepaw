@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-05-09 (release-prep wave 1: LICENSE/NOTICE, Open Source Licenses screen, AuthStore fail-fast, Play accessibility disclosure copy)
+> Last updated: 2026-05-12 (release-prep wave 2: signing pipeline, R8 unblock, GitHub release workflow, repo-root README/SECURITY)
 
 ## Quick Start
 

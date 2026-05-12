@@ -1,6 +1,6 @@
 # Development Guide
 
-> Last updated: 2026-05-04 (browser-cdp-runtime + browser-phase5/6 milestones)
+> Last updated: 2026-05-12 (release-prep wave 2: signing pipeline, R8 unblock, GitHub release workflow)
 
 This guide covers the development workflow for ClosePaw - building, testing, and debugging.
 
@@ -10,10 +10,10 @@ All day-to-day work uses the **debug** APK. The **release** APK is only for ship
 
 | | Debug | Release |
 |---|---|---|
-| Build | `./gradlew assembleDebug` (seconds) | `./gradlew assembleRelease` (~2 min) |
+| Build | `./gradlew assembleDebug` (seconds) | `./scripts/release-build.sh :app:assembleRelease` (~2 min) |
 | Install | `scripts/setup.sh`, `adb install -r …` | Sign then `adb install`. `scripts/setup.sh` targets debug. |
 | R8 / resource shrink | off | **on** (`isMinifyEnabled=true`, `isShrinkResources=true`) |
-| APK size | ~96 MB | ~25 MB (−74%) |
+| APK size | ~96 MB | 140 MB (R8 enabled; large because Leap SDK + bcprov + tessdata native libs ship inside the APK) |
 | `BuildConfig.DEBUG` | `true` → `LlmLogger.VERBOSE_LOGGING` prints full prompt/response; streaming clients build accumulators | `false` → verbose log off, accumulators skipped (see `perf-streaming-guard`) |
 | `INSECURE_SSL_FOR_EVAL` | opt-in via `-PinsecureSslForEval=true` | forced `false` |
 | Cleartext (`10.0.2.2`, `localhost`) | allowed for emulator via `network_security_config.xml` | blocked |
@@ -21,8 +21,22 @@ All day-to-day work uses the **debug** APK. The **release** APK is only for ship
 
 **When to build release:**
 1. Release artifact / public distribution.
-2. Validating R8 keep rules (`app/proguard-rules.pro`). After any SDK upgrade or reflection/AIDL touch, run `./gradlew assembleRelease` and grep `app/build/outputs/mapping/release/mapping.txt` for any symbol expected to stay unobfuscated.
+2. Validating R8 keep rules (`app/proguard-rules.pro`). After any SDK upgrade or reflection/AIDL touch, run `./scripts/release-build.sh :app:assembleRelease` and grep `app/build/outputs/mapping/release/mapping.txt` for any symbol expected to stay unobfuscated.
 3. Measuring APK size, cold start, or dex method count.
+
+### Signed release builds (`scripts/release-build.sh`)
+
+`./gradlew assembleRelease` direct doesn't sign — `signingConfigs.create("release")` reads keystore env vars (`KEYSTORE_PATH/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD`) and gracefully falls back to `null` when they're absent (so IDE syncs don't break). The wrapper script does the env setup:
+
+- Keystore + password live at `~/secrets/closepaw/release.keystore` and `~/secrets/closepaw/release.keystore.password` (mode 600), outside the repo by design. Mirrored desktop ↔ laptop via Tailscale `scp` — both machines can sign independently.
+- `scripts/release-build.sh` sources `~/.android-agent-env` (for `JAVA_HOME` / `ANDROID_HOME` in non-interactive shells), exports the signing env from those two files, then `exec ./gradlew "$@"`.
+- New maintainer onboarding: ask the existing maintainer for the keystore + password files (or generate a fresh keystore for personal/dev work — see `projects/active/1_publish/2_release_build_claude.md`). `.gitignore` covers `*.keystore` `*.jks` `*.password`, but the canonical location is outside the repo to enforce the boundary.
+- CI publishes via `.github/workflows/release.yml` (fires on `v*` tag push; reads `KEYSTORE_BASE64` + `KEYSTORE_PASSWORD` from GitHub Secrets).
+
+**R8 keep-rule pitfalls already handled** (in `app/proguard-rules.pro` + `app/build.gradle.kts`):
+- snakeyaml (direct dep, `SkillFrontmatterParser`) calls `java.beans.*` which Android lacks → `-dontwarn java.beans.**` + `-keep org.yaml.snakeyaml.**`.
+- `bcprov-jdk18on:1.84` ships Java-25 multi-release bytecode that Kotlin 2.3.0's `produceReleaseComposeMapping` ASM can't parse → that whole optional pipeline (`produce/merge/reportReleaseComposeMappingErrors`) is disabled in `afterEvaluate`. Only debug-only stack-trace metadata is lost; APK functionality unaffected.
+- R8 needs `-Xmx4096m` daemon heap (`gradle.properties`); 2 GB OOMs.
 
 **Before publishing a release:** install the signed release APK with a real API key and run at least one full LLM tool-call end-to-end. R8 is the likely source of any `ClassNotFoundException` / `NoSuchMethodError`, and the `OpenAIResponseClient` / `ChatCompletionClient` streaming paths are the highest-risk zones. The `perf-qa-real-device` QA report explicitly calls this out as a follow-up.
 
