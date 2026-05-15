@@ -430,7 +430,7 @@
   "uam-collapse-role-defs": {
     "parent": "unified-agent-mode",
     "depends": [],
-    "state": "ready",
+    "state": "running",
     "title": "Collapse role defs into single DefaultRoleDef",
     "description": "Rename StandaloneRoleDef -> DefaultRoleDef. Add delegate_task to allowedTools. Set delegatable = true. Add a ## Delegation paragraph to the prompt explaining when to delegate (independent subtask with isolatable context, or one-shot exploration whose noisy steps would pollute the main trace). Delete PlannerAgentDef.kt and ExecutorAgentDef.kt. Collapse AgentDefRegistry to expose a single main role and a single delegatableRoles() entry.",
     "design": "projects/active/unified_agent_mode/design_claude.md",
@@ -447,8 +447,9 @@
     "priority": "high",
     "estimate": "s",
     "created": "2026-05-15T10:33:32Z",
-    "updated": "2026-05-15T10:37:27Z",
-    "worktree": "unified-agent-mode"
+    "updated": "2026-05-15T10:44:20Z",
+    "worktree": "unified-agent-mode",
+    "agent": "w-uam-collapse-role-defs"
   },
   "uam-remove-agentmode-enum": {
     "parent": "unified-agent-mode",
@@ -743,7 +744,8 @@
     ],
     "estimate": "m",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:39:27Z"
+    "updated": "2026-05-15T10:47:20Z",
+    "worktree": "vd-completion-handoff"
   },
   "vd-handoff-event-model": {
     "parent": "vd-completion-handoff",
@@ -770,7 +772,8 @@
     ],
     "estimate": "s",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:39:27Z"
+    "updated": "2026-05-15T10:47:20Z",
+    "worktree": "vd-completion-handoff"
   },
   "vd-handoff-capture": {
     "parent": "vd-completion-handoff",
@@ -799,7 +802,8 @@
     ],
     "estimate": "m",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:39:27Z"
+    "updated": "2026-05-15T10:47:20Z",
+    "worktree": "vd-completion-handoff"
   },
   "vd-handoff-render": {
     "parent": "vd-completion-handoff",
@@ -831,7 +835,8 @@
     ],
     "estimate": "m",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:39:27Z"
+    "updated": "2026-05-15T10:47:20Z",
+    "worktree": "vd-completion-handoff"
   },
   "new-session-no-handoff-regression": {
     "parent": "vd-completion-handoff",
@@ -863,7 +868,8 @@
     ],
     "estimate": "s",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:39:27Z"
+    "updated": "2026-05-15T10:47:21Z",
+    "worktree": "vd-completion-handoff"
   },
   "vd-runtime-boundary": {
     "parent": null,
@@ -1105,5 +1111,72 @@
     "note": "Optional Phase 2. Start only after the manager boundary is stable and human review confirms the service wrapper is still worth it.",
     "created": "2026-05-15T10:39:27Z",
     "updated": "2026-05-15T10:39:27Z"
+  },
+  "vd-handoff-codex-code-review": {
+    "parent": "vd-completion-handoff",
+    "depends": [
+      "new-session-no-handoff-regression"
+    ],
+    "state": "ready",
+    "title": "Codex code review for VD completion handoff",
+    "description": "Review the implemented VD completion handoff changes with a bug/risk-first stance. Focus on accidental app/viewer launches, stale VD metadata, lifecycle races, non-VD regressions, and missing tests before the work moves to QA.",
+    "design": "projects/active/vd_completion_handoff/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/protocol/*",
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt",
+      "app/src/main/kotlin/ai/closepaw/platform/virtualdisplay/*",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/test/kotlin/**",
+      "app/src/androidTest/kotlin/**"
+    ],
+    "acceptCriteria": [
+      "A code review report exists under projects/active/vd_completion_handoff/ with findings ordered by severity or an explicit no-findings statement",
+      "The review covers New Session no-handoff behavior and explicit CTA-only app/viewer launch behavior",
+      "rg -n \"VD completion handoff|New Session|handoff\" projects/active/vd_completion_handoff exits 0",
+      "./gradlew :app:testDebugUnitTest exits 0"
+    ],
+    "priority": "high",
+    "tags": [
+      "virtual-display",
+      "code-review",
+      "handoff"
+    ],
+    "estimate": "s",
+    "worktree": "vd-completion-handoff",
+    "created": "2026-05-15T10:48:22Z",
+    "updated": "2026-05-15T10:48:22Z"
+  },
+  "vd-handoff-qa": {
+    "parent": "vd-completion-handoff",
+    "depends": [
+      "vd-handoff-codex-code-review"
+    ],
+    "state": "ready",
+    "title": "QA VD completion handoff flows",
+    "description": "Validate the implemented VD completion handoff from the user's perspective. Exercise completion chat default, explicit Open <App>, explicit View virtual screen, and New Session not opening app/viewer after a completed VD task.",
+    "design": "projects/active/vd_completion_handoff/design_codex.md",
+    "scope": [
+      "projects/active/vd_completion_handoff/**",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/**",
+      "scripts/**"
+    ],
+    "acceptCriteria": [
+      "A QA report exists under projects/active/vd_completion_handoff/ describing tested VD completion handoff flows and outcomes",
+      "QA confirms VD completion defaults to ClosePaw chat and app/viewer launch only occurs through explicit CTAs",
+      "QA confirms New Session after a completed VD task does not open the last app or VD viewer",
+      "rg -n \"QA|New Session|View virtual screen|Open .*App|handoff\" projects/active/vd_completion_handoff exits 0",
+      "./gradlew :app:testDebugUnitTest exits 0"
+    ],
+    "priority": "high",
+    "tags": [
+      "virtual-display",
+      "qa",
+      "handoff"
+    ],
+    "estimate": "m",
+    "worktree": "vd-completion-handoff",
+    "created": "2026-05-15T10:48:22Z",
+    "updated": "2026-05-15T10:48:22Z"
   }
 }
