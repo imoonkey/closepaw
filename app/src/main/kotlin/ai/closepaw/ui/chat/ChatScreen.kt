@@ -84,6 +84,7 @@ fun ChatScreen(
     onDeleteSession: (SessionInfo) -> Unit,
     onLoadSessions: () -> Unit,
     onOpenViewer: () -> Unit,
+    onOpenApp: (String) -> Unit,
     repairModel: PermissionRepairModel? = null,
     onFixAccessibility: () -> Unit = {},
     onFixOverlay: () -> Unit = {},
@@ -219,6 +220,8 @@ fun ChatScreen(
                     // Message list
                     MessageList(
                         messages = messages,
+                        onOpenApp = onOpenApp,
+                        onOpenViewer = onOpenViewer,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -237,6 +240,8 @@ fun ChatScreen(
 @Composable
 private fun MessageList(
     messages: List<ChatMessage>,
+    onOpenApp: (String) -> Unit,
+    onOpenViewer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -309,6 +314,8 @@ private fun MessageList(
             ) { message ->
                 MessageBubble(
                     message = message,
+                    onOpenApp = onOpenApp,
+                    onOpenViewer = onOpenViewer,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
