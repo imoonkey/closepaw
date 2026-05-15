@@ -67,9 +67,12 @@ internal class IsolatedSubAgentRunner(
             snapshot = parentServices.termuxSnapshot,
             excludedTools = parentServices.config.excludedTools.toToolNames()
         )
+        // delegate_task: prevent runaway recursion — a subagent must not spawn another subagent.
+        // remember_experience: long-term memory writes stay scoped to the main agent. The subagent's
+        // insights flow back via its delegation result; the parent decides what (if anything) to persist.
         val childTools = parentServices.toolRegistry.createFilteredCopy(
             allowedNames = resolvedRoleDef.allowedToolNames,
-            excludedNames = setOf("delegate_task")
+            excludedNames = setOf("delegate_task", "remember_experience")
         )
         // Share scratchpad by reference on purpose so planner/executor exchange state in one turn.
         // ScratchpadState uses synchronized access and is safe for concurrent coroutine access.
