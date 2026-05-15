@@ -280,6 +280,12 @@ class VirtualDisplayPlatform(
     fun getSurfaceMode(): VirtualDisplaySurfaceMode = surfaceController.mode()
 
     /**
+     * Whether the VD viewer can currently be opened (display is live, not Stopped/Draining/Broken).
+     * Used to decide if a `TaskCompleted` handoff should expose a "View virtual screen" CTA.
+     */
+    fun isViewerAvailable(): Boolean = arbiter.state is VdState.Running
+
+    /**
      * Forward a touch stream from VirtualDisplayViewerActivity into the virtual display.
      *
      * Primary path uses raw MotionEvent injection when InputEvent#setDisplayId is available.
