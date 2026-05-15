@@ -32,7 +32,7 @@ class MainActivityModelValidationTest {
         val s = mockk<AppSettingsState>(relaxed = true)
         every { s.llmBackend } returns backend
         every { s.selectedModel } returns mainModel
-        every { s.executorModel } returns executor
+        every { s.subagentModel } returns executor
         every { s.agentMode } returns mode
         return s
     }

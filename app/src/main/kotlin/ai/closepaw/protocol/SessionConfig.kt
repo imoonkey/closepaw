@@ -40,7 +40,7 @@ data class SessionConfig(
          * Model name (key in llm_models.json) for delegated subagents.
          * When null, subagents fall back to [mainModel].
          */
-        val executorModel: String? = null,
+        val subagentModel: String? = null,
         /** Platform mode: real screen (accessibility) or virtual display (Shizuku) */
         val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
         /** Tool names to exclude from the agent's allowed tool set (e.g. for eval) */

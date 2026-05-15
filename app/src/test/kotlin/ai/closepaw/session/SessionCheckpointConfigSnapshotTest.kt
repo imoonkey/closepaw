@@ -18,7 +18,7 @@ class SessionCheckpointConfigSnapshotTest {
         val config =
             SessionConfig(
                 mainModel = "main-model",
-                executorModel = "executor-model",
+                subagentModel = "executor-model",
                 agentMode = AgentMode.BASIC,
                 maxTurns = 42,
                 perceptionConfig = PerceptionConfig.Hybrid(),
@@ -38,7 +38,7 @@ class SessionCheckpointConfigSnapshotTest {
         val restored = snapshot.toSessionConfig()
 
         assertThat(restored.mainModel).isEqualTo("main-model")
-        assertThat(restored.executorModel).isEqualTo("executor-model")
+        assertThat(restored.subagentModel).isEqualTo("executor-model")
         assertThat(restored.agentMode).isEqualTo(AgentMode.BASIC)
         assertThat(restored.maxTurns).isEqualTo(42)
         assertThat(restored.perceptionConfig).isInstanceOf(PerceptionConfig.Hybrid::class.java)

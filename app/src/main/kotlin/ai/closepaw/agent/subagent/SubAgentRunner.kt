@@ -85,8 +85,8 @@ internal class IsolatedSubAgentRunner(
             )
         )
 
-        // Sub-agents use executor model when available, otherwise fall back to main model
-        val childModelName = parentServices.config.executorModel
+        // Sub-agents use their dedicated model when available, otherwise fall back to main model
+        val childModelName = parentServices.config.subagentModel
             ?: parentServices.config.mainModel
 
         val childAgent = Agent(

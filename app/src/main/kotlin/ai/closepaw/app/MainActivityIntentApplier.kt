@@ -87,9 +87,9 @@ internal suspend fun applyIntentPayloadToSettings(
         settingsState.updateModel(it)
         log("Main model set from intent: $it")
     }
-    payload.executorModel?.let {
-        settingsState.updateExecutorModel(it)
-        log("Executor model set from intent: $it")
+    payload.subagentModel?.let {
+        settingsState.updateSubagentModel(it)
+        log("Subagent model set from intent: $it")
     }
     payload.maxTurns?.let {
         settingsState.updateMaxTurns(it)

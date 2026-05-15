@@ -303,7 +303,7 @@ class SessionCheckpointReloadAndListenersTest {
         sessionId = sessionId,
         config = ConversationConfigSnapshot(
             mainModel = "test-model",
-            executorModel = null,
+            subagentModel = null,
             agentMode = AgentMode.PRO.name,
             maxTurns = 4,
             perceptionMode = "accessibility_only",

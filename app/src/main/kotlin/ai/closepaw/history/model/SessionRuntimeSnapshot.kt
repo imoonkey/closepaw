@@ -59,7 +59,7 @@ sealed interface PersistedHistoryItem {
 @Serializable
 data class ConversationConfigSnapshot(
     val mainModel: String,
-    val executorModel: String? = null,
+    val subagentModel: String? = null,
     val maxTurns: Int,
     val perceptionMode: String,
     val platformMode: String,

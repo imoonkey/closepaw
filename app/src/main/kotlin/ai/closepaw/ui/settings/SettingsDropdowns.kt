@@ -43,7 +43,7 @@ internal fun ExecutorModelDropdown(
         options.find { it.first == selectedModel }?.second ?: "(Same as Main Model)"
 
     SettingsDropdown(
-        label = "Executor Model",
+        label = "Subagent Model",
         value = selectedDisplayName,
         leadingIcon = Icons.Outlined.Psychology,
         options = options,

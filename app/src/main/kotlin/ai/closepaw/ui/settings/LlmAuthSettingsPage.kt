@@ -293,7 +293,7 @@ private fun SignInTabContent(
         )
     }
     Spacer(modifier = Modifier.height(20.dp))
-    SettingsSection(title = "Executor Model") {
+    SettingsSection(title = "Subagent Model") {
         Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
             ExecutorModelDropdown(
                 selectedModel = selectedExecutorModel,
@@ -375,7 +375,7 @@ private fun ApiKeyTabContent(
         )
     }
     Spacer(modifier = Modifier.height(20.dp))
-    SettingsSection(title = "Executor Model") {
+    SettingsSection(title = "Subagent Model") {
         Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
             ExecutorModelDropdown(
                 selectedModel = selectedExecutorModel,

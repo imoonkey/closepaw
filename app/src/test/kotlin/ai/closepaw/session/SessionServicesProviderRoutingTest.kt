@@ -70,7 +70,7 @@ class SessionServicesProviderRoutingTest {
             SessionConfig(
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
                     mainModel = "gpt-5.2",
-                    executorModel = "autoglm-phone-9b-multilingual",
+                    subagentModel = "autoglm-phone-9b-multilingual",
                     agentMode = AgentMode.PRO,
                     maxTurns = 1
             )

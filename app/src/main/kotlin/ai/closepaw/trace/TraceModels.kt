@@ -58,7 +58,7 @@ data class TraceRunConfig(
     @SerialName("llm_backend") val llmBackend: String,
     val model: String,
     @SerialName("main_model") val mainModel: String = model,
-    @SerialName("executor_model") val executorModel: String? = null,
+    @SerialName("subagent_model") val subagentModel: String? = null,
     @SerialName("debug_mode") val debugMode: Boolean,
     @SerialName("screenshot_input") val screenshotInput: Boolean,
     @SerialName("max_turns") val maxTurns: Int

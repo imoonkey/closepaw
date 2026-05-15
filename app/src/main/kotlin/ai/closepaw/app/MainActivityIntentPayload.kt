@@ -14,7 +14,7 @@ data class MainActivityIntentPayload(
         val perceptionMode: String?,
         val platformMode: PlatformMode?,
         val mainModel: String?,
-        val executorModel: String?,
+        val subagentModel: String?,
         val maxTurns: Int?,
         val approvalMode: ApprovalMode?,
         val browserScriptEnabled: Boolean?,
@@ -75,8 +75,8 @@ data class MainActivityIntentPayload(
             val mainModel =
                     intent.getStringExtra(MainActivity.EXTRA_MAIN_MODEL)?.takeIf { it.isNotBlank() }
 
-            val executorModel =
-                    intent.getStringExtra(MainActivity.EXTRA_EXECUTOR_MODEL)?.takeIf {
+            val subagentModel =
+                    intent.getStringExtra(MainActivity.EXTRA_SUBAGENT_MODEL)?.takeIf {
                         it.isNotBlank()
                     }
 
@@ -143,7 +143,7 @@ data class MainActivityIntentPayload(
                     perceptionMode = perceptionMode,
                     platformMode = platformMode,
                     mainModel = mainModel,
-                    executorModel = executorModel,
+                    subagentModel = subagentModel,
                     maxTurns = maxTurns,
                     approvalMode = approvalMode,
                     browserScriptEnabled = browserScriptEnabled,

@@ -24,7 +24,7 @@ internal fun findMissingCloudKeys(
     if (settingsState.llmBackend != LLMBackendType.OPENAI) return emptyList()
 
     val modelsToValidate = linkedSetOf(settingsState.selectedModel)
-    settingsState.executorModel?.let(modelsToValidate::add)
+    settingsState.subagentModel?.let(modelsToValidate::add)
 
     return buildList {
         for (modelName in modelsToValidate) {

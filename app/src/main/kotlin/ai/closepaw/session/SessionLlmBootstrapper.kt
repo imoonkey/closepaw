@@ -109,7 +109,7 @@ internal object SessionLlmBootstrapper {
     ) {
         if (authStore == null) return
         val requiredModels = linkedSetOf(config.mainModel)
-        config.executorModel?.let(requiredModels::add)
+        config.subagentModel?.let(requiredModels::add)
         requiredModels.forEach { modelName ->
             val entry = catalog.resolve(modelName)
             val provider = entry.provider

@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_TRACE_ENABLED = "trace_enabled"
         const val EXTRA_TRACE_RUN_ID = "trace_run_id"
         const val EXTRA_MAIN_MODEL = "main_model"
-        const val EXTRA_EXECUTOR_MODEL = "executor_model"
+        const val EXTRA_SUBAGENT_MODEL = "subagent_model"
         const val EXTRA_MAX_TURNS = "max_turns"
         const val EXTRA_APPROVAL_MODE = "approval_mode"
         const val EXTRA_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
@@ -680,7 +680,7 @@ class MainActivity : ComponentActivity() {
                         maxTurns = settingsState.maxTurns,
                         approvalMode = pendingApprovalMode ?: ApprovalMode.SMART,
                         mainModel = settingsState.selectedModel,
-                        executorModel = settingsState.executorModel,
+                        subagentModel = settingsState.subagentModel,
                         debugMode = settingsState.debugMode,
                         traceEnabled = pendingTraceEnabled ?: settingsState.traceEnabled,
                         traceRunId = pendingTraceRunId,

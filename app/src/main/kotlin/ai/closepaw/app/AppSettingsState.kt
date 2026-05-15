@@ -25,7 +25,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         private set
     var localModel by mutableStateOf<LocalModelOption>(AppSettingsStore.DEFAULT_LOCAL_MODEL)
         private set
-    var executorModel by mutableStateOf<String?>(null)
+    var subagentModel by mutableStateOf<String?>(null)
         private set
     var platformMode by mutableStateOf(AppSettingsStore.DEFAULT_PLATFORM_MODE)
         private set
@@ -46,7 +46,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         perceptionMode = settings.perceptionMode
         llmBackend = settings.llmBackend
         localModel = settings.localModel
-        executorModel = settings.executorModel
+        subagentModel = settings.subagentModel
         platformMode = settings.platformMode
         traceEnabled = settings.traceEnabled
         browserScriptEnabled = settings.browserScriptEnabled
@@ -54,7 +54,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
         Log.d(
                 TAG,
-                "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=${localModel.id}, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, platformMode=$platformMode"
+                "Settings loaded: backend=$llmBackend, model=$selectedModel, subagentModel=$subagentModel, localModel=${localModel.id}, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, platformMode=$platformMode"
         )
     }
 
@@ -68,9 +68,9 @@ class AppSettingsState(private val store: AppSettingsStore) {
         store.saveModel(model)
     }
 
-    fun updateExecutorModel(value: String?) {
-        executorModel = value
-        store.saveExecutorModel(value)
+    fun updateSubagentModel(value: String?) {
+        subagentModel = value
+        store.saveSubagentModel(value)
     }
 
     fun updateLocalModel(model: LocalModelOption) {

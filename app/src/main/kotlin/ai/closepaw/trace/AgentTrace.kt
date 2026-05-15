@@ -51,8 +51,8 @@ internal class AgentTrace(
                     put("llm_backend", JsonPrimitive(services.config.llm.backendType.name))
                     put("model", JsonPrimitive(config.modelName))
                     put("main_model", JsonPrimitive(services.config.mainModel))
-                    services.config.executorModel?.let {
-                        put("executor_model", JsonPrimitive(it))
+                    services.config.subagentModel?.let {
+                        put("subagent_model", JsonPrimitive(it))
                     }
                     put("approval_mode", JsonPrimitive(services.config.approvalMode.name))
                     put("debug_mode", JsonPrimitive(services.config.debugMode))
