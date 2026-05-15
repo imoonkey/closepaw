@@ -2,6 +2,7 @@
 
 ## 2026-05-16: VD completion handoff — Open <App> CTA + ancillary fixes
 
+
 **What changed:**
 - New optional `CompletionHandoff(appPackage, appLabel)` field on `TaskCompleted`; populated only when the active platform is `VirtualDisplayPlatform`. `AgentSession.buildHandoffIfVd` captures the foreground package, filters self/SystemUI/`AppTier.BLOCKED` via `AppClassifier`, resolves the label through `PackageManager`.
 - `ChatEventReducer.handleTaskCompleted` copies handoff metadata onto `ChatMessage.Agent`. New `CompletionHandoffCtaRow` composable renders an **Open <App>** button under the final answer when the package resolves to a launcher intent. Tap routes through `MainActivity.onOpenApp(pkg)` which launches the package's launcher intent on display 0.
@@ -29,6 +30,35 @@
 **Commit:** `9be6c778..f66d14e9` (17 commits, PR #40)
 **Next:** `vd-runtime-boundary` task graph (still blocked) re-introduces a usable viewer post-completion — once that lands, restoring the `View virtual screen` CTA is straightforward (add the field back, render it).
 **Blockers:** None.
+
+## 2026-05-15: Unified agent mode — drop BASIC/PRO split, single Default role with optional delegate_task
+
+**What changed:**
+- Removed the `AgentMode` enum (BASIC/PRO) and every read/write path: `SessionConfig`, `AppSettingsStore`/`AppSettingsState`, `MainActivityIntentPayload`, `MainActivityModelValidation`, `SessionCheckpointCoordinator`, `SessionLlmBootstrapper`, `OnboardingDemoController`, trace models, settings UI.
+- Collapsed `StandaloneAgentDef` / `PlannerAgentDef` / `ExecutorAgentDef` into a single `DefaultAgentDef` with `delegate_task` in its allowed tools and `delegatable = true`. `AgentDefRegistry.main` and `delegatableRoles()` return that one definition; the subagent runtime reuses it and only strips `delegate_task` + `remember_experience` from the child's tool registry.
+- Renamed `executorModel` → `subagentModel`; `AgentExecutionRole` collapsed from `STANDALONE`/`PLANNER`/`EXECUTOR` to `MAIN`/`SUBAGENT`.
+- Settings UI no longer shows a mode dropdown or any `agentMode == PRO` conditionals — delegation is always available.
+- Docs synced: `.claude/skills/prompt-tune/SKILL.md` and `references/ownership_model.md` now point at `DefaultAgentDef.kt` and drop the obsolete `ExecutorStepPolicy` reference; repo-root `README.md` and `doc/main/README.md` describe a single Default role plus optional `delegate_task` instead of planner/executor coordination.
+
+**Why:**
+- Two prompts × two LLM-arg surfaces × two test matrices was paying ongoing maintenance cost for a structural firewall that can be opted into per-task via a tool call.
+- The same context-firewall benefit (subagent's noisy turns invisible to the main agent's LLM context) is preserved as a `delegate_task` capability — same shape as Claude Code's main agent + `Agent` tool.
+
+**Key files:**
+- `app/src/main/kotlin/ai/closepaw/agent/definition/DefaultAgentDef.kt`, `AgentDefRegistry.kt`
+- `app/src/main/kotlin/ai/closepaw/agent/AgentExecutionRole.kt`
+- `app/src/main/kotlin/ai/closepaw/agent/subagent/SubAgentRunner.kt`
+- `app/src/main/kotlin/ai/closepaw/protocol/SessionConfig.kt`
+- `app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt`, `AppSettingsState.kt`, `MainActivityIntentPayload.kt`, `MainActivityModelValidation.kt`
+- `app/src/main/kotlin/ai/closepaw/session/SessionAgentRunner.kt`, `SessionLlmBootstrapper.kt`, `SessionCheckpointCoordinator.kt`
+- `app/src/main/kotlin/ai/closepaw/ui/settings/SettingsDropdowns.kt`, `SettingsHomePage.kt`, `LlmAuthSettingsPage.kt`, `AgentBehaviorSettingsPage.kt`
+- `.claude/skills/prompt-tune/SKILL.md`, `.claude/skills/prompt-tune/references/ownership_model.md`
+- `README.md`, `doc/main/README.md`
+
+**Verification:** `./gradlew test` green; `./gradlew assembleDebug` green. (Mode-pick test paths in `Settings*Test.kt` and `MainActivityModelValidation*Test.kt` removed.)
+**Commit:** Pending (`docs: update for unified agent mode`)
+**Next:** Phase 2 (uam-9) — forward subagent `ActionProposed`/`ActionExecuted` to the parent event stream so the chat row and capsule glow keep pulsing during delegation (Design C-minimal).
+**Blockers:** Existing in-flight `SessionRuntimeSnapshot` checkpoints that carried `agentMode` are now invalid on reload — a one-time loss for users with live snapshots across the upgrade (no backward-compat hacks per CLAUDE.md).
 
 ## 2026-05-15: Restore tap/swipe visualizations across VD and debug action paths
 

@@ -16,7 +16,7 @@ Given a proposed rule or change, walk top-to-bottom:
    NO  → continue
 
 3. Is it cross-tool behavioral policy (retry, fallback, completion, evidence, memory)?
-   YES → CORE PROMPT: agent/definition/StandaloneAgentDef.kt
+   YES → CORE PROMPT: agent/definition/DefaultAgentDef.kt
    NO  → continue
 
 4. Is it an overfit patch for a single eval task with no generalizable value?

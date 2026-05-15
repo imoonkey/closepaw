@@ -19,7 +19,7 @@ AI-powered Android automation — give natural language instructions, the agent 
 - Screen perception via the Android accessibility service — no rooting, no screen scraping hacks
 - Multiple LLM backends: OpenAI, OpenRouter, Novita, plus on-device models via Liquid AI's Leap SDK
 - **Smart Capsule** — a floating overlay that lets you launch and watch tasks without leaving your current app
-- ReAct-style agent loop with planner/executor multi-agent coordination, todo + scratchpad context hygiene, and cross-session memory
+- ReAct-style agent loop with optional `delegate_task` subagent delegation, todo + scratchpad context hygiene, and cross-session memory
 
 ## Quick Start
 
@@ -49,7 +49,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 High-level layers:
 
-- **Agent loop** — ReAct turn engine, planner/executor delegation, todo + scratchpad state, cross-session memory
+- **Agent loop** — ReAct turn engine, optional `delegate_task` subagent delegation, todo + scratchpad state, cross-session memory
 - **Tools** — accessibility actions, browser scripting, on-device perception, optional Termux shell bridge
 - **Platforms** — `AccessibilityPlatform` for normal use, `VirtualDisplayPlatform` (Shizuku) for hybrid background sessions
 - **LLM** — pluggable clients (OpenAI / OpenRouter / Novita / Leap), model catalog, retry infrastructure

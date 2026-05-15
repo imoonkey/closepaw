@@ -42,10 +42,10 @@ For each proposed fix from the diagnosis, determine ownership:
 
 | If the rule is... | Owner | File |
 |---|---|---|
-| Cross-tool behavioral policy | Core prompt | `agent/definition/StandaloneAgentDef.kt` |
+| Cross-tool behavioral policy | Core prompt | `agent/definition/DefaultAgentDef.kt` |
 | Tool-local mechanics/parameters | Tool description | `tool/impl/<ToolName>Tool.kt` |
 | App-specific workflow/pitfall | App skill | `assets/app_skills/<package>/SKILL.md` |
-| System-injected warning text | Infra | `agent/cognition/policy/LoopDetectionPolicy.kt`, `ExecutorStepPolicy.kt` |
+| System-injected warning text | Infra | `agent/cognition/policy/LoopDetectionPolicy.kt` |
 | None of the above | Remove | Do not add anywhere |
 
 Use the decision tree in `references/ownership_model.md` when ownership is ambiguous.
@@ -56,7 +56,7 @@ Always read the current content of the target file first. Understand what alread
 
 ### 3. Apply the change
 
-**Core prompt** (`StandaloneAgentDef.kt`):
+**Core prompt** (`DefaultAgentDef.kt`):
 - Target: ~80-100 lines. If approaching 120+, audit for content that belongs in tool descriptions or app skills.
 - 7 sections: Role, Critical Rules, Execution Loop, Working Memory, Task Modes, Completion, Device Environment.
 - Rules should be concise imperatives. No examples in the core prompt — those belong in tool descriptions.
@@ -92,7 +92,7 @@ Before finalizing, verify:
 ## Key Files
 
 ### Prompt layers
-- Core system prompt: `app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt`
+- Core system prompt: `app/src/main/kotlin/ai/closepaw/agent/definition/DefaultAgentDef.kt`
 - Prompt assembly: `app/src/main/kotlin/ai/closepaw/agent/cognition/prompt/PromptBuilder.kt`
 - App skills directory: `app/src/main/assets/app_skills/<package>/SKILL.md`
 

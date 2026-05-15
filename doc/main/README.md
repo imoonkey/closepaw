@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-05-12 (release-prep wave 2: signing pipeline, R8 unblock, GitHub release workflow, repo-root README/SECURITY)
+> Last updated: 2026-05-15 (unified agent mode: single Default role, AgentMode enum removed)
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ doc/main/
 │   ├── overview.md    # Design principles, architecture, package structure
 │   ├── loop.md        # ReAct loop, Turn, streaming execution
 │   ├── turn_prompt_anatomy.md # Per-turn OpenAI prompt/input/tools breakdown
-│   ├── multiagent.md  # Multi-agent system, Planner-Executor, delegation
+│   ├── multiagent.md  # Multi-agent system, delegate_task, subagent runtime
 │   ├── planning.md    # TodoState, ScratchpadState, context hygiene
 │   ├── memory.md      # Cross-session memory (MemoryStore, recall, auto-retain)
 │   └── agent_skills.md # Agentskills.io system: catalog, activate_skill, App vs Agent skills
@@ -46,7 +46,7 @@ doc/main/
 ├── protocol/          # Communication contracts
 │   ├── overview.md    # Op, state machine, errors, utilities
 │   ├── events.md      # AgentEvent domain hierarchy, key events
-│   └── config.md      # SessionConfig, PlatformMode, AgentMode, LLM config
+│   └── config.md      # SessionConfig, PlatformMode, LLM config
 │
 ├── app/               # Application layer (non-agentic)
 │   ├── history/       # Session history persistence, compression pipeline
@@ -116,15 +116,15 @@ app/src/main/kotlin/ai/closepaw/
 │   ├── ActionTarget.kt           # Shared UI-element target decoder (text/bounds/point/index)
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
 │   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
-│   ├── definition/               # AgentRoleDef: Planner/Executor/Standalone
+│   ├── definition/               # AgentRoleDef: single Default role (main + subagent)
 │   ├── cognition/                # PromptBuilder, TurnObservation, policies, NavigationState
 │   └── subagent/
-│       └── SubAgentRunner.kt     # AgentDefRegistry + runner + executor preset
+│       └── SubAgentRunner.kt     # Isolated subagent runner + tool filtering
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager (bootstrap → run → Hot Idle → teardown)
 │   ├── SessionCoordinator.kt     # Event-driven input queue, cold-idle auto-reload support
-│   ├── SessionAgentRunner.kt     # Mode-based agent runner + delegate tool wiring
+│   ├── SessionAgentRunner.kt     # Agent runner + delegate_task tool wiring
 │   ├── SessionServices.kt        # Dependency injection container
 │   ├── SessionCheckpointCoordinator.kt # Checkpoint persistence for process-death recovery
 │   ├── AgentSessionState.kt      # Shared state container
@@ -328,7 +328,7 @@ app/src/main/kotlin/ai/closepaw/
 | **ReAct Loop** | Perceive → Think → Act → Observe | [loop.md](agent/loop.md) |
 | **Task** | Work unit from user input to completion | [protocol/overview.md](protocol/overview.md) |
 | **Turn** | One LLM call + tool execution cycle | [loop.md](agent/loop.md) |
-| **AgentDef** | Agent definition (Planner/Executor/Standalone) | [multiagent.md](agent/multiagent.md) |
+| **AgentDef** | Agent role definition (single Default role, runtime tagged MAIN/SUBAGENT) | [multiagent.md](agent/multiagent.md) |
 | **Op** | User intent (UI → Agent) | [protocol/overview.md](protocol/overview.md) |
 | **AgentEvent** | State notification (Agent → UI) | [protocol/events.md](protocol/events.md) |
 | **SessionConfig** | Compiled settings snapshot for a session | [settings.md](app/settings.md) |
