@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-05-15: Standalone agent prompt — stop nudging ask_user for system settings; trust stated intent
+
+**What changed:**
+- Replaced the `Safety Rules` block in `StandaloneRoleDef.systemPrompt` with a tighter `ask_user / hand-off` section.
+- Removed the prompt-level rules that told the LLM to `ask_user` before money actions, irreversible ops, permission/system-setting changes, or "when in doubt" — they overlapped `PolicyEngine`'s per-package gating.
+- New rules: `ask_user` is for genuinely missing info or physical-only intervention only; trust the user's stated intent end-to-end (including commits like "send X to John"); hand off only when the agent made many decisions for the user (e.g. "shop for a phone case" → product/color/qty picked) — and use `ask_user(action, ...)` for the hand-off, not `complete_task`, so the VD viewer stays alive instead of being torn down by `shouldFinishViewerOnIdle`.
+- Tightened `AskUserTool.description` to match: explicit "the system handles per-app approval automatically — do not duplicate it"; trimmed redundant phrasing.
+- Kept the credentials hard-rule unchanged.
+
+**Why:**
+- Real-device session showed "Turn on Do Not Disturb" wasting a turn on `ask_user` because the prompt forced it. Settings is `NORMAL`-tier in `app_tiers.json` — `PolicyEngine` already allows it silently in `SMART` mode, so the prompt-level guard was duplicate friction with no safety benefit.
+- Risk gating belongs in `PolicyEngine` (driven by `AppTier`), not in heuristic LLM prompt rules — the recent app-scoped approval refactor (commit dd33e04d) reinforces this.
+- Hand-off via `complete_task` is broken in VD mode: completion → `Done` → `Hidden` → `shouldFinishViewerOnIdle` finishes the viewer, leaving the user on the chat surface with no way to see/tap the staged commit screen. `ask_user(action)` keeps `hasActiveTask=true` so the viewer stays alive — same prompt works in both ASA and VD modes (KISS).
+
+**Key files:**
+- `app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt` (`Safety Rules` → `ask_user / hand-off`)
+- `app/src/main/kotlin/ai/closepaw/tool/impl/AskUserTool.kt` (description)
+
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --tests '*PolicyEngine*' --tests '*ToolRouter*' --tests '*AskUser*' --tests '*CompleteTask*'` all green.
+**Commit:** f842199c
+**Next:** If we later want frictionless ASA hand-off (no extra "Done" tap), add `handoff: true` flag on `complete_task` and teach `shouldFinishViewerOnIdle` to keep the viewer alive on hand-off — independent feature, not blocking this fix.
+**Blockers:** None.
+
 ## 2026-05-15: Approval prompt is now app-scoped with Always, Session, Reject
 
 **What changed:**
