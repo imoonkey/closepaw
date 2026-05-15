@@ -31,7 +31,6 @@ Global rules apply (`~/.claude/CLAUDE.md`). Project-specific additions:
 - `/prompt-tune` - Apply prompt, tool, and app-skill changes per ownership layer
 - `/verify` - Build + lint + tests
 - `/build-fix` - Fix Gradle errors incrementally
-- `/update-docs` - Sync docs with code changes
 - `/tdd` - Test-driven development for core logic
 - `/code-review` - Systematic code review
 - `/orchestrate` - Chain skills/agents for complex workflows
