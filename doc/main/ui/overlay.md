@@ -1,7 +1,7 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
-> Last updated: 2026-05-08 (MainActivity lifecycle gate in ServiceOverlayController)
+> Last updated: 2026-05-14 (`onMainAppHidden` preserves `VD_VIEWER` so the first viewer entry shows edge glow immediately)
 
 ## Overview
 
@@ -26,7 +26,7 @@ The overlay system provides visual feedback and interaction when the agent execu
 `MainActivity` calls `onMainAppVisible()` from `onResume` and `onMainAppHidden()` from `onStop` (intentionally not `onPause` — between the two MainActivity is still drawn on screen). The controller treats this as authoritative over accessibility window-state events:
 
 - While `isMainAppResumed = true`, any `WINDOW_STATE_CHANGED` that would flip `userLocation` away from `MAIN_APP` is dropped. This blocks stale launcher events and OEM "Open with" dialog windows (e.g. Nubia's `com.android.permissioncontroller.OAlertDialog` on `open_app`) from spuriously surfacing the system capsule on top of the in-app capsule.
-- On `onMainAppHidden`, the flag clears AND `userLocation` is force-flipped to `OTHER_APP`, since by definition MainActivity is off-screen at `onStop`. This catches the race where the new foreground app's window-state event arrived (and was dropped) before MainActivity finished stopping. The next legit window event corrects to `VD_VIEWER` if applicable.
+- On `onMainAppHidden`, the flag clears AND `userLocation` flips to `OTHER_APP` **only if it is still `MAIN_APP`**. This catches the race where the new foreground app's window-state event arrived (and was dropped) before MainActivity finished stopping. The flip is conditional because `VirtualDisplayViewerActivity.onStart` calls `onViewerOpened()` (setting `userLocation = VD_VIEWER`) before `MainActivity.onStop` fires; clobbering that to `OTHER_APP` would lose the edge glow on the first viewer entry until a second user action re-triggered `onViewerOpened`.
 
 ---
 

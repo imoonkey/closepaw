@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-05-14: Fix VD viewer edge glow on first entry — `onMainAppHidden` no longer clobbers `VD_VIEWER`
+
+**What changed:**
+- `ServiceOverlayController.onMainAppHidden` now flips `userLocation` only when it's still `MAIN_APP`. Previously the guard was `!= OTHER_APP`, which clobbered any `VD_VIEWER` state set milliseconds earlier by `VirtualDisplayViewerActivity.onStart` → `onViewerOpened()`.
+- Extracted the rule into `resolveLocationOnMainAppHidden(current)` in `OverlayLocationPolicy.kt` so it has a JVM unit-test seam (controller itself depends on `AccessibilityService` + `LifecycleOwner` + `WindowManager` and isn't unit-testable as-is).
+- Added 3 regression tests in `OverlayLocationPolicyTest`: `MAIN_APP → OTHER_APP`, `VD_VIEWER` preserved, `OTHER_APP` no-op.
+
+**Why:**
+- Activity lifecycle order on viewer launch is: `MainActivity.onPause` → `VDViewerActivity.onCreate/onStart` (calls `onViewerOpened()` → `userLocation=VD_VIEWER, showCapsule=true, showGlow=true`) → `MainActivity.onStop` (calls `onMainAppHidden()`). The old unconditional flip downgraded `VD_VIEWER → OTHER_APP`, dropping `showGlow=false` on the first viewer entry. User had to tap "Open viewer" twice to see the edge glow (and the right-side button row stayed in dual-button "MAIN_APP+VD" mode instead of swapping the VD button for the back-to-main icon).
+- Confirmed on-device against `100.64.43.95:5555` (Nubia P0110) running `gpt-5.4` in VD mode. Before fix logcat: `location=VD_VIEWER, showGlow=true` → 0.4s later `location=OTHER_APP, showGlow=false`. After fix: `location=VD_VIEWER, showGlow=true` stable across `MainActivity.onStop`.
+
+**Key files:**
+- `app/src/main/kotlin/ai/closepaw/app/ServiceOverlayController.kt`
+- `app/src/main/kotlin/ai/closepaw/app/OverlayLocationPolicy.kt`
+- `app/src/test/kotlin/ai/closepaw/app/OverlayLocationPolicyTest.kt`
+- `doc/main/ui/overlay.md` (MainActivity Lifecycle Gate section)
+
+**Verification:**
+- `./gradlew :app:testDebugUnitTest --tests "ai.closepaw.app.OverlayLocationPolicyTest"` — 32 tests pass (including 3 new).
+- On-device: `./scripts/setup.sh && DEBUG_AUTO_APPROVE=true ./scripts/debug-run.sh --vd "Open Settings then ..."` while `am start ai.closepaw/.ui.viewer.VirtualDisplayViewerActivity`. Logcat shows `applyVisibility ... location=VD_VIEWER, showCapsule=true, showGlow=true` stays put after `MainActivity.onStop`.
+
+**Commit:** _this commit_
+**Next:** Investigate the older suspicion that sessions sometimes start with stale `platformMode=ACCESSIBILITY` despite `AppSettingsState` showing `VIRTUAL_DISPLAY` (observed in 22:33 session pre-reinstall — could be checkpoint reload path overriding fresh settings).
+**Blockers:** None.
+
 ## 2026-05-12: Release-prep wave 2 — signed release pipeline + GitHub release workflow (path A complete)
 
 **What changed:**

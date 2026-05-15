@@ -279,19 +279,23 @@ class ServiceOverlayController(
     }
 
     /**
-     * MainActivity onStop callback. Releases the sticky MAIN_APP guard and force-flips
-     * userLocation to OTHER_APP, since by definition MainActivity is no longer on screen.
+     * MainActivity onStop callback. Releases the sticky MAIN_APP guard and, only if
+     * userLocation is still claiming MAIN_APP, force-flips it to OTHER_APP since
+     * MainActivity is no longer on screen.
      *
-     * Necessary because the foreground app's window-state event often arrives BEFORE
-     * onStop and gets dropped by the guard above. Without this fallback, userLocation
-     * stays stuck at MAIN_APP and the overlay never appears on the new app. If the new
-     * foreground turns out to be the VD viewer, the next window-state event corrects it.
+     * The force-flip exists because foreground apps' window-state events often arrive
+     * BEFORE onStop and get dropped by the guard above; without it, userLocation stays
+     * stuck at MAIN_APP and overlays never appear on the new app. We must NOT clobber
+     * VD_VIEWER here: VirtualDisplayViewerActivity.onStart calls onViewerOpened() before
+     * MainActivity.onStop runs, and that authoritative VD_VIEWER state would otherwise
+     * regress to OTHER_APP — losing the edge glow that signals viewer mode.
      */
     fun onMainAppHidden() {
         if (!isMainAppResumed) return
         isMainAppResumed = false
-        if (userLocation != OverlayUserLocation.OTHER_APP) {
-            userLocation = OverlayUserLocation.OTHER_APP
+        val next = resolveLocationOnMainAppHidden(userLocation)
+        if (next != userLocation) {
+            userLocation = next
             updateContext()
         }
         applyVisibility()

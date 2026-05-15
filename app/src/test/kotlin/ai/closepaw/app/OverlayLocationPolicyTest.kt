@@ -406,4 +406,28 @@ class OverlayLocationPolicyTest {
                 .isTrue()
         }
     }
+
+    @Test
+    fun `onMainAppHidden flips MAIN_APP to OTHER_APP`() {
+        // Catches the race where the new foreground app's window-state event arrived
+        // before MainActivity.onStop fired and was dropped by the isMainAppResumed guard.
+        assertThat(resolveLocationOnMainAppHidden(OverlayUserLocation.MAIN_APP))
+            .isEqualTo(OverlayUserLocation.OTHER_APP)
+    }
+
+    @Test
+    fun `onMainAppHidden preserves VD_VIEWER`() {
+        // Regression guard: VirtualDisplayViewerActivity.onStart calls onViewerOpened()
+        // BEFORE MainActivity.onStop. Clobbering VD_VIEWER → OTHER_APP would lose the
+        // edge glow on the first viewer entry until a second user action re-triggered
+        // onViewerOpened.
+        assertThat(resolveLocationOnMainAppHidden(OverlayUserLocation.VD_VIEWER))
+            .isEqualTo(OverlayUserLocation.VD_VIEWER)
+    }
+
+    @Test
+    fun `onMainAppHidden leaves OTHER_APP unchanged`() {
+        assertThat(resolveLocationOnMainAppHidden(OverlayUserLocation.OTHER_APP))
+            .isEqualTo(OverlayUserLocation.OTHER_APP)
+    }
 }

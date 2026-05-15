@@ -78,6 +78,27 @@ internal fun shouldOpenAppWhenIslandTapped(
     mode: CapsuleMode,
 ): Boolean = !hasActiveTask && mode !is CapsuleMode.Done && mode !is CapsuleMode.Error
 
+/**
+ * Compute the new userLocation when MainActivity.onStop fires.
+ *
+ * - MAIN_APP → OTHER_APP: catches the race where the new foreground app's window-state
+ *   event arrived BEFORE onStop and was dropped by the `isMainAppResumed` guard. Without
+ *   this fallback, userLocation stays stuck at MAIN_APP and overlays never appear on the
+ *   new app.
+ * - VD_VIEWER → VD_VIEWER (preserve): VirtualDisplayViewerActivity.onStart calls
+ *   onViewerOpened() before MainActivity.onStop runs, so VD_VIEWER is authoritative.
+ *   Clobbering it to OTHER_APP would lose the edge glow on the first viewer entry until
+ *   a second user action re-triggered onViewerOpened.
+ * - OTHER_APP → OTHER_APP (no-op).
+ */
+internal fun resolveLocationOnMainAppHidden(
+    current: OverlayUserLocation,
+): OverlayUserLocation = when (current) {
+    OverlayUserLocation.MAIN_APP -> OverlayUserLocation.OTHER_APP
+    OverlayUserLocation.VD_VIEWER -> OverlayUserLocation.VD_VIEWER
+    OverlayUserLocation.OTHER_APP -> OverlayUserLocation.OTHER_APP
+}
+
 internal fun deriveOverlayVisibility(
     platformMode: PlatformMode,
     location: OverlayUserLocation,
