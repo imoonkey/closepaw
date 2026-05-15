@@ -18,6 +18,9 @@ import ai.closepaw.tool.ToolRouter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 
+private val SUBAGENT_EXCLUDED_TOOL_NAMES =
+    setOf(ToolName.DelegateTask.raw, ToolName.RememberExperience.raw)
+
 /**
  * Sub-agent primitives used by `delegate_task`.
  *
@@ -74,8 +77,9 @@ internal class IsolatedSubAgentRunner(
         // insights flow back via its delegation result; the parent decides what (if anything) to persist.
         val childTools = parentServices.toolRegistry.createFilteredCopy(
             allowedNames = resolvedRoleDef.allowedToolNames,
-            excludedNames = setOf("delegate_task", "remember_experience")
+            excludedNames = SUBAGENT_EXCLUDED_TOOL_NAMES
         )
+        val childAllowedToolNames = resolvedRoleDef.allowedToolNames - SUBAGENT_EXCLUDED_TOOL_NAMES
         // Share scratchpad by reference on purpose so planner/executor exchange state in one turn.
         // ScratchpadState uses synchronized access and is safe for concurrent coroutine access.
         val childServices = parentServices.copy(
@@ -100,7 +104,7 @@ internal class IsolatedSubAgentRunner(
                 uiSettleDelayMs = parentServices.config.actionDelayMs,
                 debugMode = parentServices.config.debugMode,
                 systemPrompt = resolvedRoleDef.systemPrompt,
-                allowedToolNames = resolvedRoleDef.allowedToolNames,
+                allowedToolNames = childAllowedToolNames,
                 agentId = childSessionId.value,
                 agentRole = AgentExecutionRole.SUBAGENT,
                 parentSessionId = parentSessionId,

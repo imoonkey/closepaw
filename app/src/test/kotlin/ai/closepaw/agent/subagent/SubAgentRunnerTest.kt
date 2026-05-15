@@ -11,6 +11,9 @@ import ai.closepaw.llm.LLMStreamEvent
 import ai.closepaw.llm.LLMToolCall
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ResponsesResult
+import ai.closepaw.protocol.ActionExecuted
+import ai.closepaw.protocol.ActionOutcome
+import ai.closepaw.protocol.ActionProposed
 import ai.closepaw.protocol.AgentEvent
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
@@ -61,6 +64,109 @@ class SubAgentRunnerTest {
                 val result = runner.run(SubAgentRequest(query = "do it"))
 
                 assertThat(result.success).isTrue()
+        }
+
+        @Test
+        fun `runner forwards child action events to parent emitter unchanged`() = runTest {
+                val llm =
+                        ScriptedSubAgentLLMClient(
+                                events =
+                                        listOf(
+                                                LLMStreamEvent.ToolCallDone(
+                                                        LLMToolCall(
+                                                                callId = "call-1",
+                                                                name = "complete_task",
+                                                                arguments =
+                                                                        "{\"status\":\"success\",\"answer\":\"done\"}"
+                                                        )
+                                                ),
+                                                LLMStreamEvent.Completed
+                                        )
+                        )
+                val services = buildServices(llm, includeCompleteTask = true)
+                val parentEvents = mutableListOf<AgentEvent>()
+                val runner =
+                        IsolatedSubAgentRunner(
+                                roleDef =
+                                        AgentRoleDef(
+                                                name = "executor",
+                                                executionRole = AgentExecutionRole.SUBAGENT,
+                                                description = "Exec",
+                                                systemPrompt = "prompt",
+                                                allowedTools = setOf("complete_task"),
+                                                maxTurns = 1,
+                                                timeoutMs = 5_000
+                                        ),
+                                parentServices = services,
+                                parentSessionId = SessionId("session-1"),
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {},
+                                parentEventEmitter = { parentEvents.add(it) }
+                        )
+
+                val result = runner.run(SubAgentRequest(query = "do it"))
+
+                assertThat(result.success).isTrue()
+                val proposed = parentEvents.filterIsInstance<ActionProposed>().single()
+                val executed = parentEvents.filterIsInstance<ActionExecuted>().single()
+                assertThat(proposed.sessionId.value).startsWith("session-1::sub-executor-")
+                assertThat(proposed.actionId).isEqualTo("call-1")
+                assertThat(proposed.toolName).isEqualTo("complete_task")
+                assertThat(proposed.description).contains("done")
+                assertThat(executed.sessionId).isEqualTo(proposed.sessionId)
+                assertThat(executed.actionId).isEqualTo("call-1")
+                assertThat(executed.toolName).isEqualTo("complete_task")
+                assertThat(executed.outcome).isEqualTo(ActionOutcome.SUCCESS)
+        }
+
+        @Test
+        fun `runner drops excluded subagent tool calls before routing`() = runTest {
+                val llm =
+                        ScriptedSubAgentLLMClient(
+                                events =
+                                        listOf(
+                                                LLMStreamEvent.ToolCallDone(
+                                                        LLMToolCall(
+                                                                callId = "call-delegate",
+                                                                name = "delegate_task",
+                                                                arguments = "{\"query\":\"nested\"}"
+                                                        )
+                                                ),
+                                                LLMStreamEvent.ToolCallDone(
+                                                        LLMToolCall(
+                                                                callId = "call-memory",
+                                                                name = "remember_experience",
+                                                                arguments =
+                                                                        "{\"scope\":\"user\",\"section\":\"facts\",\"content\":\"x\"}"
+                                                        )
+                                                ),
+                                                LLMStreamEvent.Completed
+                                        )
+                        )
+                val services = buildServices(llm)
+                val parentEvents = mutableListOf<AgentEvent>()
+                val runner =
+                        IsolatedSubAgentRunner(
+                                roleDef =
+                                        AgentRoleDef(
+                                                name = "executor",
+                                                executionRole = AgentExecutionRole.SUBAGENT,
+                                                description = "Exec",
+                                                systemPrompt = "prompt",
+                                                allowedTools = setOf("delegate_task", "remember_experience"),
+                                                maxTurns = 1,
+                                                timeoutMs = 5_000
+                                        ),
+                                parentServices = services,
+                                parentSessionId = SessionId("session-1"),
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {},
+                                parentEventEmitter = { parentEvents.add(it) }
+                        )
+
+                val result = runner.run(SubAgentRequest(query = "do it"))
+
+                assertThat(result.success).isFalse()
+                assertThat(parentEvents.filterIsInstance<ActionProposed>()).isEmpty()
+                assertThat(parentEvents.filterIsInstance<ActionExecuted>()).isEmpty()
         }
 
         @Test
