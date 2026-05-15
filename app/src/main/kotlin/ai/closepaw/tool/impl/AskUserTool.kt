@@ -36,10 +36,10 @@ class AskUserTool(
 
     override val description = """
 Ask the user for help. Two types:
-- question: Ask a question and wait for a text answer.
-- action: Ask the user to perform a physical action (login, permission, captcha) and wait for confirmation.
+- question: text answer.
+- action: physical intervention (CAPTCHA, biometric, login).
 
-Use only when truly blocked (login, ambiguous choice, captcha). Do not use for progress updates or things you can determine from the screen.
+Use only when truly blocked by missing info or required physical action. The system handles per-app approval automatically — do not duplicate it.
 """.trimIndent()
 
     override val parameterSchema: JSONObject = JSONObject().apply {
