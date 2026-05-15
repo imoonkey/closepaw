@@ -139,7 +139,7 @@ Classifies Android packages into security tiers.
 | `complete_task` | Signal completion | `status`, `answer` |
 | `write_todos` | Todo list management | `todos` array |
 | `scratchpad` | JSON-backed memory | `action`, `content` (JSON string for write) |
-| `delegate_task` | Sub-agent delegation (PRO mode, always routes to executor) | `query`, `important_notes` |
+| `delegate_task` | Subagent delegation (routes to the default role with subagent runtime exclusions) | `query`, `important_notes` |
 | `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
 | `shell` | Execute file-related shell commands | `command`, optional `timeout_ms` |
 | `termux_shell` | Execute full Linux bash through the Termux bridge | `command`, optional `cwd`, `timeout_seconds`, `env` |

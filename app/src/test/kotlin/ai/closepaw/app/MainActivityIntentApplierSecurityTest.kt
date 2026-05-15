@@ -31,7 +31,7 @@ class MainActivityIntentApplierSecurityTest {
             perceptionMode = null,
             platformMode = null,
             mainModel = "evil-model",
-            subagentModel = "evil-executor",
+            subagentModel = "evil-subagent",
             maxTurns = 999,
             approvalMode = ApprovalMode.AUTO_APPROVE,
             browserScriptEnabled = true,

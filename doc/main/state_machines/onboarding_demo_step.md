@@ -102,7 +102,7 @@ stateDiagram-v2
 | Transition | Side-effects |
 |---|---|
 | `Ready → Preflight` | (none beyond state mutation) |
-| `Preflight → Running` | Builds `SessionConfig(maxTurns=5, AUTO_APPROVE, BASIC, OPENAI backend, AccessibilityOnly)` (OnboardingDemoController.kt:80-91), creates `AgentSession` on `Dispatchers.IO`, registers it with `AgentService.observeExternalSession`, launches event collector, submits `Op.UserInput("Open the Settings app")` (OnboardingDemoController.kt:96-131) |
+| `Preflight → Running` | Builds `SessionConfig(maxTurns=5, AUTO_APPROVE, OPENAI backend, AccessibilityOnly)` (OnboardingDemoController.kt:80-91), creates `AgentSession` on `Dispatchers.IO`, registers it with `AgentService.observeExternalSession`, launches event collector, submits `Op.UserInput("Open the Settings app")` (OnboardingDemoController.kt:96-131) |
 | `Running → Success` | Persists `Done`, schedules `advanceToNextStep` after 400 ms (OnboardingViewModel.kt:271-277); also `onBringToFront` |
 | `Running → Failure/CredentialError` | `onBringToFront`; no persistence |
 | any → (controller exit) | `shutdownSession()` submits `Op.Shutdown` and clears `demoSession` reference |

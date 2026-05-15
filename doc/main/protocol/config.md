@@ -2,7 +2,7 @@
 
 > SessionConfig and related configuration types.
 > -> See: [overview](overview.md) for protocol architecture.
-> Last updated: 2026-03-26
+> Last updated: 2026-05-15
 
 ## SessionConfig
 
@@ -13,14 +13,13 @@ data class SessionConfig(
     val maxTurns: Int = 50,
     val actionDelayMs: Long = 2000,
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
-    val agentMode: AgentMode = AgentMode.PRO,
-    val llm: SessionLlmConfig,
+    val llm: SessionLlmConfig = SessionLlmConfig(),
     val debugMode: Boolean = false,
     val traceEnabled: Boolean = false,
     val traceRunId: String? = null,
     val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
     val mainModel: String = "glm-5",
-    val executorModel: String? = null,
+    val subagentModel: String? = null,
     val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
     val excludedTools: Set<String> = emptySet()
 )
@@ -31,9 +30,8 @@ data class SessionConfig(
 | `maxTurns` | 50 | Max turns before auto-stop |
 | `actionDelayMs` | 2000 | Delay after actions for UI settle |
 | `approvalMode` | `SMART` | `ALWAYS_ASK` / `AUTO_APPROVE` / `SMART` |
-| `agentMode` | `PRO` | `BASIC` (standalone) or `PRO` (planner + executor) |
-| `mainModel` | `glm-5` | Model for standalone/planner agents |
-| `executorModel` | null | Model for executor (falls back to `mainModel`) |
+| `mainModel` | `glm-5` | Model for the main agent |
+| `subagentModel` | null | Model for delegated subagents (falls back to `mainModel`) |
 | `traceEnabled` | false | Persist full JSONL trace events/artifacts |
 | `platformMode` | `ACCESSIBILITY` | `ACCESSIBILITY` or `VIRTUAL_DISPLAY` |
 | `excludedTools` | empty | Tool names to exclude (e.g., for eval) |
@@ -53,13 +51,6 @@ data class SessionLlmConfig(
 |------|----------|-------------|
 | `ACCESSIBILITY` | `AccessibilityPlatform` | Standard mode using Android Accessibility APIs |
 | `VIRTUAL_DISPLAY` | `VirtualDisplayPlatform` | Runs apps on virtual display via Shizuku |
-
-## AgentMode
-
-| Mode | Behavior |
-|------|----------|
-| `BASIC` | One standalone agent with direct UI tools |
-| `PRO` | Planner agent with delegated executor via `delegate_task` |
 
 ## LLMBackendType
 

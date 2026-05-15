@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 
 /**
  * Subagent model dropdown is always rendered on the LLM Auth page (delegation is always
- * available; there is no longer a Pro-mode gate around it).
+ * available; there is no longer a mode gate around it).
  */
 @RunWith(AndroidJUnit4::class)
 class SettingsAgentBehaviorTest {

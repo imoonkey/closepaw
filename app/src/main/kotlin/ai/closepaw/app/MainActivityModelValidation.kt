@@ -12,7 +12,7 @@ data class MissingCredentialTarget(
 )
 
 /**
- * Validate that credentials exist for the main + executor models selected for the next
+ * Validate that credentials exist for the main + subagent models selected for the next
  * session. Returns one entry per missing credential with provider info so the caller
  * can deep-link into the right settings tab.
  */

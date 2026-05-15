@@ -208,23 +208,20 @@ Built-in tool registration includes:
 → See: `session/SessionAgentRunner.kt`
 
 Bridges `AgentSession` and runtime `Agent`:
-- Chooses main agent definition via `AgentDefRegistry.mainFor(config.agentMode)`
+- Chooses the main agent definition via `AgentDefRegistry.main`
 - Builds `AgentExecutionConfig` from selected definition (prompt + allowed tools + execution role)
-- Registers `delegate_task` only when selected definition requires delegation
+- Registers `delegate_task` when the resolved main-agent allowlist includes it
 - Always registers `ask_user` with `UserResponseChannel` and event emitter
 - Handles lifecycle (`start`, `pause`, `resume`, `stop`, `cancelJob`, `shutdown`)
-- Wires delegatable `AgentRoleDef`s + `IsolatedSubAgentRunner` when delegation is enabled
+- Wires the single delegatable `DefaultRoleDef` + `IsolatedSubAgentRunner`
 
 **Cancellation ordering:** Both `cancelJob()` and `shutdown()` complete the `cancellationSignal` **before** cancelling the coroutine job. This ensures the `CancellationException` catch block in the agent coroutine sees `signal.isCompleted == true` and reports `UserRequested` rather than an unexpected cancellation.
 
 `handleInterrupt()` calls both `agentRunner.stop()` (cooperative flag) and `agentRunner.cancelJob()` (immediate coroutine cancellation). This ensures the agent stops promptly even during tool suspension (e.g., `ask_user` awaiting user input).
 
-### Execution Modes
+### Unified Agent Mode
 
-| Mode | Main Agent Definition | Delegation |
-|------|------------------------|------------|
-| `BASIC` | `StandaloneAgentDef` | Off |
-| `PRO` | `PlannerAgentDef` | On (`delegate_task` registered) |
+There is one main agent role (`DefaultRoleDef`). Delegation is always available when `delegate_task` is present in the resolved allowlist; subagents reuse the default role with runtime exclusions for recursive delegation and long-term memory writes.
 
 ### Takeover Timing
 

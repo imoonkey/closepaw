@@ -50,16 +50,15 @@ Each cleanup step is wrapped independently so that a failure in one does not ski
 
 **Why silent**: cleanup is best-effort. The session is going away regardless; partial leaks are preferable to throwing from a teardown path that may itself be running inside a `finally`/cancellation handler.
 
-### (4) `AgentSession.reload` enum `valueOf` fallbacks (×4)
+### (4) `AgentSession.reload` enum `valueOf` fallbacks (x3)
 
 When restoring from a persisted snapshot, unknown enum names default rather than abort the restore.
 
 - `app/src/main/kotlin/ai/closepaw/session/AgentSession.kt:172-176` — `TodoStatus.valueOf(todo.status)` → falls back to `TodoStatus.PENDING`. Silent.
 - `app/src/main/kotlin/ai/closepaw/session/AgentSession.kt:202-207` — `TaskOutcome.valueOf(outcomeName)` → logs `"Unknown TaskOutcome in snapshot"` and skips setting the field. Logged but non-fatal.
-- `app/src/main/kotlin/ai/closepaw/session/SessionCheckpointCoordinator.kt:114` — `AgentMode.valueOf(agentMode)` inside `ConversationConfigSnapshot.toSessionConfig()` → falls back to `AgentMode.PRO`. Silent.
 - `app/src/main/kotlin/ai/closepaw/session/SessionCheckpointCoordinator.kt:121` — `PlatformMode.valueOf(platformMode)` → falls back to `PlatformMode.ACCESSIBILITY`. Silent.
 
-(Two adjacent fallbacks — `LLMBackendType.valueOf` at line 123-127 and `ApprovalMode.valueOf` at line 138 — follow the same pattern; the four called out above are those referenced in the task scope as `TodoStatus + ConversationConfigSnapshot`.)
+(Two adjacent fallbacks — `LLMBackendType.valueOf` and `ApprovalMode.valueOf` in `ConversationConfigSnapshot.toSessionConfig()` — follow the same pattern.)
 
 **Why silent**: schema evolution. A snapshot written by an older build may contain enum names that no longer exist; restore should still succeed with reasonable defaults rather than orphan the session.
 

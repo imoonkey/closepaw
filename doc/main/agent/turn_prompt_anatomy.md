@@ -1,7 +1,7 @@
 # Turn Prompt Anatomy
 
 > What each turn sends to the LLM: instructions, input items, and filtered tools.
-> Last updated: 2026-03-06 (uncommitted)
+> Last updated: 2026-05-15
 
 ## Overview
 
@@ -20,13 +20,12 @@ Primary wiring:
 
 ## 1. System Prompt (Instructions)
 
-System prompt text is sourced from the active `AgentDef` and passed unchanged to `Turn`.
+System prompt text is sourced from `DefaultRoleDef` and passed to `Turn`.
 
 - Main agent (`SessionAgentRunner`):
-  - `AgentMode.BASIC` → `StandaloneAgentDef.systemPrompt`
-  - `AgentMode.PRO` → `PlannerAgentDef.systemPrompt`
-- Sub-agent executor:
-  - `ExecutorAgentDef.systemPrompt`
+  - `DefaultRoleDef.systemPrompt`
+- Subagent (`IsolatedSubAgentRunner`):
+  - Reuses `DefaultRoleDef.systemPrompt` with runtime tool exclusions
 
 `AgentTurnRunner` enforces prompt presence with `requireNotNull(config.systemPrompt)`.
 
@@ -203,13 +202,12 @@ No ordering dependency: the observation is immutable, so prompt building and his
 
 `Turn` generates tool schemas from `ToolRegistry` and applies `allowedToolNames` filtering.
 
-Mode-level allowlists are defined by agent definitions:
+Role-level allowlists are defined by `DefaultRoleDef` and filtered at runtime:
 
-| Mode | Available Tools |
-|------|-----------------|
-| Standalone (`BASIC`) | `mobile_action`, `system_button`, `wait`, `open_app`, `shell`, `write_todos`, `scratchpad`, `complete_task`, `ask_user`, `activate_skill`* |
-| Planner (`PRO` main) | `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task`, `activate_skill`* |
-| Executor (delegated) | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task`, `ask_user`, `activate_skill`* |
+| Runtime | Available Tools |
+|---------|-----------------|
+| Main agent | `mobile_action`, `system_button`, `wait`, `open_app`, `shell`, `write_todos`, `scratchpad`, `complete_task`, `ask_user`, `remember_experience`, `delegate_task`, `browser_script`, `activate_skill`* |
+| Subagent | Main-agent tools minus `delegate_task` and `remember_experience` |
 
 *`activate_skill` is registered only when `AgentSkillManager` finds at least one valid skill under `filesDir/skills/`. If no skills are present, the tool is omitted entirely.
 

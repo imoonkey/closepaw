@@ -113,7 +113,7 @@ Factory: `AgentError.from(e: Throwable)` creates appropriate subtype.
 | Page | Focus |
 |------|-------|
 | [events.md](events.md) | AgentEvent hierarchy, domain interfaces, key events |
-| [config.md](config.md) | SessionConfig, PlatformMode, AgentMode, LLM config |
+| [config.md](config.md) | SessionConfig, PlatformMode, LLM config |
 
 ## File Structure
 

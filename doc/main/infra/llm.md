@@ -101,7 +101,7 @@ Creates `LLMClient` instances from model names. Constructor takes the catalog, a
 
 > See: `session/SessionLlmBootstrapper.kt`
 
-Startup: load catalog → apply base-URL overrides → build factory with the app-scoped `AuthStore` (from `AuthStoreHolder.get(context)`) → `ensureRequiredCredentials` checks `authStore.has(provider)` for the selected main and executor models → create client.
+Startup: load catalog → apply base-URL overrides → build factory with the app-scoped `AuthStore` (from `AuthStoreHolder.get(context)`) → `ensureRequiredCredentials` checks `authStore.has(provider)` for the selected main and subagent models → create client.
 
 Fallback: if `llm_models.json` missing/malformed, uses built-in catalog (`glm-5`). For local backend, returns `LFMLLMClient`.
 

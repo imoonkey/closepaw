@@ -27,7 +27,8 @@ File: `app/src/main/kotlin/ai/closepaw/history/model/SessionRuntimeSnapshot.kt:6
 
 ```kotlin
 data class ConversationConfigSnapshot(
-    val agentMode: String,        // backed by AgentMode enum
+    val mainModel: String,
+    val subagentModel: String? = null,
     val perceptionMode: String,   // backed by free-form string + UI options
     val platformMode: String,     // backed by PlatformMode enum
     val approvalMode: String = "SMART", // backed by ApprovalMode enum
@@ -36,8 +37,7 @@ data class ConversationConfigSnapshot(
 )
 ```
 
-All five mode/type fields are stored as raw `String` even though strongly-typed enums exist:
-- `AgentMode` — `BASIC`, `PRO` (`protocol/SessionConfig.kt:72`)
+Several mode/type fields are stored as raw `String` even though strongly-typed enums exist:
 - `PlatformMode` — `ACCESSIBILITY`, `VIRTUAL_DISPLAY` (`protocol/SessionConfig.kt:64`)
 - `ApprovalMode` — `ALWAYS_ASK`, `AUTO_APPROVE`, `SMART` (`protocol/SessionConfig.kt:88`)
 - `LLMBackendType` — `OPENAI`, `LOCAL` (`protocol/SessionConfig.kt:80`)

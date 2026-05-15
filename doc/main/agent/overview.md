@@ -1,14 +1,14 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for ClosePaw.
-> Last updated: 2026-04-09
+> Last updated: 2026-05-15
 
 ## Design Principles
 
 | Principle | Description |
 |-----------|-------------|
 | **Task-Based Model** | Session > Task > Turn hierarchy. Multi-round interaction via `Idle` state between tasks. |
-| **Mode-Selectable Runtime** | Main runtime can be `BASIC` (standalone) or `PRO` (planner + executor). |
+| **Unified Runtime** | One default main agent can execute directly or delegate an isolated subtask with `delegate_task`. |
 | **Streaming Responses** | Native streaming with `LLMStreamEvent` for real-time UI updates. |
 | **Thin Session Layer** | Session manages lifecycle only. Intelligence lives under `agent/`. |
 | **Tools with Observation** | Tool execution captures post-action screen context for grounding. |
@@ -86,10 +86,8 @@ ai.closepaw/
 │   ├── Turn.kt                         # LLM call wrapper (streaming + sync)
 │   ├── definition/                     # Agent role definitions
 │   │   ├── AgentRoleDef.kt              # Unified role definition data class
-│   │   ├── AgentDefRegistry.kt         # mainFor(mode) + executor() factory
-│   │   ├── PlannerAgentDef.kt          # Planner: delegation workflow
-│   │   ├── ExecutorAgentDef.kt         # Executor: atomic UI actions
-│   │   └── StandaloneAgentDef.kt       # Standalone: direct end-to-end
+│   │   ├── AgentDefRegistry.kt         # Single default role registry
+│   │   └── DefaultAgentDef.kt          # Default main/subagent role definition
 │   ├── cognition/
 │   │   ├── prompt/
 │   │   │   ├── PromptBuilder.kt        # History → Memory → Observation assembly
