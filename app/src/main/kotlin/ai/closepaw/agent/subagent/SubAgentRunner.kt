@@ -55,7 +55,8 @@ internal class IsolatedSubAgentRunner(
     private val roleDef: AgentRoleDef,
     private val parentServices: SessionServices,
     private val parentSessionId: SessionId,
-    private val eventDispatcher: AgentEventDispatcher
+    private val eventDispatcher: AgentEventDispatcher,
+    private val parentEventEmitter: suspend (AgentEvent) -> Unit
 ) : SubAgentRunner {
 
     /**
@@ -155,16 +156,15 @@ internal class IsolatedSubAgentRunner(
     }
 
     private suspend fun bridgeEvent(event: AgentEvent) {
+        // Forward action events unchanged to the parent's stream so the chat row
+        // and capsule render subagent actions exactly like the main agent's.
+        // UUID-keyed actionIds keep recording/reducer state collision-free.
+        if (event is ActionProposed || event is ActionExecuted) {
+            parentEventEmitter(event)
+            return
+        }
+
         val activity = when (event) {
-            is ActionProposed -> "proposed ${event.toolName}: ${event.description}"
-            is ActionExecuted -> {
-                val state = when (event.outcome) {
-                    ActionOutcome.SUCCESS -> "success"
-                    ActionOutcome.FAILED -> "failed"
-                    ActionOutcome.SKIPPED -> "skipped"
-                }
-                "executed ${event.toolName}: $state"
-            }
             is SessionError -> "error: ${event.message}"
             else -> return
         }

@@ -54,7 +54,8 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {}
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {},
+                                parentEventEmitter = {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "do it"))
@@ -80,7 +81,8 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) { events.add(it) }
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) { events.add(it) },
+                                parentEventEmitter = {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "do it"))
@@ -121,7 +123,8 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {}
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {},
+                                parentEventEmitter = {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "do it"))
@@ -162,7 +165,8 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {}
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {},
+                                parentEventEmitter = {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "do it"))
@@ -189,7 +193,8 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {}
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {},
+                                parentEventEmitter = {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "Tap search"))

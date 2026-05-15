@@ -156,7 +156,8 @@ internal class SessionAgentRunner(
                     roleDef = roleDef,
                     parentServices = services,
                     parentSessionId = sessionId,
-                    eventDispatcher = eventDispatcher
+                    eventDispatcher = eventDispatcher,
+                    parentEventEmitter = emitEvent
                 )
             },
             eventDispatcher = eventDispatcher
