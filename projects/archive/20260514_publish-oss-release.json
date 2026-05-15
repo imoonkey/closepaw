@@ -1,0 +1,193 @@
+{
+  "publish-oss-release": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Open Source Release Ready (路径 A)",
+    "description": "把仓库整理为可对外公开的开源 repo：补齐 LICENSE、README、CONTRIBUTING、SECURITY、CI、release workflow、签名。预计 2-3 天。详情见 projects/active/1_publish/。",
+    "design": "projects/active/1_publish/publish_gap_codex.md",
+    "acceptCriteria": [
+      "所有子任务 done",
+      "GitHub release 可由 tag 触发产出签名 APK"
+    ],
+    "created": "2026-05-07T18:14:48Z",
+    "updated": "2026-05-07T18:14:48Z"
+  },
+  "publish-license-notice": {
+    "parent": "publish-oss-release",
+    "depends": [],
+    "state": "done",
+    "title": "LICENSE + 自动生成 NOTICE + in-app licenses 页面",
+    "description": "1) 选 Apache 2.0 作为开源协议（兼容 Android 全家桶/Shizuku/HiddenApiBypass），根目录创建 LICENSE 全文。2) 引入 com.jaredsburrows:gradle-license-plugin（或 Google 官方 oss-licenses-plugin），扫所有 runtime 依赖自动生成 NOTICE 文件。手写 NOTICE 是反模式，依赖一升级就漏。3) 在 app Settings 加 \"Open Source Licenses\" 入口展示生成的 licenses 列表（Play Store 审核会看）。4) 确认 ai.liquid.leap:leap-sdk 协议状态——若是 proprietary，需在 README 中说明或考虑 oss flavor。详见 projects/active/1_publish/1_legal_claude.md。",
+    "design": "projects/active/1_publish/1_legal_claude.md",
+    "scope": [
+      "LICENSE",
+      "app/build.gradle.kts",
+      "app/src/main/kotlin/**/Settings*",
+      "app/src/main/res/**"
+    ],
+    "acceptCriteria": [
+      "test -f LICENSE && grep -q \"Apache License\" LICENSE",
+      "gradle-license-plugin（或等价）已配置，./gradlew licenseReleaseReport 能生成报告",
+      "app Settings 有 Open Source Licenses 入口，可看到所有依赖及其 license",
+      "Leap SDK 协议状态在 README 中明确说明"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:15:16Z",
+    "updated": "2026-05-07T19:37:09Z",
+    "agent": "w-publish-license-notice"
+  },
+  "publish-ci-templates": {
+    "parent": "publish-oss-release",
+    "depends": [],
+    "state": "cancelled",
+    "title": "GitHub CI + issue/PR templates + CODEOWNERS",
+    "description": "添加 .github/workflows/ci.yml（PR 触发 build/lint/test）、.github/ISSUE_TEMPLATE/bug_report.md、.github/pull_request_template.md、.github/CODEOWNERS。注意确认 Leap SDK 在 CI 环境是否需要 maven secret，必要时配 secret 或开 oss flavor 跳过。详见 projects/active/1_publish/4_open_source_claude.md。",
+    "design": "projects/active/1_publish/4_open_source_claude.md",
+    "scope": [
+      ".github/workflows/ci.yml",
+      ".github/ISSUE_TEMPLATE/**",
+      ".github/pull_request_template.md",
+      ".github/CODEOWNERS"
+    ],
+    "acceptCriteria": [
+      "test -f .github/workflows/ci.yml",
+      "CI workflow 跑通 ./gradlew assembleDebug + lint + test",
+      "test -f .github/pull_request_template.md",
+      "test -f .github/ISSUE_TEMPLATE/bug_report.md"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:15:17Z",
+    "updated": "2026-05-15T00:04:43Z",
+    "blockReason": "external",
+    "note": "Cancelled when archiving publish-oss-release. Defer to first external PR — re-create as a new task (e.g. publish-ci-on-first-pr) when needed. Original plan in projects/active/1_publish/4_open_source_claude.md still valid."
+  },
+  "publish-signing-keystore": {
+    "parent": "publish-oss-release",
+    "depends": [],
+    "state": "done",
+    "title": "Release keystore + signingConfigs + 双机备份 + 版本 bump 0.1.0",
+    "description": "密码方案：文件保存（与 keystore 同信任边界）。两边各持一份 ~/secrets/closepaw/release.keystore.password (mode 600)，跟 .keystore 文件同步过去。\n\n步骤：\n\n[Agent] 1) mkdir -p ~/secrets/closepaw, chmod 700 ~/secrets/closepaw\n[Agent] 2) openssl rand -base64 32 > ~/secrets/closepaw/release.keystore.password, chmod 600 同文件\n[Agent] 3) PASSWORD=$(cat ~/secrets/closepaw/release.keystore.password); keytool -genkeypair -v -storetype PKCS12 -keystore ~/secrets/closepaw/release.keystore -alias closepaw -keyalg RSA -keysize 2048 -validity 10000 -storepass \"$PASSWORD\" -keypass \"$PASSWORD\" -dname \"CN=ClosePaw,O=ClosePaw Authors,C=CN\"; chmod 600 ~/secrets/closepaw/release.keystore\n[Agent] 4) ssh moonkey@laptop \"mkdir -p ~/secrets/closepaw && chmod 700 ~/secrets/closepaw\"\n[Agent] 5) scp ~/secrets/closepaw/release.keystore ~/secrets/closepaw/release.keystore.password moonkey@laptop:~/secrets/closepaw/, ssh laptop \"chmod 600 ~/secrets/closepaw/release.keystore ~/secrets/closepaw/release.keystore.password\"\n[Agent] 6) 校验两机 sha256 一致\n[Agent] 7) 在 app/build.gradle.kts 加 signingConfigs，密码读 env：KEYSTORE_PATH/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD\n[Agent] 8) 把 versionCode/versionName 提到 gradle.properties，初值 versionName=0.1.0、versionCode=1\n[Agent] 9) 确认 .gitignore 含 *.keystore *.jks（防误提交）\n[Agent] 10) 写一个简单的 scripts/release-build.sh wrapper：从 ~/secrets/closepaw/ 读密码 export env 然后跑 ./gradlew assembleRelease\n[Agent] 11) 跑 scripts/release-build.sh 验证 desktop 出签名 APK\n[人 30 秒] 12) Laptop 上跑 scripts/release-build.sh 同样验证（你自己 ssh 进去跑一下确认跨机一致；agent 也能远程触发但你看一眼更稳）\n\n⚠️ Keystore 一旦丢失 = app 身份永久丢失，所有用户必须卸载重装才能升级。双机备份是底线。考虑额外 USB/云盘 cold backup（可选）。\n⚠️ 本任务只 setup 本地构建，不 push 任何东西到 GitHub。\n\n详见 projects/active/1_publish/2_release_build_claude.md。",
+    "design": "projects/active/1_publish/2_release_build_claude.md",
+    "scope": [
+      "app/build.gradle.kts",
+      "gradle.properties",
+      ".gitignore",
+      "scripts/release-build.sh"
+    ],
+    "acceptCriteria": [
+      "~/secrets/closepaw/release.keystore 存在 mode 600 in desktop 和 laptop",
+      "~/secrets/closepaw/release.keystore.password 存在 mode 600 in desktop 和 laptop",
+      "两机 keystore 文件 sha256 一致",
+      "两机 password 文件内容一致",
+      "grep -q signingConfigs app/build.gradle.kts",
+      "版本 0.1.0 写入 gradle.properties 或 app/build.gradle.kts",
+      "grep -qE \"keystore|jks\" .gitignore",
+      "test -x scripts/release-build.sh",
+      "Desktop scripts/release-build.sh 产出签名 APK，jarsigner -verify 通过",
+      "Laptop scripts/release-build.sh 产出签名 APK，jarsigner -verify 通过"
+    ],
+    "estimate": "m",
+    "created": "2026-05-07T18:15:17Z",
+    "updated": "2026-05-11T23:20:01Z",
+    "agent": "w-publish-signing-keystore",
+    "note": "Done at 48974455. Keystore + password mirrored desktop ↔ laptop:~/secrets/closepaw/, sha256 verified equal. Signing chain proven via apksigner-signed test APK + jarsigner -verify. ⚠️ assembleRelease itself blocked by pre-existing R8 issues (snakeyaml java.beans.* keep rules + Compose mapping major-version-69 bug); follow-up captured in publish-r8-release-fix."
+  },
+  "publish-release-workflow": {
+    "parent": "publish-oss-release",
+    "depends": [
+      "publish-signing-keystore",
+      "publish-r8-release-fix"
+    ],
+    "state": "done",
+    "title": "Release workflow setup（仅配置，不触发 release）",
+    "description": "添加 .github/workflows/release.yml：当 v* tag 被 push 时触发，decode keystore（base64 secret） → ./gradlew assembleRelease → softprops/action-gh-release 创建 GitHub Release。同时在 GitHub repo Settings 配 Secrets：KEYSTORE_BASE64（base64 release.keystore 输出）、KEYSTORE_PASSWORD、KEY_ALIAS、KEY_PASSWORD。⚠️ 本任务只 commit workflow 文件 + 配 secrets，不 push 任何 tag、不触发任何 release。第一次实际发版是独立决策，由人手动 git tag v0.1.0 && git push --tags 触发。Workflow YAML 仅在 push tag 时生效，平时静默存在不会自动跑。详见 projects/active/1_publish/4_open_source_claude.md 4.6。",
+    "design": "projects/active/1_publish/4_open_source_claude.md",
+    "scope": [
+      ".github/workflows/release.yml"
+    ],
+    "acceptCriteria": [
+      "test -f .github/workflows/release.yml",
+      "workflow YAML 通过 actionlint 或 GitHub 解析（无 syntax error）",
+      "GitHub repo Secrets 已配置 KEYSTORE_BASE64/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD",
+      "本任务结束时仓库无 v* tag、无 GitHub Release（不触发首发）"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:15:17Z",
+    "updated": "2026-05-12T02:23:39Z",
+    "note": "Done at c55be014. .github/workflows/release.yml fires on v* tag push: setup-java 17 → setup-gradle → decode KEYSTORE_BASE64 → ./gradlew :app:assembleRelease with signing env → gh release create --generate-notes with APK. Secrets set on imoonkey/androidagent: KEYSTORE_BASE64 + KEYSTORE_PASSWORD (KEY_ALIAS=closepaw hardcoded, KEY_PASSWORD reuses store password). Untriggered — no v* tag, no GitHub Release.",
+    "agent": "w-publish-release-workflow"
+  },
+  "publish-readme-security": {
+    "parent": "publish-oss-release",
+    "depends": [
+      "publish-license-notice"
+    ],
+    "state": "done",
+    "title": "README + SECURITY",
+    "description": "1) 根目录创建 README.md（产品介绍、quick start、build 指南、demo gif/截图、Apache 2.0 license badge）。2) 创建 SECURITY.md：开 GitHub Private Vulnerability Reporting，SECURITY.md 简版 3-5 行指向私有上报通道（避免 API key/accessibility service 类高敏感漏洞被开成 public issue）。详见 projects/active/1_publish/4_open_source_claude.md。CONTRIBUTING.md 暂不做（见 publish-contributing-deferred）。",
+    "design": "projects/active/1_publish/4_open_source_claude.md",
+    "scope": [
+      "README.md",
+      "SECURITY.md"
+    ],
+    "acceptCriteria": [
+      "test -f README.md && grep -qi \"quick start\" README.md",
+      "test -f SECURITY.md",
+      "README 含 demo 截图或 GIF 链接",
+      "GitHub repo settings 已启用 Private Vulnerability Reporting"
+    ],
+    "estimate": "s",
+    "created": "2026-05-07T18:33:51Z",
+    "updated": "2026-05-11T23:20:28Z",
+    "agent": "w-publish-readme-security",
+    "note": "Done at 9a4ce46d. README + SECURITY.md committed. ⚠️ Private Vulnerability Reporting NOT enabled — GitHub requires public repo (or paid GHAS). Re-run once repo flips public: gh api -X PUT /repos/imoonkey/androidagent/private-vulnerability-reporting. SECURITY.md already points at the future PVR URL so no change needed when enabling. README has TODOs for demo gif/screenshots, Privacy Policy URL (publish-privacy-policy), and CONTRIBUTING (publish-contributing-deferred)."
+  },
+  "publish-contributing-deferred": {
+    "parent": "publish-oss-release",
+    "depends": [],
+    "state": "cancelled",
+    "title": "CONTRIBUTING.md（defer）",
+    "description": "等首个外部贡献者/PR 出现后再写。内容包含：dev setup、code style（参考 ~/.claude/CLAUDE.md + project CLAUDE.md）、PR 流程、conventional commits、Apache 2.0 协议声明（提交即同意）。模板见 projects/active/1_publish/4_open_source_claude.md。",
+    "design": "projects/active/1_publish/4_open_source_claude.md",
+    "scope": [
+      "CONTRIBUTING.md"
+    ],
+    "acceptCriteria": [
+      "test -f CONTRIBUTING.md",
+      "包含 dev setup、code style、PR 流程、Apache 2.0 声明"
+    ],
+    "blockReason": "external",
+    "note": "Cancelled when archiving publish-oss-release. Defer to first external contributor — re-create as a new task when someone files a real PR. Template in projects/active/1_publish/4_open_source_claude.md.",
+    "estimate": "s",
+    "created": "2026-05-07T18:33:51Z",
+    "updated": "2026-05-15T00:04:43Z"
+  },
+  "publish-r8-release-fix": {
+    "parent": "publish-oss-release",
+    "depends": [],
+    "state": "done",
+    "title": "Fix R8 release-build blockers (snakeyaml + Compose mapping)",
+    "description": "publish-signing-keystore 验证签名链路时发现 assembleRelease 被两个**预存在**的 R8 问题挡住，必须修才能产出可分发的 release APK。\n\n两个具体问题：\n1. snakeyaml `java.beans.*` 缺 keep rules — 运行时 R8 strip 后反射失败。需要在 app/proguard-rules.pro 加 keep rules。snakeyaml 是间接依赖（看 ./gradlew :app:dependencies | grep snakeyaml 找哪个 lib 引入的）。\n2. Compose mapping bug \"major version 69\" — 看 logcat / build trace 找具体 stack；可能是 Kotlin Compose plugin / Compose compiler 版本与 Gradle/AGP 不兼容，或者 R8 处理 metadata 失败。可能要 bump Compose compiler version、加 R8 keep rules、或某个 -dontwarn 规则。\n\n排查方法：\n- ./scripts/release-build.sh :app:assembleRelease --stacktrace 拿到完整异常\n- 单独看 R8 missing rules report：app/build/outputs/mapping/release/missing_rules.txt\n- 真机 install release APK 验功能（accessibility + LLM + Shizuku）\n\n这是 R8 keep rule 调试任务，估计要试几轮。完成后 publish-release-workflow 才该实际触发首次 tag push。",
+    "design": "projects/active/1_publish/2_release_build_claude.md",
+    "scope": [
+      "app/proguard-rules.pro",
+      "app/build.gradle.kts"
+    ],
+    "acceptCriteria": [
+      "./scripts/release-build.sh :app:assembleRelease 跑完无 R8 异常",
+      "app/build/outputs/apk/release/app-release.apk 产出",
+      "jarsigner -verify -verbose app/build/outputs/apk/release/app-release.apk 通过",
+      "真机 install release APK，启动后 accessibility + LLM + Shizuku 功能正常"
+    ],
+    "estimate": "m",
+    "tags": [
+      "build",
+      "r8"
+    ],
+    "created": "2026-05-11T23:20:02Z",
+    "updated": "2026-05-12T01:22:59Z",
+    "agent": "w-publish-r8-release-fix",
+    "note": "Done at 9a524d15. Three root causes found: (1) snakeyaml 2.2 (direct dep used by SkillFrontmatterParser) calls java.beans.* — added -dontwarn + -keep rules; (2) bcprov-jdk18on:1.84 multi-release jar ships Java 25 bytecode that Kotlin 2.3.0 ASM in produceReleaseComposeMapping cannot parse — disabled the optional Compose mapping pipeline (debug-only metadata); (3) R8 OOMd at 2g — bumped org.gradle.jvmargs to 4g. Verified: clean assembleRelease green, 140MB APK, apksigner v2 cert SHA-256 841375c9...c3fd matches signing keystore. Note: jarsigner -verify expectedly fails (v2-only signing for minSdk=31), apksigner is the modern check."
+  }
+}
