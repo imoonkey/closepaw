@@ -1,6 +1,5 @@
 package ai.closepaw.qa
 
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.termux.NeedsSetupReason
 import ai.closepaw.termux.TermuxBridgeManager
 import ai.closepaw.termux.TermuxBridgeStatus
@@ -106,8 +105,6 @@ class SettingsTermuxRowTest {
                     AgentBehaviorSettingsPage(
                         maxTurns = 20,
                         onMaxTurnsChange = {},
-                        agentMode = AgentMode.BASIC,
-                        onAgentModeChange = {},
                         perceptionMode = "accessibility_only",
                         onPerceptionModeChange = {},
                         browserScriptEnabled = false,

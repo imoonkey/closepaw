@@ -45,7 +45,7 @@ class SubAgentRunnerTest {
                                 roleDef =
                                         AgentRoleDef(
                                                 name = "executor",
-                                                executionRole = AgentExecutionRole.EXECUTOR,
+                                                executionRole = AgentExecutionRole.SUBAGENT,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = emptySet(),
@@ -71,7 +71,7 @@ class SubAgentRunnerTest {
                                 roleDef =
                                         AgentRoleDef(
                                                 name = "executor",
-                                                executionRole = AgentExecutionRole.EXECUTOR,
+                                                executionRole = AgentExecutionRole.SUBAGENT,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = emptySet(),
@@ -112,7 +112,7 @@ class SubAgentRunnerTest {
                                 roleDef =
                                         AgentRoleDef(
                                                 name = "executor",
-                                                executionRole = AgentExecutionRole.EXECUTOR,
+                                                executionRole = AgentExecutionRole.SUBAGENT,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("complete_task"),
@@ -153,7 +153,7 @@ class SubAgentRunnerTest {
                                 roleDef =
                                         AgentRoleDef(
                                                 name = "executor",
-                                                executionRole = AgentExecutionRole.EXECUTOR,
+                                                executionRole = AgentExecutionRole.SUBAGENT,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("complete_task"),
@@ -180,7 +180,7 @@ class SubAgentRunnerTest {
                                 roleDef =
                                         AgentRoleDef(
                                                 name = "executor",
-                                                executionRole = AgentExecutionRole.EXECUTOR,
+                                                executionRole = AgentExecutionRole.SUBAGENT,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = emptySet(),

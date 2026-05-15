@@ -9,12 +9,11 @@ import org.junit.Test
 /**
  * Verifies the LLM allowlist gate for the user pref controlling `browser_script`.
  *
- * This is the same resolution path SessionAgentRunner uses: it calls
- * [AgentRoleDef.resolve] with `excludedTools` derived from [standaloneToolsExcludedByPref].
- * If the pref is OFF and resolve still surfaces browser_script, the LLM sees the tool — which
- * was the regression Codex caught.
+ * Same resolution path SessionAgentRunner uses: it calls [AgentRoleDef.resolve] with
+ * `excludedTools` derived from [defaultToolsExcludedByPref]. If the pref is OFF and resolve
+ * still surfaces browser_script, the LLM sees the tool.
  */
-class StandaloneToolsExcludedByPrefTest {
+class DefaultToolsExcludedByPrefTest {
 
     private val termuxUnavailable = TermuxCapabilitySnapshot(
         available = false,
@@ -24,21 +23,21 @@ class StandaloneToolsExcludedByPrefTest {
 
     @Test
     fun `pref off excludes browser_script from helper set`() {
-        assertThat(standaloneToolsExcludedByPref(browserScriptEnabled = false))
+        assertThat(defaultToolsExcludedByPref(browserScriptEnabled = false))
             .containsExactly(ToolName.BrowserScript.raw)
     }
 
     @Test
     fun `pref on returns empty exclusion set`() {
-        assertThat(standaloneToolsExcludedByPref(browserScriptEnabled = true)).isEmpty()
+        assertThat(defaultToolsExcludedByPref(browserScriptEnabled = true)).isEmpty()
     }
 
     @Test
-    fun `pref off causes resolved Standalone allowlist to drop browser_script`() {
-        val excluded = standaloneToolsExcludedByPref(browserScriptEnabled = false)
+    fun `pref off causes resolved Default allowlist to drop browser_script`() {
+        val excluded = defaultToolsExcludedByPref(browserScriptEnabled = false)
             .map { ToolName.from(it) }.toSet()
 
-        val resolved = StandaloneRoleDef.resolve(
+        val resolved = DefaultRoleDef.resolve(
             snapshot = termuxUnavailable,
             excludedTools = excluded,
         )
@@ -50,11 +49,11 @@ class StandaloneToolsExcludedByPrefTest {
     }
 
     @Test
-    fun `pref on causes resolved Standalone allowlist to include browser_script`() {
-        val excluded = standaloneToolsExcludedByPref(browserScriptEnabled = true)
+    fun `pref on causes resolved Default allowlist to include browser_script`() {
+        val excluded = defaultToolsExcludedByPref(browserScriptEnabled = true)
             .map { ToolName.from(it) }.toSet()
 
-        val resolved = StandaloneRoleDef.resolve(
+        val resolved = DefaultRoleDef.resolve(
             snapshot = termuxUnavailable,
             excludedTools = excluded,
         )

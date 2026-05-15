@@ -13,8 +13,6 @@ After code changes:
 Run agent:
     ./scripts/debug-run.sh "goal"                    # Run with OpenAI (default)
     ./scripts/debug-run.sh --local "goal"            # Run with local model
-    ./scripts/debug-run.sh --basic "goal"            # Standalone mode
-    ./scripts/debug-run.sh --pro "goal"              # Planner+executor mode
 
 Perception mode:
     ./scripts/debug-run.sh --accessibility-only "goal"
@@ -63,10 +61,6 @@ Run the agent with full debug output: screenshots at each turn, trace artifacts,
 # Local LLM backend
 ./scripts/debug-run.sh --local "Open Chrome"
 
-# Execution mode
-./scripts/debug-run.sh --basic "Open Chrome"       # Standalone mode
-./scripts/debug-run.sh --pro "Open Chrome"         # Planner+executor mode
-
 # Perception mode
 ./scripts/debug-run.sh --accessibility-only "Open Chrome"  # A11y only
 ./scripts/debug-run.sh --screenshot-only "Open Chrome"     # Screenshot only
@@ -75,17 +69,17 @@ Run the agent with full debug output: screenshots at each turn, trace artifacts,
 
 Options:
 - `--local`, `-l`: Use local LLM backend instead of OpenAI
-- `--basic`: Force basic standalone execution mode
-- `--pro`: Force pro planner+executor mode
 - `--accessibility-only`, `--a11y-only`: Force accessibility-only perception
 - `--screenshot-only`: Force screenshot-only perception
 - `--hybrid`: Force hybrid perception
 - `--perception <mode>`: Set perception mode explicitly (`accessibility_only`, `screenshot_only`, `hybrid`)
+- `--main-model <name>`: Override main model (key in `llm_models.json`)
+- `--subagent-model <name>`: Override delegated subagent model
 
 Environment variables:
 - `LLM_BACKEND`: `openai` (default) or `local`
-- `AGENT_MODE`: `pro` (default) or `basic`
 - `PERCEPTION_MODE`: `accessibility_only` (default), `screenshot_only`, or `hybrid`
+- `MAIN_MODEL` / `SUBAGENT_MODEL`: same as the flags above
 - `DEBUG_MAX_TURNS`: Max turn-start events to capture (default: 80)
 
 Output in `debug-output/run_<timestamp>/`:

@@ -199,6 +199,6 @@ echo -e "${GREEN}==============================================================$
 echo -e "${GREEN}✓ Setup complete!${NC}"
 echo ""
 echo "Next steps:"
-echo "  ./scripts/debug-run.sh --basic \"Open Settings\"   # Run agent"
+echo "  ./scripts/debug-run.sh \"Open Settings\"           # Run agent"
 echo "  ./scripts/logs.sh                                # View logs"
 echo -e "${GREEN}==============================================================${NC}"

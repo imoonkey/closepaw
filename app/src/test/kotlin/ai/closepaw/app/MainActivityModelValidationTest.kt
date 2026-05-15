@@ -3,7 +3,6 @@ package ai.closepaw.app
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every
@@ -26,14 +25,12 @@ class MainActivityModelValidationTest {
     private fun settings(
         backend: LLMBackendType = LLMBackendType.OPENAI,
         mainModel: String = "gpt-5.2",
-        executor: String? = null,
-        mode: AgentMode = AgentMode.BASIC,
+        subagent: String? = null,
     ): AppSettingsState {
         val s = mockk<AppSettingsState>(relaxed = true)
         every { s.llmBackend } returns backend
         every { s.selectedModel } returns mainModel
-        every { s.subagentModel } returns executor
-        every { s.agentMode } returns mode
+        every { s.subagentModel } returns subagent
         return s
     }
 
@@ -74,9 +71,9 @@ class MainActivityModelValidationTest {
     }
 
     @Test
-    fun `pro mode flags both main and executor missing keys`() {
+    fun `flags both main and subagent missing keys`() {
         val missing = findMissingCloudKeys(
-            settings(mainModel = "gpt-5.2", executor = "autoglm-9b", mode = AgentMode.PRO),
+            settings(mainModel = "gpt-5.2", subagent = "autoglm-9b"),
             catalog,
             emptyAuthStore(),
         )
@@ -85,12 +82,12 @@ class MainActivityModelValidationTest {
     }
 
     @Test
-    fun `pro mode skips executor when only main missing`() {
+    fun `skips subagent when only main missing`() {
         val store = mockk<AuthStore>(relaxed = true)
         every { store.has(LLMProvider.OPENAI_API) } returns false
         every { store.has(LLMProvider.NOVITA) } returns true
         val missing = findMissingCloudKeys(
-            settings(mainModel = "gpt-5.2", executor = "autoglm-9b", mode = AgentMode.PRO),
+            settings(mainModel = "gpt-5.2", subagent = "autoglm-9b"),
             catalog,
             store,
         )

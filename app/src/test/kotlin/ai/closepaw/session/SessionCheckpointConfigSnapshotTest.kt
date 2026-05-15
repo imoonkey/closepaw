@@ -3,7 +3,6 @@ package ai.closepaw.session
 import com.google.common.truth.Truth.assertThat
 import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.perception.PerceptionConfig
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
@@ -19,7 +18,6 @@ class SessionCheckpointConfigSnapshotTest {
             SessionConfig(
                 mainModel = "main-model",
                 subagentModel = "executor-model",
-                agentMode = AgentMode.BASIC,
                 maxTurns = 42,
                 perceptionConfig = PerceptionConfig.Hybrid(),
                 platformMode = PlatformMode.VIRTUAL_DISPLAY,
@@ -39,7 +37,6 @@ class SessionCheckpointConfigSnapshotTest {
 
         assertThat(restored.mainModel).isEqualTo("main-model")
         assertThat(restored.subagentModel).isEqualTo("executor-model")
-        assertThat(restored.agentMode).isEqualTo(AgentMode.BASIC)
         assertThat(restored.maxTurns).isEqualTo(42)
         assertThat(restored.perceptionConfig).isInstanceOf(PerceptionConfig.Hybrid::class.java)
         assertThat(restored.platformMode).isEqualTo(PlatformMode.VIRTUAL_DISPLAY)

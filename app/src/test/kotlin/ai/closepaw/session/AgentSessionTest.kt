@@ -60,31 +60,28 @@ class AgentSessionTest {
         }
 
         @Test
-        fun `session lifecycle remains stable for all agent modes`() = runTest {
-                listOf(AgentMode.BASIC, AgentMode.PRO).forEach { mode ->
-                        val session =
-                                buildSession(
-                                        scope = this,
-                                        captureDelayMs = 1_000L,
-                                        llmDelayMs = 0L,
-                                        agentMode = mode
-                                )
-                        val events = mutableListOf<AgentEvent>()
-                        val job = launch { session.events.collect { events.add(it) } }
+        fun `session lifecycle remains stable`() = runTest {
+                val session =
+                        buildSession(
+                                scope = this,
+                                captureDelayMs = 1_000L,
+                                llmDelayMs = 0L
+                        )
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
 
-                        session.submit(Op.UserInput("goal-$mode"))
-                        assertThat(session.state.value).isEqualTo(SessionState.Running)
+                session.submit(Op.UserInput("goal"))
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
 
-                        session.submit(Op.Shutdown)
-                        advanceUntilIdle()
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
 
-                        assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
-                        val completed =
-                                events.filterIsInstance<SessionCompleted>().single()
-                        assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                val completed =
+                        events.filterIsInstance<SessionCompleted>().single()
+                assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
 
-                        job.cancel()
-                }
+                job.cancel()
         }
 
         @Test
@@ -404,7 +401,6 @@ class AgentSessionTest {
                         sessionId = "old-session",
                         config = ConversationConfigSnapshot(
                                 mainModel = "gpt-5.2",
-                                agentMode = "PRO",
                                 maxTurns = 1,
                                 perceptionMode = "DEFAULT",
                                 platformMode = "DEFAULT",
@@ -1047,14 +1043,12 @@ private fun buildSession(
         captureDelayMs: Long,
         llmDelayMs: Long,
         maxTurns: Int = 2,
-        agentMode: AgentMode = AgentMode.PRO,
         llmClient: LLMClient? = null
 ): AgentSession = buildSessionWith(
         scope = scope,
         platform = FakeAndroidPlatform(captureDelayMs = captureDelayMs),
         llmDelayMs = llmDelayMs,
         maxTurns = maxTurns,
-        agentMode = agentMode,
         llmClient = llmClient
 )
 
@@ -1063,13 +1057,12 @@ private fun buildSessionWith(
         platform: ai.closepaw.platform.AndroidPlatform,
         llmDelayMs: Long = 0L,
         maxTurns: Int = 2,
-        agentMode: AgentMode = AgentMode.PRO,
         llmClient: LLMClient? = null
 ): AgentSession {
         val toolRegistry = ToolRegistry()
         val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
-        val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0, agentMode = agentMode)
+        val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0)
         val testCatalog =
                 ModelCatalog.fromJson(
                         """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""

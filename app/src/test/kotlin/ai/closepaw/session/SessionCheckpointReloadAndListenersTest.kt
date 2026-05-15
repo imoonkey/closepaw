@@ -21,7 +21,6 @@ import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ResponsesResult
 import ai.closepaw.platform.AndroidPlatform
 import ai.closepaw.platform.PlatformFactory
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.Op
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.protocol.SessionConfig
@@ -304,7 +303,6 @@ class SessionCheckpointReloadAndListenersTest {
         config = ConversationConfigSnapshot(
             mainModel = "test-model",
             subagentModel = null,
-            agentMode = AgentMode.PRO.name,
             maxTurns = 4,
             perceptionMode = "accessibility_only",
             platformMode = PlatformMode.ACCESSIBILITY.name

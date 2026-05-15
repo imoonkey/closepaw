@@ -131,7 +131,7 @@ for i in $(seq 1 "$ITER"); do
 
     ANDROID_SERIAL="$SERIAL" DEBUG_AUTO_APPROVE=true DEBUG_BROWSER_SCRIPT_ENABLED=true \
         DEBUG_MAX_WAIT_SECONDS=180 \
-        "$PROJECT_ROOT/scripts/debug-run.sh" --basic --accessibility-only "$PROMPT" \
+        "$PROJECT_ROOT/scripts/debug-run.sh" --accessibility-only "$PROMPT" \
         > "$OUT/iter_$(printf '%02d' "$i").log" 2>&1 \
         || log "  WARN: iteration $i exited non-zero (see iter_$(printf '%02d' "$i").log)"
 

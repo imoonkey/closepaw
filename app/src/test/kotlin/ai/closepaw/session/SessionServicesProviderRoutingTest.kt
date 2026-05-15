@@ -9,7 +9,6 @@ import ai.closepaw.auth.FakeSharedPreferences
 import ai.closepaw.auth.MissingCredential
 import ai.closepaw.llm.ChatCompletionClient
 import ai.closepaw.llm.LLMProvider
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionLlmConfig
@@ -60,7 +59,7 @@ class SessionServicesProviderRoutingTest {
   }
 
   @Test
-  fun `pro mode validates executor model provider key`() {
+  fun `subagent model requires its provider credential`() {
     val context = contextWithCatalog()
     val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
@@ -71,7 +70,6 @@ class SessionServicesProviderRoutingTest {
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
                     mainModel = "gpt-5.2",
                     subagentModel = "autoglm-phone-9b-multilingual",
-                    agentMode = AgentMode.PRO,
                     maxTurns = 1
             )
 

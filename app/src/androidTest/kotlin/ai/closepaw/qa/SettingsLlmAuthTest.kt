@@ -2,7 +2,6 @@ package ai.closepaw.qa
 
 import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.ModelCatalog
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.ui.settings.LlmAuthSettingsPage
 import ai.closepaw.ui.settings.ModelLoadingStatus
@@ -51,8 +50,8 @@ class SettingsLlmAuthTest {
         onBackendChange: (LLMBackendType) -> Unit = {},
         selectedModel: String = "gpt-5.2",
         onModelChange: (String) -> Unit = {},
-        selectedExecutorModel: String? = null,
-        onExecutorModelChange: (String?) -> Unit = {},
+        selectedSubagentModel: String? = null,
+        onSubagentModelChange: (String?) -> Unit = {},
         onStartOAuth: () -> Unit = {},
         initialAuthTab: AuthMode? = null,
     ) {
@@ -63,9 +62,8 @@ class SettingsLlmAuthTest {
                 selectedModel = selectedModel,
                 onModelChange = onModelChange,
                 modelCatalog = catalog(),
-                selectedExecutorModel = selectedExecutorModel,
-                onExecutorModelChange = onExecutorModelChange,
-                agentMode = AgentMode.BASIC,
+                selectedSubagentModel = selectedSubagentModel,
+                onSubagentModelChange = onSubagentModelChange,
                 selectedLocalModel = "LFM2.5-1.2B-Instruct",
                 onLocalModelChange = {},
                 modelLoadingStatus = ModelLoadingStatus.Idle,

@@ -81,7 +81,7 @@ class AgentTraceObservabilityTest {
                 val sessionStarted = recorder.findEvent("session_started")
                 assertThat(sessionStarted).isNotNull()
                 val dataJson = Json.parseToJsonElement(sessionStarted!!.data.toString()).jsonObject
-                assertThat(dataJson["agent_role"]?.jsonPrimitive?.content).isEqualTo("standalone")
+                assertThat(dataJson["agent_role"]?.jsonPrimitive?.content).isEqualTo("main")
                 assertThat(dataJson["agent_id"]?.jsonPrimitive?.content).isEqualTo("session-1")
                 assertThat(dataJson["model"]?.jsonPrimitive?.content).isEqualTo("gpt-5.2")
                 assertThat(dataJson["main_model"]?.jsonPrimitive?.content).isEqualTo("gpt-5.2")

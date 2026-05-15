@@ -23,7 +23,7 @@ class DelegateTaskToolTest {
 
     private val executorRole = AgentRoleDef(
         name = "executor",
-        executionRole = AgentExecutionRole.EXECUTOR,
+        executionRole = AgentExecutionRole.SUBAGENT,
         systemPrompt = "prompt",
         allowedTools = setOf("complete_task"),
         delegatable = true,

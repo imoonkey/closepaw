@@ -1,7 +1,6 @@
 package ai.closepaw.qa
 
 import ai.closepaw.llm.ModelCatalog
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.LlmAuthSettingsPage
@@ -33,7 +32,6 @@ internal fun testModelCatalog(): ModelCatalog = ModelCatalog.fromJson(
 internal fun TestSettingsSheet(
     llmBackend: LLMBackendType = LLMBackendType.OPENAI,
     selectedModel: String = "gpt-5.2",
-    agentMode: AgentMode = AgentMode.BASIC,
     onDismiss: () -> Unit = {},
 ) {
     ClosePawTheme {
@@ -43,15 +41,13 @@ internal fun TestSettingsSheet(
             selectedModel = selectedModel,
             onModelChange = {},
             modelCatalog = testModelCatalog(),
-            selectedExecutorModel = null,
-            onExecutorModelChange = {},
+            selectedSubagentModel = null,
+            onSubagentModelChange = {},
             selectedLocalModel = "LFM2.5-1.2B-Instruct",
             onLocalModelChange = {},
             modelLoadingStatus = ModelLoadingStatus.Idle,
             maxTurns = 20,
             onMaxTurnsChange = {},
-            agentMode = agentMode,
-            onAgentModeChange = {},
             perceptionMode = "accessibility_only",
             onPerceptionModeChange = {},
             debugMode = false,
@@ -85,9 +81,8 @@ internal fun TestLlmAuthPage(
     onBackendChange: (LLMBackendType) -> Unit = {},
     selectedModel: String = "gpt-5.2",
     onModelChange: (String) -> Unit = {},
-    selectedExecutorModel: String? = null,
-    onExecutorModelChange: (String?) -> Unit = {},
-    agentMode: AgentMode = AgentMode.BASIC,
+    selectedSubagentModel: String? = null,
+    onSubagentModelChange: (String?) -> Unit = {},
     selectedLocalModel: String = "LFM2.5-1.2B-Instruct",
     onLocalModelChange: (LocalModelOption) -> Unit = {},
     openAiAuthUiState: OpenAiAuthUiState = OpenAiAuthUiState.SignedOut,
@@ -100,9 +95,8 @@ internal fun TestLlmAuthPage(
             selectedModel = selectedModel,
             onModelChange = onModelChange,
             modelCatalog = testModelCatalog(),
-            selectedExecutorModel = selectedExecutorModel,
-            onExecutorModelChange = onExecutorModelChange,
-            agentMode = agentMode,
+            selectedSubagentModel = selectedSubagentModel,
+            onSubagentModelChange = onSubagentModelChange,
             selectedLocalModel = selectedLocalModel,
             onLocalModelChange = onLocalModelChange,
             modelLoadingStatus = ModelLoadingStatus.Idle,

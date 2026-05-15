@@ -1,6 +1,5 @@
 package ai.closepaw.qa
 
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.DisplayModeSection
@@ -141,7 +140,6 @@ private fun HomeUnderTest(effectivePlatformMode: PlatformMode?) {
             modelOptions = listOf("gpt-5.2" to "GPT-5.2"),
             selectedLocalModel = "LFM2.5-1.2B-Instruct",
             modelCatalog = testModelCatalog(),
-            agentMode = AgentMode.BASIC,
             maxTurns = 20,
             perceptionMode = "accessibility_only",
             isAccessibilityEnabled = false,

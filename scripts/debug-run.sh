@@ -2,23 +2,20 @@
 #
 # debug-run.sh - Run agent with screenshot capture at each turn
 #
-# Usage: 
+# Usage:
 #   ./scripts/debug-run.sh "goal"              # Run with OpenAI backend
 #   ./scripts/debug-run.sh --local "goal"      # Run with local LLM backend
-#   ./scripts/debug-run.sh --basic "goal"      # Run in Basic (standalone) execution mode
-#   ./scripts/debug-run.sh --pro "goal"        # Run in Pro (planner+executor) execution mode
 #   ./scripts/debug-run.sh --accessibility-only "goal"  # A11y tree only
 #   ./scripts/debug-run.sh --screenshot-only "goal"     # Screenshot only
 #   ./scripts/debug-run.sh --hybrid "goal"              # A11y + screenshot
-#   ./scripts/debug-run.sh --main-model gpt-5.2 --executor-model glm-4.7 "goal"
+#   ./scripts/debug-run.sh --main-model gpt-5.2 --subagent-model glm-4.7 "goal"
 #   ./scripts/debug-run.sh --virtual-display "goal"     # Run on Shizuku virtual display
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
-#   AGENT_MODE: "basic" (default) or "pro" - selects execution mode
 #   PERCEPTION_MODE: "accessibility_only" (default), "screenshot_only", or "hybrid"
 #   MAIN_MODEL: Override main model name (key from llm_models.json)
-#   EXECUTOR_MODEL: Override executor model name (key from llm_models.json)
+#   SUBAGENT_MODEL: Override subagent model name (key from llm_models.json)
 #   PLATFORM_MODE: "accessibility" (default) or "virtual_display"
 #   APPROVAL_MODE: "SMART" (default), "AUTO_APPROVE", or "ALWAYS_ASK" for debug builds
 #   DEBUG_AUTO_APPROVE: true/false shortcut for APPROVAL_MODE=AUTO_APPROVE
@@ -35,24 +32,15 @@ DEBUG_DIR="$PROJECT_ROOT/debug-output/run_${RUN_ID}"
 
 # Parse arguments
 USE_LOCAL=false
-FORCED_AGENT_MODE=""
 FORCED_PERCEPTION_MODE=""
 FORCED_MAIN_MODEL=""
-FORCED_EXECUTOR_MODEL=""
+FORCED_SUBAGENT_MODEL=""
 FORCED_PLATFORM_MODE=""
 GOAL=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --local|-l)
             USE_LOCAL=true
-            shift
-            ;;
-        --basic)
-            FORCED_AGENT_MODE="basic"
-            shift
-            ;;
-        --pro)
-            FORCED_AGENT_MODE="pro"
             shift
             ;;
         --accessibility-only|--a11y-only)
@@ -83,12 +71,12 @@ while [[ $# -gt 0 ]]; do
             FORCED_MAIN_MODEL="$2"
             shift 2
             ;;
-        --executor-model)
+        --subagent-model)
             if [[ $# -lt 2 ]]; then
-                echo "Missing value for --executor-model"
+                echo "Missing value for --subagent-model"
                 exit 1
             fi
-            FORCED_EXECUTOR_MODEL="$2"
+            FORCED_SUBAGENT_MODEL="$2"
             shift 2
             ;;
         --virtual-display|--vd)
@@ -164,14 +152,6 @@ normalize_bool() {
     esac
 }
 
-normalize_agent_mode() {
-    case "$1" in
-        basic|BASIC|Basic) echo "basic" ;;
-        pro|PRO|Pro|"") echo "pro" ;;
-        *) echo "pro" ;;
-    esac
-}
-
 normalize_perception_mode() {
     local raw="${1:-}"
     raw=$(echo "$raw" | tr '[:upper:]' '[:lower:]')
@@ -214,14 +194,7 @@ fi
 
 # Determine effective models early for logging
 EFFECTIVE_MAIN_MODEL="${FORCED_MAIN_MODEL:-${MAIN_MODEL:-$DEFAULT_MAIN_MODEL}}"
-EFFECTIVE_EXECUTOR_MODEL="${FORCED_EXECUTOR_MODEL:-${EXECUTOR_MODEL:-}}"
-
-# Determine execution mode
-AGENT_MODE="${AGENT_MODE:-basic}"
-if [[ -n "$FORCED_AGENT_MODE" ]]; then
-    AGENT_MODE="$FORCED_AGENT_MODE"
-fi
-AGENT_MODE=$(normalize_agent_mode "$AGENT_MODE")
+EFFECTIVE_SUBAGENT_MODEL="${FORCED_SUBAGENT_MODEL:-${SUBAGENT_MODEL:-}}"
 
 # Default debug mode on for debug-run unless explicitly set
 if [[ -z "${DEBUG_MODE+x}" ]]; then
@@ -269,10 +242,9 @@ fi
 
 log "Using LLM backend: $LLM_BACKEND"
 log "Using main model: $EFFECTIVE_MAIN_MODEL"
-if [[ -n "$EFFECTIVE_EXECUTOR_MODEL" ]]; then
-    log "Using executor model: $EFFECTIVE_EXECUTOR_MODEL"
+if [[ -n "$EFFECTIVE_SUBAGENT_MODEL" ]]; then
+    log "Using subagent model: $EFFECTIVE_SUBAGENT_MODEL"
 fi
-log "Using execution mode: $AGENT_MODE"
 log "Using perception mode: $PERCEPTION_MODE"
 log "Using platform mode: $PLATFORM_MODE"
 log "Using approval mode: $APPROVAL_MODE"
@@ -391,11 +363,10 @@ SAFE_GOAL=$(escape_shell_arg "$GOAL")
 SAFE_BACKEND=$(escape_shell_arg "$LLM_BACKEND")
 SAFE_API_KEY=$(escape_shell_arg "${OPENAI_API_KEY:-}")
 SAFE_RUN_ID=$(escape_shell_arg "$RUN_ID")
-SAFE_AGENT_MODE=$(escape_shell_arg "$AGENT_MODE")
 SAFE_PERCEPTION_MODE=$(escape_shell_arg "$PERCEPTION_MODE")
 SAFE_PLATFORM_MODE=$(escape_shell_arg "$PLATFORM_MODE")
 
-INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --es perception_mode '$SAFE_PERCEPTION_MODE' --es platform_mode '$SAFE_PLATFORM_MODE' --ez auto_start true --ez fresh_session true --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
+INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es perception_mode '$SAFE_PERCEPTION_MODE' --es platform_mode '$SAFE_PLATFORM_MODE' --ez auto_start true --ez fresh_session true --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
 SAFE_APPROVAL_MODE=$(escape_shell_arg "$APPROVAL_MODE")
 INTENT_EXTRAS="$INTENT_EXTRAS --es approval_mode '$SAFE_APPROVAL_MODE'"
 if [[ -n "$DEBUG_BROWSER_SCRIPT_ENABLED" ]]; then
@@ -406,10 +377,10 @@ fi
 SAFE_MAIN_MODEL=$(escape_shell_arg "$EFFECTIVE_MAIN_MODEL")
 INTENT_EXTRAS="$INTENT_EXTRAS --es main_model '$SAFE_MAIN_MODEL'"
 
-# Add executor model to intent if set
-if [[ -n "$EFFECTIVE_EXECUTOR_MODEL" ]]; then
-    SAFE_EXECUTOR_MODEL=$(escape_shell_arg "$EFFECTIVE_EXECUTOR_MODEL")
-    INTENT_EXTRAS="$INTENT_EXTRAS --es executor_model '$SAFE_EXECUTOR_MODEL'"
+# Add subagent model to intent if set
+if [[ -n "$EFFECTIVE_SUBAGENT_MODEL" ]]; then
+    SAFE_SUBAGENT_MODEL=$(escape_shell_arg "$EFFECTIVE_SUBAGENT_MODEL")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es subagent_model '$SAFE_SUBAGENT_MODEL'"
 fi
 
 if [[ -n "${OPENAI_API_KEY:-}" ]]; then
