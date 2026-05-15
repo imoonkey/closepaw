@@ -2,13 +2,16 @@
 
 ## Environment
 - Device: Tecno P0110 (Android 16) connected via Tailscale ADB at `100.64.43.95:5555`.
-  Shizuku installed (`moe.shizuku.privileged.api`) and `ai.closepaw` is foreground on
-  the device. Device QA limited to baseline confirmation — running a true VD task end
-  to end requires a configured LLM credential plus active Shizuku grant, so the
-  acceptance evidence below is **code-trace only**; no `qa_evidence/` screenshots
-  were captured.
+- Shizuku server running (pid 23506); `moe.shizuku.manager.permission.API_V23: granted=true` for `ai.closepaw`.
+- Accessibility service enabled; overlay permission granted.
+- LLM: OpenAI (gpt-5.4) via `.env`-loaded API key.
 - Branch: task/vd-completion-handoff
-- HEAD: e0cb3b2b6d7e48f58c09e7b2516c8dbdae280b52 (`fix(vd-handoff): apply codex review HIGH/MEDIUM findings`)
+- HEAD before evidence: `5ae5012c` (`docs(vd-handoff): QA report covering completion handoff flows A–D`)
+- Run command: `PERCEPTION_MODE=accessibility_only ./scripts/debug-run.sh --vd "Open the Calculator app and stop."`
+- Active platform observed in logcat: `PlatformFactory: Using VirtualDisplayPlatform: 1264x2800@560dpi`, `applyVisibility: platformMode=VIRTUAL_DISPLAY`.
+
+## Note on prior run
+An earlier QA pass labelled this "code-trace only" because Shizuku permission was not yet granted to ClosePaw, so the agent silently fell back to AccessibilityPlatform (`PlatformFactory: Shizuku permission not granted`). After granting Shizuku via the Shizuku app once, all subsequent runs engage VD mode. Real on-device evidence for each flow is captured below in `qa_evidence/`.
 
 ## Flow A — Completion chat default (no auto-launch on TaskCompleted)
 **Result**: PASS
@@ -179,14 +182,29 @@ Key handoff-related suites verified to exist and pass under that run:
 
 ## Open Concerns
 
-1. **No on-device e2e screenshot evidence.** Device is reachable and Shizuku is
-   installed, but running a real VD task to completion requires Shizuku
-   activated + LLM credentials configured. The acceptance criteria do not
-   strictly require screenshots, and code-trace evidence above is sufficient to
-   close Flows A–D. Recommended follow-up (not blocking): run a single VD task
-   such as "Open YouTube on virtual display" with an active LLM key, then
-   capture the three CTA states + New Session reset under
-   `projects/active/vd_completion_handoff/qa_evidence/`.
+1. **On-device e2e evidence captured.** Real-device run logged
+   `PlatformFactory: Using VirtualDisplayPlatform: 1264x2800@560dpi` and all
+   four flows were exercised by tap, with screenshots stored under
+   `projects/active/vd_completion_handoff/qa_evidence/`:
+   - `01_completion_chat_with_ctas.png` — completed VD row showing both
+     `Open <App>` and `View virtual screen` CTAs (Flow A + B + C visibility).
+   - `03_open_app_launcher.png` — after tapping `Open 系统桌面`,
+     `topResumedActivity=com.android.launcher3/com.obric.feature.ObricLauncher`
+     and AgentService logs `Window changed: pkg=com.android.launcher3 ... to=OTHER_APP`
+     (Flow B click validated).
+   - `04_back_to_chat.png` — return to ClosePaw shows the same row, CTAs intact.
+   - `05_after_new_session.png` — after tapping the `+` (New conversation),
+     the chat is reset to the empty "What can I help you with?" surface and
+     `topResumedActivity` stays at `ai.closepaw/.app.MainActivity`. Logcat shows
+     no `onOpenApp` / `onOpenViewer` / `getLaunchIntentForPackage` /
+     `VirtualDisplayViewer` activity (Flow D click validated).
+   - Flow C click result (no separate screenshot — chat is unchanged): tapping
+     `View virtual screen` after the script's `STOP_AGENT` released the VD
+     produced `MainActivity: Open viewer suppressed: VD platform not running`
+     in logcat (codex review HIGH#2 fix). The button intentionally remains
+     visible (its visibility is captured at completion time), but the tap
+     handler revalidates `AgentService.isVirtualDisplayViewerAvailable()` and
+     no-ops cleanly when the platform is gone — no dead viewer is launched.
 2. **Codex review Medium #1 partially mitigated.** The composable now calls
    `completionHandoffCtaVisibility(...)` (drift between helper and composable
    resolved). However, a Compose/Robolectric test that renders
