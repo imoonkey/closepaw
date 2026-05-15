@@ -500,6 +500,7 @@ private constructor(
                 viewerAvailable = viewerAvailable,
                 packageManager = service.packageManager,
                 selfPackage = service.packageName,
+                classifyTier = { services.appClassifier.classify(it) },
         )
     }
 

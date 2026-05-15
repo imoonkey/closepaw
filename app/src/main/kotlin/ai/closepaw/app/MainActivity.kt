@@ -252,7 +252,13 @@ class MainActivity : ComponentActivity() {
                         lifecycleScope.launch { coordinator.clearSession() }
                         viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
                     },
-                    onOpenViewer = { openViewer(this@MainActivity) },
+                    onOpenViewer = {
+                        if (AgentService.instance?.isVirtualDisplayViewerAvailable() == true) {
+                            openViewer(this@MainActivity)
+                        } else {
+                            Log.d(TAG, "Open viewer suppressed: VD platform not running")
+                        }
+                    },
                     onOpenApp = { pkg ->
                         packageManager.getLaunchIntentForPackage(pkg)
                             ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }

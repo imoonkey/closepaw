@@ -109,6 +109,30 @@ class AgentSessionCompletionHandoffTest {
     }
 
     @Test
+    fun `vd completion drops blocked-tier package`() = runTest {
+        val (session, _) = buildHandoffSession(
+                scope = this,
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                currentPackage = "com.chase.sig.android",
+                resolveLabel = { _ -> "Chase" },
+                appTiers = mapOf("com.chase.sig.android" to AppTier.BLOCKED),
+        )
+        val events = mutableListOf<AgentEvent>()
+        val job = launch { session.events.collect { events.add(it) } }
+
+        session.submit(Op.UserInput("goal"))
+        advanceUntilIdle()
+
+        val completed = events.filterIsInstance<TaskCompleted>().single()
+        val handoff = completed.handoff
+        assertThat(handoff).isNotNull()
+        assertThat(handoff!!.appPackage).isNull()
+        assertThat(handoff.appLabel).isNull()
+
+        job.cancel()
+    }
+
+    @Test
     fun `accessibility completion emits no handoff`() = runTest {
         val (session, _) = buildHandoffSession(
                 scope = this,
@@ -133,6 +157,7 @@ class AgentSessionCompletionHandoffTest {
             platformMode: PlatformMode,
             currentPackage: String?,
             resolveLabel: (String) -> String?,
+            appTiers: Map<String, AppTier> = emptyMap(),
     ): Pair<AgentSession, PackageManager> {
         val packageManager = mockk<PackageManager>()
         every { packageManager.getApplicationInfo(any<String>(), any<Int>()) } answers {
@@ -152,8 +177,9 @@ class AgentSessionCompletionHandoffTest {
         every { service.packageName } returns "ai.closepaw"
 
         val platform = FixedModePlatform(mode = platformMode, packageName = currentPackage)
+        val appClassifier = AppClassifier(appTiers)
         val toolRegistry = ToolRegistry()
-        val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
+        val policyEngine = PolicyEngine(appClassifier = appClassifier)
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
         val config = SessionConfig(maxTurns = 2, actionDelayMs = 0, agentMode = AgentMode.PRO)
         val testCatalog =
@@ -168,7 +194,7 @@ class AgentSessionCompletionHandoffTest {
                         historyManager = HistoryManager(),
                         sessionState = AgentSessionState(),
                         policyEngine = policyEngine,
-                        appClassifier = AppClassifier(emptyMap()),
+                        appClassifier = appClassifier,
                         platform = platform,
                         config = config,
                         llmClient = llm,

@@ -41,6 +41,8 @@ internal class AgentServiceViewerBridge(
         finishViewerActivity()
     }
 
+    fun isViewerAvailable(): Boolean = platformProvider()?.isViewerAvailable() == true
+
     fun notifyViewerVisible(surfaceView: SurfaceView) {
         platformProvider()?.switchToLivePreview(surfaceView)
     }

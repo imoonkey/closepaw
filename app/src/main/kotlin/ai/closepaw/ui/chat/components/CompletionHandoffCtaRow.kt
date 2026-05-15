@@ -66,12 +66,13 @@ internal fun CompletionHandoffCtaRow(
 ) {
     val context = LocalContext.current
     val pkg = handoff.appPackage
-    val launcherResolves = remember(pkg) {
-        pkg != null && context.packageManager.getLaunchIntentForPackage(pkg) != null
+    val visibility = remember(pkg, handoff.virtualDisplayAvailable) {
+        completionHandoffCtaVisibility(handoff) { p ->
+            context.packageManager.getLaunchIntentForPackage(p) != null
+        }
     }
-    val resolvablePkg: String? = if (launcherResolves) pkg else null
-    val showOpenViewer = handoff.virtualDisplayAvailable
-    if (resolvablePkg == null && !showOpenViewer) return
+    if (!visibility.any) return
+    val resolvablePkg: String? = if (visibility.showOpenApp) pkg else null
 
     val spacing = MaterialTheme.closePaw.spacing
     Row(
@@ -95,7 +96,7 @@ internal fun CompletionHandoffCtaRow(
                 )
             }
         }
-        if (showOpenViewer) {
+        if (visibility.showOpenViewer) {
             OutlinedButton(
                 onClick = onOpenViewer,
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),

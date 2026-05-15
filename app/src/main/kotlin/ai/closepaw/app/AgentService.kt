@@ -398,6 +398,13 @@ class AgentService : AccessibilityService() {
     }
 
     /**
+     * Live check for whether the current session can still serve the VD viewer.
+     * Returns true only when a VirtualDisplayPlatform exists and its arbiter state
+     * is Running. Safe to call from the main thread (no blocking).
+     */
+    fun isVirtualDisplayViewerAvailable(): Boolean = viewerBridge.isViewerAvailable()
+
+    /**
      * Synchronous version of the [shouldFinishViewerOnIdle] rule. Used by
      * VirtualDisplayViewerActivity at onStart to race-proof the SharedFlow path: if the
      * agent is already idle when the user opens the viewer, the SharedFlow emit may

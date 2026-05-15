@@ -18,18 +18,22 @@ data class CompletionHandoff(
 /**
  * Build a [CompletionHandoff] from runtime facts at task completion.
  *
- * Drops self/system-UI packages so the chat row never offers to "open ClosePaw" or
- * "open SystemUI" — render-time filtering for launcher intent / blocklist happens later.
- * Label resolution catches [PackageManager.NameNotFoundException] and falls back to null.
+ * Drops self/system-UI packages and any package classified BLOCKED so the chat row
+ * never offers a launcher CTA into apps the policy floor forbids (finance/auth).
+ * Render-time filtering for launcher intent still happens later. Label resolution
+ * catches [PackageManager.NameNotFoundException] and falls back to null.
  */
 fun buildVdCompletionHandoff(
         appPackage: String?,
         viewerAvailable: Boolean,
         packageManager: PackageManager,
         selfPackage: String,
+        classifyTier: (String) -> AppTier,
 ): CompletionHandoff {
     val filtered = appPackage?.takeIf { pkg ->
-        pkg != selfPackage && pkg != "com.android.systemui"
+        pkg != selfPackage &&
+                pkg != "com.android.systemui" &&
+                classifyTier(pkg) != AppTier.BLOCKED
     }
     val label = filtered?.let { pkg ->
         try {
