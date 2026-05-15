@@ -305,6 +305,11 @@ else
     ok "Selected physical device: $DEVICE"
 fi
 
+# Preflight: re-run setup.sh so build + permissions are wired up. Cheap when
+# APK is up-to-date and re-granting overlay/a11y/Shizuku is idempotent.
+log "Running setup.sh preflight..."
+"$SCRIPT_DIR/setup.sh" || err "Preflight failed (see setup.sh output above)"
+
 # Clear logs and start streaming capture
 adb logcat -c
 adb logcat -v threadtime > "$DEBUG_DIR/logcat_full.log" 2>&1 &

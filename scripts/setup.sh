@@ -123,7 +123,7 @@ fi
 # 3. Build APK
 log "Building APK..."
 cd "$PROJECT_ROOT"
-./gradlew :app:assembleDebug --quiet || err "Build failed"
+./gradlew :app:assembleDebug --quiet --no-configuration-cache || err "Build failed"
 ok "APK built successfully"
 
 # 4. Install APK (replacement install - preserves data)
