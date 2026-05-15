@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.agent.definition.AgentDefRegistry
-import ai.closepaw.agent.definition.standaloneToolsExcludedByPref
+import ai.closepaw.agent.definition.defaultToolsExcludedByPref
 import ai.closepaw.agent.cognition.prompt.AppSkillRepository
 import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.agent.cognition.prompt.EmptyAppSkillRepository
@@ -156,7 +156,7 @@ class SessionServices internal constructor(
             // any future readers of services.config. Without this, the runner would re-resolve
             // from the pre-merge config and re-expose the gated tool to the LLM.
             val effectiveExcludedTools = config.excludedTools +
-                    standaloneToolsExcludedByPref(settingsStore.browserScriptEnabled.value)
+                    defaultToolsExcludedByPref(settingsStore.browserScriptEnabled.value)
             val effectiveConfig =
                     if (effectiveExcludedTools == config.excludedTools) config
                     else config.copy(excludedTools = effectiveExcludedTools)

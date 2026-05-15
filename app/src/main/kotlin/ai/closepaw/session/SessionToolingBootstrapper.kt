@@ -5,7 +5,7 @@ import android.util.Log
 import ai.closepaw.agent.cognition.skills.AgentSkillManager
 import ai.closepaw.agent.definition.AgentRoleDef
 import ai.closepaw.agent.definition.ResolvedAgentRole
-import ai.closepaw.agent.definition.StandaloneRoleDef
+import ai.closepaw.agent.definition.DefaultRoleDef
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.termux.TermuxBridgeManager
 import ai.closepaw.termux.TermuxCapabilitySnapshot
@@ -43,7 +43,7 @@ internal object SessionToolingBootstrapper {
         initialPersistentAllowList: Set<String> = emptySet(),
         onPersistentAllowListChanged: ((Set<String>) -> Unit)? = null,
         agentSkillManager: AgentSkillManager? = null,
-        agentRoleDef: AgentRoleDef = StandaloneRoleDef,
+        agentRoleDef: AgentRoleDef = DefaultRoleDef,
         delegatableRoleDefs: List<AgentRoleDef> = emptyList(),
         termuxSnapshot: TermuxCapabilitySnapshot = TermuxCapabilitySnapshot.Unavailable,
         excludedTools: Set<String> = emptySet(),

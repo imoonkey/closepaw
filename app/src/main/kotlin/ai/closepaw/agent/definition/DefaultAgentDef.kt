@@ -4,21 +4,25 @@ import ai.closepaw.agent.AgentExecutionRole
 import ai.closepaw.tool.ToolName
 
 /**
- * Tools that StandaloneRoleDef declares statically but should be gated out of the LLM
+ * Tools that DefaultRoleDef declares statically but should be gated out of the LLM
  * allowlist when their corresponding user pref is OFF. SessionServices merges this set
  * into [ai.closepaw.protocol.SessionConfig.excludedTools] so the existing exclude path
  * (consumed by SessionToolingBootstrapper.resolveAllowedToolNames) does the actual hiding.
  *
- * Why a separate seam: the static [StandaloneRoleDef] is referenced from other roles' tests
+ * Why a separate seam: the static [DefaultRoleDef] is referenced from other roles' tests
  * and from AgentDefRegistry's allRoles list at class init, so we keep its allowedTools stable
  * and let runtime gating live with the rest of the per-session resolution logic.
  */
-internal fun standaloneToolsExcludedByPref(browserScriptEnabled: Boolean): Set<String> =
+internal fun defaultToolsExcludedByPref(browserScriptEnabled: Boolean): Set<String> =
     if (browserScriptEnabled) emptySet() else setOf(ToolName.BrowserScript.raw)
 
-internal val StandaloneRoleDef = AgentRoleDef(
-    name = "standalone",
+internal val DefaultRoleDef = AgentRoleDef(
+    name = "default",
     executionRole = AgentExecutionRole.STANDALONE,
+    delegatable = true,
+    description = "Default Android automation agent — full UI + shell toolset. " +
+        "Invoke via delegate_task to run an isolated subtask whose intermediate steps " +
+        "should not pollute the main trace.",
     allowedTools =
             setOf(
                     "mobile_action",
@@ -32,6 +36,7 @@ internal val StandaloneRoleDef = AgentRoleDef(
                     "ask_user",
                     "remember_experience",
                     "activate_skill",
+                    "delegate_task",
                     ToolName.BrowserScript.raw
             ),
     systemPrompt =
@@ -87,6 +92,11 @@ internal val StandaloneRoleDef = AgentRoleDef(
         - Trust the user's stated intent end-to-end, including commits. "Send X to John" → send it. If they wanted to stage, they would have said "draft" / "prepare".
         - Hand off when you made many decisions for the user (e.g. "shop for a phone case" → you picked product, color, qty): navigate to the final confirm screen, do not tap commit yourself, then `ask_user(action, ...)` so the user reviews and taps commit.
         - Never enter credentials, passwords, or payment info unless the user explicitly provides them.
+
+        ## Delegation
+        - You may call `delegate_task` to spin up an isolated subagent for an independent subtask whose intermediate steps would otherwise pollute your trace (e.g. a noisy one-shot exploration or a self-contained side-quest with a clean success criterion).
+        - The subagent returns a one-line summary; its turns are invisible to you. Prefer inline execution when the result needs further reasoning against the same screen state.
+        - Use delegation when the subtask is isolatable (its context does not bleed into yours) and the noise reduction outweighs the lost detail.
 
         ## Device Environment
         - Device: {{device_model}} ({{device_manufacturer}})
