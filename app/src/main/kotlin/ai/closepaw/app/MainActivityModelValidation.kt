@@ -3,7 +3,6 @@ package ai.closepaw.app
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 
 /** Deep-link target for a missing-credential banner tap. */
@@ -25,9 +24,7 @@ internal fun findMissingCloudKeys(
     if (settingsState.llmBackend != LLMBackendType.OPENAI) return emptyList()
 
     val modelsToValidate = linkedSetOf(settingsState.selectedModel)
-    if (settingsState.agentMode == AgentMode.PRO) {
-        settingsState.executorModel?.let(modelsToValidate::add)
-    }
+    settingsState.executorModel?.let(modelsToValidate::add)
 
     return buildList {
         for (modelName in modelsToValidate) {

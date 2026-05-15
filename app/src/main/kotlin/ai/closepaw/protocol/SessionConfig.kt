@@ -16,8 +16,6 @@ data class SessionConfig(
         val actionDelayMs: Long = 2000,
         /** Approval mode for tool execution */
         val approvalMode: ApprovalMode = ApprovalMode.SMART,
-        /** Execution mode for main agent orchestration */
-        val agentMode: AgentMode = AgentMode.PRO,
         /**
          * Canonical LLM runtime routing config (backend + local model params).
          */
@@ -35,17 +33,12 @@ data class SessionConfig(
         /** Controls which perception modalities (a11y tree, screenshot, both) are active */
         val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
         /**
-         * Primary model name (key in llm_models.json) for standalone/planner agents.
-         *
-         * Construct configs with [mainModel] directly.
+         * Primary model name (key in llm_models.json) for the main agent.
          */
         val mainModel: String = "glm-5",
         /**
-         * Model name (key in llm_models.json) for executor agents in planner/executor mode.
-         * When null, executor agents fall back to [mainModel].
-         *
-         * Typical usage: set a cheaper/faster model here while [mainModel] uses a
-         * more capable model for planning.
+         * Model name (key in llm_models.json) for delegated subagents.
+         * When null, subagents fall back to [mainModel].
          */
         val executorModel: String? = null,
         /** Platform mode: real screen (accessibility) or virtual display (Shizuku) */
@@ -66,14 +59,6 @@ enum class PlatformMode {
         ACCESSIBILITY,
         /** Agent operates on a Shizuku-powered virtual display. */
         VIRTUAL_DISPLAY
-}
-
-/** Agent execution mode. */
-enum class AgentMode {
-        /** Single standalone agent with direct UI tools. */
-        BASIC,
-        /** Planner + delegated executor flow. */
-        PRO
 }
 
 /** LLM backend type - determines which LLM client to use. */

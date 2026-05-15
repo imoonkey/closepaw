@@ -10,14 +10,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ai.closepaw.protocol.AgentMode
 
 @Composable
 internal fun AgentBehaviorSettingsPage(
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
-    agentMode: AgentMode,
-    onAgentModeChange: (AgentMode) -> Unit,
     perceptionMode: String,
     onPerceptionModeChange: (String) -> Unit,
     browserScriptEnabled: Boolean,
@@ -35,10 +32,6 @@ internal fun AgentBehaviorSettingsPage(
         ) {
             SettingsSection(title = "Max Turns") {
                 MaxTurnsDropdown(maxTurns = maxTurns, onMaxTurnsChange = onMaxTurnsChange)
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            SettingsSection(title = "Execution") {
-                AgentModeDropdown(agentMode = agentMode, onAgentModeChange = onAgentModeChange)
             }
             Spacer(modifier = Modifier.height(20.dp))
             SettingsSection(title = "Perception") {

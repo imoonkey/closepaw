@@ -22,7 +22,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.ModelCatalog
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.theme.ClosePawMotion
@@ -49,8 +48,6 @@ fun SettingsSheet(
     modelLoadingStatus: ModelLoadingStatus,
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
-    agentMode: AgentMode,
-    onAgentModeChange: (AgentMode) -> Unit,
     perceptionMode: String,
     onPerceptionModeChange: (String) -> Unit,
     debugMode: Boolean,
@@ -121,7 +118,6 @@ fun SettingsSheet(
                     modelOptions = catalogModelOptions(modelCatalog.all()),
                     selectedLocalModel = selectedLocalModel,
                     modelCatalog = modelCatalog,
-                    agentMode = agentMode,
                     maxTurns = maxTurns,
                     perceptionMode = perceptionMode,
                     isAccessibilityEnabled = isAccessibilityEnabled,
@@ -139,7 +135,6 @@ fun SettingsSheet(
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = selectedExecutorModel,
                     onExecutorModelChange = onExecutorModelChange,
-                    agentMode = agentMode,
                     selectedLocalModel = selectedLocalModel,
                     onLocalModelChange = onLocalModelChange,
                     modelLoadingStatus = modelLoadingStatus,
@@ -154,8 +149,6 @@ fun SettingsSheet(
                 SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
                     maxTurns = maxTurns,
                     onMaxTurnsChange = onMaxTurnsChange,
-                    agentMode = agentMode,
-                    onAgentModeChange = onAgentModeChange,
                     perceptionMode = perceptionMode,
                     onPerceptionModeChange = onPerceptionModeChange,
                     browserScriptEnabled = browserScriptEnabled,

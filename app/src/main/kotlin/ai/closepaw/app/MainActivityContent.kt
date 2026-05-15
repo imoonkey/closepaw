@@ -130,8 +130,6 @@ internal fun MainActivityContent(
                     modelLoadingStatus = modelLoadingStatusHolder.status,
                     maxTurns = settingsState.maxTurns,
                     onMaxTurnsChange = settingsState::updateMaxTurns,
-                    agentMode = settingsState.agentMode,
-                    onAgentModeChange = settingsState::updateAgentMode,
                     perceptionMode = settingsState.perceptionMode,
                     onPerceptionModeChange = settingsState::updatePerceptionMode,
                     debugMode = settingsState.debugMode,

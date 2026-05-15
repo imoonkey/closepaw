@@ -56,7 +56,7 @@ internal class SessionAgentRunner(
     val completions = Channel<AgentStopReason>(capacity = Channel.BUFFERED)
 
     fun start(taskInput: String, taskId: String) {
-        val agentDef = AgentDefRegistry.mainFor(config.agentMode)
+        val agentDef = AgentDefRegistry.main
         // Read excludedTools from services.config — SessionServices.create stamps the user-pref
         // tool gates (e.g. browser_script when off) into that copy. The local `config` field is
         // the original, pre-merge SessionConfig and would re-expose the gated tool to the LLM.

@@ -9,7 +9,6 @@ import ai.closepaw.auth.OAuthRefreshFailed
 import ai.closepaw.auth.WrongCredentialType
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.perception.PerceptionConfig
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.TaskOutcome
 import ai.closepaw.protocol.LLMBackendType
@@ -92,7 +91,6 @@ class OnboardingDemoController(
                 val config = SessionConfig(
                     maxTurns = MAX_TURNS,
                     approvalMode = ApprovalMode.AUTO_APPROVE,
-                    agentMode = AgentMode.BASIC,
                     llm = SessionLlmConfig(
                         backendType = LLMBackendType.OPENAI,
                         localConfig = null

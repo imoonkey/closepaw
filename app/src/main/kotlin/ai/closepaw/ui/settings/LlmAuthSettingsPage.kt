@@ -37,7 +37,6 @@ import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.displayLabel
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +90,6 @@ internal fun LlmAuthSettingsPage(
     modelCatalog: ModelCatalog,
     selectedExecutorModel: String?,
     onExecutorModelChange: (String?) -> Unit,
-    agentMode: AgentMode,
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus,
@@ -188,7 +186,6 @@ internal fun LlmAuthSettingsPage(
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = selectedExecutorModel,
                     onExecutorModelChange = { commitSignIn { onExecutorModelChange(it) } },
-                    agentMode = agentMode,
                     openAiAuthUiState = openAiAuthUiState,
                     onStartOAuth = { commitSignIn { onStartOAuth() } },
                     onCancelOAuth = onCancelOAuth,
@@ -203,7 +200,6 @@ internal fun LlmAuthSettingsPage(
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = selectedExecutorModel,
                     onExecutorModelChange = { commitApiKey { onExecutorModelChange(it) } },
-                    agentMode = agentMode,
                     authStore = authStore,
                     onApiKeyPersist = { provider, key ->
                         commitApiKey { }
@@ -280,7 +276,6 @@ private fun SignInTabContent(
     modelCatalog: ModelCatalog,
     selectedExecutorModel: String?,
     onExecutorModelChange: (String?) -> Unit,
-    agentMode: AgentMode,
     openAiAuthUiState: OpenAiAuthUiState,
     onStartOAuth: () -> Unit,
     onCancelOAuth: () -> Unit,
@@ -297,16 +292,14 @@ private fun SignInTabContent(
             onModelChange = onModelChange
         )
     }
-    if (agentMode == AgentMode.PRO) {
-        Spacer(modifier = Modifier.height(20.dp))
-        SettingsSection(title = "Executor Model") {
-            Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
-                ExecutorModelDropdown(
-                    selectedModel = selectedExecutorModel,
-                    modelOptions = modelOptions,
-                    onModelChange = onExecutorModelChange
-                )
-            }
+    Spacer(modifier = Modifier.height(20.dp))
+    SettingsSection(title = "Executor Model") {
+        Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
+            ExecutorModelDropdown(
+                selectedModel = selectedExecutorModel,
+                modelOptions = modelOptions,
+                onModelChange = onExecutorModelChange
+            )
         }
     }
     Spacer(modifier = Modifier.height(20.dp))
@@ -328,7 +321,6 @@ private fun ApiKeyTabContent(
     modelCatalog: ModelCatalog,
     selectedExecutorModel: String?,
     onExecutorModelChange: (String?) -> Unit,
-    agentMode: AgentMode,
     authStore: AuthStore,
     onApiKeyPersist: (LLMProvider, String) -> Unit,
 ) {
@@ -382,16 +374,14 @@ private fun ApiKeyTabContent(
             }
         )
     }
-    if (agentMode == AgentMode.PRO) {
-        Spacer(modifier = Modifier.height(20.dp))
-        SettingsSection(title = "Executor Model") {
-            Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
-                ExecutorModelDropdown(
-                    selectedModel = selectedExecutorModel,
-                    modelOptions = modelOptions,
-                    onModelChange = onExecutorModelChange
-                )
-            }
+    Spacer(modifier = Modifier.height(20.dp))
+    SettingsSection(title = "Executor Model") {
+        Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
+            ExecutorModelDropdown(
+                selectedModel = selectedExecutorModel,
+                modelOptions = modelOptions,
+                onModelChange = onExecutorModelChange
+            )
         }
     }
 

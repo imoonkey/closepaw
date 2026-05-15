@@ -12,7 +12,6 @@ import ai.closepaw.llm.LLMClientFactory
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.llm.ModelCatalog
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import kotlinx.serialization.SerializationException
@@ -110,9 +109,7 @@ internal object SessionLlmBootstrapper {
     ) {
         if (authStore == null) return
         val requiredModels = linkedSetOf(config.mainModel)
-        if (config.agentMode == AgentMode.PRO) {
-            config.executorModel?.let(requiredModels::add)
-        }
+        config.executorModel?.let(requiredModels::add)
         requiredModels.forEach { modelName ->
             val entry = catalog.resolve(modelName)
             val provider = entry.provider

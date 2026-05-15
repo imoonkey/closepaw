@@ -10,7 +10,6 @@ import ai.closepaw.history.model.SessionRuntimeSnapshot
 import ai.closepaw.history.model.TodoSnapshot
 import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.perception.PerceptionConfig
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
@@ -87,7 +86,6 @@ internal class SessionCheckpointCoordinator(
 internal fun SessionConfig.toConfigSnapshot() = ConversationConfigSnapshot(
     mainModel = mainModel,
     executorModel = executorModel,
-    agentMode = agentMode.name,
     maxTurns = maxTurns,
     perceptionMode = perceptionConfig.toModeString(),
     platformMode = platformMode.name,
@@ -111,9 +109,6 @@ private fun PerceptionConfig.toModeString(): String = when (this) {
 internal fun ConversationConfigSnapshot.toSessionConfig(): SessionConfig = SessionConfig(
     mainModel = mainModel,
     executorModel = executorModel,
-    agentMode = try { AgentMode.valueOf(agentMode) } catch (_: Exception) {
-        Log.w(SNAPSHOT_TAG, "Unknown AgentMode in snapshot: $agentMode"); AgentMode.PRO
-    },
     maxTurns = maxTurns,
     perceptionConfig = when (perceptionMode) {
         "screenshot_only" -> PerceptionConfig.ScreenshotOnly()

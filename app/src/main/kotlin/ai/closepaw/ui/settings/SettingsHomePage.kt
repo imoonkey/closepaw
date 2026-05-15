@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.BuildConfig
 import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.ModelCatalog
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.theme.Fleuron
@@ -36,7 +35,6 @@ internal fun SettingsHomePage(
     modelOptions: List<Pair<String, String>>,
     selectedLocalModel: String,
     modelCatalog: ModelCatalog,
-    agentMode: AgentMode,
     maxTurns: Int,
     perceptionMode: String,
     isAccessibilityEnabled: Boolean,
@@ -83,7 +81,7 @@ internal fun SettingsHomePage(
             SectionHeader("Behavior")
             SettingsNavigationRow(
                 title = "Agent Behavior",
-                subtitle = agentBehaviorSubtitle(agentMode, maxTurns, perceptionMode),
+                subtitle = agentBehaviorSubtitle(maxTurns, perceptionMode),
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }
             )
 
@@ -136,17 +134,15 @@ private fun llmSubtitle(
 }
 
 private fun agentBehaviorSubtitle(
-    agentMode: AgentMode,
     maxTurns: Int,
     perceptionMode: String
 ): String {
-    val mode = if (agentMode == AgentMode.PRO) "Pro" else "Basic"
     val perception = when (perceptionMode) {
         "hybrid" -> "Hybrid"
         "screenshot_only" -> "Screenshot"
         else -> "Accessibility"
     }
-    return "$mode · $maxTurns turns · $perception"
+    return "$maxTurns turns · $perception"
 }
 
 private fun permissionsSubtitle(

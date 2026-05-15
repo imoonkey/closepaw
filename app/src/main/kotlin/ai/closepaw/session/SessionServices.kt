@@ -166,7 +166,7 @@ class SessionServices internal constructor(
                 initialPersistentAllowList = persistentAllowList,
                 onPersistentAllowListChanged = { packages -> settingsStore.savePersistentAllowList(packages) },
                 agentSkillManager = agentSkillManager,
-                agentRoleDef = AgentDefRegistry.mainFor(effectiveConfig.agentMode),
+                agentRoleDef = AgentDefRegistry.main,
                 delegatableRoleDefs = AgentDefRegistry.delegatableRoles(),
                 termuxSnapshot = termuxSnapshot,
                 excludedTools = effectiveConfig.excludedTools,

@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.LocalModelOption
@@ -21,8 +20,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
     var debugMode by mutableStateOf(AppSettingsStore.DEFAULT_DEBUG_MODE)
         private set
     var perceptionMode by mutableStateOf(AppSettingsStore.DEFAULT_PERCEPTION_MODE)
-        private set
-    var agentMode by mutableStateOf(AppSettingsStore.DEFAULT_AGENT_MODE)
         private set
     var llmBackend by mutableStateOf(AppSettingsStore.DEFAULT_LLM_BACKEND)
         private set
@@ -47,7 +44,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
         maxTurns = settings.maxTurns
         debugMode = settings.debugMode
         perceptionMode = settings.perceptionMode
-        agentMode = settings.agentMode
         llmBackend = settings.llmBackend
         localModel = settings.localModel
         executorModel = settings.executorModel
@@ -58,7 +54,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
         Log.d(
                 TAG,
-                "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=${localModel.id}, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode, platformMode=$platformMode"
+                "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=${localModel.id}, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, platformMode=$platformMode"
         )
     }
 
@@ -110,11 +106,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
     fun updatePerceptionMode(value: String) {
         perceptionMode = value
         store.savePerceptionMode(value)
-    }
-
-    fun updateAgentMode(value: AgentMode) {
-        agentMode = value
-        store.saveAgentMode(value)
     }
 
     fun updatePlatformMode(value: PlatformMode) {

@@ -75,10 +75,6 @@ internal suspend fun applyIntentPayloadToSettings(
         modelLoadingStatusHolder.updateBackend(it)
         log("LLM backend set from intent: $it")
     }
-    payload.agentMode?.let {
-        settingsState.updateAgentMode(it)
-        log("Agent mode set from intent: $it")
-    }
     payload.perceptionMode?.let { mode ->
         settingsState.updatePerceptionMode(mode)
         log("Perception mode set from intent: $mode")

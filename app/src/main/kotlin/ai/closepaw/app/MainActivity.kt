@@ -77,7 +77,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_DEBUG_MODE = "debug_mode"
         const val EXTRA_TRACE_ENABLED = "trace_enabled"
         const val EXTRA_TRACE_RUN_ID = "trace_run_id"
-        const val EXTRA_AGENT_MODE = "agent_mode"
         const val EXTRA_MAIN_MODEL = "main_model"
         const val EXTRA_EXECUTOR_MODEL = "executor_model"
         const val EXTRA_MAX_TURNS = "max_turns"
@@ -690,7 +689,6 @@ class MainActivity : ComponentActivity() {
                                         backendType = settingsState.llmBackend,
                                         localConfig = localConfig
                                 ),
-                        agentMode = settingsState.agentMode,
                         perceptionConfig =
                                 when (settingsState.perceptionMode) {
                                     "screenshot_only" ->

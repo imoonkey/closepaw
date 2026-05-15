@@ -1,7 +1,6 @@
 package ai.closepaw.app
 
 import android.content.Intent
-import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
@@ -12,7 +11,6 @@ data class MainActivityIntentPayload(
         val novitaApiKey: String?,
         val openaiBaseUrl: String?,
         val backendType: LLMBackendType?,
-        val agentMode: AgentMode?,
         val perceptionMode: String?,
         val platformMode: PlatformMode?,
         val mainModel: String?,
@@ -59,15 +57,6 @@ data class MainActivityIntentPayload(
 
             val goalText =
                     intent.getStringExtra(MainActivity.EXTRA_GOAL)?.takeIf { it.isNotBlank() }
-
-            val agentMode =
-                    intent.getStringExtra(MainActivity.EXTRA_AGENT_MODE)?.let { raw ->
-                        try {
-                            AgentMode.valueOf(raw.uppercase())
-                        } catch (_: Exception) {
-                            AgentMode.PRO
-                        }
-                    }
 
             val perceptionMode =
                     normalizePerceptionMode(
@@ -151,7 +140,6 @@ data class MainActivityIntentPayload(
                     novitaApiKey = novitaApiKey,
                     openaiBaseUrl = openaiBaseUrl,
                     backendType = backendType,
-                    agentMode = agentMode,
                     perceptionMode = perceptionMode,
                     platformMode = platformMode,
                     mainModel = mainModel,

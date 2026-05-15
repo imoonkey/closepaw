@@ -5,11 +5,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Repeat
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import ai.closepaw.protocol.AgentMode
 
 @Composable
 internal fun CloudModelDropdown(
@@ -102,31 +100,6 @@ internal fun MaxTurnsDropdown(
         isSelected = { turns -> turns == maxTurns },
         onOptionSelected = onMaxTurnsChange,
         optionText = { turns -> Text("$turns turns") },
-        optionLeadingIcon = { _, selected ->
-            if (selected) { { DropdownSelectedIndicator() } } else null
-        }
-    )
-}
-
-@Composable
-internal fun AgentModeDropdown(
-    agentMode: AgentMode,
-    onAgentModeChange: (AgentMode) -> Unit
-) {
-    val modeItems = listOf(
-        AgentMode.BASIC to "Basic (Standalone)",
-        AgentMode.PRO to "Pro (Planner + Executor)"
-    )
-    val selectedDisplayName = modeItems.find { it.first == agentMode }?.second ?: agentMode.name
-
-    SettingsDropdown(
-        label = "Execution Mode",
-        value = selectedDisplayName,
-        leadingIcon = Icons.Outlined.Speed,
-        options = modeItems,
-        isSelected = { (mode, _) -> mode == agentMode },
-        onOptionSelected = { (mode, _) -> onAgentModeChange(mode) },
-        optionText = { (_, label) -> Text(label) },
         optionLeadingIcon = { _, selected ->
             if (selected) { { DropdownSelectedIndicator() } } else null
         }
