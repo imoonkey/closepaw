@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-05-15: Auto-finish VD viewer when agent goes idle — user no longer stranded on a dead VD surface
+
+**What changed:**
+- New pure rule `shouldFinishViewerOnIdle()` in `OverlayLocationPolicy.kt`: fires when `platform=VIRTUAL_DISPLAY ∧ location=VD_VIEWER ∧ !hasActiveTask ∧ mode=Hidden`.
+- Two trigger paths into `VirtualDisplayViewerActivity.finish()`, racing safely (activity guards with `if (!isFinishing)`):
+  1. **SharedFlow signal** — `ServiceOverlayController.applyVisibility()` checks the rule at every visibility decision and emits to `AgentService._viewerFinishSignal` (replay=0, buffer=1, DROP_OLDEST). Activity collects via `lifecycleScope` + `repeatOnLifecycle(STARTED)`.
+  2. **Synchronous query** — `AgentService.shouldFinishViewerNow()` polled by `VirtualDisplayViewerActivity.onStart` right after `onViewerOpened()`, race-proofing the same-tick subscription gap.
+- New `AgentServiceViewerBridge.finishViewer()` seam plus a new `onFinishViewer` callback on `ServiceOverlayController`.
+- 6 new unit tests in `OverlayLocationPolicyTest` (suite now 38; all green).
+
+**Why:**
+- When a VD task ends while the user is in `VirtualDisplayViewerActivity`, `VirtualDisplayPlatform` releases the virtual display — but the activity stays foregrounded showing a frozen/black SurfaceView. Capsule and glow correctly hide once `hasActiveTask=false`+`mode=Hidden`, so there is no overlay UI to navigate away. User must press back blindly.
+- Trigger gated to `Hidden` (not `Done` or `Error`) so the user gets the ~800ms success message before dismissal, and so error states stay until explicitly dismissed. Both eventually transition to `Hidden`, which fires the finish.
+- Two trigger paths because the SharedFlow alone races on Scenario B (viewer opened **after** task already idle): the emit from `applyVisibility` lands before the activity collector subscribes, value drops, viewer never finishes. The synchronous poll in `onStart` plugs that gap.
+
+**Key files:**
+- `app/src/main/kotlin/ai/closepaw/app/AgentService.kt` (SharedFlow + `shouldFinishViewerNow()` query)
+- `app/src/main/kotlin/ai/closepaw/app/AgentServiceViewerBridge.kt` (`finishViewer()` pass-through)
+- `app/src/main/kotlin/ai/closepaw/app/OverlayLocationPolicy.kt` (`shouldFinishViewerOnIdle()` pure rule)
+- `app/src/main/kotlin/ai/closepaw/app/ServiceOverlayController.kt` (rule check at end of `applyVisibility()` + `shouldFinishViewerNow()` query exposure)
+- `app/src/main/kotlin/ai/closepaw/ui/viewer/VirtualDisplayViewerActivity.kt` (lifecycle collector + `onStart` synchronous poll)
+- `app/src/test/kotlin/ai/closepaw/app/OverlayLocationPolicyTest.kt` (6 new tests)
+- `doc/main/ui/overlay.md`, `doc/main/ui/capsule/state_machine.md` (architecture docs)
+
+**Verification:**
+- `./gradlew :app:testDebugUnitTest --tests "ai.closepaw.app.OverlayLocationPolicyTest"` — 38 tests pass (6 new).
+- On-device against Nubia P0110 (`100.64.43.95:5555`, `gpt-5.4` via `desktop.tail6bd948.ts.net:8741` cproxy):
+  - **Scenario A** (viewer opened mid-task, task ends while in viewer): logcat `TaskCompleted → applyVisibility location=VD_VIEWER mode=Hidden → "Auto-finishing VD viewer: agent idle in VD_VIEWER" → "Service requested viewer finish" → onStop`. Activity stack confirms viewer gone.
+  - **Scenario B** (task ends, viewer opened after): logcat `VDViewerActivity onStart → "Auto-finishing VD viewer" + "Agent already idle at viewer open - finishing immediately" → onStop`. Synchronous path catches the race.
+
+**Commit:** `0af87aab`
+**Next:** Bug 2 (chat header `+` opens VD viewer) could not be reproduced — viewer-launch grep + `adb input tap (1166,238)` consistently shows only `ChatSessionHistory: Started new session` with no `VirtualDisplayViewerActivity onStart`. Need a screen recording or capsule-mode info from the user before deciding whether there is a real bug or button mis-attribution. Side observation: VD-launched apps (e.g. Gmail) sometimes keep `mFocusedWindow` on display 0 so taps at the same coordinates can route to the VD app instead of MainActivity — separate input-routing issue.
+**Blockers:** None.
+
 ## 2026-05-14: Fix VD viewer edge glow on first entry — `onMainAppHidden` no longer clobbers `VD_VIEWER`
 
 **What changed:**

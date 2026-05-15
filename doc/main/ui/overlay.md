@@ -1,7 +1,7 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
-> Last updated: 2026-05-14 (`onMainAppHidden` preserves `VD_VIEWER` so the first viewer entry shows edge glow immediately)
+> Last updated: 2026-05-15 (VD viewer auto-finish so user isn't stranded on a dead surface after task end)
 
 ## Overview
 
@@ -27,6 +27,25 @@ The overlay system provides visual feedback and interaction when the agent execu
 
 - While `isMainAppResumed = true`, any `WINDOW_STATE_CHANGED` that would flip `userLocation` away from `MAIN_APP` is dropped. This blocks stale launcher events and OEM "Open with" dialog windows (e.g. Nubia's `com.android.permissioncontroller.OAlertDialog` on `open_app`) from spuriously surfacing the system capsule on top of the in-app capsule.
 - On `onMainAppHidden`, the flag clears AND `userLocation` flips to `OTHER_APP` **only if it is still `MAIN_APP`**. This catches the race where the new foreground app's window-state event arrived (and was dropped) before MainActivity finished stopping. The flip is conditional because `VirtualDisplayViewerActivity.onStart` calls `onViewerOpened()` (setting `userLocation = VD_VIEWER`) before `MainActivity.onStop` fires; clobbering that to `OTHER_APP` would lose the edge glow on the first viewer entry until a second user action re-triggered `onViewerOpened`.
+
+### VD Viewer Auto-Finish
+
+> See: `app/OverlayLocationPolicy.kt#shouldFinishViewerOnIdle`, `app/AgentService.kt#viewerFinishSignal`, `ui/viewer/VirtualDisplayViewerActivity.kt`
+
+When a VD task ends while the viewer is foregrounded, `VirtualDisplayPlatform` releases the virtual display, but the viewer activity stays in front showing a frozen/black SurfaceView with no overlay UI (capsule and glow correctly hide once `hasActiveTask=false` + `mode=Hidden`). Without intervention the user is stranded — must press back blindly.
+
+Trigger rule (pure, JVM-tested in `OverlayLocationPolicyTest`):
+```
+platform=VIRTUAL_DISPLAY ∧ location=VD_VIEWER ∧ !hasActiveTask ∧ mode=Hidden
+```
+
+Two paths drive `VirtualDisplayViewerActivity.finish()`, racing each other safely (activity guards with `if (!isFinishing)`):
+
+1. **SharedFlow signal** — `ServiceOverlayController.applyVisibility()` checks the rule at every visibility decision and emits to `AgentService._viewerFinishSignal` (replay=0, buffer=1, DROP_OLDEST). Activity collects in `lifecycleScope` after `repeatOnLifecycle(STARTED)`. Covers the common case: viewer opened during task, task ends while in viewer (Done→Hidden transition fires `applyVisibility` with the active collector subscribed).
+
+2. **Synchronous query** — `AgentService.shouldFinishViewerNow()` polled by `VirtualDisplayViewerActivity.onStart` immediately after `onViewerOpened()`. Covers the race where the user opens the viewer **after** the agent is already idle: emit and subscription land in the same dispatcher tick, the SharedFlow value can be missed, the synchronous poll plugs the gap.
+
+Trigger fires only at `mode=Hidden`, never at `Done` (let the user read the success message for the ~800ms before auto-hide) or `Error` (user must dismiss). Both eventually transition to Hidden, which fires the finish.
 
 ---
 

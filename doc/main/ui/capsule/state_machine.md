@@ -89,11 +89,16 @@ Location transitions:
 - `onViewerOpened` → `VD_VIEWER`
 - `onViewerClosed` → `OTHER_APP` (if previously VD_VIEWER)
 - `onMainAppVisible` → `MAIN_APP`
+- `onMainAppHidden` → `OTHER_APP` (only if currently `MAIN_APP`; preserves `VD_VIEWER` set by `onViewerOpened`)
 
 `resolveUserLocation` ignores:
 - non-activity-like class names
 - non-default display windows (prevents VD app windows from triggering transitions)
 - null packageName
+
+### Viewer Auto-Finish
+
+When `(platform=VIRTUAL_DISPLAY ∧ location=VD_VIEWER ∧ !hasActiveTask ∧ mode=Hidden)` — i.e. agent went idle while user is in VD viewer — `VirtualDisplayViewerActivity` auto-finishes so the user lands back on MainActivity instead of a frozen VD surface. Pure rule: `OverlayLocationPolicy.shouldFinishViewerOnIdle`. Two trigger paths (SharedFlow signal from `applyVisibility` + synchronous query polled in `VirtualDisplayViewerActivity.onStart`) cover task-ends-while-in-viewer and viewer-opened-when-already-idle. -> See: [overlay.md#vd-viewer-auto-finish](../overlay.md#vd-viewer-auto-finish).
 
 ## 4. Visibility Decision Machine
 
