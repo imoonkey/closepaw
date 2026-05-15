@@ -99,6 +99,29 @@ internal fun resolveLocationOnMainAppHidden(
     OverlayUserLocation.OTHER_APP -> OverlayUserLocation.OTHER_APP
 }
 
+/**
+ * Whether the VirtualDisplayViewerActivity should auto-finish so the user is returned to
+ * MainActivity instead of being stranded on a frozen, non-interactive VD surface.
+ *
+ * Trigger: VD platform + user is in the viewer + no active task + capsule has settled to
+ * [CapsuleMode.Hidden]. This is the post-task quiescent state — the agent isn't acting,
+ * the VD content is whatever the last action left behind, and there's no overlay UI to
+ * navigate away. Without an auto-finish the user has to press back blindly.
+ *
+ * NOT triggered on [CapsuleMode.Done] (capsule still showing the success message — let
+ * the user read it) or [CapsuleMode.Error] (user must dismiss). Both transition to Hidden
+ * eventually, which is when the finish fires.
+ */
+internal fun shouldFinishViewerOnIdle(
+    platformMode: PlatformMode,
+    location: OverlayUserLocation,
+    mode: CapsuleMode,
+    hasActiveTask: Boolean,
+): Boolean = platformMode == PlatformMode.VIRTUAL_DISPLAY &&
+    location == OverlayUserLocation.VD_VIEWER &&
+    !hasActiveTask &&
+    mode is CapsuleMode.Hidden
+
 internal fun deriveOverlayVisibility(
     platformMode: PlatformMode,
     location: OverlayUserLocation,

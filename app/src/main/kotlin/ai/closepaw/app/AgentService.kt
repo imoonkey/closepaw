@@ -23,8 +23,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,6 +55,24 @@ class AgentService : AccessibilityService() {
     private val _effectivePlatformMode = MutableStateFlow<PlatformMode?>(null)
     val effectivePlatformMode: StateFlow<PlatformMode?> = _effectivePlatformMode.asStateFlow()
 
+    /**
+     * Signal that the VirtualDisplayViewerActivity should finish itself. Emitted by the
+     * overlay controller when the agent reaches a terminal idle state with the viewer
+     * still in front (see [shouldFinishViewerOnIdle]). The activity collects this in its
+     * lifecycle scope and calls finish() so the user lands back on MainActivity instead
+     * of being stranded on a frozen VD surface.
+     *
+     * SharedFlow with replay=0 + buffer=1 + DROP_OLDEST so a missed signal during
+     * activity recreation doesn't leak — the next emit replaces it, and we only ever
+     * care about the most recent finish request.
+     */
+    private val _viewerFinishSignal = MutableSharedFlow<Unit>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val viewerFinishSignal: SharedFlow<Unit> = _viewerFinishSignal.asSharedFlow()
+
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val serviceLifecycleOwner = ServiceLifecycleOwner()
     private var session: AgentSession? = null
@@ -63,7 +85,8 @@ class AgentService : AccessibilityService() {
             logTag = TAG,
             overlayControllerProvider = { overlayController },
             platformProvider = { session?.getServices()?.platform as? ai.closepaw.platform.virtualdisplay.VirtualDisplayPlatform },
-            openViewerActivity = { openViewerActivity() }
+            openViewerActivity = { openViewerActivity() },
+            finishViewerActivity = { _viewerFinishSignal.tryEmit(Unit) },
         )
     }
     private val eventHandler =
@@ -167,6 +190,7 @@ class AgentService : AccessibilityService() {
                             startActivity(intent)
                         },
                         onOpenViewer = { viewerBridge.openViewer() },
+                        onFinishViewer = { viewerBridge.finishViewer() },
                         statusIslandManager =
                                 IslandOverlayHost(
                                         service = this,
@@ -372,6 +396,14 @@ class AgentService : AccessibilityService() {
     fun onViewerOpened() {
         viewerBridge.onViewerOpened()
     }
+
+    /**
+     * Synchronous version of the [shouldFinishViewerOnIdle] rule. Used by
+     * VirtualDisplayViewerActivity at onStart to race-proof the SharedFlow path: if the
+     * agent is already idle when the user opens the viewer, the SharedFlow emit may
+     * happen before the activity's collector subscribes, so we also poll directly here.
+     */
+    fun shouldFinishViewerNow(): Boolean = overlayController?.shouldFinishViewerNow() == true
 
     fun onViewerClosed() {
         viewerBridge.onViewerClosed()

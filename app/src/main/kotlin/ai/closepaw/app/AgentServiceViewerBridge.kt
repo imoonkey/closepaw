@@ -9,7 +9,8 @@ internal class AgentServiceViewerBridge(
     private val logTag: String,
     private val overlayControllerProvider: () -> ServiceOverlayController?,
     private val platformProvider: () -> VirtualDisplayPlatform?,
-    private val openViewerActivity: () -> Unit
+    private val openViewerActivity: () -> Unit,
+    private val finishViewerActivity: () -> Unit,
 ) {
     fun onViewerOpened() {
         val overlay = overlayControllerProvider()
@@ -34,6 +35,10 @@ internal class AgentServiceViewerBridge(
 
     fun openViewer() {
         openViewerActivity()
+    }
+
+    fun finishViewer() {
+        finishViewerActivity()
     }
 
     fun notifyViewerVisible(surfaceView: SurfaceView) {

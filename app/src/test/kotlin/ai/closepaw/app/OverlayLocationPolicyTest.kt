@@ -430,4 +430,79 @@ class OverlayLocationPolicyTest {
         assertThat(resolveLocationOnMainAppHidden(OverlayUserLocation.OTHER_APP))
             .isEqualTo(OverlayUserLocation.OTHER_APP)
     }
+
+    @Test
+    fun `viewer auto-finish fires when VD viewer goes idle (Hidden, no task)`() {
+        assertThat(
+            shouldFinishViewerOnIdle(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.VD_VIEWER,
+                mode = CapsuleMode.Hidden,
+                hasActiveTask = false,
+            )
+        ).isTrue()
+    }
+
+    @Test
+    fun `viewer auto-finish does NOT fire on Done (capsule still showing success)`() {
+        assertThat(
+            shouldFinishViewerOnIdle(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.VD_VIEWER,
+                mode = CapsuleMode.Done("done"),
+                hasActiveTask = false,
+            )
+        ).isFalse()
+    }
+
+    @Test
+    fun `viewer auto-finish does NOT fire on Error (user must dismiss)`() {
+        assertThat(
+            shouldFinishViewerOnIdle(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.VD_VIEWER,
+                mode = CapsuleMode.Error("oops"),
+                hasActiveTask = false,
+            )
+        ).isFalse()
+    }
+
+    @Test
+    fun `viewer auto-finish does NOT fire while a task is active`() {
+        // Defensive: hasActiveTask=true with mode=Hidden shouldn't normally happen, but
+        // guard so a transient state doesn't yank the viewer out from under the agent.
+        assertThat(
+            shouldFinishViewerOnIdle(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.VD_VIEWER,
+                mode = CapsuleMode.Hidden,
+                hasActiveTask = true,
+            )
+        ).isFalse()
+    }
+
+    @Test
+    fun `viewer auto-finish does NOT fire when user is in MAIN_APP`() {
+        assertThat(
+            shouldFinishViewerOnIdle(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.MAIN_APP,
+                mode = CapsuleMode.Hidden,
+                hasActiveTask = false,
+            )
+        ).isFalse()
+    }
+
+    @Test
+    fun `viewer auto-finish does NOT fire in accessibility platform mode`() {
+        // No VD viewer to finish in A11y mode — guard so the rule never misfires.
+        assertThat(
+            shouldFinishViewerOnIdle(
+                platformMode = PlatformMode.ACCESSIBILITY,
+                location = OverlayUserLocation.VD_VIEWER,
+                mode = CapsuleMode.Hidden,
+                hasActiveTask = false,
+            )
+        ).isFalse()
+    }
 }

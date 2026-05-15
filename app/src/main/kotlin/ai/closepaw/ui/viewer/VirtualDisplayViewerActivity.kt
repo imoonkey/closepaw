@@ -16,7 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import ai.closepaw.app.AgentService
+import kotlinx.coroutines.launch
 
 /**
  * VirtualDisplayViewerActivity — Full-screen live preview of the virtual display.
@@ -68,6 +72,20 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
                 }
             )
         }
+
+        // Service requests viewer-finish when the agent reaches a quiescent idle state
+        // (post-task in VD mode). Without this, the user is stranded on a frozen, dead VD
+        // surface with no overlay UI to navigate away from.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AgentService.instance?.viewerFinishSignal?.collect {
+                    if (!isFinishing) {
+                        Log.d(TAG, "Service requested viewer finish")
+                        finish()
+                    }
+                }
+            }
+        }
     }
 
     override fun onStart() {
@@ -78,6 +96,14 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
         }
         // Notify service: show capsule overlay, hide island, set SCREEN_VIEWING context
         AgentService.instance?.onViewerOpened()
+        // Race-proof: if the agent is already idle when the viewer opens, the SharedFlow
+        // emit from onViewerOpened()→applyVisibility() may land before the lifecycle
+        // collector subscribes (both happen this same tick). Poll synchronously so the
+        // viewer never gets stranded on a quiet VD surface.
+        if (AgentService.instance?.shouldFinishViewerNow() == true && !isFinishing) {
+            Log.d(TAG, "Agent already idle at viewer open - finishing immediately")
+            finish()
+        }
     }
 
     override fun onStop() {

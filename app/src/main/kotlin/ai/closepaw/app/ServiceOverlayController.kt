@@ -52,6 +52,7 @@ class ServiceOverlayController(
     private val onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit, // (callId, decision, scope, packageName)
     private val onOpenApp: () -> Unit,
     private val onOpenViewer: (() -> Unit)? = null,
+    private val onFinishViewer: (() -> Unit)? = null,
     private val statusIslandManager: IslandOverlayHost? = null
 ) {
     // ── Unified state (single source of truth) ──
@@ -199,6 +200,21 @@ class ServiceOverlayController(
         } else {
             edgeGlowManager.hideImmediately()
         }
+
+        // Auto-finish the VD viewer once the agent is fully idle so the user isn't
+        // stranded on a frozen, non-interactive VD surface with no overlays. Checked
+        // here (rather than in the mode collector) so it also fires when the user opens
+        // the viewer AFTER a task has already ended — that path doesn't re-emit mode.
+        if (shouldFinishViewerOnIdle(
+                platformMode = platformMode,
+                location = userLocation,
+                mode = mode,
+                hasActiveTask = stateHolder.hasActiveTask,
+            )
+        ) {
+            Log.i(logTag, "Auto-finishing VD viewer: agent idle in VD_VIEWER")
+            onFinishViewer?.invoke()
+        }
     }
 
     // ── Public: viewer lifecycle ──
@@ -241,6 +257,14 @@ class ServiceOverlayController(
         updateContext()
         applyVisibility()
     }
+
+    /** Synchronous query mirroring [shouldFinishViewerOnIdle] for the activity's startup race-proof. */
+    internal fun shouldFinishViewerNow(): Boolean = shouldFinishViewerOnIdle(
+        platformMode = platformMode,
+        location = userLocation,
+        mode = stateHolder.mode.value,
+        hasActiveTask = stateHolder.hasActiveTask,
+    )
 
     /** Dismiss the current error state. Callable from both overlay and main-app paths. */
     fun dismissError() {
