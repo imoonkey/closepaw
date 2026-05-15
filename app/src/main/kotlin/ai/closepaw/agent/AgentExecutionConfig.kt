@@ -9,12 +9,10 @@ import ai.closepaw.protocol.SessionId
  * Execution role used for trace classification and replay grouping.
  */
 enum class AgentExecutionRole {
-    /** Main planner/orchestrator. */
-    PLANNER,
-    /** Delegated executor for atomic actions. */
-    EXECUTOR,
-    /** Single-agent mode without delegation. */
-    STANDALONE
+    /** Top-level agent driving the user's session. */
+    MAIN,
+    /** Child agent spawned via delegate_task. */
+    SUBAGENT
 }
 
 data class AgentExecutionConfig(
@@ -54,7 +52,7 @@ data class AgentExecutionConfig(
     /**
      * Runtime role of this agent instance.
      */
-    val agentRole: AgentExecutionRole = AgentExecutionRole.STANDALONE,
+    val agentRole: AgentExecutionRole = AgentExecutionRole.MAIN,
 
     /**
      * Parent session id when spawned by delegation.

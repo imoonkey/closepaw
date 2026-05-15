@@ -74,9 +74,8 @@ internal class SessionAgentRunner(
 
         // Resolve model name based on agent role
         val modelName = when (resolvedAgentDef.executionRole) {
-            AgentExecutionRole.STANDALONE,
-            AgentExecutionRole.PLANNER -> config.mainModel
-            AgentExecutionRole.EXECUTOR -> config.subagentModel ?: config.mainModel
+            AgentExecutionRole.MAIN -> config.mainModel
+            AgentExecutionRole.SUBAGENT -> config.subagentModel ?: config.mainModel
         }
 
         val agentConfig = AgentExecutionConfig(

@@ -18,7 +18,7 @@ internal fun defaultToolsExcludedByPref(browserScriptEnabled: Boolean): Set<Stri
 
 internal val DefaultRoleDef = AgentRoleDef(
     name = "default",
-    executionRole = AgentExecutionRole.STANDALONE,
+    executionRole = AgentExecutionRole.MAIN,
     delegatable = true,
     description = "Default Android automation agent — full UI + shell toolset. " +
         "Invoke via delegate_task to run an isolated subtask whose intermediate steps " +

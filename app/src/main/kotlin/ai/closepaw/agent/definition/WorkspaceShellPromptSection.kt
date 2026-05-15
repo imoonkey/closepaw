@@ -29,11 +29,11 @@ internal val WORKSPACE_SHELL_PROMPT_SECTION =
     - Input and output files go in ~/closepaw/workspace/.
     """.trimIndent()
 
-private const val PLANNER_WORKSPACE_SHELL_DIRECTIVE =
+private const val MAIN_WORKSPACE_SHELL_DIRECTIVE =
     "For workspace commands (termux_shell), execute directly instead of delegating."
 
 internal fun workspaceShellPromptSectionFor(role: AgentExecutionRole): String {
-    if (role != AgentExecutionRole.PLANNER) return WORKSPACE_SHELL_PROMPT_SECTION
+    if (role != AgentExecutionRole.MAIN) return WORKSPACE_SHELL_PROMPT_SECTION
 
-    return WORKSPACE_SHELL_PROMPT_SECTION + "\n\n" + PLANNER_WORKSPACE_SHELL_DIRECTIVE
+    return WORKSPACE_SHELL_PROMPT_SECTION + "\n\n" + MAIN_WORKSPACE_SHELL_DIRECTIVE
 }

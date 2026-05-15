@@ -3,6 +3,7 @@ package ai.closepaw.agent.subagent
 import ai.closepaw.agent.Agent
 import ai.closepaw.agent.AgentEventDispatcher
 import ai.closepaw.agent.AgentExecutionConfig
+import ai.closepaw.agent.AgentExecutionRole
 import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentRoleDef
 import ai.closepaw.agent.definition.ResolvedAgentRole
@@ -100,7 +101,7 @@ internal class IsolatedSubAgentRunner(
                 systemPrompt = resolvedRoleDef.systemPrompt,
                 allowedToolNames = resolvedRoleDef.allowedToolNames,
                 agentId = childSessionId.value,
-                agentRole = resolvedRoleDef.executionRole,
+                agentRole = AgentExecutionRole.SUBAGENT,
                 parentSessionId = parentSessionId,
                 delegationCallId = request.delegationCallId,
                 modelName = childModelName
