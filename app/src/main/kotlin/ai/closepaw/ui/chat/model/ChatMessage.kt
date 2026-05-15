@@ -1,5 +1,7 @@
 package ai.closepaw.ui.chat.model
 
+import ai.closepaw.protocol.CompletionHandoff
+
 /**
  * ChatMessage - UI data classes for the chat conversation.
  *
@@ -9,7 +11,7 @@ package ai.closepaw.ui.chat.model
 sealed interface ChatMessage {
     val id: String
     val timestamp: Long
-    
+
     /**
      * User message bubble.
      */
@@ -18,7 +20,7 @@ sealed interface ChatMessage {
         override val timestamp: Long,
         val text: String
     ) : ChatMessage
-    
+
     /**
      * Agent message bubble with streaming support and interleaved content.
      *
@@ -42,7 +44,14 @@ sealed interface ChatMessage {
          * Null while Live or Waiting. Used by the collapsed/footer summary to
          * show elapsed wall time per Track A spec §4.5/§5.2.
          */
-        val completedTimestamp: Long? = null
+        val completedTimestamp: Long? = null,
+        /**
+         * VD completion handoff metadata — populated only when [TaskCompleted]
+         * carries one (i.e. the row finished on the Virtual Display). Drives
+         * the explicit "Open <App>" / "View virtual screen" CTAs in the final
+         * region. Null for accessibility completions and historical rows.
+         */
+        val handoff: CompletionHandoff? = null,
     ) : ChatMessage
 }
 

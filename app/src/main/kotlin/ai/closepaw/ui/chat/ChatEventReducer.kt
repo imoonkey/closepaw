@@ -147,7 +147,14 @@ internal class ChatEventReducer(
 
     private fun handleTaskCompleted(event: TaskCompleted) {
         val isError = event.outcome == ai.closepaw.protocol.TaskOutcome.ERROR
-        appendCompletionToMessages(messages, event.result, event.timestamp, event.taskId, isError)
+        appendCompletionToMessages(
+            messages = messages,
+            rawResult = event.result,
+            timestamp = event.timestamp,
+            taskId = event.taskId,
+            isError = isError,
+            handoff = event.handoff,
+        )
         streamingBuffer.clear()
         setCurrentAgentMessageId(null)
     }
