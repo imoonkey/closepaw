@@ -43,7 +43,7 @@ import ai.closepaw.ui.theme.closePaw
  *
  * Two clusters share one `Row(SpaceBetween)`:
  *  - [ActionButtonCluster] (left): mode-driven action buttons (Takeover, Resume, Done,
- *    Allow / Session / Always / Deny, Stop, Close).
+ *    Always / Session / Reject, Stop, Close).
  *  - [NavButtonCluster] (right): nav icons (Minimize, OpenApp, OpenViewer) gated by [NavSpec].
  *
  * Both clusters hide together when mode is `Done`; that gate is enforced by
@@ -59,7 +59,7 @@ internal fun CapsuleControlBar(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onDone: (String) -> Unit,
-    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit,
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit,
     onDismissError: () -> Unit,
     onNavigate: (NavAction) -> Unit,
 ) {
@@ -90,7 +90,7 @@ private fun ActionButtonCluster(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onDone: (String) -> Unit,
-    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit,
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit,
     onDismissError: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)) {
@@ -102,7 +102,7 @@ private fun ActionButtonCluster(
                         is CapsuleMode.Takeover -> onResume()
                         is CapsuleMode.WaitingForAction -> onDone(mode.callId)
                         is CapsuleMode.WaitingForApproval -> onApprovalResponse(
-                            mode.callId, ApprovalDecision.APPROVED, ApprovalScope.ONCE, mode.packageName,
+                            mode.callId, ApprovalDecision.APPROVED, ApprovalScope.ALWAYS, mode.packageName,
                         )
                         else -> {}
                     }
@@ -110,8 +110,16 @@ private fun ActionButtonCluster(
                 enabled = btn.enabled,
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    containerColor = if (mode is CapsuleMode.WaitingForApproval) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    },
+                    contentColor = if (mode is CapsuleMode.WaitingForApproval) {
+                        MaterialTheme.colorScheme.onSecondary
+                    } else {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    },
                 ),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             ) {
@@ -131,19 +139,13 @@ private fun ActionButtonCluster(
             }
         }
 
-        buttons.tertiary?.let { btn ->
-            if (mode is CapsuleMode.WaitingForApproval) {
-                ApprovalScopeButton(btn, mode, ApprovalScope.ALWAYS, onApprovalResponse)
-            }
-        }
-
         buttons.stop?.let { btn ->
             OutlinedButton(
                 onClick = {
                     when (mode) {
                         is CapsuleMode.Error -> onDismissError()
                         is CapsuleMode.WaitingForApproval -> onApprovalResponse(
-                            mode.callId, ApprovalDecision.DENIED, ApprovalScope.ONCE, mode.packageName,
+                            mode.callId, ApprovalDecision.DENIED, ApprovalScope.SESSION, mode.packageName,
                         )
                         else -> onStop()
                     }
@@ -234,12 +236,16 @@ private fun ApprovalScopeButton(
     btn: CapsuleRenderSpec.ButtonSpec,
     mode: CapsuleMode.WaitingForApproval,
     scope: ApprovalScope,
-    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit,
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit,
 ) {
     FilledTonalButton(
         onClick = { onApprovalResponse(mode.callId, ApprovalDecision.APPROVED, scope, mode.packageName) },
         enabled = btn.enabled,
         shape = MaterialTheme.shapes.large,
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondary,
+        ),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
     ) {
         Icon(Icons.Rounded.Check, null, Modifier.size(16.dp))

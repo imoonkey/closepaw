@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-05-15: Approval prompt is now app-scoped with Always, Session, Reject
+
+**What changed:**
+- Removed `ApprovalScope.ONCE` and the one-shot positive approval path.
+- Approval prompts now require an owning app package before UI is shown; `open_app` approvals use the destination package when resolvable.
+- Smart Capsule approval copy is now `Allow ClosePaw to operate {AppName}?` with `[Always] [Session] [Reject]`; no approval expanded body, no `Unknown app`, package name, action description, or policy reason in the prompt.
+- Removed `ButtonsSpec.tertiary`; the remaining slots map directly to `Always`, `Session`, and `Reject`.
+
+**Why:**
+- After removing one-shot approval, positive approvals are app-level trust grants. The UI copy and code paths now match that contract.
+- `Reject` remains current-call only; a session/persistent deny-list would need separate storage, management UI, and recovery semantics.
+
+**Key files:** `ApprovalTypes.kt`, `Op.kt`, `AgentSession.kt`, `ToolRouter.kt`, `CapsuleRenderSpec.kt`, `CapsuleControlBar.kt`, `ServiceOverlayController.kt`, approval tests, `doc/main/state_machines/ui_capsule.md`, `doc/main/infra/tools.md`
+**Verification:** Targeted JVM tests passed: `./gradlew testDebugUnitTest --tests ai.closepaw.tool.PolicyEngineTest --tests ai.closepaw.tool.ToolRouterTest --tests ai.closepaw.tool.ToolCallStateTest --tests ai.closepaw.ui.overlay.model.CapsuleRenderSpecTest --tests ai.closepaw.ui.overlay.CapsuleApprovalTransitionTest --tests ai.closepaw.session.AgentSessionTest`; full JVM suite passed: `./gradlew test`; lint passed: `./gradlew lint`; targeted device QA passed on P0110: `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.CapsuleApprovalTest`; `git diff --check` passed.
+**Commit:** Pending
+**Next:** None.
+**Blockers:** None.
+
 ## 2026-05-15: Auto-finish VD viewer when agent goes idle — user no longer stranded on a dead VD surface
 
 **What changed:**

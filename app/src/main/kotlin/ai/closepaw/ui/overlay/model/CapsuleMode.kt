@@ -24,13 +24,13 @@ sealed interface CapsuleMode {
     /** Agent asked user to do something on phone. Capsule expanded. */
     data class WaitingForAction(val instruction: String, val callId: String) : CapsuleMode
 
-    /** Agent needs user approval for a tool action. Shows Allow/Session/Always/Deny buttons. */
+    /** Agent needs user approval to operate an app. Shows Always/Session/Reject buttons. */
     data class WaitingForApproval(
         val callId: String,
-        val description: String,    // "Click 'Settings' button"
-        val appLabel: String,       // "Chrome" (resolved from packageName)
-        val packageName: String?,   // for allow-list persistence; null = hide Session/Always
-        val reason: String          // "Unknown app — action requires approval"
+        val description: String,  // action description for logs/traces, not prompt copy
+        val appLabel: String,     // "Chrome" (resolved from packageName)
+        val packageName: String,  // package that owns the app-level approval
+        val reason: String        // policy reason for logs/traces, not prompt copy
     ) : CapsuleMode
 
     /** Task completed successfully. Auto-hides after 3s. */

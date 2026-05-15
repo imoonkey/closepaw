@@ -335,7 +335,7 @@ class ChatViewModel(
         callId: String,
         decision: ApprovalDecision,
         scope: ApprovalScope,
-        packageName: String?
+        packageName: String
     ) {
         val session = sessionProvider() ?: return
         viewModelScope.launch {

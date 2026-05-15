@@ -3,13 +3,12 @@ package ai.closepaw.protocol
 import org.json.JSONObject
 
 /**
- * ApprovalScope - Granularity of a user's "allow" decision.
+ * ApprovalScope - Lifetime of a user's app-level allow decision.
  *
- * ONCE: Allow this single action only.
  * SESSION: Allow all actions for this package for the rest of the session.
  * ALWAYS: Persist the allow-list entry across sessions (SharedPreferences).
  */
-enum class ApprovalScope { ONCE, SESSION, ALWAYS }
+enum class ApprovalScope { SESSION, ALWAYS }
 
 /**
  * ApprovalDecision - User's response to an approval request.
@@ -38,13 +37,13 @@ data class ApprovalDetails(
     /** Arguments passed to the tool */
     val args: JSONObject,
 
-    /** Human-readable description of the action */
+    /** Human-readable description of the pending action, for logs and traces. */
     val description: String = "",
 
-    /** Foreground app package name at time of action */
-    val packageName: String? = null,
+    /** Package that owns the app-level approval. */
+    val packageName: String,
 
-    /** Security tier of the foreground app */
+    /** Effective security tier that triggered the approval. */
     val appTier: AppTier? = null,
 
     /** Reason for requiring approval */

@@ -109,6 +109,7 @@ class ToolRouter(
         val destinationPackage = if (toolName == "open_app") {
             resolveOpenAppDestination(params, context.platform)
         } else null
+        val approvalPackageName = destinationPackage ?: packageName
         val policyDecision = policyEngine.check(toolName, params, packageName, destinationPackage)
         Log.d(TAG, "Policy decision for $toolName: $policyDecision")
         
@@ -123,6 +124,16 @@ class ToolRouter(
             }
             
             is PolicyDecision.AskUser -> {
+                val approvalSubjectPackage = approvalPackageName?.takeIf(::isValidApprovalPackageName)
+                if (approvalSubjectPackage == null) {
+                    val cancelledState = ToolCallState.Cancelled(
+                        resolvedCallId, toolName, params, "Policy denied: approval package unknown", null
+                    )
+                    updateState(cancelledState, onStateChange)
+                    cleanupCall(resolvedCallId)
+                    return ToolCallResult.Cancelled(resolvedCallId, "Policy denied: approval package unknown")
+                }
+
                 // === STATE: AWAITING_APPROVAL ===
                 state = ToolCallState.AwaitingApproval(
                     callId = resolvedCallId,
@@ -143,7 +154,7 @@ class ToolRouter(
                     toolName = toolName,
                     args = params,
                     description = invocation.getDescription(),
-                    packageName = packageName,
+                    packageName = approvalSubjectPackage,
                     appTier = policyDecision.appTier,
                     reason = policyDecision.reason
                 )
@@ -416,6 +427,9 @@ class ToolRouter(
 
         return null
     }
+
+    private fun isValidApprovalPackageName(packageName: String): Boolean =
+        packageName.isNotBlank() && '.' in packageName
 }
 
 /**

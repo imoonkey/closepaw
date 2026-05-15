@@ -33,7 +33,7 @@ there, and what the user sees.
 | `Takeover(lastThought)` | Agent confirmed pause | Amber dot + dimmed last thought; `[Resume]` `[Stop]` |
 | `WaitingForInput(question, callId)` | Agent asked a text question | Expanded body shows question; input row hint "Type your response…" |
 | `WaitingForAction(instruction, callId)` | Agent asked the user to do something on the phone | Expanded body shows instruction; `[Done]` button; input row hidden |
-| `WaitingForApproval(callId, …)` | Agent needs approval for a tool call | Expanded body shows `description / appLabel · reason`; `[Allow]` `[Session]` `[Always]` `[Deny]` (Session/Always hidden if `packageName == null`) |
+| `WaitingForApproval(callId, …)` | Agent needs approval to operate an app | Status line asks `Allow ClosePaw to operate {AppName}?`; no expanded body; `[Always]` `[Session]` `[Reject]` |
 | `Done(message)` | Task completed (any non-ERROR outcome) | Teal dot + checkmark message; auto-hides after 3 s |
 | `Error(message)` | Task ended in ERROR / `onError()` called | Red dot + warning; `[Close]` button stays until dismissed |
 
@@ -131,8 +131,8 @@ host read this spec — there is no second renderer with its own logic.
 The spec has five parts:
 - `dot` — status dot color + pulse
 - `thought` — status-line text + alpha
-- `expandedBody` — optional detail body (questions, instructions, approval reason)
-- `buttons` — control-bar button slots (`primary`, `secondary`, `tertiary`, `stop`)
+- `expandedBody` — optional detail body (questions and instructions; approval prompts keep this empty)
+- `buttons` — control-bar button slots (`primary`, `secondary`, `stop`)
 - `input` — optional input-bar spec (`hint`, `submitLabel`, `clearDraft`)
 
 `NavSpec.from(context, platformMode, hasIsland, mode)` separately derives navigation
@@ -188,5 +188,10 @@ already moved off `Done` when the timer fires, the transition is suppressed.
    the prior value first.
 4. **Approval is callId-scoped.** A stale `onApprovalResolved` for a closed approval
    leaves state untouched.
-5. **Stop is one-shot.** A second `onStopRequested` while pending returns `false` so
+5. **Positive approval is app-scoped.** `Always` writes the persistent allow-list,
+   `Session` writes the session allow-list, and both require a resolved app package
+   before the prompt is shown.
+6. **Reject is current-call only.** It cancels the pending approval/tool call and
+   does not create a session or persistent deny-list.
+7. **Stop is one-shot.** A second `onStopRequested` while pending returns `false` so
    the controller knows not to send a duplicate stop.

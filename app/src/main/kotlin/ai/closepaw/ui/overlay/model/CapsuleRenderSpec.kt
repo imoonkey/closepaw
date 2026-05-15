@@ -32,7 +32,6 @@ data class CapsuleRenderSpec(
     data class ButtonsSpec(
         val primary: ButtonSpec?,
         val secondary: ButtonSpec? = null,
-        val tertiary: ButtonSpec? = null,
         val stop: ButtonSpec?,
     )
 
@@ -120,13 +119,12 @@ data class CapsuleRenderSpec(
 
                 is CapsuleMode.WaitingForApproval -> CapsuleRenderSpec(
                     dot = DotSpec(GlowState.Paused, pulsing = false),
-                    thought = ThoughtSpec("Approve action?"),
-                    expandedBody = "${mode.description}\n${mode.appLabel} · ${mode.reason}",
+                    thought = ThoughtSpec("Allow ClosePaw to operate ${mode.appLabel}?"),
+                    expandedBody = null,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("Allow"),
-                        secondary = if (mode.packageName != null) ButtonSpec("Session") else null,
-                        tertiary = if (mode.packageName != null) ButtonSpec("Always") else null,
-                        stop = ButtonSpec("Deny"),
+                        primary = ButtonSpec("Always"),
+                        secondary = ButtonSpec("Session"),
+                        stop = ButtonSpec("Reject"),
                     ),
                     input = null,
                 )

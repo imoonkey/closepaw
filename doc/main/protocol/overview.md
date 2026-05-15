@@ -54,17 +54,17 @@ Unidirectional flow with a task-based model:
 | `Resume` | Paused | Resume execution |
 | `Interrupt` | Running | Stop current task → Idle |
 | `Shutdown` | Any | Graceful shutdown |
-| `Approve(id, decision)` | Running | Resolve pending approval |
+| `Approve(id, decision, scope, packageName)` | Running | Resolve pending app-level approval |
 | `Supplement(text)` | Running | Inject context mid-task |
 | `UserResponse(callId, response)` | Running | Respond to `ask_user` |
 
 ### Approval
 
-`ApprovalDecision`: `APPROVED` (execute), `DENIED` (skip), `ABORT` (stop session).
+`ApprovalDecision`: `APPROVED` (execute), `DENIED` (skip current pending tool call), `ABORT` (stop session).
 
-`RiskLevel`: `LOW` (read-only, auto-approved), `MEDIUM` (may ask), `HIGH` (destructive, requires approval).
-
-`ApprovalRequirement`: `None`, `Required(reason, riskLevel)`, `Forbidden(reason)`.
+`ApprovalScope`: `SESSION` (allow this package for the current session) or
+`ALWAYS` (persist the package allow-list entry). There is no one-shot positive
+approval scope.
 
 ## Session State Machine
 

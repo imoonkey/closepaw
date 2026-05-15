@@ -51,6 +51,7 @@ class PolicyEngine(
         val currentMode = approvalMode.get()
         val currentTier = appClassifier.classify(packageName)
         val destTier = destinationPackage?.let { appClassifier.classify(it) }
+        val approvalSubjectPackage = destinationPackage ?: packageName
         // Effective tier = stricter of the two (lower ordinal = stricter)
         val tier = if (destTier != null) minOf(currentTier, destTier) else currentTier
         Log.d(TAG, "Policy check: tool=$toolName, pkg=$packageName, dest=$destinationPackage, tier=$tier, mode=$currentMode")
@@ -76,7 +77,7 @@ class PolicyEngine(
         }
 
         // User-granted allow-list — but NOT in ALWAYS_ASK mode
-        if (currentMode != ApprovalMode.ALWAYS_ASK && isUserAllowed(packageName)) {
+        if (currentMode != ApprovalMode.ALWAYS_ASK && isUserAllowed(approvalSubjectPackage)) {
             return PolicyDecision.Allow
         }
 

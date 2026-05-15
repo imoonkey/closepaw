@@ -52,7 +52,7 @@ class CapsuleOverlayHost(
     var onResume: (() -> Unit)? = null
     var onSupplement: ((String) -> Unit)? = null
     var onUserResponse: ((String, String) -> Unit)? = null
-    var onApprovalResponse: ((String, ApprovalDecision, ApprovalScope, String?) -> Unit)? = null
+    var onApprovalResponse: ((String, ApprovalDecision, ApprovalScope, String) -> Unit)? = null
     var onStop: (() -> Unit)? = null
     var onOpenApp: (() -> Unit)? = null
     var onDismissError: (() -> Unit)? = null

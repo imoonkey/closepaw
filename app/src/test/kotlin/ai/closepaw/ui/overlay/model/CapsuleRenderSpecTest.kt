@@ -50,4 +50,23 @@ class CapsuleRenderSpecTest {
         )
         assertThat(spec.input?.clearDraft).isFalse()
     }
+
+    @Test
+    fun `waiting for approval renders app-level three-button prompt`() {
+        val spec = CapsuleRenderSpec.from(
+            mode = CapsuleMode.WaitingForApproval(
+                callId = "approval-1",
+                description = "Tap OK",
+                appLabel = "Chrome",
+                packageName = "com.android.chrome",
+                reason = "Unknown app requires approval",
+            )
+        )
+
+        assertThat(spec.thought.text).isEqualTo("Allow ClosePaw to operate Chrome?")
+        assertThat(spec.expandedBody).isNull()
+        assertThat(spec.buttons.primary?.text).isEqualTo("Always")
+        assertThat(spec.buttons.secondary?.text).isEqualTo("Session")
+        assertThat(spec.buttons.stop?.text).isEqualTo("Reject")
+    }
 }

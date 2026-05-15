@@ -128,6 +128,16 @@ class PolicyEngineTest {
     }
 
     @Test
+    fun `session allow-list allows cautious app in smart mode`() {
+        val engine = engineWith()
+        engine.allowPackageForSession("com.unknown.app")
+
+        val decision = engine.check("mobile_action", clickParams(), "com.unknown.app")
+
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
+    @Test
     fun `browser_script allowed in auto approve mode after runtime gates`() {
         val engine = engineWith(
             mode = ApprovalMode.AUTO_APPROVE,
@@ -192,6 +202,21 @@ class PolicyEngineTest {
             destinationPackage = "com.unknown.app"
         )
         assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `destination allow-list allows open_app to cautious destination in smart mode`() {
+        val engine = engineWith(
+            tiers = mapOf("com.android.settings" to AppTier.NORMAL)
+        )
+        engine.allowPackageForSession("com.unknown.app")
+
+        val decision = engine.check(
+            "open_app", clickParams(), "com.android.settings",
+            destinationPackage = "com.unknown.app"
+        )
+
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
     }
 
     @Test

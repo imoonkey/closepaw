@@ -638,23 +638,35 @@ private constructor(
     }
 
     private suspend fun handleApproval(op: Op.Approve) {
+        if (op.decision == ApprovalDecision.APPROVED && !isValidApprovalPackageName(op.packageName)) {
+            val resolved = services.toolRouter.resolveApproval(op.actionId, ApprovalDecision.DENIED)
+            if (!resolved) {
+                Log.w(TAG, "Discarding approval with no pending match: ${op.actionId}")
+            } else {
+                Log.w(TAG, "Denied approval with invalid package: ${op.packageName}")
+            }
+            return
+        }
+
         val resolved = services.toolRouter.resolveApproval(op.actionId, op.decision)
         if (!resolved) {
             Log.w(TAG, "Discarding approval with no pending match: ${op.actionId}")
             return
         }
 
-        // Persist allow-list (only if APPROVED + package known)
-        if (op.decision == ApprovalDecision.APPROVED && op.packageName != null) {
+        // Rejections are current-call only; they do not mutate allow-lists.
+        if (op.decision == ApprovalDecision.APPROVED) {
             when (op.scope) {
                 ApprovalScope.SESSION -> services.policyEngine.allowPackageForSession(op.packageName)
                 ApprovalScope.ALWAYS -> services.policyEngine.allowPackagePersistent(op.packageName)
-                ApprovalScope.ONCE -> { /* no side effect */ }
             }
         }
 
         Log.d(TAG, "Resolved approval: ${op.actionId} -> ${op.decision}")
     }
+
+    private fun isValidApprovalPackageName(packageName: String): Boolean =
+            packageName.isNotBlank() && '.' in packageName
 
     private suspend fun emit(event: AgentEvent) {
         try {

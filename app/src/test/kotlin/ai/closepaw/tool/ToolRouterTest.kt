@@ -6,6 +6,7 @@ import ai.closepaw.protocol.ActionOutcome
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.ApprovalDecision
 import ai.closepaw.protocol.AppTier
+import ai.closepaw.platform.AppInfo
 import ai.closepaw.test.FakeAndroidPlatform
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -46,6 +47,7 @@ class ToolRouterTest {
                 toolName = "test_tool",
                 params = JSONObject(),
                 context = context,
+                packageName = "com.example.fake",
                 onApprovalRequired = { /* intentionally no-op */ }
             )
         }
@@ -71,12 +73,65 @@ class ToolRouterTest {
             toolName = "test_tool",
             params = JSONObject(),
             context = context,
+            packageName = "com.example.fake",
             onApprovalRequired = { details ->
                 router.resolveApproval(details.callId, ApprovalDecision.APPROVED)
             }
         )
 
         assertThat(result).isInstanceOf(ToolCallResult.Success::class.java)
+    }
+
+    @Test
+    fun `ask user without owning package fails closed before approval UI`() = runTest {
+        val registry = ToolRegistry().apply { register(TestToolSpec()) }
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.ALWAYS_ASK, defaultClassifier()))
+        val context = SimpleToolRouterContext(FakeAndroidPlatform(currentPackageName = null))
+        var approvalRequested = false
+
+        val result = router.execute(
+            toolName = "test_tool",
+            params = JSONObject(),
+            context = context,
+            packageName = null,
+            onApprovalRequired = { details ->
+                approvalRequested = true
+                router.resolveApproval(details.callId, ApprovalDecision.DENIED)
+            }
+        )
+
+        assertThat(result).isInstanceOf(ToolCallResult.Cancelled::class.java)
+        assertThat((result as ToolCallResult.Cancelled).reason).contains("approval package unknown")
+        assertThat(approvalRequested).isFalse()
+        assertThat(router.hasPendingApprovals()).isFalse()
+        assertThat(router.getActiveCallIds()).isEmpty()
+    }
+
+    @Test
+    fun `open app approval uses destination package as approval subject`() = runTest {
+        val registry = ToolRegistry().apply { register(TestToolSpec(name = "open_app")) }
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.SMART, defaultClassifier()))
+        val context = SimpleToolRouterContext(
+            FakeAndroidPlatform(
+                currentPackageName = "com.example.fake",
+                installedApps = listOf(AppInfo("com.android.chrome", "Chrome")),
+            )
+        )
+        var approvalPackageName: String? = null
+
+        val result = router.execute(
+            toolName = "open_app",
+            params = JSONObject().put("app_name", "Chrome"),
+            context = context,
+            packageName = "com.example.fake",
+            onApprovalRequired = { details ->
+                approvalPackageName = details.packageName
+                router.resolveApproval(details.callId, ApprovalDecision.APPROVED)
+            }
+        )
+
+        assertThat(result).isInstanceOf(ToolCallResult.Success::class.java)
+        assertThat(approvalPackageName).isEqualTo("com.android.chrome")
     }
 
     @Test
@@ -89,6 +144,7 @@ class ToolRouterTest {
             toolName = "test_tool",
             params = JSONObject(),
             context = context,
+            packageName = "com.example.fake",
             onApprovalRequired = { throw IllegalStateException("UI dispatch broken") }
         )
 
@@ -199,6 +255,7 @@ class ToolRouterTest {
                 toolName = "cancellable_tool",
                 params = JSONObject(),
                 context = context,
+                packageName = "com.example.fake",
                 callId = "exec-1",
                 onApprovalRequired = { details ->
                     router.resolveApproval(details.callId, ApprovalDecision.APPROVED)
@@ -212,6 +269,7 @@ class ToolRouterTest {
                 toolName = "test_tool",
                 params = JSONObject(),
                 context = context,
+                packageName = "com.example.fake",
                 callId = "await-1",
                 onApprovalRequired = { /* no-op: leave awaiting */ }
             )
@@ -270,8 +328,9 @@ class ToolRouterTest {
     }
 }
 
-private class TestToolSpec : ToolSpec {
+private class TestToolSpec(
     override val name: String = "test_tool"
+) : ToolSpec {
     override val description: String = "Test tool"
     override val parameterSchema: JSONObject = JSONObject().apply {
         put("type", "object")

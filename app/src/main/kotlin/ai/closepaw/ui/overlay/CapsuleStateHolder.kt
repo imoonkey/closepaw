@@ -138,7 +138,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         callId: String,
         description: String,
         appLabel: String,
-        packageName: String?,
+        packageName: String,
         reason: String,
     ) {
         setMode(CapsuleMode.WaitingForApproval(callId, description, appLabel, packageName, reason))

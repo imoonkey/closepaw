@@ -149,6 +149,7 @@ class ToolCallStateTest {
             toolName = "success_tool",
             params = JSONObject(),
             context = SimpleToolRouterContext(FakeAndroidPlatform()),
+            packageName = "com.example.fake",
             onStateChange = { states.add(it) },
             onApprovalRequired = { router.resolveApproval(it.callId, ApprovalDecision.APPROVED) }
         )
@@ -172,6 +173,7 @@ class ToolCallStateTest {
             toolName = "success_tool",
             params = JSONObject(),
             context = SimpleToolRouterContext(FakeAndroidPlatform()),
+            packageName = "com.example.fake",
             onStateChange = { states.add(it) },
             onApprovalRequired = { router.resolveApproval(it.callId, ApprovalDecision.DENIED) }
         )
@@ -197,6 +199,7 @@ class ToolCallStateTest {
             toolName = "success_tool",
             params = JSONObject(),
             context = SimpleToolRouterContext(FakeAndroidPlatform()),
+            packageName = "com.example.fake",
             onStateChange = { states.add(it) },
             onApprovalRequired = { router.resolveApproval(it.callId, ApprovalDecision.ABORT) }
         )
@@ -218,6 +221,7 @@ class ToolCallStateTest {
                 toolName = "success_tool",
                 params = JSONObject(),
                 context = SimpleToolRouterContext(FakeAndroidPlatform()),
+                packageName = "com.example.fake",
                 onStateChange = { states.add(it) },
                 onApprovalRequired = { /* never resolves */ }
             )
@@ -248,6 +252,7 @@ class ToolCallStateTest {
             toolName = "success_tool",
             params = JSONObject(),
             context = SimpleToolRouterContext(FakeAndroidPlatform()),
+            packageName = "com.example.fake",
             onStateChange = { states.add(it) },
             onApprovalRequired = { throw IllegalStateException("UI broken") }
         )
@@ -284,12 +289,13 @@ class ToolCallStateTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `AwaitingApproval to Cancelled - TOCTOU blocked app detected when origin unknown`() = runTest {
+    fun `AskUser with unknown approval package cancels before approval UI`() = runTest {
         val registry = ToolRegistry().apply { register(SuccessToolSpec()) }
         val classifier = AppClassifier(mapOf("com.bank" to AppTier.BLOCKED))
         val router = ToolRouter(registry, PolicyEngine(ApprovalMode.ALWAYS_ASK, classifier))
-        val platform = FakeAndroidPlatform(currentPackageName = "com.bank")
+        val platform = FakeAndroidPlatform(currentPackageName = null)
         val states = mutableListOf<ToolCallState>()
+        var approvalRequested = false
 
         router.execute(
             toolName = "success_tool",
@@ -297,12 +303,20 @@ class ToolCallStateTest {
             context = SimpleToolRouterContext(platform),
             packageName = null,
             onStateChange = { states.add(it) },
-            onApprovalRequired = { router.resolveApproval(it.callId, ApprovalDecision.APPROVED) }
+            onApprovalRequired = { details ->
+                approvalRequested = true
+                router.resolveApproval(details.callId, ApprovalDecision.APPROVED)
+            }
         )
 
+        assertThat(states.map { it::class }).containsExactly(
+            ToolCallState.Validating::class,
+            ToolCallState.Cancelled::class
+        ).inOrder()
         val cancelled = states.last() as ToolCallState.Cancelled
-        assertThat(cancelled.reason).isEqualTo("Blocked app detected after approval")
-        assertThat(cancelled.decision).isEqualTo(ApprovalDecision.APPROVED)
+        assertThat(cancelled.reason).contains("approval package unknown")
+        assertThat(cancelled.decision).isNull()
+        assertThat(approvalRequested).isFalse()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

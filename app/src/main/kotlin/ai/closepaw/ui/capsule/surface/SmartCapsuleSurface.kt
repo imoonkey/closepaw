@@ -75,7 +75,7 @@ fun SmartCapsuleSurface(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onUserResponse: (String, String) -> Unit,
-    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit = { _, _, _, _ -> },
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit = { _, _, _, _ -> },
     onDismissError: () -> Unit,
     onNavigate: (NavAction) -> Unit,
     modifier: Modifier = Modifier,

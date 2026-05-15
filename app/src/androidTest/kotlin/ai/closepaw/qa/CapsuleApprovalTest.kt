@@ -34,7 +34,7 @@ class CapsuleApprovalTest {
     }
 
     // K10
-    @Test fun waiting_for_approval_shows_four_scope_buttons() {
+    @Test fun waiting_for_approval_shows_app_level_scope_buttons() {
         var captured: Quad? = null
         compose.setContent {
             TestCapsule(
@@ -51,17 +51,17 @@ class CapsuleApprovalTest {
             )
         }
 
-        compose.onNodeWithText("Allow").assertExists()
-        compose.onNodeWithText("Session").assertExists()
+        compose.onNodeWithText("Allow ClosePaw to operate Chrome?").assertExists()
         compose.onNodeWithText("Always").assertExists()
-        compose.onNodeWithText("Deny").assertExists()
+        compose.onNodeWithText("Session").assertExists()
+        compose.onNodeWithText("Reject").assertExists()
 
-        compose.onNodeWithText("Session").performClick()
+        compose.onNodeWithText("Always").performClick()
         val result = captured
         assertNotNull(result)
         assertEquals("a-1", result!!.callId)
         assertEquals(ApprovalDecision.APPROVED, result.decision)
-        assertEquals(ApprovalScope.SESSION, result.scope)
+        assertEquals(ApprovalScope.ALWAYS, result.scope)
         assertEquals("com.android.chrome", result.pkg)
     }
 
@@ -69,6 +69,6 @@ class CapsuleApprovalTest {
         val callId: String,
         val decision: ApprovalDecision,
         val scope: ApprovalScope,
-        val pkg: String?,
+        val pkg: String,
     )
 }

@@ -21,7 +21,7 @@ stays in agent system prompts; app-specific behavior lives in `app_skills/<packa
        │ Valid
        ▼
 ┌──────────────┐
-│ POLICY_CHECK │ ─── Deny ────► ERROR
+│ POLICY_CHECK │ ─── Deny ────► CANCELLED
 └──────┬───────┘
        │ Allow or AskUser
        ▼
@@ -67,7 +67,7 @@ class ToolRegistry {
 Executes tool calls with lifecycle handling:
 - Validates tool exists and parameters are correct
 - Checks policy for approval requirements
-- Waits for user approval if needed (60s timeout)
+- Waits for app-level user approval if needed (60s timeout)
 - Executes tool and returns result
 
 ### PolicyEngine
@@ -97,8 +97,14 @@ Decision flow:
 
 `PolicyDecision` outcomes:
 - `Allow` — execute immediately
-- `Deny(reason)` — forbidden by policy, error returned to LLM
-- `AskUser(reason, appTier)` — requires user approval dialog
+- `Deny(reason)` — forbidden by policy, returned as a cancelled/skipped tool call
+- `AskUser(reason, appTier)` — requires an app-level approval prompt
+
+When `AskUser` is returned, `ToolRouter` must identify an approval subject package
+before showing UI. The subject is `destinationPackage ?: packageName`, so
+`open_app` approvals belong to the destination app rather than the prior foreground
+app. If no package can own the approval, the call fails closed with `Cancelled`
+before `onApprovalRequired` is emitted.
 
 ### AppClassifier
 

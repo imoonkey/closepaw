@@ -26,11 +26,11 @@ class CapsuleRenderingTest {
         // Row3 prompt stays — intentional new-task entry point.
         compose.onNodeWithText("What can I help you with?").assertExists()
 
-        // No Row2 primary/secondary/tertiary/stop button labels from any state.
+        // No Row2 primary/secondary/stop button labels from any state.
         listOf(
             "Takeover", "Handing over", "Resume",
-            "Stop", "Stopping...", "Close", "Deny",
-            "Done", "Allow", "Session", "Always",
+            "Stop", "Stopping...", "Close", "Reject",
+            "Done", "Session", "Always",
         ).forEach { label ->
             compose.onAllNodesWithText(label).assertCountEquals(0)
         }
@@ -44,7 +44,7 @@ class CapsuleRenderingTest {
         listOf(
             "Thinking...", "Handing over...", "Paused",
             "💬 Awaiting response", "✋ Action needed",
-            "🛡 Approve action?",
+            "Allow ClosePaw to operate Chrome?",
         ).forEach { txt ->
             compose.onAllNodesWithText(txt).assertCountEquals(0)
         }

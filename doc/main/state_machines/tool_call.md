@@ -29,7 +29,8 @@
 | `Validating` | `Error` | `registry.get(toolName) == null` | `"Unknown tool: …"` (ToolRouter.kt:84-90) |
 | `Validating` | `Error` | `tool.validate(params) is Invalid` | aggregated error message (ToolRouter.kt:93-100) |
 | `Validating` | `Cancelled` | `policyDecision is Deny` | reason carries policy reason (ToolRouter.kt:115-123) |
-| `Validating` | `AwaitingApproval` | `policyDecision is AskUser` | also creates `pendingApprovals[callId]` deferred BEFORE invoking `onApprovalRequired` (ToolRouter.kt:125-138) |
+| `Validating` | `Cancelled` | `policyDecision is AskUser` but no valid approval package exists | fails closed before `onApprovalRequired` |
+| `Validating` | `AwaitingApproval` | `policyDecision is AskUser` and `destinationPackage ?: packageName` is valid | creates `pendingApprovals[callId]` deferred BEFORE invoking `onApprovalRequired` |
 | `Validating` | `Scheduled` | `policyDecision is Allow` | (ToolRouter.kt:243-247) |
 | `AwaitingApproval` | `Error` | `onApprovalRequired` callback throws | clears pending, emits `"Approval request failed: …"` (ToolRouter.kt:152-164) |
 | `AwaitingApproval` | `Cancelled` | approval deferred not completed within `APPROVAL_TIMEOUT_MS = 60_000` | reason `"Approval timed out"`, decision = null (ToolRouter.kt:168-184) |
@@ -54,7 +55,8 @@ stateDiagram-v2
 
     Validating --> Error: unknown tool / invalid params
     Validating --> Cancelled: PolicyDecision.Deny
-    Validating --> AwaitingApproval: PolicyDecision.AskUser
+    Validating --> Cancelled: AskUser + no approval package
+    Validating --> AwaitingApproval: AskUser + package-scoped subject
     Validating --> Scheduled: PolicyDecision.Allow
 
     AwaitingApproval --> Cancelled: DENIED
@@ -80,6 +82,7 @@ stateDiagram-v2
 
 ## Invariants
 
+- Approval prompts are package-scoped. `ToolRouter` sends `destinationPackage ?: packageName` in `ApprovalDetails.packageName`; `open_app` uses the destination app when it can be resolved.
 - `pendingApprovals[callId]` is set **before** `onApprovalRequired` is invoked, eliminating the race where a fast approval responder calls `resolveApproval` before the deferred exists (ToolRouter.kt:137-138 comment).
 - `activeToolCalls` only ever holds non-terminal states (`updateState` checks `!isTerminal()` before insertion, ToolRouter.kt:382-387).
 - Exactly one cancellation token per `callId` (ToolRouter.kt:74-75).
@@ -98,7 +101,8 @@ The approval allow-list mutated by `AgentSession.handleApproval` (`policyEngine.
 | Transition | Side-effects |
 |---|---|
 | Any state change | `updateState` updates `activeToolCalls` (if non-terminal) and invokes the `onStateChange` callback (ToolRouter.kt:382-388) |
-| `Validating → AwaitingApproval` | Creates `CompletableDeferred<ApprovalDecision>`, registers in `pendingApprovals`, invokes `onApprovalRequired(ApprovalDetails)` (ToolRouter.kt:127-164) |
+| `Validating → Cancelled` for missing approval package | Fails closed before UI; no pending approval is registered |
+| `Validating → AwaitingApproval` | Creates `CompletableDeferred<ApprovalDecision>`, registers in `pendingApprovals`, invokes `onApprovalRequired(ApprovalDetails)` |
 | `AwaitingApproval → Cancelled` (any reason) | Removes from `pendingApprovals` (in `finally`) and runs `cleanupCall` |
 | `→ Executing` after approval | Re-captures screen snapshot via `platform.captureScreen` + perception-gate mask (ToolRouter.kt:262-270) |
 | Execution | Runs `invocation.execute(execContext)`; uncaught exception → `Failure` |

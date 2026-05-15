@@ -49,7 +49,7 @@ class ServiceOverlayController(
     private val onResume: () -> Unit,
     private val onSupplement: (String) -> Unit,
     private val onUserResponse: (String, String) -> Unit, // (callId, response)
-    private val onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit, // (callId, decision, scope, packageName)
+    private val onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit, // (callId, decision, scope, packageName)
     private val onOpenApp: () -> Unit,
     private val onOpenViewer: (() -> Unit)? = null,
     private val onFinishViewer: (() -> Unit)? = null,
@@ -393,14 +393,16 @@ class ServiceOverlayController(
     }
 
     fun onApprovalRequired(details: ApprovalDetails) {
-        val appLabel = details.packageName?.let { pkg ->
-            try {
-                packageManager.getApplicationLabel(
-                    @Suppress("DEPRECATION")
-                    packageManager.getApplicationInfo(pkg, 0)
-                ).toString()
-            } catch (_: PackageManager.NameNotFoundException) { pkg }
-        } ?: "Unknown app"
+        val appLabel = resolveAppLabel(details.packageName) ?: run {
+            Log.w(logTag, "Approval package label unavailable: ${details.packageName}")
+            onApprovalResponse(
+                details.callId,
+                ApprovalDecision.DENIED,
+                ApprovalScope.SESSION,
+                details.packageName,
+            )
+            return
+        }
 
         Log.d(logTag, "onApprovalRequired: tool=${details.toolName}, app=$appLabel (${details.packageName}), callId=${details.callId}")
         stateHolder.onApprovalRequired(
@@ -413,6 +415,16 @@ class ServiceOverlayController(
         showPreference = ShowPreference.CAPSULE
         applyVisibility()
     }
+
+    private fun resolveAppLabel(packageName: String): String? =
+        try {
+            packageManager.getApplicationLabel(
+                @Suppress("DEPRECATION")
+                packageManager.getApplicationInfo(packageName, 0)
+            ).toString().takeIf { it.isNotBlank() }
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
 
     // ── Private: window tracking (shared between A11y and VD) ──
 

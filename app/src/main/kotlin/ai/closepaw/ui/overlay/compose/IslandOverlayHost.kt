@@ -88,7 +88,7 @@ class IslandOverlayHost(
         is CapsuleMode.Takeover -> "Paused"
         is CapsuleMode.WaitingForInput -> "Awaiting response"
         is CapsuleMode.WaitingForAction -> "Action needed"
-        is CapsuleMode.WaitingForApproval -> "Approve action?"
+        is CapsuleMode.WaitingForApproval -> "Allow ClosePaw to operate ${mode.appLabel}?"
         is CapsuleMode.Done -> "Done: ${mode.message.take(18)}"
         is CapsuleMode.Error -> "Error: ${mode.message.take(18)}"
         is CapsuleMode.Hidden -> ""

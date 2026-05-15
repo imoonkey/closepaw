@@ -96,10 +96,10 @@ sealed interface Op {
         /** User's decision */
         val decision: ApprovalDecision,
 
-        /** Granularity of the allow decision (ONCE / SESSION / ALWAYS) */
-        val scope: ApprovalScope = ApprovalScope.ONCE,
+        /** Lifetime of the app-level allow decision. Ignored for rejections. */
+        val scope: ApprovalScope = ApprovalScope.SESSION,
 
-        /** Package name to add to allow-list (for SESSION / ALWAYS scope) */
-        val packageName: String? = null
+        /** Package name that owns the app-level approval. */
+        val packageName: String
     ) : Op
 }

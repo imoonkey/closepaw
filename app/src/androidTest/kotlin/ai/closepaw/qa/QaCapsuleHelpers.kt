@@ -24,7 +24,7 @@ fun TestCapsule(
     onResume: () -> Unit = {},
     onStop: () -> Unit = {},
     onUserResponse: (String, String) -> Unit = { _, _ -> },
-    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit = { _, _, _, _ -> },
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit = { _, _, _, _ -> },
     onDismissError: () -> Unit = {},
     onNavigate: (NavAction) -> Unit = {},
 ) {

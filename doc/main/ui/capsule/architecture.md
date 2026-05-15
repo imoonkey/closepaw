@@ -4,14 +4,14 @@
 > -> See: [overlay.md](../overlay.md) for overlay system overview and mode-aware branching.
 > -> See: [state_machine.md](state_machine.md) for formal state vector and transition rules.
 > -> See: [user_flows.md](user_flows.md) for location x platform interaction matrix.
-> Last updated: 2026-04-16 (commit: ce30041)
+> Last updated: 2026-05-15
 
 ## Architecture
 
 - **CapsuleStateHolder** — single source of truth. Holds `CapsuleMode`, `CapsuleContext`, `PlatformMode`, `hasIsland`, `turnPhase`, `isAgentMidTurn`, `isStopPending` as `StateFlow`s.
 - **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Reads mode, context, platformMode, and hasIsland from `CapsuleStateHolder`. Owns only host-specific state (focusability, touchability, interactionLocked, inputFocused). Dynamic touchability (only `Hidden` sets `FLAG_NOT_TOUCHABLE`). Debounces button callbacks (300ms). Touch gate for agent gesture injection.
 - **SmartCapsuleSurface** — single Compose entry point used by both the overlay host (`CapsuleOverlayHost`) and `ChatScreen`'s `Scaffold.bottomBar`. Slim orchestrator: derives `CapsuleRenderSpec` + `NavSpec`, lays out the four slots (status line, optional detail body, control bar, optional input bar), and routes submit intent. Receives `previousMode` from `CapsuleStateHolder` for input-clearing.
-- **CapsuleControlBar** — control-bar composable: action-button cluster (mode-driven Takeover / Resume / Done / Allow / Deny / Stop / Close) on the left, nav-button cluster (Minimize / OpenApp / OpenViewer, gated by `NavSpec`) on the right.
+- **CapsuleControlBar** — control-bar composable: action-button cluster (mode-driven Takeover / Resume / Done / Always / Session / Reject / Stop / Close) on the left, nav-button cluster (Minimize / OpenApp / OpenViewer, gated by `NavSpec`) on the right.
 - **CapsuleInputBar** — text-field + send composable. Owns the draft state and the `pendingInputText` / `clearDraft` / `inputEnabled` lifecycle. Exposes a single `onSubmit(text)` callback; routing (Hidden → onSend / WaitingForInput → onUserResponse / else → onSupplement) lives in the orchestrator.
 - **CapsuleBinding** — value type bridging the agent runtime and a UI host. Wraps the three StateFlows (`mode`, `platformMode`, `isStopPending`) and the two callbacks (`onStopRequested`, `onApprovalResolved`) the chat surface needs from `CapsuleStateHolder`. `InertCapsuleBinding` is the unbound-runtime fallback so `ChatScreen` can render its idle state without reaching for `AgentService.instance`. Activities (e.g. `MainActivity`) build the live binding from the service.
 
@@ -24,6 +24,13 @@ sealed interface CapsuleMode {
     data class Takeover(val lastThought: String) : CapsuleMode
     data class WaitingForInput(val question: String, val callId: String) : CapsuleMode
     data class WaitingForAction(val instruction: String, val callId: String) : CapsuleMode
+    data class WaitingForApproval(
+        val callId: String,
+        val description: String,
+        val appLabel: String,
+        val packageName: String,
+        val reason: String
+    ) : CapsuleMode
     data class Done(val message: String) : CapsuleMode
     data class Error(val message: String) : CapsuleMode
     data object Hidden : CapsuleMode
@@ -39,6 +46,7 @@ sealed interface CapsuleMode {
 | **Takeover** | Amber | Last thought (60% alpha) | [Resume] | Input + "Add note" |
 | **WaitingForInput** | Hidden | "Awaiting response" + body | [Stop] only | Input + "Send" |
 | **WaitingForAction** | Hidden | "Action needed" + body | [Done] | Hidden |
+| **WaitingForApproval** | Amber | "Allow ClosePaw to operate {AppName}?" | [Always] [Session] [Reject] | Hidden |
 | **Done** | Teal | "message" | Hidden | Hidden |
 | **Error** | Red | "message" | [Close] | Hidden |
 | **Hidden** | Hidden | — | Hidden | Input + "Send" |
@@ -75,7 +83,9 @@ sealed interface CapsuleMode {
 | `onTakeoverConfirmed()` | `TakeoverPending` or `Running` | → `Takeover(thought)` |
 | `onResumed()` | `Takeover` or `TakeoverPending` | → `Running("Thinking...")` |
 | `onAskUser(type, message, callId)` | Any active | → `WaitingForInput` or `WaitingForAction` |
-| `onUserResponseSent(callId)` | `WaitingFor*` + callId match | → `Running("Processing response...")` |
+| `onApprovalRequired(callId, description, appLabel, packageName, reason)` | Any active | → `WaitingForApproval` |
+| `onUserResponseSent(callId)` | `WaitingForInput`/`WaitingForAction` + callId match | → `Running("Processing response...")` |
+| `onApprovalResolved(callId)` | `WaitingForApproval` + callId match | → `Running("Processing...")` |
 | `onTaskCompleted(reason, message?)` | Not `Hidden`/`Done`/`Error` | → `Done` or `Error` |
 | `onSessionEnded(reason)` | Any | → `Done`/`Hidden`/`Error` per reason |
 | `onError(message)` | Any | → `Error(message)` |
@@ -116,6 +126,7 @@ Auto-hide: `Done` → `Hidden` after 3000ms.
 | `onResume` | `Op.Resume` |
 | `onSupplement` | `Op.Supplement(text)` |
 | `onUserResponse` | `CapsuleStateHolder.onUserResponseSent()` → `Op.UserResponse(callId, response)` |
+| `onApprovalResponse` | `CapsuleStateHolder.onApprovalResolved()` → `Op.Approve(callId, decision, scope, packageName)` |
 | `onStop` | `Op.Shutdown` |
 | `onSend` | `Op.UserInput(text)` |
 | `onOpenApp` | Opens main activity |

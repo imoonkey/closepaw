@@ -52,10 +52,10 @@ class CapsuleApprovalTransitionTest {
     }
 
     @Test
-    fun `onApprovalRequired allows null packageName for transient approvals`() {
-        holder.onApprovalRequired("c1", "Tap", "App", packageName = null, reason = "r")
+    fun `onApprovalRequired stores package scoped approval subject`() {
+        holder.onApprovalRequired("c1", "Tap", "App", packageName = "com.example.app", reason = "r")
         val mode = holder.mode.value as CapsuleMode.WaitingForApproval
-        assertThat(mode.packageName).isNull()
+        assertThat(mode.packageName).isEqualTo("com.example.app")
     }
 
     @Test

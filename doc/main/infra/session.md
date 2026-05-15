@@ -295,8 +295,13 @@ session.submit(Op.Supplement("also check spam folder"))   // Inject mid-task con
 session.submit(Op.UserResponse(callId, "yes"))            // Respond to ask_user
 session.submit(Op.Interrupt)                              // Cancel agent job + stop task, session stays Idle
 session.submit(Op.Shutdown)                               // Terminate session
-session.submit(Op.Approve(actionId, decision))            // Respond to approval
+session.submit(Op.Approve(actionId, decision, scope, packageName)) // Respond to app-level approval
 ```
+
+Positive approvals are package-scoped: `ApprovalScope.SESSION` allows the app for
+the current session, and `ApprovalScope.ALWAYS` persists the app allow-list entry.
+`ApprovalDecision.DENIED` cancels only the current pending tool call and does not
+write a deny-list entry.
 
 ### Observing Events
 
