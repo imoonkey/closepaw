@@ -88,8 +88,8 @@ internal fun LlmAuthSettingsPage(
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
-    selectedExecutorModel: String?,
-    onExecutorModelChange: (String?) -> Unit,
+    selectedSubagentModel: String?,
+    onSubagentModelChange: (String?) -> Unit,
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus,
@@ -133,8 +133,8 @@ internal fun LlmAuthSettingsPage(
             api = null,
             selectedModel = selectedModel,
             onModelChange = onModelChange,
-            selectedExecutorModel = selectedExecutorModel,
-            onExecutorModelChange = onExecutorModelChange
+            selectedSubagentModel = selectedSubagentModel,
+            onSubagentModelChange = onSubagentModelChange
         )
         action()
     }
@@ -184,8 +184,8 @@ internal fun LlmAuthSettingsPage(
                     selectedModel = selectedModel,
                     onModelChange = { commitSignIn { onModelChange(it) } },
                     modelCatalog = modelCatalog,
-                    selectedExecutorModel = selectedExecutorModel,
-                    onExecutorModelChange = { commitSignIn { onExecutorModelChange(it) } },
+                    selectedSubagentModel = selectedSubagentModel,
+                    onSubagentModelChange = { commitSignIn { onSubagentModelChange(it) } },
                     openAiAuthUiState = openAiAuthUiState,
                     onStartOAuth = { commitSignIn { onStartOAuth() } },
                     onCancelOAuth = onCancelOAuth,
@@ -198,8 +198,8 @@ internal fun LlmAuthSettingsPage(
                     selectedModel = selectedModel,
                     onModelChange = { commitApiKey { onModelChange(it) } },
                     modelCatalog = modelCatalog,
-                    selectedExecutorModel = selectedExecutorModel,
-                    onExecutorModelChange = { commitApiKey { onExecutorModelChange(it) } },
+                    selectedSubagentModel = selectedSubagentModel,
+                    onSubagentModelChange = { commitApiKey { onSubagentModelChange(it) } },
                     authStore = authStore,
                     onApiKeyPersist = { provider, key ->
                         commitApiKey { }
@@ -274,8 +274,8 @@ private fun SignInTabContent(
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
-    selectedExecutorModel: String?,
-    onExecutorModelChange: (String?) -> Unit,
+    selectedSubagentModel: String?,
+    onSubagentModelChange: (String?) -> Unit,
     openAiAuthUiState: OpenAiAuthUiState,
     onStartOAuth: () -> Unit,
     onCancelOAuth: () -> Unit,
@@ -294,11 +294,11 @@ private fun SignInTabContent(
     }
     Spacer(modifier = Modifier.height(20.dp))
     SettingsSection(title = "Subagent Model") {
-        Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
-            ExecutorModelDropdown(
-                selectedModel = selectedExecutorModel,
+        Box(modifier = Modifier.testTag("qa-subagent-model-dropdown")) {
+            SubagentModelDropdown(
+                selectedModel = selectedSubagentModel,
                 modelOptions = modelOptions,
-                onModelChange = onExecutorModelChange
+                onModelChange = onSubagentModelChange
             )
         }
     }
@@ -319,8 +319,8 @@ private fun ApiKeyTabContent(
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
-    selectedExecutorModel: String?,
-    onExecutorModelChange: (String?) -> Unit,
+    selectedSubagentModel: String?,
+    onSubagentModelChange: (String?) -> Unit,
     authStore: AuthStore,
     onApiKeyPersist: (LLMProvider, String) -> Unit,
 ) {
@@ -363,24 +363,24 @@ private fun ApiKeyTabContent(
             selectedModel = selectedModel,
             modelOptions = modelOptions,
             onModelChange = { picked ->
-                // Commit canonicalizes main + executor if provider changed.
+                // Commit canonicalizes main + subagent if provider changed.
                 onModelChange(picked)
-                canonicalizeExecutorOnProviderChange(
+                canonicalizeSubagentOnProviderChange(
                     modelCatalog = modelCatalog,
                     newMainModel = picked,
-                    selectedExecutorModel = selectedExecutorModel,
-                    onExecutorModelChange = onExecutorModelChange
+                    selectedSubagentModel = selectedSubagentModel,
+                    onSubagentModelChange = onSubagentModelChange
                 )
             }
         )
     }
     Spacer(modifier = Modifier.height(20.dp))
     SettingsSection(title = "Subagent Model") {
-        Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
-            ExecutorModelDropdown(
-                selectedModel = selectedExecutorModel,
+        Box(modifier = Modifier.testTag("qa-subagent-model-dropdown")) {
+            SubagentModelDropdown(
+                selectedModel = selectedSubagentModel,
                 modelOptions = modelOptions,
-                onModelChange = onExecutorModelChange
+                onModelChange = onSubagentModelChange
             )
         }
     }
@@ -426,9 +426,9 @@ private fun LocalTabContent(
 }
 
 /**
- * Canonicalize main/executor model when provider or auth context changes.
+ * Canonicalize main/subagent model when provider or auth context changes.
  * If the current main model is invalid for the new context, replace with preferred.
- * If executor's provider doesn't match new main's provider, reset to provider default
+ * If subagent's provider doesn't match new main's provider, reset to provider default
  * (or null if the provider has no entry).
  */
 private fun canonicalizeModels(
@@ -437,8 +437,8 @@ private fun canonicalizeModels(
     api: ApiType?,
     selectedModel: String,
     onModelChange: (String) -> Unit,
-    selectedExecutorModel: String?,
-    onExecutorModelChange: (String?) -> Unit
+    selectedSubagentModel: String?,
+    onSubagentModelChange: (String?) -> Unit
 ) {
     val validModels = modelCatalog.modelsFor(provider, api)
     val validNames = validModels.map { it.name }.toSet()
@@ -449,29 +449,29 @@ private fun canonicalizeModels(
         if (preferred != null) onModelChange(preferred.name)
     }
 
-    // Executor canonicalization: provider-change triggers reset.
+    // Subagent canonicalization: provider-change triggers reset.
     if (currentProvider != provider) {
-        val execProvider = selectedExecutorModel?.let { modelCatalog.resolveOrNull(it)?.provider }
-        if (execProvider != provider) {
-            val execDefault = modelCatalog.preferredModelFor(provider)?.name
-            onExecutorModelChange(execDefault)
+        val subagentProvider = selectedSubagentModel?.let { modelCatalog.resolveOrNull(it)?.provider }
+        if (subagentProvider != provider) {
+            val subagentDefault = modelCatalog.preferredModelFor(provider)?.name
+            onSubagentModelChange(subagentDefault)
         }
     }
 }
 
 /**
  * On a main-model commit inside a tab that already matches the selected provider
- * (e.g. user picks a different model in API Key tab), ensure executor still matches.
+ * (e.g. user picks a different model in API Key tab), ensure subagent still matches.
  */
-private fun canonicalizeExecutorOnProviderChange(
+private fun canonicalizeSubagentOnProviderChange(
     modelCatalog: ModelCatalog,
     newMainModel: String,
-    selectedExecutorModel: String?,
-    onExecutorModelChange: (String?) -> Unit,
+    selectedSubagentModel: String?,
+    onSubagentModelChange: (String?) -> Unit,
 ) {
     val newProvider = modelCatalog.resolveOrNull(newMainModel)?.provider ?: return
-    val execProvider = selectedExecutorModel?.let { modelCatalog.resolveOrNull(it)?.provider }
-    if (execProvider != null && execProvider != newProvider) {
-        onExecutorModelChange(modelCatalog.preferredModelFor(newProvider)?.name)
+    val subagentProvider = selectedSubagentModel?.let { modelCatalog.resolveOrNull(it)?.provider }
+    if (subagentProvider != null && subagentProvider != newProvider) {
+        onSubagentModelChange(modelCatalog.preferredModelFor(newProvider)?.name)
     }
 }

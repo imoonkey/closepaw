@@ -33,7 +33,7 @@ internal fun CloudModelDropdown(
 }
 
 @Composable
-internal fun ExecutorModelDropdown(
+internal fun SubagentModelDropdown(
     selectedModel: String?,
     modelOptions: List<Pair<String, String>>,
     onModelChange: (String?) -> Unit
