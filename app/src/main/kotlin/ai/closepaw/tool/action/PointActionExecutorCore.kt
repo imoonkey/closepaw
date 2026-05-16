@@ -79,8 +79,11 @@ internal suspend fun executePointAction(
 
     if (!isWithinDisplayBounds(point, displayInfo)) {
         return ActionOutcome.Failed(
-            reason = "Resolved $actionName target (${point.x},${point.y}) is outside display bounds " +
-                "${displayInfo.widthPixels}x${displayInfo.heightPixels}",
+            reason = formatActionMessage(
+                "Resolved $actionName target (${point.x},${point.y}) is outside display bounds " +
+                    "${displayInfo.widthPixels}x${displayInfo.heightPixels}",
+                resolvedWarnings
+            ),
             attemptTrail = emptyList()
         )
     }
@@ -197,6 +200,8 @@ private fun refinePointActionTarget(
     resolved: TargetResolver.ResolveResult.Resolved,
     snapshot: ScreenSnapshot?
 ): TargetResolver.ResolveResult.Resolved {
+    if (resolved.coordinateFallback) return resolved
+
     val snap = snapshot ?: return resolved
     val element = findResolvedElement(target, resolved, snap.elements) ?: return resolved
     if (element.isClickable || element.isLongClickable) return resolved

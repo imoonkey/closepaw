@@ -160,6 +160,29 @@ class ScrollExecutorTest {
         assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
         val failed = outcome as ActionOutcome.Failed
         assertThat(failed.reason).contains("not found")
+        assertThat(failed.reason).contains("coordinate fallback")
+        assertThat(platform.performedActions).isEmpty()
+    }
+
+    @Test
+    fun `scroll element_index plus outside hint fails ambiguous without dispatch`() = runTest {
+        val snapshot = scrollableSnapshot("Item 1")
+        val platform = RecordingScrollPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(snapshot)
+        )
+
+        val outcome = ScrollExecutor().execute(
+            target = Target.ElementIndex(1, Target.Coordinate(1080, 2400)),
+            direction = "down",
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        val failed = outcome as ActionOutcome.Failed
+        assertThat(failed.reason).contains("Ambiguous")
         assertThat(platform.performedActions).isEmpty()
     }
 

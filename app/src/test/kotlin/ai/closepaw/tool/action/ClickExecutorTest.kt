@@ -480,6 +480,33 @@ class ClickExecutorTest {
     }
 
     @Test
+    fun `execute text coordinate fallback skips semantic refinement`() = runTest {
+        val snapshot = snapshotWithClickableRow()
+        val changedSnapshot = snapshotWithClickableRow(rowLabel = "Tapped")
+        val platform = RecordingPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(changedSnapshot)
+        )
+
+        val outcome = ClickExecutor().execute(
+            target = Target.Text(
+                text = "task.html",
+                textIndex = 1,
+                coordinateHint = Target.Coordinate(100, 200)
+            ),
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(UIAction.TapAt(100, 200))
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.message).contains("coordinate fallback")
+        assertThat(success.message).doesNotContain("Retargeted")
+    }
+
+    @Test
     fun `execute semantic plus hint outside bounds fails ambiguous without dispatch`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform = RecordingPlatform(
@@ -541,6 +568,33 @@ class ClickExecutorTest {
             )
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        assertThat(platform.performedActions).isEmpty()
+    }
+
+    @Test
+    fun `execute coordinate fallback outside display keeps resolver warning`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot)
+            )
+
+        val outcome =
+            ClickExecutor().execute(
+                target = Target.ElementIndex(
+                    index = 999,
+                    coordinateHint = Target.Coordinate(x = 2000, y = 2500)
+                ),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        val failed = outcome as ActionOutcome.Failed
+        assertThat(failed.reason).contains("outside display bounds")
+        assertThat(failed.reason).contains("coordinate fallback")
         assertThat(platform.performedActions).isEmpty()
     }
 
