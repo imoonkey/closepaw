@@ -105,41 +105,85 @@ class CompactorTest {
     // ── findSafeCutPoint ─────────────────────────────────────────────────
 
     @Test
-    fun `findSafeCutPoint snaps forward past a FunctionCallOutput`() {
+    fun `findSafeCutPoint snaps back to the paired FunctionCall when threshold lands in an FCO`() {
         val client = RecordingClient()
         val compactor = newCompactor(client)
         val items = listOf<ResponseItem>(
             userIntent("Goal: do thing"),       // 0  Message
             assistant(20),                       // 1  Message
-            call("c1"),                          // 2  FunctionCall
+            call("c1"),                          // 2  FunctionCall  <- snap-back target
             output("c1", 1_500),                 // 3  FunctionCallOutput  <- walk-back lands here
-            assistant(20),                       // 4  Message              <- snap-forward target
+            assistant(20),                       // 4  Message
             screen(20),                          // 5  Message
         )
-        // Keep ~1500 tokens; walk-back accumulates the big FCO at index 3 first
+        // Walk-back accumulates the big FCO at index 3 first; threshold lands at 3 (FCO).
+        // Snapping forward would orphan the FCO; we snap back to its paired FC at 2 instead.
         val cut = compactor.findSafeCutPoint(items, keepTokens = 1_000)
-        assertThat(cut).isEqualTo(4)
-        // The item at the cut is NOT a FunctionCallOutput
-        assertThat(items[cut]).isNotInstanceOf(ResponseItem.FunctionCallOutput::class.java)
+        assertThat(cut).isEqualTo(2)
+        // FC and FCO are kept together in the tail.
+        assertThat(items[cut]).isInstanceOf(ResponseItem.FunctionCall::class.java)
+        assertThat(items[cut + 1]).isInstanceOf(ResponseItem.FunctionCallOutput::class.java)
     }
 
     @Test
-    fun `findSafeCutPoint returns items size when tail is unsafe`() {
+    fun `findSafeCutPoint snaps back to the FC when only the paired FC is summarizable prefix`() {
         val compactor = newCompactor(RecordingClient())
         val items = listOf<ResponseItem>(
             userIntent("Goal"),
             assistant(10),
             call("c1"),
-            output("c1", 5_000),  // Huge FCO at the end; only safe boundary is the FC before it
+            output("c1", 5_000),  // Huge FCO at the end with summarizable prefix before it
         )
-        // Walk back: FCO (5000 tokens) immediately exceeds keepTokens=2000 → hitIdx=3 (FCO)
-        // Snap forward from 3 lands on FCO → continue → falls off end → returns items.size
+        // Walk back: FCO (5000) >= keepTokens=2000 → hitIdx=3 (FCO).
+        // Snap back to FC at index 2 to keep the pair intact.
+        val cut = compactor.findSafeCutPoint(items, keepTokens = 2_000)
+        assertThat(cut).isEqualTo(2)
+        assertThat(items[cut]).isInstanceOf(ResponseItem.FunctionCall::class.java)
+    }
+
+    @Test
+    fun `findSafeCutPoint returns items size when nothing summarizable remains`() {
+        val compactor = newCompactor(RecordingClient())
+        val items = listOf<ResponseItem>(
+            call("c1"),
+            output("c1", 5_000),  // Only a single FC/FCO pair, nothing before it
+        )
+        // Walk back lands on FCO at 1; snap back lands on FC at 0; but cut=0 means
+        // nothing to summarize. Walking c from 1 downTo 1 finds only c=1 (unsafe),
+        // so we return items.size.
         val cut = compactor.findSafeCutPoint(items, keepTokens = 2_000)
         assertThat(cut).isEqualTo(items.size)
     }
 
     @Test
-    fun `findSafeCutPoint at supplement-only boundary cuts at USER_INTENT`() {
+    fun `findSafeCutPoint never splits multiple FC FCO pairs in the tail`() {
+        val compactor = newCompactor(RecordingClient())
+        val items = listOf<ResponseItem>(
+            userIntent("Goal"),    // 0
+            assistant(50),          // 1
+            call("c1"),             // 2
+            output("c1", 200),      // 3
+            call("c2"),             // 4
+            output("c2", 200),      // 5
+            assistant(5),           // 6
+        )
+        // Walk back: 5,200,200,5...; threshold lands in the second pair group.
+        // Must snap back so neither pair is split (would orphan an FCO).
+        val cut = compactor.findSafeCutPoint(items, keepTokens = 300)
+        // Cut must not be 3 or 5 (FCOs) and must not orphan either pair.
+        assertThat(items[cut]).isNotInstanceOf(ResponseItem.FunctionCallOutput::class.java)
+        // For each FCO at or after cut, its paired FC must also be at or after cut.
+        val fcoCallIds = items.subList(cut, items.size)
+            .filterIsInstance<ResponseItem.FunctionCallOutput>()
+            .map { it.callId }
+        val fcCallIds = items.subList(cut, items.size)
+            .filterIsInstance<ResponseItem.FunctionCall>()
+            .map { it.id }
+        assertThat(fcCallIds).containsAtLeastElementsIn(fcoCallIds)
+    }
+
+    @Test
+    fun `findSafeCutPoint at supplement-only boundary snaps back to FC instead of forward to USER_INTENT`() {
         val compactor = newCompactor(RecordingClient())
         val items = listOf<ResponseItem>(
             userIntent("Goal: original"),    // 0
@@ -151,11 +195,11 @@ class CompactorTest {
             assistant(5),                     // 6
             assistant(5),                     // 7
         )
-        // keepTokens spans items 5..7 (~34 tokens) plus FCO at 4 (~104) → walk-back stops at 4 (FCO),
-        // snap-forward lands on the supplement at 5.
+        // Walk-back accumulates the tail messages then the FCO at 4; threshold met inside
+        // the (c2, output c2) group at index 4. Snap back to the FC at 3.
         val cut = compactor.findSafeCutPoint(items, keepTokens = 50)
-        assertThat(cut).isEqualTo(5)
-        assertThat((items[cut] as ResponseItem.Message).kind).isEqualTo(MessageKind.USER_INTENT)
+        assertThat(cut).isEqualTo(3)
+        assertThat(items[cut]).isInstanceOf(ResponseItem.FunctionCall::class.java)
     }
 
     @Test

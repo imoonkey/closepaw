@@ -38,9 +38,10 @@ sealed class CompactionOutcome {
  *     [USER_INTENT("Goal: <currentGoal>"), COMPACTION_SUMMARY(summary), ...kept]
  *
  * The cut point is chosen by [findSafeCutPoint]: walk back accumulating tokens until
- * `keepRecentTokens` is met, then snap forward to the nearest [ResponseItem.Message]
- * or [ResponseItem.FunctionCall]. A [ResponseItem.FunctionCallOutput] is never a
- * valid cut — it would orphan its paired call.
+ * `keepRecentTokens` is met, then snap to a safe boundary. A [ResponseItem.FunctionCall]
+ * and its paired [ResponseItem.FunctionCallOutput] (matched by callId) form an atomic
+ * group — the cut never splits a pair, so an output is never orphaned and a call is
+ * never summarized away from its output.
  *
  * Concurrency: snapshot read + CAS replace via [HistoryManager.replaceAllIfRevision].
  * If a supplement is added while the LLM is summarizing, the revision moves and we
@@ -147,15 +148,30 @@ class Compactor(
     }
 
     /**
-     * Walk backward from the end, accumulating tokens until [keepTokens] is met,
-     * then snap forward to the next safe boundary.
+     * Choose the cut index `c` such that `items[0..c)` is summarized and
+     * `items[c..]` is kept verbatim.
      *
-     * Returns the cut index `c` such that `items[0..c)` is summarized and
-     * `items[c..]` is kept verbatim. Returns `items.size` if no safe boundary
-     * exists in the kept tail (caller treats this as NothingToCompact).
+     * Groups a [ResponseItem.FunctionCall] with the [ResponseItem.FunctionCallOutput]
+     * carrying the same callId into an atomic group. A cut never falls between
+     * a FunctionCall and its paired FunctionCallOutput — that would orphan the
+     * output (or summarize away the call its output is referencing). When the
+     * kept-tokens threshold lands inside such a group the cut snaps backward to
+     * the start of that group, so the call + output stay together in the kept
+     * tail.
+     *
+     * Valid cut points:
+     *   - Any [ResponseItem.Message]
+     *   - The index of a [ResponseItem.FunctionCall] (the call is included in
+     *     the kept tail along with its paired output to the right).
+     *
+     * Returns `items.size` when no valid cut produces any summarizable prefix
+     * (caller treats this as [CompactionOutcome.NothingToCompact]). Returns `0`
+     * when total tokens are below `keepTokens`.
      */
     internal fun findSafeCutPoint(items: List<ResponseItem>, keepTokens: Long): Int {
         if (items.isEmpty()) return 0
+
+        val unpairedFcoAt = computeUnpairedFcoAt(items)
 
         var acc = 0L
         var hitIdx = -1
@@ -168,14 +184,34 @@ class Compactor(
         }
         if (hitIdx < 0) return 0
 
-        for (j in hitIdx..items.lastIndex) {
-            when (items[j]) {
-                is ResponseItem.Message,
-                is ResponseItem.FunctionCall -> return j
-                is ResponseItem.FunctionCallOutput -> continue
-            }
+        // Walk backward from hitIdx looking for the largest safe cut.
+        // Safe iff cutting at c does not leave an FCO in items[c..) whose
+        // paired FC is in items[0..c).
+        for (c in hitIdx downTo 1) {
+            if (!unpairedFcoAt[c]) return c
         }
         return items.size
+    }
+
+    /**
+     * `unpairedFcoAt[i] == true` iff `items[i..n)` contains a
+     * [ResponseItem.FunctionCallOutput] whose paired [ResponseItem.FunctionCall]
+     * (matched by callId / id) lives in `items[0..i)`. Computed in a single
+     * reverse pass.
+     */
+    private fun computeUnpairedFcoAt(items: List<ResponseItem>): BooleanArray {
+        val n = items.size
+        val result = BooleanArray(n + 1)
+        val pending = HashSet<String>()
+        for (i in n - 1 downTo 0) {
+            when (val item = items[i]) {
+                is ResponseItem.FunctionCallOutput -> pending.add(item.callId)
+                is ResponseItem.FunctionCall -> pending.remove(item.id)
+                is ResponseItem.Message -> Unit
+            }
+            result[i] = pending.isNotEmpty()
+        }
+        return result
     }
 
     private suspend fun summarize(
