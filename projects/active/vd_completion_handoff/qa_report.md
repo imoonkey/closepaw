@@ -1,5 +1,12 @@
 # VD Completion Handoff — QA Report
 
+> **Historical**: this report covers the build that included the
+> `View virtual screen` CTA (Flow C). That CTA was removed before merge
+> (commit `2dfc19bd`) because the post-completion viewer had no working
+> takeover / edge glow / exit — only the `Open <App>` CTA ships. Flow C
+> findings below are retained for traceability only. Flows A, B, D still
+> apply to the shipped behavior.
+
 ## Environment
 - Device: Tecno P0110 (Android 16) connected via Tailscale ADB at `100.64.43.95:5555`.
 - Shizuku server running (pid 23506); `moe.shizuku.manager.permission.API_V23: granted=true` for `ai.closepaw`.

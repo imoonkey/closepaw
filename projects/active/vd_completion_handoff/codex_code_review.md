@@ -1,5 +1,10 @@
 # VD Completion Handoff — Code Review
 
+> **Historical**: HIGH #2 (stale `View virtual screen` metadata) was first
+> patched with tap-time revalidation in `e0cb3b2b`, then the CTA was removed
+> entirely in `2dfc19bd` (see `design_codex.md` update). HIGH #1 (blocked
+> apps in Open CTA) was fixed in `e0cb3b2b` and remains in the shipped build.
+
 ## Scope
 - branch: task/vd-completion-handoff
 - commits reviewed: 9be6c778, d0f6ac99, 7b2a109d, 44f3323f

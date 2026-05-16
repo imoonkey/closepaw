@@ -1,5 +1,13 @@
 # VD Completion Handoff — Independent General Review
 
+> **Historical**: HIGH #1 (viewer auto-finish closes opened viewer) and
+> MEDIUM #1 (stale viewer CTA) were addressed by removing the
+> `View virtual screen` CTA entirely in commit `2dfc19bd` (see
+> `design_codex.md` update). MEDIUM #2 (debug-run.sh --local) was fixed in
+> `43956bbe`. LOW #1 (button overflow) is no longer relevant since only one
+> button ships. MEDIUM #3 (test coverage) is also moot — the
+> CTA-lifecycle tests it called for tracked code that no longer exists.
+
 ## Scope
 - Branch / base reviewed: `task/vd-completion-handoff`, committed `HEAD` `2eb50f4e`, using the requested local `main..HEAD` range with local `main` at `132de064`.
 - Commits reviewed: `9be6c778`, `d0f6ac99`, `7b2a109d`, `44f3323f`, `e0cb3b2b`, `5ae5012c`, `fe215e94`, `2eb50f4e`.

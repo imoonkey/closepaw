@@ -1,5 +1,11 @@
 # View Virtual Screen Tap Bug
 
+> **Historical**: this diagnosis informed commit `2a22af8d` (open viewer
+> from hot idle + live CTA visibility), but on-device QA found the
+> post-completion viewer was still unusable (no working takeover/edge
+> glow/exit). The CTA was subsequently removed entirely in commit
+> `2dfc19bd` rather than continue patching. See `design_codex.md` update.
+
 ## Diagnosis
 
 The VD is not intentionally released when a normal task completes. `AgentSession.handleAgentComplete()` emits `TaskCompleted`, flushes the idle checkpoint, transitions the session to `Idle`, clears only `agentRunner`, and schedules the five-minute idle timeout; it does not call `services.cleanup()` or `platform.stop()` in that path (`app/src/main/kotlin/ai/closepaw/session/AgentSession.kt:444`, `:456`, `:463`, `:467`, `:470`). Cleanup that stops the platform only runs from `handleShutdown()` (`AgentSession.kt:596`, `:643`), and `SessionServices.cleanup()` calls `platform.stop()` there (`app/src/main/kotlin/ai/closepaw/session/SessionServices.kt:377`, `:386`).

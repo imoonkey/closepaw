@@ -1,11 +1,21 @@
 # Virtual Display Completion Handoff
 
+> **Update (post-implementation)**: the `View virtual screen` CTA described
+> below was implemented, then removed before merge — post-completion the
+> viewer had no working takeover, no edge glow, and no exit affordance, so
+> the button landed users on a dead surface (see
+> `view_vd_tap_bug.md`, `codex_general_review.md` HIGH #1, and commit
+> `2dfc19bd`). Only the `Open <App>` CTA ships. The `virtualDisplayAvailable`
+> field on `CompletionHandoff` is still captured so the viewer CTA can be
+> re-introduced once the broader `vd-runtime-boundary` work keeps the VD
+> session alive past completion and restores the in-viewer controls.
+
 ## Goal
 
-When a Virtual Display task completes, keep the user in ClosePaw chat by default and expose explicit handoff actions:
+When a Virtual Display task completes, keep the user in ClosePaw chat by default and expose an explicit handoff action:
 
 ```text
-[Open <App>] [View virtual screen]
+[Open <App>]
 ```
 
 The current behavior where `New Session` can open the last VD app is a bug. New session must only start a new ClosePaw conversation.
@@ -20,30 +30,27 @@ At `TaskCompleted`, if the effective platform is `VIRTUAL_DISPLAY`, capture:
 data class CompletionHandoff(
     val appPackage: String?,
     val appLabel: String?,
-    val virtualDisplayAvailable: Boolean,
+    val virtualDisplayAvailable: Boolean, // captured but not currently rendered
 )
 ```
 
-Chat renders buttons only when they are valid:
+Chat renders the button only when it is valid:
 
 - `Open <App>`: show only when `appPackage` exists, is not ClosePaw/SystemUI/blocked, and `PackageManager.getLaunchIntentForPackage(appPackage)` returns a launcher intent.
-- `View virtual screen`: show only when the VD is still alive.
 
 No automatic app launch. No screenshot fallback. No promise to restore the exact VD page; opening the real app means launching the same package on the real display.
 
 ## Components
 
-- `TaskCompleted`: carry optional `CompletionHandoff` for the completed task.
+- `TaskCompleted`: carries optional `CompletionHandoff` for the completed task.
 - `AgentSession`: builds handoff metadata when emitting `TaskCompleted`.
-  - `appPackage`: `services.platform.getCurrentPackageName()` in VD mode.
-  - `appLabel`: resolved from `PackageManager`.
-  - `virtualDisplayAvailable`: true only while the current VD platform can still open the viewer.
+  - `appPackage`: `services.platform.getCurrentPackageName()` in VD mode (filtered through `AppClassifier` to drop BLOCKED-tier packages and self/SystemUI).
+  - `appLabel`: resolved from `PackageManager` with `NameNotFoundException` → null.
+  - `virtualDisplayAvailable`: true only while the current VD platform can still open the viewer. Captured for future use; not currently rendered.
 - `ChatMessage.Agent`: stores optional completion handoff metadata.
 - `ChatEventReducer`: copies `TaskCompleted.handoff` into the completed agent row.
-- `AgentRow` / final region: renders the two CTA buttons under the final answer.
-- `MainActivity` / `ChatScreen`: handle CTA callbacks:
-  - open real app with launcher intent on display 0;
-  - open existing `VirtualDisplayViewerActivity`.
+- `AgentRow` / final region: renders the `Open <App>` CTA under the final answer when `RowState.Complete` and `handoff != null`.
+- `MainActivity` / `ChatScreen`: handles the CTA callback by launching the package's real-display launcher intent.
 
 ## Interaction
 
@@ -55,7 +62,6 @@ VD Running
 
 CompletedInChat
   -- Open <App> CTA, valid launcher intent --> RealAppOpened
-  -- View virtual screen CTA, VD alive --> VDViewerOpened
   -- New Session --> NewChat
 ```
 
@@ -63,12 +69,10 @@ Guards:
 
 - `New Session` never reads or executes `CompletionHandoff`.
 - Invalid app packages produce no app CTA.
-- Dead VD produces no viewer CTA.
 
 Side effects:
 
 - `Open <App>` starts the real-display launcher intent.
-- `View virtual screen` uses the existing viewer path.
 - `TaskCompleted` itself does not launch anything.
 
 ## Tasks
@@ -85,21 +89,22 @@ Side effects:
 
 3. `vd-handoff-render`
    - Scope: `app/src/main/kotlin/ai/closepaw/ui/chat/*`, `app/src/main/kotlin/ai/closepaw/app/MainActivity.kt`
-   - Acceptance: valid completed VD rows show `[Open <App>]` and/or `[View virtual screen]`; taps invoke the explicit action.
+   - Acceptance: valid completed VD rows show `[Open <App>]`; tap invokes the explicit action.
    - Dependencies: `vd-handoff-capture`.
 
 4. `new-session-no-handoff-regression`
    - Scope: chat/header tests and any affected QA helpers.
-   - Acceptance: tapping `New Session` never opens the last app or VD viewer.
+   - Acceptance: tapping `New Session` never opens the last app.
    - Dependencies: `vd-handoff-render`.
 
 ## Trade-offs
 
-- No intent classification: simpler and more honest. The user chooses whether to inspect the app or stay in chat.
+- No intent classification: simpler and more honest. The user chooses whether to open the app or stay in chat.
 - No final screenshot fallback: avoids asset lifecycle work until the basic handoff proves useful.
-- Runtime-only handoff: restored old chat history does not need to recreate stale app/viewer buttons.
+- Runtime-only handoff: restored old chat history does not need to recreate stale app buttons.
 - Explicit CTA beats automatic handoff: prevents VD workspace state from leaking to the real screen as a lifecycle side effect.
+- Viewer CTA deferred: keeping a useful post-completion viewer requires the VD session to outlive task completion plus a real exit/takeover surface on the viewer; that work is `vd-runtime-boundary`.
 
 ## Self-Review
 
-This design solves the product question with the smallest state surface: completion stays in chat, app/viewer handoff is explicit, and `New Session` has a clean invariant. The only new state is per-completion metadata. No classifier, page migration, screenshot storage, or VD service refactor is required.
+This design solves the product question with the smallest state surface: completion stays in chat, the app handoff is explicit, and `New Session` has a clean invariant. The only new state is per-completion metadata. No classifier, page migration, screenshot storage, or VD service refactor is required.
