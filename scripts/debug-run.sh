@@ -307,8 +307,10 @@ fi
 
 # Preflight: re-run setup.sh so build + permissions are wired up. Cheap when
 # APK is up-to-date and re-granting overlay/a11y/Shizuku is idempotent.
+# Export LLM_BACKEND so setup.sh's API-key gate matches the backend this run
+# will actually use (otherwise --local fails on the OpenAI key check).
 log "Running setup.sh preflight..."
-"$SCRIPT_DIR/setup.sh" || err "Preflight failed (see setup.sh output above)"
+LLM_BACKEND="$LLM_BACKEND" "$SCRIPT_DIR/setup.sh" || err "Preflight failed (see setup.sh output above)"
 
 # Clear logs and start streaming capture
 adb logcat -c
