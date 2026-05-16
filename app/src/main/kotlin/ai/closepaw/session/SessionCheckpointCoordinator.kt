@@ -86,7 +86,6 @@ internal class SessionCheckpointCoordinator(
 internal fun SessionConfig.toConfigSnapshot() = ConversationConfigSnapshot(
     mainModel = mainModel,
     subagentModel = subagentModel,
-    maxTurns = maxTurns,
     perceptionMode = perceptionConfig.toModeString(),
     platformMode = platformMode.name,
     llmBackendType = llm.backendType.name,
@@ -109,7 +108,6 @@ private fun PerceptionConfig.toModeString(): String = when (this) {
 internal fun ConversationConfigSnapshot.toSessionConfig(): SessionConfig = SessionConfig(
     mainModel = mainModel,
     subagentModel = subagentModel,
-    maxTurns = maxTurns,
     perceptionConfig = when (perceptionMode) {
         "screenshot_only" -> PerceptionConfig.ScreenshotOnly()
         "hybrid" -> PerceptionConfig.Hybrid()

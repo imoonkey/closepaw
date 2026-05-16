@@ -1,7 +1,7 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for ClosePaw.
-> Last updated: 2026-05-15
+> Last updated: 2026-05-16
 
 ## Design Principles
 
@@ -12,7 +12,7 @@
 | **Streaming Responses** | Native streaming with `LLMStreamEvent` for real-time UI updates. |
 | **Thin Session Layer** | Session manages lifecycle only. Intelligence lives under `agent/`. |
 | **Tools with Observation** | Tool execution captures post-action screen context for grounding. |
-| **Context Hygiene** | Text-first history with fresh screen state injected each turn. Older screens compressed. |
+| **Context Hygiene** | Text-first history with fresh screen state injected each turn. Older screens downgraded by `HistoryManager`; context-window pressure handled by per-turn `Compactor` summarization. No turn-count cap. |
 | **Planning State Tools** | `write_todos` and `scratchpad` persist intent and facts across turns/agents. |
 | **Cognition Layer** | Prompt/context/policy logic is isolated under `agent/cognition/`. |
 | **Catalog-Driven Models** | `ModelCatalog` + `LLMClientFactory` resolve models at runtime from `llm_models.json`. |
@@ -97,7 +97,7 @@ ai.closepaw/
 │   │   └── policy/
 │   │       ├── TurnToolPolicy.kt       # Tool arbitration + completion decision
 │   │       ├── LoopDetectionPolicy.kt  # Repeated screen/action warnings
-│   │       └── TurnBudget.kt              # Turn budget check + delegation summary
+│   │       └── TurnBudget.kt           # DelegationSummaryFormatter for subagent timeout summaries
 │   └── subagent/
 │       └── SubAgentRunner.kt           # SubAgentRequest, SubAgentResult, IsolatedSubAgentRunner
 │

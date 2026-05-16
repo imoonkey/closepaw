@@ -2,7 +2,7 @@
 
 > SessionConfig and related configuration types.
 > -> See: [overview](overview.md) for protocol architecture.
-> Last updated: 2026-05-15
+> Last updated: 2026-05-16
 
 ## SessionConfig
 
@@ -10,7 +10,6 @@
 
 ```kotlin
 data class SessionConfig(
-    val maxTurns: Int = 50,
     val actionDelayMs: Long = 2000,
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     val llm: SessionLlmConfig = SessionLlmConfig(),
@@ -21,13 +20,13 @@ data class SessionConfig(
     val mainModel: String = "glm-5",
     val subagentModel: String? = null,
     val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
-    val excludedTools: Set<String> = emptySet()
+    val excludedTools: Set<String> = emptySet(),
+    val evalTurnBudget: Int? = null
 )
 ```
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `maxTurns` | 50 | Max turns before auto-stop |
 | `actionDelayMs` | 2000 | Delay after actions for UI settle |
 | `approvalMode` | `SMART` | `ALWAYS_ASK` / `AUTO_APPROVE` / `SMART` |
 | `mainModel` | `glm-5` | Model for the main agent |
@@ -35,6 +34,11 @@ data class SessionConfig(
 | `traceEnabled` | false | Persist full JSONL trace events/artifacts |
 | `platformMode` | `ACCESSIBILITY` | `ACCESSIBILITY` or `VIRTUAL_DISPLAY` |
 | `excludedTools` | empty | Tool names to exclude (e.g., for eval) |
+| `evalTurnBudget` | null | Eval-only runaway safety net; production always `null`. Set from eval bridge yaml key `max_turns` (intent extra `eval_turn_budget`). Triggers `AgentStopReason.Error("Eval turn budget reached")` when `turnCount >= evalTurnBudget`. Never surfaced in prompt text. |
+
+There is **no** `maxTurns` field. Production sessions are bounded by
+context-window auto-compaction (see [agent/loop.md](../agent/loop.md#auto-compaction)),
+not by a turn count.
 
 ## SessionLlmConfig
 

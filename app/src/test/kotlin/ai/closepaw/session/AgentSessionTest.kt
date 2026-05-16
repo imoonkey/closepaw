@@ -244,7 +244,6 @@ class AgentSessionTest {
                         scope = this,
                         captureDelayMs = 0L,
                         llmDelayMs = 0L,
-                        maxTurns = 5,
                         llmClient = gatedLlm
                 )
                 val events = mutableListOf<AgentEvent>()
@@ -343,7 +342,7 @@ class AgentSessionTest {
                 val toolRegistry = ToolRegistry()
                 val toolRouter = ToolRouter(toolRegistry, spiedPolicyEngine)
                 val platform = FakeAndroidPlatform(captureDelayMs = 0L)
-                val config = SessionConfig(maxTurns = 2, actionDelayMs = 0)
+                val config = SessionConfig(actionDelayMs = 0)
                 val testCatalog =
                         ModelCatalog.fromJson(
                                 """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
@@ -401,7 +400,6 @@ class AgentSessionTest {
                         sessionId = "old-session",
                         config = ConversationConfigSnapshot(
                                 mainModel = "gpt-5.2",
-                                maxTurns = 1,
                                 perceptionMode = "DEFAULT",
                                 platformMode = "DEFAULT",
                         ),
@@ -518,7 +516,6 @@ class AgentSessionTest {
                         scope = this,
                         captureDelayMs = 0L,
                         llmDelayMs = 0L,
-                        maxTurns = 5,
                         llmClient = gatedLlm
                 )
                 val events = mutableListOf<AgentEvent>()
@@ -557,7 +554,6 @@ class AgentSessionTest {
                         scope = this,
                         captureDelayMs = 0L,
                         llmDelayMs = 0L,
-                        maxTurns = 5,
                         llmClient = gatedLlm
                 )
                 val events = mutableListOf<AgentEvent>()
@@ -884,7 +880,6 @@ class AgentSessionTest {
                         scope = this,
                         captureDelayMs = 0L,
                         llmDelayMs = 0L,
-                        maxTurns = 5,
                         llmClient = gatedLlm
                 )
                 val events = mutableListOf<AgentEvent>()
@@ -1042,13 +1037,11 @@ private fun buildSession(
         scope: kotlinx.coroutines.CoroutineScope,
         captureDelayMs: Long,
         llmDelayMs: Long,
-        maxTurns: Int = 2,
         llmClient: LLMClient? = null
 ): AgentSession = buildSessionWith(
         scope = scope,
         platform = FakeAndroidPlatform(captureDelayMs = captureDelayMs),
         llmDelayMs = llmDelayMs,
-        maxTurns = maxTurns,
         llmClient = llmClient
 )
 
@@ -1056,13 +1049,12 @@ private fun buildSessionWith(
         scope: kotlinx.coroutines.CoroutineScope,
         platform: ai.closepaw.platform.AndroidPlatform,
         llmDelayMs: Long = 0L,
-        maxTurns: Int = 2,
         llmClient: LLMClient? = null
 ): AgentSession {
         val toolRegistry = ToolRegistry()
         val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
-        val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0)
+        val config = SessionConfig(actionDelayMs = 0)
         val testCatalog =
                 ModelCatalog.fromJson(
                         """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""

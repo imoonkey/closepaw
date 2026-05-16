@@ -39,8 +39,7 @@ object TraceRecorderFactory {
                         mainModel = config.mainModel,
                         subagentModel = config.subagentModel,
                         debugMode = config.debugMode,
-                        screenshotInput = config.perceptionConfig.capturesScreenshot,
-                        maxTurns = config.maxTurns
+                        screenshotInput = config.perceptionConfig.capturesScreenshot
                     )
             )
         )

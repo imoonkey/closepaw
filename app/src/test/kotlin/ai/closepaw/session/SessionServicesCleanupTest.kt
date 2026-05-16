@@ -213,7 +213,6 @@ class SessionServicesCleanupTest {
             appClassifier = AppClassifier(emptyMap()),
             platform = FakeAndroidPlatform(),
             config = SessionConfig(
-                maxTurns = 1,
                 actionDelayMs = 0,
                 llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
             ),

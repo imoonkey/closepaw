@@ -675,7 +675,7 @@
   "auto-compact": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Auto-Compact (replace max_turn)",
     "description": "Delete maxTurns hard cap and replace with context-window-triggered auto-compaction. Pi-mono-style: estimate tokens, summarize older history when over threshold, keep recent turns. Adds CAS for concurrent supplement safety and reactive retry for context-overflow errors. Removes max-turn budget from prompt text entirely.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -698,7 +698,6 @@
     "parent": "auto-compact",
     "depends": [],
     "state": "done",
-    "agent": "w-ac-mcw",
     "title": "task-1: Model catalog context_window field",
     "description": "Add ModelEntry.contextWindow: Int (required, validated > 0). Populate all 12 entries in llm_models.json with realistic values. Local backend default fallback returns 8_000 (Leap on-device models are typically 4-32K), cloud default 128_000 if unspecified.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -721,13 +720,13 @@
     ],
     "created": "2026-05-16T09:11:51Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-mcw"
   },
   "ac-history-revision-cas": {
     "parent": "auto-compact",
     "depends": [],
     "state": "done",
-    "agent": "w-ac-hrc",
     "title": "task-2: HistoryManager revision + CAS",
     "description": "Add monotonically increasing _revision: Long field. Expose snapshot(): Pair<Long, List<ResponseItem>> for atomic read. Add replaceAllIfRevision(expected, newItems): Boolean that CAS-swaps only if revision matches. addItem/recordItems/replaceAll/clear all bump revision. This closes the supplement race during Compactor LLM call.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -750,7 +749,8 @@
     ],
     "created": "2026-05-16T09:11:51Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-hrc"
   },
   "ac-compactor-core": {
     "parent": "auto-compact",
@@ -758,8 +758,7 @@
       "ac-model-context-window",
       "ac-history-revision-cas"
     ],
-    "state": "running",
-    "agent": "w-ac-cc",
+    "state": "done",
     "title": "task-3: Compactor core (cut-point + summarize + CAS)",
     "description": "New file history/Compactor.kt (~180 LOC). Pi-mono-style cut-point: walk back accumulating tokens, snap forward to nearest safe boundary (any Message item or FunctionCall; never FunctionCallOutput). Summarize discarded prefix via LLM call (no tools, ~5K maxTokens). New history layout: [USER_INTENT(currentGoal), COMPACTION_SUMMARY, ...kept]. CAS swap via HistoryManager.replaceAllIfRevision. Rethrow CancellationException. forceCompactNow() for reactive path (shrunken keepRecentTokens).",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -786,14 +785,15 @@
     ],
     "created": "2026-05-16T09:12:11Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-cc"
   },
   "ac-history-manager-cleanup": {
     "parent": "auto-compact",
     "depends": [
       "ac-compactor-core"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-4: HistoryManager cleanup (drop lossy eviction)",
     "description": "Rename MessageKind.COMPRESSION_DIGEST -> COMPACTION_SUMMARY with apiRole = user. Delete HistoryManager.compress() Phase 2 group-aware eviction, mergeAdjacentDigests(), autoCompressIfNeeded(), and CompressionResult.BudgetUnreachable. Drop HistoryConfig fields tied only to old eviction: autoCompress, autoCompressThreshold, compressTargetRatio, maxTokenBudget. Drop SessionHistoryBootstrapper passing of those (critical: leaving them makes lossy eviction run BEFORE the new compactor). Keep downgradeOldScreens() and its hook in addItem/recordItems.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -820,14 +820,15 @@
     ],
     "created": "2026-05-16T09:12:11Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-hc"
   },
   "ac-prompt-builder-summary": {
     "parent": "auto-compact",
     "depends": [
       "ac-history-manager-cleanup"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-5: PromptBuilder: drop turn budget text, wrap summary as user context",
     "description": "Delete maxTurns parameter from PromptBuilder entry points. Replace Turn $turnNumber/$maxTurns with Turn $turnNumber (or remove if not load-bearing). When serializing a COMPACTION_SUMMARY Message, prefix the content with [Context checkpoint from earlier work in this session]. Prompt text must never mention any kind of turn budget after this change.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -850,14 +851,15 @@
     ],
     "created": "2026-05-16T09:12:25Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-pbs"
   },
   "ac-reactive-compaction-retry": {
     "parent": "auto-compact",
     "depends": [
       "ac-compactor-core"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-6: Reactive compaction on context-window error",
     "description": "Add ContextWindowExceededException in llm/. Classify provider context-overflow errors (HTTP 413, prompt_too_long, request_too_large, Ollama prompt-too-long string) into this exception in CloudStreamRetryPolicy or peer. In Turn.runStreaming, catch the exception once, call compactor.forceCompactNow, retry the LLM call. ~30 LOC total.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -883,7 +885,8 @@
     ],
     "created": "2026-05-16T09:12:25Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-rr"
   },
   "ac-agent-loop-rewire": {
     "parent": "auto-compact",
@@ -892,7 +895,7 @@
       "ac-history-manager-cleanup",
       "ac-prompt-builder-summary"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-7: Agent loop rewire (compactor + evalTurnBudget)",
     "description": "Agent constructor takes Compactor. SessionAgentRunner builds it per Agent from the resolved ModelEntry and LLMClient. SubAgentRunner builds compactor per child after childServices/childModelName are known (bound to childs model). Remove turn-count guard and hasRemainingTurns retry term in Agent.kt. Top of each turn: compactor.maybeCompact(config.goal, services.historyManager) with Compacted/Failed/Stale/Skipped/NothingToCompact handling and 3-strike circuit breaker. AgentTurnRunner no longer calls isFinalTurn or emits FINAL TURN warning. Eval-only safety net: if config.evalTurnBudget != null && turnCount >= it, stop with Error.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -925,14 +928,15 @@
     ],
     "created": "2026-05-16T09:12:46Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-alr"
   },
   "ac-protocol-session-strip": {
     "parent": "auto-compact",
     "depends": [
       "ac-agent-loop-rewire"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-8: Strip maxTurns from protocol, session, trace; add evalTurnBudget",
     "description": "Delete maxTurns from SessionConfig, AgentExecutionConfig, AgentRoleDef, ResolvedAgentRole, ConversationConfigSnapshot. Delete AgentStopReason.MaxTurnsReached and TaskOutcome.MAX_TURNS. Delete TurnBudget.kt (isFinalTurn + DelegationSummary.format if still needed, rewrite without maxTurns param). Remove max_turns serialization from AgentTrace.kt, TraceModels.kt, TraceRecorderFactory.kt. Checkpoint serialization stops writing maxTurns; legacy snapshots ignore it on reload. ADD: SessionConfig.evalTurnBudget: Int? = null (and same on AgentExecutionConfig), plumbed via SessionAgentRunner.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -964,14 +968,15 @@
     ],
     "created": "2026-05-16T09:12:46Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-pss"
   },
   "ac-app-ui-strip": {
     "parent": "auto-compact",
     "depends": [
       "ac-protocol-session-strip"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-9: Strip maxTurns from app/, ui/, onboarding/",
     "description": "Delete all maxTurns / EXTRA_MAX_TURNS / DEFAULT_MAX_TURNS / KEY_MAX_TURNS / MAX_TURNS_OPTIONS / MaxTurnsDropdown references in MainActivity, intent payload/applier, MainActivityContent, AppSettingsStore, AppSettingsState, AgentService, AgentServiceEventHandler, CapsuleStateHolder, SettingsModels, SettingsHomePage, SettingsDropdowns, AgentBehaviorSettingsPage, OnboardingDemoController. Remove Max Turns UI control; layout shrinks. Settings subtitle no longer prints $maxTurns turns. TaskOutcome.MAX_TURNS branches deleted (when-exhaustiveness restored).",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -997,14 +1002,15 @@
     ],
     "created": "2026-05-16T09:13:03Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-aus"
   },
   "ac-eval-bridge-rename": {
     "parent": "auto-compact",
     "depends": [
       "ac-app-ui-strip"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-10: Eval bridge: max_turns yaml key → eval_turn_budget intent extra",
     "description": "Eval yaml max_turns: key stays unchanged (no operator-facing churn). native_agent_bridge.py reads max_turns from cfg but sends intent extra under the new key eval_turn_budget. MainActivityIntentPayload parses EXTRA_EVAL_TURN_BUDGET into SessionConfig.evalTurnBudget. Existing eval test that asserts reason: MAX_TURNS gets updated to expect reason: ERROR with message containing eval turn budget.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -1031,14 +1037,15 @@
     ],
     "created": "2026-05-16T09:13:03Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-ebr"
   },
   "ac-tests-update": {
     "parent": "auto-compact",
     "depends": [
       "ac-app-ui-strip"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-11: Update tests sweep (delete cap-tests, rewrite safety-net tests, add new)",
     "description": "Tests purely testing the maxTurns cap deleted (AgentRunLoopTest cap cases, CapsuleApprovalTransitionTest MAX_TURNS case, SessionCheckpointConfigSnapshotTest maxTurns roundtrip). Tests using maxTurns = N as mock-LLM safety net rewritten to use mocks that terminate explicitly (counted scripted client or explicit complete_task). New: CompactorTest, HistoryManagerCasTest, TurnReactiveCompactionTest, agent-loop test for indefinite recoverable retry and Failed×3 stop. Prompt-output test asserting no Turn N/M or FINAL TURN ever appears.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -1062,7 +1069,8 @@
     ],
     "created": "2026-05-16T09:13:19Z",
     "updated": "2026-05-16T09:24:10Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "w-ac-tu"
   },
   "ac-verify": {
     "parent": "auto-compact",
@@ -1079,7 +1087,7 @@
       "ac-eval-bridge-rename",
       "ac-tests-update"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-12: Verify (build + lint + tests + manual debug-run)",
     "description": "Full ./gradlew clean assembleDebug lint test green. Manual debug-run completes a real task with no max-turn UI/status. Force-trigger compaction by temporarily setting reserveTokens high; observe Compacted history status event and verify next turn proceeds normally. Optionally run /update-doc to sync doc/main/agent/loop.md and doc/main/agent/memory.md.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -1099,7 +1107,8 @@
     ],
     "created": "2026-05-16T09:13:19Z",
     "updated": "2026-05-16T09:24:11Z",
-    "worktree": "auto-compact"
+    "worktree": "auto-compact",
+    "agent": "orch-ac"
   },
   "codex-targeting-normalization": {
     "parent": null,
@@ -1360,7 +1369,7 @@
     "depends": [
       "ac-verify"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-13: Codex review + auto-fix findings",
     "description": "(1) Spawn codex via multmux against the auto-compact worktree to review implementation against projects/active/auto_compact/design_claude.md. Severity-tag findings to projects/active/auto_compact/impl_review_codex.md. Focus: supplement CAS race actually closed; cut-point handles all FunctionCall/FunctionCallOutput edges; PromptBuilder has zero remaining turn-budget leakage; per-Agent compactor wiring correct in SubAgentRunner; reactive prompt_too_long retry catches right errors. (2) For every blocker/major finding, apply a fix in the worktree. (3) Re-run ./gradlew assembleDebug test on the fixed worktree. (4) If a finding cannot be fixed in one pass (architectural concern, requires design change), record in the same file under `## Deferred (open followups)` with rationale, and create a new task in projects/tasks.json under parent auto-compact. Single-pass: do not loop the review.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -1382,14 +1391,43 @@
       "qa"
     ],
     "created": "2026-05-16T09:24:31Z",
-    "updated": "2026-05-16T09:26:20Z"
+    "updated": "2026-05-16T09:26:20Z",
+    "agent": "w-ac-cr"
+  },
+  "ac-compactor-output-cap": {
+    "parent": "auto-compact",
+    "depends": [
+      "ac-codex-review"
+    ],
+    "state": "ready",
+    "title": "Enforce maxSummaryTokens cap in Compactor.summarize",
+    "description": "Compactor exposes maxSummaryTokens = 5_000 but LLMClient.chatWithTools does not currently surface a max-tokens knob, so the summarizer can return an oversized checkpoint and undermine compaction. Plumb an output-token cap through LLMClient.chatWithTools (or use a provider-specific call) and pass maxSummaryTokens from Compactor.summarize. Deferred from ac-codex-review minor m2 because the fix requires touching the LLMClient API surface for every provider implementation, not just Compactor.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/llm/LLMClient.kt",
+      "app/src/main/kotlin/ai/closepaw/history/Compactor.kt"
+    ],
+    "acceptCriteria": [
+      "LLMClient.chatWithTools accepts an optional max-output-tokens parameter (or equivalent path)",
+      "Compactor.summarize passes maxSummaryTokens to the LLM call",
+      "Unit test verifies the cap is forwarded for both cloud and local clients",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "requireHumanReview": false,
+    "estimate": "s",
+    "worktree": "auto-compact",
+    "tags": [
+      "history",
+      "llm"
+    ],
+    "created": "2026-05-16T00:00:00Z",
+    "updated": "2026-05-16T00:00:00Z"
   },
   "ac-device-qa": {
     "parent": "auto-compact",
     "depends": [
       "ac-codex-review"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "task-14: Real-device QA + auto-fix findings",
     "description": "Hands-on QA on a real Android device via scripts/debug-run.sh and ux-visual-debug skill. Scenarios: (1) golden path — Open Settings completes, no max-turn UI; (2) long-task compaction — 30+ turn task triggers Compacted history event, agent continues with correct goal post-compaction, summary visible in trace; (3) supplement during compaction — user types supplement while compactor is mid-LLM call, supplement preserved (CAS); (4) settings UI — Max Turns control gone, no UI regression; (5) eval safety net — eval task with low max_turns yaml stops with Error message containing eval turn budget; (6) reactive retry — tiny context window forces prompt_too_long, retry engages without user-visible failure. Record findings in projects/active/auto_compact/device_qa_notes.md. For each failed scenario, apply a fix in the worktree, re-run the failed scenario. Single-pass: do not loop more than once per scenario; if it still fails, record under `## Deferred` and open a tracked task.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -1410,7 +1448,8 @@
       "device"
     ],
     "created": "2026-05-16T09:24:31Z",
-    "updated": "2026-05-16T09:26:20Z"
+    "updated": "2026-05-16T09:26:20Z",
+    "agent": "w-ac-dqa"
   },
   "ctn-codex-review": {
     "parent": "codex-targeting-normalization",

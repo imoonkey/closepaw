@@ -32,7 +32,6 @@ class MainActivityIntentApplierSecurityTest {
             platformMode = null,
             mainModel = "evil-model",
             subagentModel = "evil-subagent",
-            maxTurns = 999,
             approvalMode = ApprovalMode.AUTO_APPROVE,
             browserScriptEnabled = true,
             goalText = "pwned",
@@ -40,7 +39,8 @@ class MainActivityIntentApplierSecurityTest {
             debugMode = true,
             traceEnabled = true,
             traceRunId = "injected-run",
-            excludedTools = setOf("open_app")
+            excludedTools = setOf("open_app"),
+            evalTurnBudget = 5
         )
 
         val result = applyIntentPayloadToSettings(
@@ -53,6 +53,7 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceRunId = null,
             currentPendingExcludedTools = emptySet(),
             currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
             log = {}
         )
 
@@ -64,6 +65,7 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(result.pendingTraceRunId).isNull()
         assertThat(result.pendingExcludedTools).isEmpty()
         assertThat(result.pendingApprovalMode).isNull()
+        assertThat(result.pendingEvalTurnBudget).isNull()
     }
 
     @Test
@@ -78,7 +80,6 @@ class MainActivityIntentApplierSecurityTest {
             platformMode = null,
             mainModel = null,
             subagentModel = null,
-            maxTurns = null,
             approvalMode = ApprovalMode.AUTO_APPROVE,
             browserScriptEnabled = true,
             goalText = null,
@@ -86,7 +87,8 @@ class MainActivityIntentApplierSecurityTest {
             debugMode = null,
             traceEnabled = true,
             traceRunId = "new-run",
-            excludedTools = setOf("shell")
+            excludedTools = setOf("shell"),
+            evalTurnBudget = 7
         )
 
         val result = applyIntentPayloadToSettings(
@@ -99,6 +101,7 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceRunId = "existing-run",
             currentPendingExcludedTools = setOf("open_app"),
             currentPendingApprovalMode = ApprovalMode.SMART,
+            currentPendingEvalTurnBudget = 11,
             log = {}
         )
 
@@ -107,6 +110,7 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(result.pendingTraceRunId).isEqualTo("existing-run")
         assertThat(result.pendingExcludedTools).containsExactly("open_app")
         assertThat(result.pendingApprovalMode).isEqualTo(ApprovalMode.SMART)
+        assertThat(result.pendingEvalTurnBudget).isEqualTo(11)
     }
 
     @Test
@@ -121,7 +125,6 @@ class MainActivityIntentApplierSecurityTest {
             platformMode = null,
             mainModel = null,
             subagentModel = null,
-            maxTurns = null,
             approvalMode = ApprovalMode.AUTO_APPROVE,
             browserScriptEnabled = true,
             goalText = null,
@@ -129,7 +132,8 @@ class MainActivityIntentApplierSecurityTest {
             debugMode = null,
             traceEnabled = true,
             traceRunId = "debug-run",
-            excludedTools = emptySet()
+            excludedTools = emptySet(),
+            evalTurnBudget = 13
         )
 
         val result = applyIntentPayloadToSettings(
@@ -142,6 +146,7 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceRunId = null,
             currentPendingExcludedTools = emptySet(),
             currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
             log = {},
             // Inject a passing gate — we're testing that the rest of the apply path runs in
             // debug mode, not the gate itself (separate test).
@@ -153,6 +158,7 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(result.pendingTraceEnabled).isTrue()
         assertThat(result.pendingTraceRunId).isEqualTo("debug-run")
         assertThat(result.pendingApprovalMode).isEqualTo(ApprovalMode.AUTO_APPROVE)
+        assertThat(result.pendingEvalTurnBudget).isEqualTo(13)
         assertThat(settingsState.browserScriptEnabled).isTrue()
     }
 
@@ -172,6 +178,7 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceRunId = null,
             currentPendingExcludedTools = emptySet(),
             currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
             log = {},
             browserScriptGate = { BrowserScriptToggleError.ShizukuUnavailable },
         )
@@ -195,6 +202,7 @@ class MainActivityIntentApplierSecurityTest {
             currentPendingTraceRunId = null,
             currentPendingExcludedTools = emptySet(),
             currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
             log = {},
             browserScriptGate = { gateInvoked++; null },
         )
@@ -221,6 +229,7 @@ class MainActivityIntentApplierSecurityTest {
                 currentPendingTraceRunId = null,
                 currentPendingExcludedTools = emptySet(),
                 currentPendingApprovalMode = null,
+                currentPendingEvalTurnBudget = null,
                 log = {},
                 browserScriptGate = {
                     gateInvoked++
@@ -243,7 +252,6 @@ class MainActivityIntentApplierSecurityTest {
             platformMode = null,
             mainModel = null,
             subagentModel = null,
-            maxTurns = null,
             approvalMode = null,
             browserScriptEnabled = enabled,
             goalText = null,
@@ -252,5 +260,6 @@ class MainActivityIntentApplierSecurityTest {
             traceEnabled = null,
             traceRunId = null,
             excludedTools = emptySet(),
+            evalTurnBudget = null,
         )
 }

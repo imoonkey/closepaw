@@ -51,6 +51,9 @@ object HistoryItemConverter {
     private fun resolveMessageKind(record: PersistedHistoryItem.Message): MessageKind {
         // New format: kind field is present
         record.kind?.let { kindStr ->
+            // Legacy rename: pre-v2 records persisted COMPACTION_SUMMARY under its
+            // old name COMPRESSION_DIGEST. Map them before the enum-name fallback.
+            if (kindStr == "COMPRESSION_DIGEST") return MessageKind.COMPACTION_SUMMARY
             return MessageKind.entries.firstOrNull { it.name == kindStr }
                 ?: MessageKind.USER_INTENT // fallback for unknown kind strings
         }

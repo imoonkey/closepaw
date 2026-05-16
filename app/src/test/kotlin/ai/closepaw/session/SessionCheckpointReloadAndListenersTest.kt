@@ -303,7 +303,6 @@ class SessionCheckpointReloadAndListenersTest {
         config = ConversationConfigSnapshot(
             mainModel = "test-model",
             subagentModel = null,
-            maxTurns = 4,
             perceptionMode = "accessibility_only",
             platformMode = PlatformMode.ACCESSIBILITY.name
         ),
@@ -326,7 +325,7 @@ class SessionCheckpointReloadAndListenersTest {
         val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
         val platform = FakeAndroidPlatform(captureDelayMs = 0L)
-        val config = SessionConfig(maxTurns = 2, actionDelayMs = 0)
+        val config = SessionConfig(actionDelayMs = 0)
         val testCatalog = ModelCatalog.fromJson(
             """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
         )

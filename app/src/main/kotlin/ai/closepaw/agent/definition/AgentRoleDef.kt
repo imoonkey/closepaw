@@ -22,8 +22,6 @@ internal data class AgentRoleDef(
     val delegatable: Boolean = false,
     /** Human-readable description shown in the delegate_task directory prompt. */
     val description: String = "",
-    /** Turn budget when invoked as a sub-agent (ignored for top-level agents). */
-    val maxTurns: Int = 50,
     /** Timeout when invoked as a sub-agent (ignored for top-level agents). */
     val timeoutMs: Long = 60_000
 ) {
@@ -67,8 +65,7 @@ internal data class AgentRoleDef(
             systemPrompt = prompt,
             timeoutMs = resolvedTimeoutMs,
             delegatable = delegatable,
-            description = description,
-            maxTurns = maxTurns
+            description = description
         )
     }
 }
@@ -80,8 +77,7 @@ internal data class ResolvedAgentRole(
     val systemPrompt: String,
     val timeoutMs: Long,
     val delegatable: Boolean = false,
-    val description: String = "",
-    val maxTurns: Int = 50
+    val description: String = ""
 ) {
     val allowedToolNames: Set<String> = allowedTools.map { it.raw }.toSet()
 }

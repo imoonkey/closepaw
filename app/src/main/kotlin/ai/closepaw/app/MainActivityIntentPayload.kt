@@ -15,7 +15,6 @@ data class MainActivityIntentPayload(
         val platformMode: PlatformMode?,
         val mainModel: String?,
         val subagentModel: String?,
-        val maxTurns: Int?,
         val approvalMode: ApprovalMode?,
         val browserScriptEnabled: Boolean?,
         val goalText: String?,
@@ -23,7 +22,8 @@ data class MainActivityIntentPayload(
         val debugMode: Boolean?,
         val traceEnabled: Boolean?,
         val traceRunId: String?,
-        val excludedTools: Set<String>
+        val excludedTools: Set<String>,
+        val evalTurnBudget: Int?
 ) {
     companion object {
         fun from(intent: Intent): MainActivityIntentPayload {
@@ -80,17 +80,6 @@ data class MainActivityIntentPayload(
                         it.isNotBlank()
                     }
 
-            val maxTurns =
-                    if (intent.hasExtra(MainActivity.EXTRA_MAX_TURNS)) {
-                        intent.getIntExtra(
-                                        MainActivity.EXTRA_MAX_TURNS,
-                                        AppSettingsStore.DEFAULT_MAX_TURNS
-                                )
-                                .takeIf { it > 0 }
-                    } else {
-                        null
-                    }
-
             val approvalMode =
                     intent.getStringExtra(MainActivity.EXTRA_APPROVAL_MODE)?.let { raw ->
                         try {
@@ -134,6 +123,14 @@ data class MainActivityIntentPayload(
                             ?.toSet()
                             ?: emptySet()
 
+            val evalTurnBudget =
+                    if (intent.hasExtra(MainActivity.EXTRA_EVAL_TURN_BUDGET)) {
+                        intent.getIntExtra(MainActivity.EXTRA_EVAL_TURN_BUDGET, 0)
+                                .takeIf { it > 0 }
+                    } else {
+                        null
+                    }
+
             return MainActivityIntentPayload(
                     apiKey = apiKey,
                     openRouterApiKey = openRouterApiKey,
@@ -144,7 +141,6 @@ data class MainActivityIntentPayload(
                     platformMode = platformMode,
                     mainModel = mainModel,
                     subagentModel = subagentModel,
-                    maxTurns = maxTurns,
                     approvalMode = approvalMode,
                     browserScriptEnabled = browserScriptEnabled,
                     goalText = goalText,
@@ -152,7 +148,8 @@ data class MainActivityIntentPayload(
                     debugMode = debugMode,
                     traceEnabled = traceEnabled,
                     traceRunId = traceRunId,
-                    excludedTools = excludedTools
+                    excludedTools = excludedTools,
+                    evalTurnBudget = evalTurnBudget
             )
         }
 

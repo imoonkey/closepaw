@@ -39,5 +39,3 @@ sealed interface ModelLoadingStatus {
     data object Ready : ModelLoadingStatus
     data class Error(val message: String) : ModelLoadingStatus
 }
-
-internal val MAX_TURNS_OPTIONS = listOf(10, 20, 50)

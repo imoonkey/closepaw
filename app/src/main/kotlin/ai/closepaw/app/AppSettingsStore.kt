@@ -13,7 +13,6 @@ import kotlinx.coroutines.withContext
 
 data class AppSettings(
         val selectedModel: String,
-        val maxTurns: Int,
         val debugMode: Boolean,
         val perceptionMode: String,
         val llmBackend: LLMBackendType,
@@ -31,7 +30,6 @@ class AppSettingsStore(private val context: Context) {
         private const val PREFS_NAME = "agent_prefs"
 
         private const val KEY_MODEL = "model"
-        private const val KEY_MAX_TURNS = "max_turns"
         private const val KEY_DEBUG_MODE = "debug_mode"
         private const val KEY_SCREENSHOT_INPUT = "screenshot_input"
         private const val KEY_PERCEPTION_MODE = "perception_mode"
@@ -46,7 +44,6 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_OPENAI_BASE_URL = "openai_base_url"
 
         const val DEFAULT_MODEL = "glm-5"
-        const val DEFAULT_MAX_TURNS = 20
         const val DEFAULT_DEBUG_MODE = false
         const val DEFAULT_PERCEPTION_MODE = "accessibility_only"
         val DEFAULT_LLM_BACKEND = LLMBackendType.OPENAI
@@ -70,7 +67,6 @@ class AppSettingsStore(private val context: Context) {
         val prefs = prefs()
 
         val selectedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
-        val maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
         val perceptionMode =
                 prefs.getString(KEY_PERCEPTION_MODE, null)
@@ -110,7 +106,6 @@ class AppSettingsStore(private val context: Context) {
 
         return AppSettings(
                 selectedModel = selectedModel,
-                maxTurns = maxTurns,
                 debugMode = debugMode,
                 perceptionMode = perceptionMode,
                 llmBackend = llmBackend,
@@ -154,10 +149,6 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveModel(value: String) {
         prefs().edit().putString(KEY_MODEL, value).apply()
-    }
-
-    fun saveMaxTurns(value: Int) {
-        prefs().edit().putInt(KEY_MAX_TURNS, value).apply()
     }
 
     fun saveDebugMode(value: Boolean) {

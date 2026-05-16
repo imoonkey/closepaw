@@ -6,6 +6,7 @@ import ai.closepaw.agent.cognition.policy.ToolArbitrationResult
 import ai.closepaw.agent.cognition.policy.TurnToolPolicy
 import ai.closepaw.agent.cognition.prompt.PromptBuilder
 import ai.closepaw.agent.cognition.prompt.TurnObservation
+import ai.closepaw.history.Compactor
 import ai.closepaw.history.MessageKind
 import ai.closepaw.history.ResponseItem
 import ai.closepaw.model.ScreenSnapshot
@@ -28,7 +29,8 @@ internal class TurnPlanningPhaseRunner(
         private val services: SessionServices,
         private val eventDispatcher: AgentEventDispatcher,
         private val trace: AgentTrace,
-        private val turnPolicyEngine: TurnToolPolicy
+        private val turnPolicyEngine: TurnToolPolicy,
+        private val compactor: Compactor? = null
 ) {
         companion object {
                 private const val TAG = "TurnPlanningPhase"
@@ -56,7 +58,11 @@ internal class TurnPlanningPhaseRunner(
                         Turn(
                                 toolRegistry = services.toolRegistry,
                                 llmClient = model.llmClient,
-                                allowedToolNames = config.allowedToolNames
+                                allowedToolNames = config.allowedToolNames,
+                                compactor = compactor,
+                                historyManager =
+                                        if (compactor != null) services.historyManager else null,
+                                currentGoal = if (compactor != null) ({ config.goal }) else null
                         )
                 val systemPrompt =
                         requireNotNull(config.systemPrompt) {
@@ -100,7 +106,6 @@ internal class TurnPlanningPhaseRunner(
                                 observation = observation,
                                 warnings = warnings,
                                 turnNumber = turnNumber,
-                                maxTurns = config.maxTurns,
                                 appSkill = appSkill,
                                 recalledMemory = recalledMemory,
                                 activatedAgentSkills = activatedSkillBodies
@@ -132,7 +137,21 @@ internal class TurnPlanningPhaseRunner(
                 turn.runStreaming(
                                 systemPrompt = fullSystemPrompt,
                                 inputItems = inputItems,
-                                model = model.modelId
+                                model = model.modelId,
+                                rebuildInputItems = {
+                                        Log.i(
+                                                TAG,
+                                                "Rebuilding prompt input items after reactive compaction"
+                                        )
+                                        promptBuilder.buildInputItems(
+                                                observation = observation,
+                                                warnings = warnings,
+                                                turnNumber = turnNumber,
+                                                appSkill = appSkill,
+                                                recalledMemory = recalledMemory,
+                                                activatedAgentSkills = activatedSkillBodies
+                                        )
+                                }
                         )
                         .collect { event ->
                                 when (event) {

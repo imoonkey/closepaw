@@ -68,7 +68,7 @@ AgentEvent (sealed interface)
 
 **ScreenStatePhase**: `PRE_TURN` (before turn), `POST_ACTION` (after action execution).
 
-**TaskOutcome** (task-level): `GOAL_ACHIEVED`, `MAX_TURNS`, `TASK_IMPOSSIBLE`, `ERROR`, `USER_STOPPED`.
+**TaskOutcome** (task-level): `GOAL_ACHIEVED`, `TASK_IMPOSSIBLE`, `ERROR`, `USER_STOPPED`. (`MAX_TURNS` was removed when production turn caps were replaced with context-window auto-compaction — see [agent/loop.md](../agent/loop.md#auto-compaction).)
 
 **SessionEndReason** (session-level): `USER_STOPPED`, `IDLE_TIMEOUT`, `INTERRUPTED`. Kept distinct from `TaskOutcome` to eliminate impossible states (`SessionCompleted` carrying task-only values).
 

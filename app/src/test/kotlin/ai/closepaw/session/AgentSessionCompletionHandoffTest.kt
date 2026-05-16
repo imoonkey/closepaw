@@ -179,7 +179,7 @@ class AgentSessionCompletionHandoffTest {
         val toolRegistry = ToolRegistry()
         val policyEngine = PolicyEngine(appClassifier = appClassifier)
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
-        val config = SessionConfig(maxTurns = 2, actionDelayMs = 0)
+        val config = SessionConfig(actionDelayMs = 0)
         val testCatalog =
                 ModelCatalog.fromJson(
                         """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""

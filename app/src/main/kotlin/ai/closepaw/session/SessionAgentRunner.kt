@@ -1,5 +1,6 @@
 package ai.closepaw.session
 
+import android.content.Context
 import android.content.res.Resources
 import android.os.Build
 import android.util.Log
@@ -11,6 +12,10 @@ import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentDefRegistry
 import ai.closepaw.agent.definition.ResolvedAgentRole
 import ai.closepaw.agent.subagent.IsolatedSubAgentRunner
+import ai.closepaw.history.Compactor
+import ai.closepaw.llm.LLMClient
+import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.llm.ModelEntry
 import ai.closepaw.protocol.AgentEvent
 import ai.closepaw.protocol.SessionId
 import ai.closepaw.protocol.SessionConfig
@@ -33,6 +38,7 @@ internal class SessionAgentRunner(
     private val sessionId: SessionId,
     private val config: SessionConfig,
     private val emitEvent: suspend (AgentEvent) -> Unit,
+    private val context: Context,
 ) {
     companion object {
         private const val TAG = "SessionAgentRunner"
@@ -82,19 +88,28 @@ internal class SessionAgentRunner(
             goal = taskInput,
             sessionId = sessionId,
             taskId = taskId,
-            maxTurns = config.maxTurns,
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
             systemPrompt = resolvePromptTemplates(resolvedAgentDef.systemPrompt),
             allowedToolNames = resolvedAgentDef.allowedToolNames,
             agentId = sessionId.value,
             agentRole = resolvedAgentDef.executionRole,
-            modelName = modelName
+            modelName = modelName,
+            evalTurnBudget = config.evalTurnBudget
+        )
+
+        val compactor = buildCompactor(
+            modelName = modelName,
+            modelCatalog = services.modelCatalog,
+            sessionLlmClient = services.llmClient,
+            llmClientFactory = services.llmClientFactory,
+            context = context,
         )
 
         val newAgent = Agent(
             config = agentConfig,
             services = services,
+            compactor = compactor,
             eventEmitter = { event -> emitEvent(event) },
             cancellationSignal = signal
         )
@@ -149,6 +164,7 @@ internal class SessionAgentRunner(
         if (services.toolRegistry.contains("delegate_task")) return
 
         val delegatableRoles = AgentDefRegistry.delegatableRoles()
+        val (initialPrompt, updatePrompt) = CompactionPromptCache.load(context)
         val delegateTool = DelegateTaskTool(
             delegatableRoles = delegatableRoles,
             runnerFactory = { roleDef ->
@@ -157,7 +173,9 @@ internal class SessionAgentRunner(
                     parentServices = services,
                     parentSessionId = sessionId,
                     eventDispatcher = eventDispatcher,
-                    parentEventEmitter = emitEvent
+                    parentEventEmitter = emitEvent,
+                    compactionInitialPrompt = initialPrompt,
+                    compactionUpdatePrompt = updatePrompt,
                 )
             },
             eventDispatcher = eventDispatcher
@@ -218,4 +236,74 @@ internal class SessionAgentRunner(
             state = RunnerState(agent = null, agentJob = null, cancellationSignal = null)
         }
     }
+}
+
+/**
+ * Caches the two compaction prompt strings loaded from `assets/prompts/`. Loaded
+ * on first use; safe to call from any thread. Compactor's two prompt args are
+ * passed as strings (not asset paths) so unit tests can construct a Compactor
+ * without an AssetManager. If the assets are unreadable (e.g. relaxed-mock
+ * Context in tests), both strings fall back to empty — tests don't exercise
+ * compaction, and a non-empty asset is a release-build invariant.
+ */
+internal object CompactionPromptCache {
+    private const val TAG = "CompactionPromptCache"
+    private const val INITIAL_PATH = "prompts/compaction_initial.md"
+    private const val UPDATE_PATH = "prompts/compaction_update.md"
+
+    @Volatile private var cached: Pair<String, String>? = null
+
+    fun load(context: Context): Pair<String, String> {
+        cached?.let { return it }
+        return synchronized(this) {
+            cached ?: run {
+                val loaded = try {
+                    val initial = context.assets.open(INITIAL_PATH).bufferedReader().use { it.readText() }
+                    val update = context.assets.open(UPDATE_PATH).bufferedReader().use { it.readText() }
+                    initial to update
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Compaction prompts unavailable; auto-compaction will be inert: ${e.message}")
+                    "" to ""
+                }
+                loaded.also { cached = it }
+            }
+        }
+    }
+}
+
+/**
+ * Build a [Compactor] for an agent using its resolved model. Falls back to a
+ * synthetic [ModelEntry] (cloud-default context window) when the catalog
+ * doesn't have the model (legacy/local path); the session [LLMClient] is used
+ * in that case, mirroring [ai.closepaw.agent.AgentModelResolver].
+ */
+internal fun buildCompactor(
+    modelName: String,
+    modelCatalog: ModelCatalog,
+    sessionLlmClient: LLMClient,
+    llmClientFactory: ai.closepaw.llm.LLMClientFactory,
+    context: Context,
+): Compactor {
+    val (initialPrompt, updatePrompt) = CompactionPromptCache.load(context)
+    val entry = modelCatalog.resolveOrNull(modelName)
+    val (llmClient, modelEntry) = if (entry != null) {
+        val client = runCatching { llmClientFactory.create(modelName) }.getOrNull()
+            ?: sessionLlmClient
+        client to entry
+    } else {
+        sessionLlmClient to ModelEntry(
+            name = modelName,
+            displayName = modelName,
+            provider = ai.closepaw.llm.LLMProvider.OPENAI_API,
+            api = ai.closepaw.llm.ApiType.RESPONSE,
+            modelId = modelName,
+            contextWindow = 128_000,
+        )
+    }
+    return Compactor(
+        llmClient = llmClient,
+        model = modelEntry,
+        initialPrompt = initialPrompt,
+        updatePrompt = updatePrompt,
+    )
 }

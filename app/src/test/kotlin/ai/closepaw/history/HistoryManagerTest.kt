@@ -1,6 +1,11 @@
 package ai.closepaw.history
 
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.junit.Test
 
@@ -135,33 +140,15 @@ class HistoryManagerTest {
 
     // ── P0: Call/output pairing survives compression ─────────────────────
 
-    @Test
-    fun `P0 compress removes function calls with their paired outputs`() {
-        val manager = HistoryManager(HistoryConfig(recentWindowSize = 1))
-        manager.recordItems(
-            listOf(
-                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "do something"),
-                ResponseItem.FunctionCall(id = "call-1", name = "tool", arguments = JSONObject()),
-                ResponseItem.FunctionCallOutput(callId = "call-1", content = "x".repeat(10_000)),
-                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "x".repeat(10_000))
-            )
-        )
-
-        manager.compress(100)
-
-        val remaining = manager.getAll()
-        val calls = remaining.filterIsInstance<ResponseItem.FunctionCall>()
-        val outputs = remaining.filterIsInstance<ResponseItem.FunctionCallOutput>()
-        // If calls are removed, outputs must also be removed
-        assertThat(calls).isEmpty()
-        assertThat(outputs).isEmpty()
-    }
+    // (Lossy eviction removed — call/output pairing is now Compactor's
+    // concern; previously this test asserted compress() drops both halves
+    // together.)
 
     // ── P0: Recent window is protected from eviction ─────────────────────
 
     @Test
     fun `P0 recent window items are protected from eviction`() {
-        val manager = HistoryManager(HistoryConfig(recentWindowSize = 4, recentFullScreens = 1))
+        val manager = HistoryManager(HistoryConfig(recentFullScreens = 1))
 
         // Build history: old items + recent window
         manager.recordItems(
@@ -222,21 +209,9 @@ class HistoryManagerTest {
 
     // ── P0: BudgetUnreachable ────────────────────────────────────────────
 
-    @Test
-    fun `P0 BudgetUnreachable when only USER_INTENT remains`() {
-        val manager = HistoryManager()
-        // Add multiple large USER_INTENT messages
-        repeat(5) { i ->
-            manager.addItem(ResponseItem.Message(
-                kind = MessageKind.USER_INTENT,
-                content = "user intent $i: ${"x".repeat(2_000)}"
-            ))
-        }
-
-        val result = manager.compress(10)
-
-        assertThat(result).isInstanceOf(CompressionResult.BudgetUnreachable::class.java)
-    }
+    // (Removed with the lossy-eviction pipeline — there is no longer a
+    // "budget unreachable" branch; Compactor is responsible for context
+    // pressure now.)
 
     // ── CompressionResult ────────────────────────────────────────────────
 
@@ -252,123 +227,21 @@ class HistoryManagerTest {
         assertThat(result).isInstanceOf(CompressionResult.Noop::class.java)
     }
 
-    @Test
-    fun `compress returns Compressed with stats`() {
-        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2, recentFullScreens = 1))
-        manager.recordItems(
-            listOf(
-                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "goal"),
-                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "x".repeat(5_000)),
-                ResponseItem.FunctionCall(id = "c1", name = "tool", arguments = JSONObject()),
-                ResponseItem.FunctionCallOutput(callId = "c1", content = "x".repeat(5_000)),
-                // Recent window (last 2)
-                ResponseItem.Message(kind = MessageKind.SCREEN_OBSERVATION,
-                    content = "Screen state (30 elements):\n```json\n[]\n```"),
-                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "latest")
-            )
-        )
+    // (Removed: `compress returns Compressed with stats` — the test depended
+    // on Phase 2 eviction; with eviction gone, compress() rarely returns
+    // Compressed and the test added no remaining value.)
 
-        val before = manager.estimateTokenCount()
-        val result = manager.compress(500)
+    // ── COMPACTION_SUMMARY breadcrumb ─────────────────────────────────────
 
-        assertThat(result).isInstanceOf(CompressionResult.Compressed::class.java)
-        val compressed = result as CompressionResult.Compressed
-        assertThat(compressed.before).isEqualTo(before)
-        assertThat(compressed.after).isLessThan(before)
-        assertThat(compressed.stepsApplied).isGreaterThan(0)
-    }
-
-    // ── COMPRESSION_DIGEST breadcrumb ─────────────────────────────────────
-
-    @Test
-    fun `compress inserts COMPRESSION_DIGEST breadcrumb after eviction`() {
-        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2, recentFullScreens = 1))
-        manager.recordItems(
-            listOf(
-                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "goal"),
-                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "x".repeat(5_000)),
-                ResponseItem.FunctionCall(id = "c1", name = "tool", arguments = JSONObject()),
-                ResponseItem.FunctionCallOutput(callId = "c1", content = "x".repeat(5_000)),
-                // Recent window
-                ResponseItem.Message(kind = MessageKind.SCREEN_OBSERVATION,
-                    content = "Screen state (10 elements):\n```json\n[]\n```"),
-                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "latest")
-            )
-        )
-
-        manager.compress(200)
-
-        val digests = manager.getAll().filterIsInstance<ResponseItem.Message>()
-            .filter { it.kind == MessageKind.COMPRESSION_DIGEST }
-
-        assertThat(digests).isNotEmpty()
-        assertThat(digests[0].content).contains("[Compressed]")
-        assertThat(digests[0].content).contains("Removed")
-    }
+    // (Removed: `compress inserts COMPACTION_SUMMARY breadcrumb after eviction`
+    // — breadcrumb insertion died with the eviction body it described.)
 
     // ── Auto compress ────────────────────────────────────────────────────
 
-    @Test
-    fun `auto compress keeps token budget bounded`() {
-        val manager = HistoryManager(
-            HistoryConfig(
-                maxTokenBudget = 2_000,
-                autoCompress = true,
-                autoCompressThreshold = 0.5f,
-                recentWindowSize = 2
-            )
-        )
-
-        repeat(50) { idx ->
-            manager.addItem(
-                ResponseItem.FunctionCall(
-                    id = "call-$idx", name = "tool", arguments = JSONObject()
-                )
-            )
-            manager.addItem(
-                ResponseItem.FunctionCallOutput(
-                    callId = "call-$idx",
-                    content = "x".repeat(500)
-                )
-            )
-        }
-
-        // Auto-compress triggers at 50% (1000), compresses to target ratio.
-        // Items should be evicted and history should be smaller than budget.
-        assertThat(manager.estimateTokenCount()).isAtMost(2_000)
-        assertThat(manager.getAll().size).isLessThan(100)
-    }
-
-    @Test
-    fun `auto compress uses compressTargetRatio`() {
-        val manager = HistoryManager(
-            HistoryConfig(
-                maxTokenBudget = 2_000,
-                autoCompress = true,
-                autoCompressThreshold = 0.85f,
-                compressTargetRatio = 0.5f,
-                recentWindowSize = 2
-            )
-        )
-
-        repeat(20) { idx ->
-            manager.addItem(
-                ResponseItem.FunctionCall(
-                    id = "call-$idx", name = "tool", arguments = JSONObject()
-                )
-            )
-            manager.addItem(
-                ResponseItem.FunctionCallOutput(
-                    callId = "call-$idx",
-                    content = "x".repeat(500)
-                )
-            )
-        }
-
-        // After auto-compress, should be well below budget
-        assertThat(manager.estimateTokenCount()).isLessThan(2_000)
-        assertThat(manager.getAll().size).isLessThan(40)
-    }
+    // (Removed: `auto compress keeps token budget bounded` and
+    // `auto compress uses compressTargetRatio` — autoCompressIfNeeded plus
+    // its config fields were removed when Compactor took over. Compactor
+    // has its own coverage in CompactorTest.kt.)
 
     // ── Screen Compression Patterns ─────────────────────────────────────
 
@@ -395,34 +268,14 @@ class HistoryManagerTest {
 
     // ── Token accounting after large compression ────────────────────────
 
-    @Test
-    fun `compress leaves token estimate matching actual sum after large eviction`() {
-        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2, recentFullScreens = 1))
-        manager.addItem(ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "task"))
-        repeat(500) { idx ->
-            manager.addItem(
-                ResponseItem.Message(
-                    kind = MessageKind.SCREEN_OBSERVATION,
-                    content = "Screen state (10 elements): filler ${"x".repeat(100)} #$idx"
-                )
-            )
-        }
-
-        val before = manager.estimateTokenCount()
-        val result = manager.compress(1_000)
-
-        assertThat(result).isInstanceOf(CompressionResult.Compressed::class.java)
-        val compressed = result as CompressionResult.Compressed
-        assertThat(compressed.before).isEqualTo(before)
-
-        val actualSum = manager.getAll().sumOf { it.estimateTokens() }
-        assertThat(manager.estimateTokenCount()).isEqualTo(actualSum)
-        assertThat(compressed.after).isEqualTo(actualSum)
-    }
+    // (Removed: `compress leaves token estimate matching actual sum after
+    // large eviction` — relied on Phase 2 eviction to produce a Compressed
+    // result. Token-accounting invariants for the live pipeline are covered
+    // implicitly by the screen-downgrade tests above.)
 
     @Test
     fun `compress evicts call and paired output together in large history`() {
-        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2))
+        val manager = HistoryManager(HistoryConfig())
         manager.addItem(ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "task"))
         repeat(100) { idx ->
             manager.addItem(
@@ -447,5 +300,119 @@ class HistoryManagerTest {
         val outputs = remaining.filterIsInstance<ResponseItem.FunctionCallOutput>().map { it.callId }.toSet()
         // Every surviving call should have its output; no orphan outputs remain
         assertThat(outputs).isEqualTo(calls)
+    }
+
+    // ── Revision + CAS ───────────────────────────────────────────────────
+
+    @Test
+    fun `revision starts at zero and increments on every mutation`() {
+        val manager = HistoryManager()
+        assertThat(manager.revision).isEqualTo(0L)
+
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "a"))
+        val afterAdd = manager.revision
+        assertThat(afterAdd).isGreaterThan(0L)
+
+        manager.recordItems(listOf(ResponseItem.Message(MessageKind.ASSISTANT_TEXT, "b")))
+        assertThat(manager.revision).isGreaterThan(afterAdd)
+        val afterRecord = manager.revision
+
+        manager.replaceAll(listOf(ResponseItem.Message(MessageKind.USER_INTENT, "c")))
+        assertThat(manager.revision).isGreaterThan(afterRecord)
+        val afterReplace = manager.revision
+
+        manager.clear()
+        assertThat(manager.revision).isGreaterThan(afterReplace)
+    }
+
+    @Test
+    fun `snapshot returns matching revision and items list`() {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "goal"))
+        manager.addItem(ResponseItem.Message(MessageKind.ASSISTANT_TEXT, "step"))
+
+        val (rev, snap) = manager.snapshot()
+        assertThat(rev).isEqualTo(manager.revision)
+        assertThat(snap).hasSize(2)
+
+        // Snapshot is an immutable copy: mutating history doesn't change it.
+        manager.addItem(ResponseItem.Message(MessageKind.ASSISTANT_TEXT, "more"))
+        assertThat(snap).hasSize(2)
+        assertThat(manager.revision).isGreaterThan(rev)
+    }
+
+    @Test
+    fun `replaceAllIfRevision swaps on match and bumps revision`() {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "goal"))
+        val (rev, _) = manager.snapshot()
+
+        val newItems = listOf(
+            ResponseItem.Message(MessageKind.USER_INTENT, "Goal: goal"),
+            ResponseItem.Message(MessageKind.COMPACTION_SUMMARY, "summary"),
+        )
+        val swapped = manager.replaceAllIfRevision(rev, newItems)
+
+        assertThat(swapped).isTrue()
+        assertThat(manager.getAll()).hasSize(2)
+        assertThat(manager.revision).isGreaterThan(rev)
+    }
+
+    @Test
+    fun `replaceAllIfRevision returns false when revision moved`() {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "goal"))
+        val (rev, _) = manager.snapshot()
+
+        // Concurrent mutation bumps revision out from under us.
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "supplement: do also Y"))
+
+        val swapped = manager.replaceAllIfRevision(
+            rev,
+            listOf(ResponseItem.Message(MessageKind.COMPACTION_SUMMARY, "summary"))
+        )
+
+        assertThat(swapped).isFalse()
+        // History untouched by the failed CAS.
+        val items = manager.getAll().filterIsInstance<ResponseItem.Message>()
+        assertThat(items.map { it.content }).containsExactly(
+            "goal",
+            "supplement: do also Y",
+        ).inOrder()
+    }
+
+    @Test
+    fun `concurrent supplement during simulated long compactor causes CAS to fail and supplement survives`() = runBlocking {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "Goal: open settings"))
+        manager.addItem(ResponseItem.Message(MessageKind.ASSISTANT_TEXT, "I will tap the icon"))
+
+        // Compactor's first step: atomic read.
+        val (snapRev, snapItems) = manager.snapshot()
+
+        // Simulate a long-running LLM summarization on an IO worker; in
+        // parallel, a supplement arrives from the user and is appended.
+        val compactor = async(Dispatchers.IO) {
+            delay(50) // pretend the LLM is summarizing
+            val newItems = listOf(
+                ResponseItem.Message(MessageKind.USER_INTENT, "Goal: open settings"),
+                ResponseItem.Message(MessageKind.COMPACTION_SUMMARY, "summary of $snapItems"),
+            )
+            manager.replaceAllIfRevision(snapRev, newItems)
+        }
+
+        // Supplement injected mid-flight (main thread style — happens before LLM returns).
+        withContext(Dispatchers.Default) {
+            delay(10)
+            manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "also: turn on dark mode"))
+        }
+
+        val casResult = compactor.await()
+        assertThat(casResult).isFalse()
+
+        // Supplement is preserved; compaction's half-baked summary is dropped.
+        val finalItems = manager.getAll().filterIsInstance<ResponseItem.Message>()
+        assertThat(finalItems.map { it.content }).contains("also: turn on dark mode")
+        assertThat(finalItems.none { it.kind == MessageKind.COMPACTION_SUMMARY }).isTrue()
     }
 }

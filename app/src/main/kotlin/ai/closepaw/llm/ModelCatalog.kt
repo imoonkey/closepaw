@@ -36,6 +36,9 @@ enum class ApiType {
  * @property baseUrl Custom API endpoint. Null = use provider default.
  * @property apiKeyEnv Env var name for API key. Null = use provider default.
  * @property supportsVision Whether this model accepts image inputs. Default true for cloud models.
+ * @property contextWindow Maximum input+output token capacity of the model. Always > 0. When the
+ * JSON omits `context_window`, the fallback is 8_000 for [AuthMode.Local] providers and 128_000
+ * for everything else.
  */
 data class ModelEntry(
         val name: String,
@@ -43,6 +46,7 @@ data class ModelEntry(
         val provider: LLMProvider,
         val api: ApiType,
         val modelId: String,
+        val contextWindow: Int,
         val baseUrl: String? = null,
         val apiKeyEnv: String? = null,
         val supportsVision: Boolean = true
@@ -162,7 +166,8 @@ internal data class JsonModelEntry(
         @SerialName("model_id") val modelId: String,
         @SerialName("base_url") val baseUrl: String? = null,
         @SerialName("api_key_env") val apiKeyEnv: String? = null,
-        @SerialName("supports_vision") val supportsVision: Boolean = true
+        @SerialName("supports_vision") val supportsVision: Boolean = true,
+        @SerialName("context_window") val contextWindow: Int? = null
 ) {
     fun toModelEntry(name: String): ModelEntry {
         require(name.isNotBlank()) { "Model name must not be blank" }
@@ -187,12 +192,22 @@ internal data class JsonModelEntry(
                                     "Unknown api type '$api' for model '$name'. Valid: response, chat"
                             )
                 }
+        val resolvedContextWindow =
+                contextWindow
+                        ?: when (resolvedProvider.mode) {
+                            AuthMode.Local -> 8_000
+                            else -> 128_000
+                        }
+        require(resolvedContextWindow > 0) {
+            "context_window must be > 0 for model '$name' (got $resolvedContextWindow)"
+        }
         return ModelEntry(
                 name = name,
                 displayName = displayName,
                 provider = resolvedProvider,
                 api = resolvedApi,
                 modelId = modelId,
+                contextWindow = resolvedContextWindow,
                 baseUrl = baseUrl,
                 apiKeyEnv = apiKeyEnv,
                 supportsVision = supportsVision

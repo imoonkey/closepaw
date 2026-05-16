@@ -13,8 +13,6 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun AgentBehaviorSettingsPage(
-    maxTurns: Int,
-    onMaxTurnsChange: (Int) -> Unit,
     perceptionMode: String,
     onPerceptionModeChange: (String) -> Unit,
     browserScriptEnabled: Boolean,
@@ -30,10 +28,6 @@ internal fun AgentBehaviorSettingsPage(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
         ) {
-            SettingsSection(title = "Max Turns") {
-                MaxTurnsDropdown(maxTurns = maxTurns, onMaxTurnsChange = onMaxTurnsChange)
-            }
-            Spacer(modifier = Modifier.height(20.dp))
             SettingsSection(title = "Perception") {
                 PerceptionModeSelector(selectedMode = perceptionMode, onModeChange = onPerceptionModeChange)
             }

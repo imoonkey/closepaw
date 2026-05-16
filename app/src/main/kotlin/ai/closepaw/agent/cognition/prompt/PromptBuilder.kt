@@ -1,6 +1,7 @@
 package ai.closepaw.agent.cognition.prompt
 
 import ai.closepaw.history.HistoryManager
+import ai.closepaw.history.MessageKind
 import ai.closepaw.history.ResponseItem
 import ai.closepaw.model.ScreenImage
 import ai.closepaw.session.AgentSessionState
@@ -31,8 +32,7 @@ internal class PromptBuilder(
      *
      * @param observation  Canonical turn observation (screen state + image)
      * @param warnings  Plain-text warning strings (loop detection, final turn, etc.)
-     * @param turnNumber Current turn number (1-based)
-     * @param maxTurns  Maximum turns allowed for this session
+     * @param turnNumber Current turn number (1-based, optional — informational only)
      * @param appSkill Optional app-specific skill block for the foreground package
      * @param recalledMemory Optional recalled long-term memory block
      * @param activatedAgentSkills Optional activated agent skill bodies
@@ -41,7 +41,6 @@ internal class PromptBuilder(
         observation: TurnObservation,
         warnings: List<String> = emptyList(),
         turnNumber: Int = 0,
-        maxTurns: Int = 0,
         appSkill: String? = null,
         recalledMemory: String? = null,
         activatedAgentSkills: String? = null
@@ -51,7 +50,7 @@ internal class PromptBuilder(
         recalledMemory?.trim()?.takeIf { it.isNotEmpty() }?.let { add(textUserMessage(it)) }
         appSkill?.trim()?.takeIf { it.isNotEmpty() }?.let { add(textUserMessage(it)) }
         activatedAgentSkills?.trim()?.takeIf { it.isNotEmpty() }?.let { add(textUserMessage(it)) }
-        add(buildObservationSection(observation, warnings, turnNumber, maxTurns))
+        add(buildObservationSection(observation, warnings, turnNumber))
     }
 
     // ── History ──────────────────────────────────────────────────────────
@@ -108,10 +107,9 @@ internal class PromptBuilder(
     private fun buildObservationSection(
         observation: TurnObservation,
         warnings: List<String>,
-        turnNumber: Int,
-        maxTurns: Int
+        turnNumber: Int
     ): ResponseInputItem {
-        val text = buildObservationText(observation, warnings, turnNumber, maxTurns)
+        val text = buildObservationText(observation, warnings, turnNumber)
         return if (observation.image != null && supportsVision) {
             imageUserMessage(text, observation.image)
         } else {
@@ -122,21 +120,20 @@ internal class PromptBuilder(
     /**
      * Produces the text body for the current-observation message.
      *
-     * Turn-specific decorations (budget, warnings, screenshot note, no-a11y guidance)
-     * are layered around the canonical [TurnObservation.screenBlock].
+     * Turn-specific decorations (warnings, screenshot note, no-a11y guidance) are layered
+     * around the canonical [TurnObservation.screenBlock]. The turn number is rendered
+     * without a budget — the agent should not be primed with a finite remaining count.
      *
      * Package-visible for testing.
      */
     internal fun buildObservationText(
         observation: TurnObservation,
         warnings: List<String>,
-        turnNumber: Int = 0,
-        maxTurns: Int = 0
+        turnNumber: Int = 0
     ): String {
         return buildString {
-            // Turn budget — always shown so agent can plan resource usage
-            if (turnNumber > 0 && maxTurns > 0) {
-                appendLine("Turn $turnNumber/$maxTurns")
+            if (turnNumber > 0) {
+                appendLine("Turn $turnNumber")
                 appendLine()
             }
 
@@ -172,8 +169,13 @@ internal class PromptBuilder(
                 else -> null
             }
             easyRole?.let { role ->
+                val body = if (kind == MessageKind.COMPACTION_SUMMARY) {
+                    "$CHECKPOINT_PREFIX$content"
+                } else {
+                    content
+                }
                 ResponseInputItem.ofEasyInputMessage(
-                    EasyInputMessage.builder().role(role).content(content).build()
+                    EasyInputMessage.builder().role(role).content(body).build()
                 )
             }
         }
@@ -221,4 +223,9 @@ internal class PromptBuilder(
                 )
                 .build()
         )
+
+    private companion object {
+        const val CHECKPOINT_PREFIX =
+            "[Context checkpoint from earlier work in this session]\n\n"
+    }
 }

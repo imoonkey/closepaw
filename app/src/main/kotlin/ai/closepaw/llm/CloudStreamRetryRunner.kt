@@ -62,10 +62,12 @@ internal suspend fun streamWithRetry(
                 lastError = null
             )
         } catch (e: Exception) {
+            classifyContextWindowExceeded(e)?.let { throw it }
             val classified = when (e) {
                 is RateLimitException, is TransientException -> e
                 else -> OpenAIErrorClassifier.classify(e)
             }
+            classifyContextWindowExceeded(classified)?.let { throw it }
             lastException = classified
             when (
                 val retryAction =
