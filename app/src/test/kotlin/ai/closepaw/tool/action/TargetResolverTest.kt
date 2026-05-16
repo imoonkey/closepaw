@@ -173,6 +173,150 @@ class TargetResolverTest {
         )
     }
 
+    // ---------- Coordinate-hint normalization (Codex dual target) ----------
+
+    @Test
+    fun `semantic resolves with hint inside bounds uses element center`() {
+        val bounds = Bounds(100, 400, 500, 700)
+        val target = element(index = 1, text = "Play", bounds = bounds)
+        val snapshot = snapshotOf(target)
+
+        val resolved = TargetResolver.resolve(
+            Target.ElementIndex(1, Target.Coordinate(450, 650)),
+            snapshot
+        )
+
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(
+                point = Point(300, 550),
+                bounds = bounds,
+                semanticHint = hintFor("Play", bounds)
+            )
+        )
+        val r = resolved as TargetResolver.ResolveResult.Resolved
+        assertThat(r.warnings).isEmpty()
+        assertThat(r.coordinateFallback).isFalse()
+    }
+
+    @Test
+    fun `hint at right-minus-1 bottom-minus-1 is inside bounds`() {
+        val bounds = Bounds(100, 400, 500, 700)
+        val snapshot = snapshotOf(element(index = 1, text = "Play", bounds = bounds))
+
+        val resolved = TargetResolver.resolve(
+            Target.ElementIndex(1, Target.Coordinate(499, 699)),
+            snapshot
+        )
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Resolved::class.java)
+        val r = resolved as TargetResolver.ResolveResult.Resolved
+        assertThat(r.point).isEqualTo(Point(300, 550))
+        assertThat(r.coordinateFallback).isFalse()
+    }
+
+    @Test
+    fun `hint at right bottom edge is outside bounds and ambiguous`() {
+        val bounds = Bounds(100, 400, 500, 700)
+        val snapshot = snapshotOf(element(index = 1, text = "Play", bounds = bounds))
+
+        val resolved = TargetResolver.resolve(
+            Target.ElementIndex(1, Target.Coordinate(500, 700)),
+            snapshot
+        )
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Ambiguous::class.java)
+        val ambig = resolved as TargetResolver.ResolveResult.Ambiguous
+        assertThat(ambig.reason).contains("Ambiguous")
+        assertThat(ambig.reason).contains("(500, 700)")
+    }
+
+    @Test
+    fun `semantic miss with hint falls back to coordinate with warning`() {
+        val snapshot = snapshotOf(element(index = 1, text = "Play", bounds = Bounds(100, 400, 500, 700)))
+
+        val resolved = TargetResolver.resolve(
+            Target.ElementIndex(99, Target.Coordinate(200, 300)),
+            snapshot
+        )
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Resolved::class.java)
+        val r = resolved as TargetResolver.ResolveResult.Resolved
+        assertThat(r.point).isEqualTo(Point(200, 300))
+        assertThat(r.bounds).isNull()
+        assertThat(r.semanticHint).isNull()
+        assertThat(r.coordinateFallback).isTrue()
+        assertThat(r.warnings).hasSize(1)
+        assertThat(r.warnings.first()).contains("coordinate fallback")
+    }
+
+    @Test
+    fun `semantic miss without hint returns not found`() {
+        val snapshot = snapshotOf(element(index = 1, text = "Play", bounds = Bounds(100, 400, 500, 700)))
+
+        val resolved = TargetResolver.resolve(Target.ElementIndex(99), snapshot)
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.NotFound::class.java)
+    }
+
+    @Test
+    fun `text target with hint inside bounds uses element center`() {
+        val bounds = Bounds(100, 400, 500, 700)
+        val snapshot = snapshotOf(element(index = 1, text = "Save", bounds = bounds))
+
+        val resolved = TargetResolver.resolve(
+            Target.Text("Save", 0, Target.Coordinate(300, 550)),
+            snapshot
+        )
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Resolved::class.java)
+        val r = resolved as TargetResolver.ResolveResult.Resolved
+        assertThat(r.point).isEqualTo(Point(300, 550))
+        assertThat(r.coordinateFallback).isFalse()
+        assertThat(r.warnings).isEmpty()
+    }
+
+    @Test
+    fun `text target with hint outside bounds is ambiguous`() {
+        val snapshot = snapshotOf(element(index = 1, text = "Save", bounds = Bounds(100, 400, 500, 700)))
+
+        val resolved = TargetResolver.resolve(
+            Target.Text("Save", 0, Target.Coordinate(9000, 9000)),
+            snapshot
+        )
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Ambiguous::class.java)
+    }
+
+    @Test
+    fun `text miss with hint falls back to coordinate`() {
+        val snapshot = snapshotOf(element(index = 1, text = "Save", bounds = Bounds(100, 400, 500, 700)))
+
+        val resolved = TargetResolver.resolve(
+            Target.Text("Nonexistent", 0, Target.Coordinate(123, 456)),
+            snapshot
+        )
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Resolved::class.java)
+        val r = resolved as TargetResolver.ResolveResult.Resolved
+        assertThat(r.point).isEqualTo(Point(123, 456))
+        assertThat(r.coordinateFallback).isTrue()
+        assertThat(r.bounds).isNull()
+        assertThat(r.semanticHint).isNull()
+    }
+
+    @Test
+    fun `coordinate target is unchanged`() {
+        val snapshot = snapshotOf(element(index = 1, text = "Play", bounds = Bounds(100, 400, 500, 700)))
+
+        val resolved = TargetResolver.resolve(Target.Coordinate(42, 73), snapshot)
+
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(point = Point(42, 73))
+        )
+        val r = resolved as TargetResolver.ResolveResult.Resolved
+        assertThat(r.coordinateFallback).isFalse()
+    }
+
     @Test
     fun `resolve text does not match resource id suffix when no visible text exists`() {
         val bounds = Bounds(100, 400, 500, 700)

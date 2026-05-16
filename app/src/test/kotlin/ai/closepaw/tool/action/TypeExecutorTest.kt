@@ -203,6 +203,112 @@ class TypeExecutorTest {
         assertThat(outcome).isInstanceOf(ActionOutcome.Cancelled::class.java)
     }
 
+    // ---------- Coordinate-hint normalization (Codex dual target) ----------
+
+    @Test
+    fun `semantic resolved plus hint inside bounds uses SetTextOnNodeAt first`() = runTest {
+        val snapshot = editableSnapshot()
+        val post = ScreenSnapshot(timestamp = 2L, elements = emptyList())
+        val platform = TypeRecordingPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(post)
+        )
+
+        val outcome = TypeExecutor().execute(
+            target = Target.ElementIndex(1, Target.Coordinate(editBounds.centerX, editBounds.centerY)),
+            inputText = "hello",
+            clear = false,
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.attemptTrail).contains("SetTextOnNodeAt: success")
+        assertThat(platform.performedActions).hasSize(1)
+        assertThat(platform.performedActions.first()).isInstanceOf(UIAction.SetTextOnNodeAt::class.java)
+        // No fallback warning for semantic-resolved path
+        assertThat(success.message).doesNotContain("coordinate fallback")
+    }
+
+    @Test
+    fun `semantic miss with hint uses TapAt then SetTextOnFocused`() = runTest {
+        val snapshot = editableSnapshot()
+        val post = ScreenSnapshot(timestamp = 2L, elements = emptyList())
+        val platform = TypeRecordingPlatform(
+            actionResults = listOf(ActionResult.Success(), ActionResult.Success()),
+            capturedSnapshots = listOf(post)
+        )
+
+        val outcome = TypeExecutor().execute(
+            target = Target.ElementIndex(999, Target.Coordinate(120, 130)),
+            inputText = "hello",
+            clear = false,
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        // Coordinate fallback path: only TapAt + SetTextOnFocused; no SetTextOnNodeAt.
+        assertThat(platform.performedActions).hasSize(2)
+        assertThat(platform.performedActions[0]).isEqualTo(UIAction.TapAt(120, 130))
+        assertThat(platform.performedActions[1]).isInstanceOf(UIAction.SetTextOnFocused::class.java)
+        assertThat(success.attemptTrail).contains("TapToFocus+SetTextOnFocused: success")
+        assertThat(success.message).contains("coordinate fallback")
+    }
+
+    @Test
+    fun `coordinate fallback warning appears in failure message`() = runTest {
+        val snapshot = editableSnapshot()
+        // TapAt fails after semantic miss → coordinate fallback path bails out.
+        val platform = TypeRecordingPlatform(
+            actionResults = listOf(ActionResult.Failure("tap failed"))
+        )
+
+        val outcome = TypeExecutor().execute(
+            target = Target.ElementIndex(999, Target.Coordinate(120, 130)),
+            inputText = "hello",
+            clear = false,
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        val failed = outcome as ActionOutcome.Failed
+        assertThat(failed.reason).contains("coordinate fallback")
+    }
+
+    @Test
+    fun `pure coordinate type uses SetTextOnNodeAt first as before`() = runTest {
+        val snapshot = editableSnapshot()
+        val post = ScreenSnapshot(timestamp = 2L, elements = emptyList())
+        val platform = TypeRecordingPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(post)
+        )
+
+        val outcome = TypeExecutor().execute(
+            target = Target.Coordinate(editBounds.centerX, editBounds.centerY),
+            inputText = "hello",
+            clear = false,
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        // Pure-coordinate path stays unchanged: SetTextOnNodeAt first.
+        assertThat(success.attemptTrail).contains("SetTextOnNodeAt: success")
+        assertThat(platform.performedActions).hasSize(1)
+        assertThat(platform.performedActions.first()).isInstanceOf(UIAction.SetTextOnNodeAt::class.java)
+        assertThat(success.message).doesNotContain("coordinate fallback")
+    }
+
     private fun editableSnapshot(): ScreenSnapshot {
         return ScreenSnapshot(
             timestamp = 1L,

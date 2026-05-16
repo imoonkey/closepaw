@@ -138,6 +138,59 @@ class ScrollExecutorTest {
         assertThat(success.message).doesNotContain("No observable")
     }
 
+    // ---------- Coordinate-hint normalization (Codex dual target) ----------
+
+    @Test
+    fun `scroll element_index 999 plus xy fails unresolved without dispatch`() = runTest {
+        val snapshot = scrollableSnapshot("Item 1")
+        val platform = RecordingScrollPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(snapshot)
+        )
+
+        val outcome = ScrollExecutor().execute(
+            // Target missing in snapshot; coordinate hint must NOT become scroll area.
+            target = Target.ElementIndex(999, Target.Coordinate(540, 1200)),
+            direction = "down",
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        val failed = outcome as ActionOutcome.Failed
+        assertThat(failed.reason).contains("not found")
+        assertThat(platform.performedActions).isEmpty()
+    }
+
+    @Test
+    fun `scroll element_index 1 plus xy resolves normally when element exists`() = runTest {
+        val snapshot = scrollableSnapshot("Item 1")
+        val changedSnapshot = scrollableSnapshot("Item 5")
+        val platform = RecordingScrollPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(snapshot, changedSnapshot)
+        )
+
+        val outcome = ScrollExecutor().execute(
+            target = Target.ElementIndex(1, Target.Coordinate(540, 1200)),
+            direction = "down",
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        // Scroll uses the element's own area (full screen here) — not the hint point.
+        assertThat(platform.performedActions).isNotEmpty()
+        val first = platform.performedActions.first()
+        if (first is UIAction.ScrollNodeAt) {
+            // Center of full-screen scrollable element bounds (0,0,1080,2400)
+            assertThat(first.x).isEqualTo(540)
+            assertThat(first.y).isEqualTo(1200)
+        }
+    }
+
     private fun scrollableSnapshot(label: String): ScreenSnapshot {
         val bounds = Bounds(left = 0, top = 0, right = 1080, bottom = 2400)
         return ScreenSnapshot(

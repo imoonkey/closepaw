@@ -162,4 +162,157 @@ class MobileActionToolTest {
 
         assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
     }
+
+    // ---------- Coordinate-hint normalization (Codex dual target) ----------
+
+    @Test
+    fun `click element_index plus xy is valid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "click")
+            .put("element_index", 14)
+            .put("x", 540)
+            .put("y", 1230)
+
+        assertThat(tool.validate(params)).isEqualTo(ValidationResult.Valid)
+    }
+
+    @Test
+    fun `click text plus xy is valid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "click")
+            .put("text", "Save")
+            .put("x", 100)
+            .put("y", 200)
+
+        assertThat(tool.validate(params)).isEqualTo(ValidationResult.Valid)
+    }
+
+    @Test
+    fun `long_press element_index plus xy is valid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "long_press")
+            .put("element_index", 3)
+            .put("x", 50)
+            .put("y", 60)
+
+        assertThat(tool.validate(params)).isEqualTo(ValidationResult.Valid)
+    }
+
+    @Test
+    fun `type element_index plus xy plus input_text is valid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "type")
+            .put("element_index", 1)
+            .put("x", 100)
+            .put("y", 100)
+            .put("input_text", "hello")
+
+        assertThat(tool.validate(params)).isEqualTo(ValidationResult.Valid)
+    }
+
+    @Test
+    fun `click element_index plus text is invalid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "click")
+            .put("element_index", 1)
+            .put("text", "Save")
+
+        val result = tool.validate(params)
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+        assertThat((result as ValidationResult.Invalid).errors.joinToString()).contains("ONE semantic target")
+    }
+
+    @Test
+    fun `click element_index plus text plus xy is invalid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "click")
+            .put("element_index", 1)
+            .put("text", "Save")
+            .put("x", 100)
+            .put("y", 200)
+
+        val result = tool.validate(params)
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+        assertThat((result as ValidationResult.Invalid).errors.joinToString()).contains("ONE semantic target")
+    }
+
+    @Test
+    fun `click negative element_index plus xy is invalid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "click")
+            .put("element_index", -1)
+            .put("x", 10)
+            .put("y", 10)
+
+        val result = tool.validate(params)
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+        assertThat((result as ValidationResult.Invalid).errors.joinToString()).contains("element_index")
+    }
+
+    @Test
+    fun `click x without y is invalid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "click")
+            .put("x", 10)
+
+        val result = tool.validate(params)
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+        assertThat((result as ValidationResult.Invalid).errors.joinToString()).contains("both x and y")
+    }
+
+    @Test
+    fun `click negative x is invalid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "click")
+            .put("x", -1)
+            .put("y", 10)
+
+        val result = tool.validate(params)
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+        assertThat((result as ValidationResult.Invalid).errors.joinToString()).contains(">= 0")
+    }
+
+    @Test
+    fun `scroll element_index plus xy is valid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "scroll")
+            .put("direction", "down")
+            .put("element_index", 1)
+            .put("x", 540)
+            .put("y", 1200)
+
+        assertThat(tool.validate(params)).isEqualTo(ValidationResult.Valid)
+    }
+
+    @Test
+    fun `scroll bare xy with no semantic target is invalid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "scroll")
+            .put("direction", "down")
+            .put("x", 540)
+            .put("y", 1200)
+
+        val result = tool.validate(params)
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+        assertThat((result as ValidationResult.Invalid).errors.joinToString()).contains("bare x/y")
+    }
+
+    @Test
+    fun `description string contains semantic-primary and coordinate-hint wording`() {
+        val description = MobileActionTool().description
+
+        assertThat(description).contains("semantic target is primary")
+        assertThat(description).contains("fallback hint")
+    }
 }

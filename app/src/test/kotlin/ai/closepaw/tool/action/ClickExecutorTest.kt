@@ -430,6 +430,98 @@ class ClickExecutorTest {
         assertThat(platform.performedActions).containsExactly(UIAction.TapAt(100, 200))
     }
 
+    // ---------- Coordinate-hint normalization (Codex dual target) ----------
+
+    @Test
+    fun `execute semantic plus hint inside bounds uses node click first`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Pressed")
+        val platform = RecordingPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(changedSnapshot)
+        )
+
+        val outcome = ClickExecutor().execute(
+            target = Target.ElementIndex(index = 1, coordinateHint = Target.Coordinate(150, 210)),
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions)
+            .containsExactly(UIAction.ClickNodeAt(150, 210, buttonHint))
+            .inOrder()
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.message).doesNotContain("coordinate fallback")
+    }
+
+    @Test
+    fun `execute coordinate fallback after semantic miss skips node click and warns`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Tapped")
+        val platform = RecordingPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(changedSnapshot)
+        )
+
+        val outcome = ClickExecutor().execute(
+            target = Target.ElementIndex(index = 999, coordinateHint = Target.Coordinate(100, 200)),
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        // ClickNodeAt skipped — semantic miss, no resolved node. Only TapAt.
+        assertThat(platform.performedActions).containsExactly(UIAction.TapAt(100, 200))
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.message).contains("coordinate fallback")
+    }
+
+    @Test
+    fun `execute semantic plus hint outside bounds fails ambiguous without dispatch`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform = RecordingPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(snapshot)
+        )
+
+        val outcome = ClickExecutor().execute(
+            target = Target.ElementIndex(index = 1, coordinateHint = Target.Coordinate(900, 900)),
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        val failed = outcome as ActionOutcome.Failed
+        assertThat(failed.reason).contains("Ambiguous")
+        assertThat(platform.performedActions).isEmpty()
+    }
+
+    @Test
+    fun `execute pure coordinate target is unchanged`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Tapped")
+        val platform = RecordingPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(changedSnapshot)
+        )
+
+        val outcome = ClickExecutor().execute(
+            target = Target.Coordinate(x = 100, y = 200),
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(UIAction.TapAt(100, 200))
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.message).doesNotContain("coordinate fallback")
+    }
+
     @Test
     fun `execute fails fast for out of bounds coordinate target`() = runTest {
         val snapshot = snapshotWithSingleButton()
