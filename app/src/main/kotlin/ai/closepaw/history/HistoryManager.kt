@@ -198,6 +198,7 @@ class HistoryManager(
         items.clear()
         items.addAll(normalized)
         lastTokenEstimate = null
+        _revision++
 
         downgradeOldScreens()
         lastTokenEstimate = null

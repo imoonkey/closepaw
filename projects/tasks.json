@@ -1374,6 +1374,34 @@
     "created": "2026-05-16T09:24:31Z",
     "updated": "2026-05-16T09:26:20Z"
   },
+  "ac-compactor-output-cap": {
+    "parent": "auto-compact",
+    "depends": [
+      "ac-codex-review"
+    ],
+    "state": "ready",
+    "title": "Enforce maxSummaryTokens cap in Compactor.summarize",
+    "description": "Compactor exposes maxSummaryTokens = 5_000 but LLMClient.chatWithTools does not currently surface a max-tokens knob, so the summarizer can return an oversized checkpoint and undermine compaction. Plumb an output-token cap through LLMClient.chatWithTools (or use a provider-specific call) and pass maxSummaryTokens from Compactor.summarize. Deferred from ac-codex-review minor m2 because the fix requires touching the LLMClient API surface for every provider implementation, not just Compactor.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/llm/LLMClient.kt",
+      "app/src/main/kotlin/ai/closepaw/history/Compactor.kt"
+    ],
+    "acceptCriteria": [
+      "LLMClient.chatWithTools accepts an optional max-output-tokens parameter (or equivalent path)",
+      "Compactor.summarize passes maxSummaryTokens to the LLM call",
+      "Unit test verifies the cap is forwarded for both cloud and local clients",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "requireHumanReview": false,
+    "estimate": "s",
+    "worktree": "auto-compact",
+    "tags": [
+      "history",
+      "llm"
+    ],
+    "created": "2026-05-16T00:00:00Z",
+    "updated": "2026-05-16T00:00:00Z"
+  },
   "ac-device-qa": {
     "parent": "auto-compact",
     "depends": [
