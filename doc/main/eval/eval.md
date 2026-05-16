@@ -62,7 +62,7 @@ Key fields: `suite_family`, `output_root`, `task_random_seed`,
 Per-task agent settings passed to `NativeAgentBridge`.
 
 Key fields: `package_name`, `activity`, `llm_backend`,
-`perception_mode`, `platform_mode`, `main_model`, `subagent_model`,
+`perception_mode`, `platform_mode`, `main_model`,
 `max_turns`, `auto_start`, `fresh_session`, `max_wait_seconds`,
 `excluded_tools`, `clear_memory_before_task`, `api_keys`.
 

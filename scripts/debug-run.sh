@@ -8,14 +8,13 @@
 #   ./scripts/debug-run.sh --accessibility-only "goal"  # A11y tree only
 #   ./scripts/debug-run.sh --screenshot-only "goal"     # Screenshot only
 #   ./scripts/debug-run.sh --hybrid "goal"              # A11y + screenshot
-#   ./scripts/debug-run.sh --main-model gpt-5.2 --subagent-model glm-4.7 "goal"
+#   ./scripts/debug-run.sh --main-model gpt-5.2 "goal"
 #   ./scripts/debug-run.sh --virtual-display "goal"     # Run on Shizuku virtual display
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
 #   PERCEPTION_MODE: "accessibility_only" (default), "screenshot_only", or "hybrid"
 #   MAIN_MODEL: Override main model name (key from llm_models.json)
-#   SUBAGENT_MODEL: Override subagent model name (key from llm_models.json)
 #   PLATFORM_MODE: "accessibility" (default) or "virtual_display"
 #   APPROVAL_MODE: "SMART" (default), "AUTO_APPROVE", or "ALWAYS_ASK" for debug builds
 #   DEBUG_AUTO_APPROVE: true/false shortcut for APPROVAL_MODE=AUTO_APPROVE
@@ -34,7 +33,6 @@ DEBUG_DIR="$PROJECT_ROOT/debug-output/run_${RUN_ID}"
 USE_LOCAL=false
 FORCED_PERCEPTION_MODE=""
 FORCED_MAIN_MODEL=""
-FORCED_SUBAGENT_MODEL=""
 FORCED_PLATFORM_MODE=""
 GOAL=""
 while [[ $# -gt 0 ]]; do
@@ -69,14 +67,6 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             FORCED_MAIN_MODEL="$2"
-            shift 2
-            ;;
-        --subagent-model)
-            if [[ $# -lt 2 ]]; then
-                echo "Missing value for --subagent-model"
-                exit 1
-            fi
-            FORCED_SUBAGENT_MODEL="$2"
             shift 2
             ;;
         --virtual-display|--vd)
@@ -192,9 +182,8 @@ if [[ "$LLM_BACKEND" == "openai" ]]; then
     DEFAULT_MAIN_MODEL="gpt-5.4"
 fi
 
-# Determine effective models early for logging
+# Determine effective model early for logging
 EFFECTIVE_MAIN_MODEL="${FORCED_MAIN_MODEL:-${MAIN_MODEL:-$DEFAULT_MAIN_MODEL}}"
-EFFECTIVE_SUBAGENT_MODEL="${FORCED_SUBAGENT_MODEL:-${SUBAGENT_MODEL:-}}"
 
 # Default debug mode on for debug-run unless explicitly set
 if [[ -z "${DEBUG_MODE+x}" ]]; then
@@ -242,9 +231,6 @@ fi
 
 log "Using LLM backend: $LLM_BACKEND"
 log "Using main model: $EFFECTIVE_MAIN_MODEL"
-if [[ -n "$EFFECTIVE_SUBAGENT_MODEL" ]]; then
-    log "Using subagent model: $EFFECTIVE_SUBAGENT_MODEL"
-fi
 log "Using perception mode: $PERCEPTION_MODE"
 log "Using platform mode: $PLATFORM_MODE"
 log "Using approval mode: $APPROVAL_MODE"
@@ -376,12 +362,6 @@ fi
 # Add main model to intent
 SAFE_MAIN_MODEL=$(escape_shell_arg "$EFFECTIVE_MAIN_MODEL")
 INTENT_EXTRAS="$INTENT_EXTRAS --es main_model '$SAFE_MAIN_MODEL'"
-
-# Add subagent model to intent if set
-if [[ -n "$EFFECTIVE_SUBAGENT_MODEL" ]]; then
-    SAFE_SUBAGENT_MODEL=$(escape_shell_arg "$EFFECTIVE_SUBAGENT_MODEL")
-    INTENT_EXTRAS="$INTENT_EXTRAS --es subagent_model '$SAFE_SUBAGENT_MODEL'"
-fi
 
 if [[ -n "${OPENAI_API_KEY:-}" ]]; then
     INTENT_EXTRAS="--es api_key '$SAFE_API_KEY' $INTENT_EXTRAS"

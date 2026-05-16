@@ -137,7 +137,7 @@ ui/settings/
 - `termux_shell_enabled` — boolean, gates `termux_shell` exposure at the next session snapshot
 - `perception_mode` — `accessibility_only`, `screenshot_only`, `hybrid`
 - `platform_mode` — `ACCESSIBILITY`, `VIRTUAL_DISPLAY`
-- `model` / `subagent_model` — model name strings
+- `model` — model name string
 
 `openaiBaseUrl` is transient state set from the `openai_base_url` intent extra; it is not persisted.
 

@@ -74,12 +74,11 @@ Options:
 - `--hybrid`: Force hybrid perception
 - `--perception <mode>`: Set perception mode explicitly (`accessibility_only`, `screenshot_only`, `hybrid`)
 - `--main-model <name>`: Override main model (key in `llm_models.json`)
-- `--subagent-model <name>`: Override delegated subagent model
 
 Environment variables:
 - `LLM_BACKEND`: `openai` (default) or `local`
 - `PERCEPTION_MODE`: `accessibility_only` (default), `screenshot_only`, or `hybrid`
-- `MAIN_MODEL` / `SUBAGENT_MODEL`: same as the flags above
+- `MAIN_MODEL`: same as the flag above
 - `DEBUG_MAX_TURNS`: Max turn-start events to capture (default: 80)
 
 Output in `debug-output/run_<timestamp>/`:
