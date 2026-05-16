@@ -34,8 +34,14 @@ import java.util.TimeZone
  */
 class DebugActionExecutor(private val service: AgentService) {
 
+    private val visualizer = service.getActionVisualizer()
     private val nodePerformer = NodeActionPerformer(rootProvider = { service.rootInActiveWindow })
-    private val gestureInjector = AccessibilityGestureInjector(service, visualizer = null)
+    private val gestureInjector =
+            AccessibilityGestureInjector(
+                    service = service,
+                    visualizer = visualizer,
+                    overlayTouchGate = service.getOverlayTouchGate()
+            )
 
     /** Lazily initialized Shizuku injector for testing input injection on any display. */
     private var shizukuInjector: VirtualDisplayInputInjector? = null
@@ -117,12 +123,16 @@ class DebugActionExecutor(private val service: AgentService) {
 
     private suspend fun performAction(action: UIAction): ActionResult {
         return when (action) {
-            is UIAction.ClickNodeAt ->
+            is UIAction.ClickNodeAt -> {
+                showClick(action.x, action.y)
                 nodePerformer.performNodeClickAt(action.x, action.y)
+            }
             is UIAction.TapAt ->
                 gestureInjector.injectTap(action.x, action.y)
-            is UIAction.LongClickNodeAt ->
+            is UIAction.LongClickNodeAt -> {
+                showClick(action.x, action.y, longPress = true)
                 nodePerformer.performNodeLongClickAt(action.x, action.y)
+            }
             is UIAction.LongPressAt ->
                 gestureInjector.injectLongPress(
                     action.x.toFloat(), action.y.toFloat(), action.durationMs
@@ -153,10 +163,24 @@ class DebugActionExecutor(private val service: AgentService) {
         val injector = getOrCreateShizukuInjector()
             ?: return ActionResult.Failure("Shizuku injector unavailable")
         return when (action) {
-            is UIAction.TapAt -> injector.injectTap(action.x, action.y)
-            is UIAction.ClickNodeAt -> injector.injectTap(action.x, action.y)
+            is UIAction.TapAt -> {
+                showClick(action.x, action.y)
+                injector.injectTap(action.x, action.y)
+            }
+            is UIAction.ClickNodeAt -> {
+                showClick(action.x, action.y)
+                injector.injectTap(action.x, action.y)
+            }
             else -> ActionResult.Failure("Shizuku mode only supports tap/click, got ${action::class.simpleName}")
         }
+    }
+
+    private fun showClick(x: Int, y: Int, longPress: Boolean = false) {
+        visualizer?.showClick(
+            x = x.toFloat(),
+            y = y.toFloat(),
+            longPress = longPress
+        )
     }
 
     // -- Intent parsing --

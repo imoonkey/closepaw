@@ -48,7 +48,7 @@ object PlatformFactory {
                 AccessibilityPlatform(service, config, visualizer, traceRecorder, overlayTouchGate, isPackageBlocked)
             }
             PlatformMode.VIRTUAL_DISPLAY -> {
-                createVirtualDisplayPlatform(config, service, traceRecorder, isPackageBlocked)
+                createVirtualDisplayPlatform(config, service, visualizer, traceRecorder, isPackageBlocked)
                         ?: run {
                             Log.w(TAG, "Shizuku unavailable, falling back to AccessibilityPlatform")
                             AccessibilityPlatform(service, config, visualizer, traceRecorder, overlayTouchGate, isPackageBlocked)
@@ -60,6 +60,7 @@ object PlatformFactory {
     private fun createVirtualDisplayPlatform(
             config: SessionConfig,
             service: AccessibilityService,
+            visualizer: ActionVisualizerManager?,
             traceRecorder: TraceRecorder,
             isPackageBlocked: (String?) -> Boolean
     ): VirtualDisplayPlatform? {
@@ -87,6 +88,7 @@ object PlatformFactory {
                 config = displayConfig,
                 sessionConfig = config,
                 traceRecorder = traceRecorder,
+                visualizer = visualizer,
                 isPackageBlocked = isPackageBlocked
         )
     }

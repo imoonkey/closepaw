@@ -17,6 +17,7 @@ import ai.closepaw.platform.NodeActionPerformer
 import ai.closepaw.platform.UIAction
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.trace.TraceRecorder
+import ai.closepaw.ui.overlay.visualizer.ActionVisualizerManager
 import ai.closepaw.util.recycleCompat
 import kotlinx.coroutines.delay
 import rikka.shizuku.Shizuku
@@ -34,6 +35,7 @@ class VirtualDisplayPlatform(
         private val config: VirtualDisplayConfig,
         private val sessionConfig: SessionConfig,
         private val traceRecorder: TraceRecorder,
+        private val visualizer: ActionVisualizerManager? = null,
         private val isPackageBlocked: (String?) -> Boolean = { false }
 ) : AndroidPlatform {
 
@@ -405,10 +407,14 @@ class VirtualDisplayPlatform(
 
     private suspend fun dispatchAction(action: UIAction): ActionResult =
             when (action) {
-                is UIAction.ClickNodeAt ->
+                is UIAction.ClickNodeAt -> {
+                        showClick(action.x, action.y)
                         nodeActionPerformer.performNodeClickAt(action.x, action.y, action.semanticHint)
-                is UIAction.LongClickNodeAt ->
+                }
+                is UIAction.LongClickNodeAt -> {
+                        showClick(action.x, action.y, longPress = true)
                         nodeActionPerformer.performNodeLongClickAt(action.x, action.y, action.semanticHint)
+                }
                 is UIAction.SetTextOnNodeAt ->
                         nodeActionPerformer.performSetTextOnNodeAt(
                                 action.x,
@@ -418,9 +424,14 @@ class VirtualDisplayPlatform(
                         )
                 is UIAction.SetTextOnFocused ->
                         nodeActionPerformer.performSetTextOnFocused(action.text, action.clear)
-                is UIAction.TapAt -> inputInjector.injectTap(action.x, action.y)
-                is UIAction.LongPressAt ->
+                is UIAction.TapAt -> {
+                        showClick(action.x, action.y)
+                        inputInjector.injectTap(action.x, action.y)
+                }
+                is UIAction.LongPressAt -> {
+                        showClick(action.x, action.y, longPress = true)
                         inputInjector.injectLongPress(action.x, action.y, action.durationMs)
+                }
                 is UIAction.ScrollNodeAt ->
                         nodeActionPerformer.performScrollAt(action.x, action.y, action.direction)
                 is UIAction.Swipe -> performSwipe(action)
@@ -430,6 +441,14 @@ class VirtualDisplayPlatform(
                     ActionResult.Success("Waited ${action.durationMs}ms")
                 }
             }
+
+    private fun showClick(x: Int, y: Int, longPress: Boolean = false) {
+        visualizer?.showClick(
+                x = x.toFloat(),
+                y = y.toFloat(),
+                longPress = longPress
+        )
+    }
 
     // ===== Action Helpers =====
 
@@ -457,6 +476,13 @@ class VirtualDisplayPlatform(
         Log.d(
                 TAG,
                 "Swipe: ($startX,$startY) -> ($endX,$endY), duration=${action.durationMs}ms"
+        )
+        visualizer?.showSwipe(
+                startX = startX.toFloat(),
+                startY = startY.toFloat(),
+                endX = endX.toFloat(),
+                endY = endY.toFloat(),
+                durationMs = action.durationMs
         )
         return inputInjector.injectSwipe(
                 UIAction.Swipe(startX, startY, endX, endY, action.durationMs)
