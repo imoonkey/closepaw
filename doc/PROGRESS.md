@@ -30,6 +30,24 @@
 **Next:** `vd-runtime-boundary` task graph (still blocked) re-introduces a usable viewer post-completion — once that lands, restoring the `View virtual screen` CTA is straightforward (add the field back, render it).
 **Blockers:** None.
 
+## 2026-05-15: Restore tap/swipe visualizations across VD and debug action paths
+
+**What changed:**
+- `PlatformFactory` now passes the live `ActionVisualizerManager` into `VirtualDisplayPlatform` instead of wiring it only to `AccessibilityPlatform`.
+- `VirtualDisplayPlatform` emits click/long-click/tap/long-press/swipe visual feedback before dispatching node actions or Shizuku-backed input.
+- `DebugActionExecutor` now uses `AgentService.getActionVisualizer()` and the service `OverlayTouchGate`, so `scripts/action-test.sh` shows the same feedback as agent execution.
+- QA uncovered a direct Shizuku debug-action ANR: synchronous `injectInputEvent(WAIT_FOR_FINISH)` was being called from the app main thread. Shizuku debug injection now runs on `Dispatchers.IO` while visualizer calls stay on the main thread.
+
+**Why:**
+- Users lost visible tap/swipe feedback when the agent used VD mode or the direct debug action harness because those paths bypassed visualizer wiring.
+- The visualizer is user-facing feedback, not part of a specific transport; both platform implementations should emit it consistently.
+
+**Key files:** `PlatformFactory.kt`, `VirtualDisplayPlatform.kt`, `DebugActionExecutor.kt`, `doc/main/ui/overlay.md`, `doc/main/infra/platform.md`, `doc/main/infra/virtual_display.md`, `doc/dev/development.md`, `.claude/skills/action-debug/SKILL.md`
+**Verification:** `./scripts/setup.sh`; direct real-device action QA on `100.64.43.95:5555` for tap, swipe, and Shizuku debug tap; `DEBUG_MAX_WAIT_SECONDS=180 ./scripts/debug-run.sh --basic --virtual-display --accessibility-only "Perform one raw coordinate swipe from [632,1800] to [632,900] using the swipe action, then complete."` showed `VirtualDisplayPlatform: Swipe...` followed by `VisualizerOverlayHost: Visualizer overlay shown`; `./gradlew :app:compileDebugKotlin`, `./gradlew test`, and `./gradlew lint` passed.
+**Commit:** 95853b6d, b0faa38b
+**Next:** Shizuku direct debug tap still returns `Tap inject failed` on this device after avoiding ANR; treat as an input-transport issue separate from visualizer wiring.
+**Blockers:** None.
+
 ## 2026-05-15: Standalone agent prompt — stop nudging ask_user for system settings; trust stated intent
 
 **What changed:**

@@ -215,6 +215,7 @@ Use `action-test.sh` to isolate action execution outside the full agent loop:
 ./scripts/action-test.sh scroll --direction down
 ./scripts/action-test.sh long_press --x 540 --y 800 --duration 1500
 ./scripts/action-test.sh click --x 540 --y 1200 --compare   # ADB baseline vs a11y path
+./scripts/action-test.sh tap --x 540 --y 1200 --shizuku --display-id 0
 ```
 
 This is useful when `mobile_action` reports success but UI does not change.

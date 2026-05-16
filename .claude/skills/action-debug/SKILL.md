@@ -267,6 +267,8 @@ Execution path options:
   (default)              L1 node action via a11y
   --use-node false       L1 gesture injection via a11y
   --adb                  L0 adb input baseline
+  --shizuku              Shizuku IInputManager injection path
+  --display-id N         Target display for --shizuku (default: 0)
   --compare              Run L0 then L1, compare
 
 Coordinate options:

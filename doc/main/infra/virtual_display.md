@@ -2,7 +2,7 @@
 
 > Shizuku-based virtual display implementation for isolated app execution.
 > -> See: [platform.md](platform.md) for AndroidPlatform interface and AccessibilityPlatform.
-> Last updated: 2026-04-10 (commit: d7f3e47)
+> Last updated: 2026-05-15 (VD action visualizer wiring)
 
 ## Architecture
 
@@ -19,6 +19,7 @@ VirtualDisplayPlatform (orchestrator)
 ├── VirtualDisplayScreenshotProcessor  # Bitmap → ScreenImage + trace
 ├── VirtualDisplayAppController        # App launch on VD
 ├── VirtualDisplayViewerTouchHandler   # Forward viewer touch to VD
+├── ActionVisualizerManager            # Optional real-screen touch feedback
 └── ShizukuClient                      # Binder wrapper (IDisplayManager, IInputManager)
 ```
 
@@ -77,6 +78,11 @@ All callback-driven framework APIs use `boundedCallback()` — a shared helper t
 ## Input Injection
 
 > See: `platform/virtualdisplay/VirtualDisplayInputInjector.kt`
+
+Before injected touch actions, `VirtualDisplayPlatform` emits the shared action visualizer on the
+real screen: click/tap/long-press draw a ripple and raw `Swipe` draws a trail. This is intentionally
+outside `VirtualDisplayInputInjector`; the injector owns transport only, while the platform owns
+user-visible feedback and action dispatch ordering.
 
 ### Primary Path: MotionEvent + setDisplayId
 

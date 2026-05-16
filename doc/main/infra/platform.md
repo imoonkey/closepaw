@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, action execution, capture wiring, and virtual display support.
-> Last updated: 2026-04-10 (commit: 4cce154)
+> Last updated: 2026-05-15 (action visualizer wiring restored across Accessibility, VD, and debug action paths)
 
 ## AndroidPlatform
 
@@ -35,6 +35,10 @@ interface AndroidPlatform {
 | `ACCESSIBILITY` | `AccessibilityPlatform` | N/A |
 | `VIRTUAL_DISPLAY` | `VirtualDisplayPlatform` | Falls back to `AccessibilityPlatform` if Shizuku unavailable |
 
+`PlatformFactory.create()` receives the optional `ActionVisualizerManager` from the live
+`AgentService` and passes it into whichever platform is actually constructed. This keeps visual
+feedback tied to the effective platform, including VD sessions.
+
 ---
 
 ## AccessibilityPlatform
@@ -54,7 +58,9 @@ Each `UIAction` variant maps to **exactly one** Android API call. Zero strategy 
 | `SystemButton` | ENTER via `NodeActionPerformer`, others via gesture |
 | `Wait` | `delay(durationMs)` |
 
-Visualizer feedback: click/long-click trigger `showClick()` before executing.
+Visualizer feedback: node click/long-click trigger `showClick()` before executing. Gesture
+tap/long-press/swipe feedback is emitted by `AccessibilityGestureInjector`, which also uses
+`OverlayTouchGate` to make overlays pass through during `dispatchGesture()`.
 
 ### OverlayTouchGate
 
@@ -77,6 +83,12 @@ During `dispatchGesture`, the overlay must become pass-through. `OverlayTouchGat
 ## VirtualDisplayPlatform
 
 -> See: [virtual_display.md](virtual_display.md) for full architecture, hybrid surface model, and ShizukuClient.
+
+VD action dispatch follows the same atomic-platform rule but routes gesture actions through
+`VirtualDisplayInputInjector` instead of `AccessibilityService.dispatchGesture()`. It still emits
+the shared action visualizer on the real screen before node click/long-click, tap, long-press, and
+raw swipe actions so users can see where the agent operated even though the target app lives on the
+virtual display.
 
 ---
 
