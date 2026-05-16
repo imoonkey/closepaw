@@ -188,19 +188,21 @@ known OEM limitations.
 | `scroll` | Content-direction scroll (`up/down/left/right`), optionally scoped to a scrollable element |
 | `swipe` | Precision coordinate gesture using explicit `start`/`end` arrays |
 
-### Single Targeting Constraint
+### Canonical Targeting + Coordinate Hint
 
-For targeted actions (`click`, `long_press`, `type` with target), each call accepts **exactly one** targeting method:
+For targeted actions (`click`, `long_press`, `type` with target), each call has **one canonical semantic target**:
 - `element_index` — index from current screen state (preferred)
 - `text` + optional `text_index` — visible text on screen
 - `x`, `y` — absolute pixel coordinates (last resort)
 
-Multiple targeting methods in a single call → validation error. No implicit priority or cross-target fallback.
+`element_index` and `text` are mutually exclusive. `x`/`y` may accompany a semantic target as a **coordinate hint** (semantic stays canonical, hint is fallback evidence). Hint inside resolved bounds → execute semantic; hint outside → `Ambiguous` failure before dispatch; semantic miss + hint → coordinate fallback with warning.
 
 Special cases:
 - `type` allows no target (types into the currently focused field)
-- `scroll` optionally accepts `element_index` to pick a scroll container
+- `scroll` optionally accepts a semantic target plus an `x/y` hint, but **never** uses coordinate fallback (area-based, not point-based). Bare `x/y` scroll is invalid.
 - `swipe` uses `start: [x,y]` and `end: [x,y]` (no target selectors)
+
+→ See [tool/mobile_action.md](tool/mobile_action.md) → "Coordinate-hint normalization" for the full state machine.
 
 ---
 

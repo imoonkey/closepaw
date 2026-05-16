@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-05-16: Codex targeting normalization — semantic-primary coordinate hints
+
+**What changed:**
+- `Target.ElementIndex` / `Target.Text` accept an optional `coordinateHint: Coordinate? = null`. `TargetResolver.ResolveResult` gains an `Ambiguous(reason)` variant and `Resolved.coordinateFallback: Boolean` flag.
+- `MobileActionTool` validation: removed the "exactly one of element_index/text/x_y" mutual-exclusion check. `element_index + x/y` and `text + x/y` now validate; `element_index + text` (with or without x/y) still rejects. Bare `x/y` on `scroll` rejects (scroll is area-based). Negative element_index, partial/negative coords, and bounds selectors still reject.
+- Execution rules: semantic resolves + hint inside resolved bounds → execute semantic (strict half-open `Rect.contains`); hint outside bounds → `Ambiguous` failure before dispatch; semantic miss + hint → coordinate fallback with warning surfaced to LLM. `PointActionExecutorCore` gates the node-action channel on `resolved.semanticHint != null && !coordinateFallback`. `TypeExecutor` adds an explicit coordinate-fallback path (`TapAt` + `SetTextOnFocused`, skipping `SetTextOnNodeAt`). `ScrollExecutor` explicitly rejects `Resolved.coordinateFallback=true` — scroll never falls back to a single point.
+- `ActionDescriptionFormatter` display priority now matches runtime: `element_index > text > bounds (legacy) > x/y` (was `text > bounds > point > element`). Fixes "runtime clicks element, log says Click at (x,y)".
+- Added debug-only `MobileActionDebugRunner` (`BroadcastReceiver`, gated by `BuildConfig.DEBUG`) + `scripts/mobile-action-test.sh` for deterministic QA of dual-target shapes the LLM cannot reliably emit.
+
+**Why:**
+- Codex backend regularly emits `{element_index, x, y}` together; the old "exactly one selector" check wasted a turn on otherwise-valid calls. Rejected alternatives: prompt-only fix (model still emits dual targets), full multi-selector fallback chain (was deliberately removed for hiding bad grounding), always-ignore-coords (misses contradictory output), coords-as-primary (regresses overlap handling), slop-around-bounds (magic number, v1 chose strict). Final design: one canonical target with the coord as a checked redundant hint or a marked fallback.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/tool/action/{Target,TargetResolver,PointActionExecutorCore,TypeExecutor,ScrollExecutor}.kt`, `app/src/main/kotlin/ai/closepaw/tool/impl/MobileActionTool.kt`, `app/src/main/kotlin/ai/closepaw/agent/ActionDescriptionFormatter.kt`, `app/src/main/kotlin/ai/closepaw/debug/MobileActionDebugRunner.kt`, `doc/main/infra/tool/mobile_action.md`
+**Verification:** `./gradlew testDebugUnitTest --tests ai.closepaw.tool.* --tests ai.closepaw.agent.ActionTargetTest` passed. Codex review found 0 blockers, 3 majors (auto-fixed). Real-device QA on Tailscale-attached device: all 6 scenarios PASS (in-bounds semantic, out-of-bounds Ambiguous, coordinate fallback, type fallback, scroll guard, single-target regression).
+**Commit:** `1021410d..6345f6fe` (PR #41, merged at `81d74b71`)
+**Next:** Watch eval traces for false-ambiguity cases that might motivate slop. Consider archiving `projects/active/codex_targeting_normalization/` once stable.
+**Blockers:** None.
+
 ## 2026-05-16: Archive completed task docs
 
 **What changed:**

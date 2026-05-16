@@ -220,6 +220,18 @@ Use `action-test.sh` to isolate action execution outside the full agent loop:
 
 This is useful when `mobile_action` reports success but UI does not change.
 
+### 3.2 Direct MobileActionTool Debug (Tool Pipeline)
+
+`action-test.sh` exercises the platform layer directly; `mobile-action-test.sh` exercises the **full tool pipeline** — `MobileActionTool.validate → createInvocation → TargetResolver → executor → AccessibilityPlatform`. Use it when you need deterministic dual-target shapes the LLM cannot reliably emit (e.g. `element_index + x/y outside bounds` to verify `Ambiguous` failure):
+
+```bash
+./scripts/mobile-action-test.sh '{"action":"click","element_index":28,"x":632,"y":1844}'
+./scripts/mobile-action-test.sh '{"action":"click","element_index":28,"x":99999,"y":99999}'  # Ambiguous
+./scripts/mobile-action-test.sh '{"action":"click","element_index":9999,"x":632,"y":1844}'  # coordinate fallback
+```
+
+Backed by `MobileActionDebugRunner` — a debug-only (`BuildConfig.DEBUG`) `BroadcastReceiver` registered in `AgentService`. Writes `result.json` + `pre_tree.json` + `post_tree.json` to `/sdcard/Android/data/ai.closepaw/files/mobile-action-debug/latest/`.
+
 ### 4. View Logs
 
 Monitor agent behavior through filtered logs:
