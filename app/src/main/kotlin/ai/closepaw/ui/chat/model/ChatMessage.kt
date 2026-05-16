@@ -48,8 +48,8 @@ sealed interface ChatMessage {
         /**
          * VD completion handoff metadata — populated only when [TaskCompleted]
          * carries one (i.e. the row finished on the Virtual Display). Drives
-         * the explicit "Open <App>" / "View virtual screen" CTAs in the final
-         * region. Null for accessibility completions and historical rows.
+         * the explicit "Open <App>" CTA in the final region. Null for
+         * accessibility completions and historical rows.
          */
         val handoff: CompletionHandoff? = null,
     ) : ChatMessage

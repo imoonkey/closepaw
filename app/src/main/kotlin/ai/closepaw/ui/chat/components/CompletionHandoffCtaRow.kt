@@ -18,36 +18,17 @@ import ai.closepaw.protocol.CompletionHandoff
 import ai.closepaw.ui.theme.closePaw
 
 /**
- * Visibility decision for the completion-handoff CTA. Pure-Kotlin so it can
- * be unit-tested without Compose; the composable below combines it with the
- * Android `PackageManager` lookup that requires a real `Context`.
- *
- * The "View virtual screen" CTA was removed: post-completion the viewer had no
- * working takeover/exit affordance and no edge glow, so the button was a dead
- * end. `CompletionHandoff.virtualDisplayAvailable` is still captured so the
- * affordance can be re-introduced if/when the VD session can outlive task
- * completion (see vd-runtime-boundary).
+ * Pure-Kotlin guard for the "Open <App>" CTA. Returns true when [handoff] has a
+ * non-null `appPackage` AND [canResolveLauncher] reports the package resolves to
+ * a launcher intent. Extracted so the visibility decision can be unit-tested
+ * without Compose; the composable below wraps `PackageManager.getLaunchIntentForPackage`.
  */
-internal data class CompletionHandoffCtaVisibility(
-    val showOpenApp: Boolean,
-) {
-    val any: Boolean get() = showOpenApp
-}
-
-/**
- * Compute whether to render the Open <App> CTA.
- *
- * @param canResolveLauncher returns true when `PackageManager.getLaunchIntentForPackage`
- *   would yield a non-null intent for the given package — injected so this stays
- *   testable. Only invoked when [CompletionHandoff.appPackage] is non-null.
- */
-internal fun completionHandoffCtaVisibility(
+internal fun shouldShowOpenAppCta(
     handoff: CompletionHandoff?,
     canResolveLauncher: (String) -> Boolean,
-): CompletionHandoffCtaVisibility {
-    if (handoff == null) return CompletionHandoffCtaVisibility(false)
-    val showOpenApp = handoff.appPackage?.let(canResolveLauncher) ?: false
-    return CompletionHandoffCtaVisibility(showOpenApp = showOpenApp)
+): Boolean {
+    val pkg = handoff?.appPackage ?: return false
+    return canResolveLauncher(pkg)
 }
 
 /**
@@ -61,15 +42,11 @@ internal fun CompletionHandoffCtaRow(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val pkg = handoff.appPackage
-    val visibility = remember(pkg) {
-        completionHandoffCtaVisibility(
-            handoff = handoff,
-            canResolveLauncher = { p -> context.packageManager.getLaunchIntentForPackage(p) != null },
-        )
+    val pkg = handoff.appPackage ?: return
+    val canOpen = remember(pkg) {
+        shouldShowOpenAppCta(handoff) { p -> context.packageManager.getLaunchIntentForPackage(p) != null }
     }
-    if (!visibility.any) return
-    val resolvablePkg = pkg ?: return
+    if (!canOpen) return
 
     val spacing = MaterialTheme.closePaw.spacing
     Row(
@@ -78,9 +55,9 @@ internal fun CompletionHandoffCtaRow(
             .testTag("qa-handoff-cta-row"),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        val label = handoff.appLabel ?: resolvablePkg
+        val label = handoff.appLabel ?: pkg
         FilledTonalButton(
-            onClick = { onOpenApp(resolvablePkg) },
+            onClick = { onOpenApp(pkg) },
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
             modifier = Modifier
                 .height(32.dp)

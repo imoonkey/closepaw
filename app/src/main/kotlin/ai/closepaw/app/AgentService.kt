@@ -13,7 +13,6 @@ import ai.closepaw.debug.ActionDebugReceiver
 import ai.closepaw.protocol.Op
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.protocol.SessionConfig
-import ai.closepaw.protocol.SessionState
 import ai.closepaw.session.AgentSession
 import ai.closepaw.ui.overlay.compose.IslandOverlayHost
 import ai.closepaw.ui.overlay.compose.ServiceLifecycleOwner

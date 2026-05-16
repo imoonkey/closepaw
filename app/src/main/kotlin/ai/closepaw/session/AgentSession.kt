@@ -485,19 +485,15 @@ private constructor(
     /**
      * Capture runtime handoff metadata when running a Virtual Display platform; null otherwise.
      *
-     * VD mode reads the current foreground package and the viewer's liveness so chat can render
-     * explicit "Open <App>" / "View virtual screen" CTAs. Accessibility mode emits no handoff —
-     * the agent worked on the real screen so the user is already there.
+     * VD mode reads the current foreground package so chat can render the explicit
+     * "Open <App>" CTA. Accessibility mode emits no handoff — the agent worked on
+     * the real screen so the user is already there.
      */
     private fun buildHandoffIfVd(): CompletionHandoff? {
         val platform = services.platform
         if (platform.mode != PlatformMode.VIRTUAL_DISPLAY) return null
-        val viewerAvailable =
-                (platform as? ai.closepaw.platform.virtualdisplay.VirtualDisplayPlatform)
-                        ?.isViewerAvailable() ?: false
         return buildVdCompletionHandoff(
                 appPackage = platform.getCurrentPackageName(),
-                viewerAvailable = viewerAvailable,
                 packageManager = service.packageManager,
                 selfPackage = service.packageName,
                 classifyTier = { services.appClassifier.classify(it) },

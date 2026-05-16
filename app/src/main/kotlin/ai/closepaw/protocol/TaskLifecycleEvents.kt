@@ -14,7 +14,7 @@ data class TaskStarted(
  * [outcome] indicates how the task ended — goal achieved, max turns, error, etc.
  *
  * [handoff] is populated only for Virtual Display completions so chat can render
- * "Open <App>" / "View virtual screen" CTAs. Null for accessibility completions.
+ * the "Open <App>" CTA. Null for accessibility completions.
  */
 data class TaskCompleted(
         override val sessionId: SessionId,

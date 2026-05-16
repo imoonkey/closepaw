@@ -28,19 +28,9 @@ import org.junit.Test
 
 /**
  * Regression guard for the `vd_completion_handoff` design (guards section):
- * tapping "New Session" must NEVER consult `CompletionHandoff` or invoke the
- * `Open <App>` / `View virtual screen` actions. Handoff is only reachable
- * through the explicit CTA buttons on a completed agent row.
- *
- * Strategy: drive a real [ChatViewModel] through a VD completion (TaskCompleted
- * carrying a valid handoff), confirm the row captured the handoff, then invoke
- * [ChatViewModel.startNewSession] and assert:
- *   1. The chat is reset (no messages, empty-state restored).
- *   2. The new-session code path does not touch the open-app / open-viewer
- *      callbacks — proven structurally: the [ChatViewModel] API surface used
- *      by the "New Session" button does not accept those callbacks at all, so
- *      counter-style fakes wired into a parallel scenario are guaranteed to
- *      observe zero invocations.
+ * tapping "New Session" must clear the chat and drop any handoff-bearing row,
+ * so the "Open <App>" CTA on a prior completion can never be re-triggered
+ * after reset.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NewSessionNoHandoffTest {
@@ -73,15 +63,6 @@ class NewSessionNoHandoffTest {
         val (session, events) = fakeSession()
         val vm = ChatViewModel(sessionProvider = { session })
 
-        // Counters proxy the MainActivity-side CTA callbacks. The new-session
-        // path does NOT receive these (verified structurally), but we wire
-        // them here so any future regression that funnels handoff data into a
-        // launch helper would have to introduce a leak that triggers them.
-        var openAppCount = 0
-        var openViewerCount = 0
-        val onOpenApp: (String) -> Unit = { openAppCount++ }
-        val onOpenViewer: () -> Unit = { openViewerCount++ }
-
         vm.startEventCollection(session)
         advanceUntilIdle()
 
@@ -99,7 +80,6 @@ class NewSessionNoHandoffTest {
         val handoff = CompletionHandoff(
             appPackage = "com.google.android.youtube",
             appLabel = "YouTube",
-            virtualDisplayAvailable = true,
         )
         events.emit(
             TaskCompleted(
@@ -113,7 +93,7 @@ class NewSessionNoHandoffTest {
         )
         advanceUntilIdle()
 
-        // Sanity: the row carries the handoff so the CTAs would render.
+        // Sanity: the row carries the handoff so the CTA would render.
         val completedAgent = vm.messages.filterIsInstance<ChatMessage.Agent>().last()
         assertThat(completedAgent.handoff).isEqualTo(handoff)
 
@@ -121,27 +101,20 @@ class NewSessionNoHandoffTest {
         vm.startNewSession()
         advanceUntilIdle()
 
-        // Reset complete: no messages, empty-state restored.
+        // Reset complete: no messages, empty-state restored, no surviving
+        // handoff row that a render pass could turn into a CTA.
         assertThat(vm.messages).isEmpty()
         assertThat(vm.uiState.value.showEmptyState).isTrue()
-
-        // No app or viewer launch was triggered as a side effect of the reset.
-        // The callbacks aren't even reachable from `startNewSession`; if a
-        // future refactor wires them in, this assertion catches it because
-        // the only way to bump these counters is to invoke the callbacks.
-        assertThat(openAppCount).isEqualTo(0)
-        assertThat(openViewerCount).isEqualTo(0)
-        // Suppress unused-lambda warning while keeping the leak-detection
-        // semantics explicit for readers.
-        @Suppress("UNUSED_EXPRESSION") onOpenApp
-        @Suppress("UNUSED_EXPRESSION") onOpenViewer
+        assertThat(
+            vm.messages.filterIsInstance<ChatMessage.Agent>().any { it.handoff != null }
+        ).isFalse()
     }
 
     @Test
     fun `startNewSession does not retain any handoff-bearing agent row`() {
         // Direct controller-level check: even when prior messages include a
         // completed agent row with valid handoff metadata, the reset clears
-        // the list entirely — no row survives that could re-trigger CTAs.
+        // the list entirely — no row survives that could re-trigger the CTA.
         val messages = androidx.compose.runtime.mutableStateListOf<ChatMessage>(
             ChatMessage.User(id = "u1", timestamp = 1L, text = "open camera on vd"),
             ChatMessage.Agent(
@@ -154,7 +127,6 @@ class NewSessionNoHandoffTest {
                 handoff = CompletionHandoff(
                     appPackage = "com.android.camera",
                     appLabel = "Camera",
-                    virtualDisplayAvailable = true,
                 ),
             ),
         )

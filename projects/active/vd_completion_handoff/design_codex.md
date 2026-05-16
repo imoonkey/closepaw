@@ -5,10 +5,11 @@
 > viewer had no working takeover, no edge glow, and no exit affordance, so
 > the button landed users on a dead surface (see
 > `view_vd_tap_bug.md`, `codex_general_review.md` HIGH #1, and commit
-> `2dfc19bd`). Only the `Open <App>` CTA ships. The `virtualDisplayAvailable`
-> field on `CompletionHandoff` is still captured so the viewer CTA can be
-> re-introduced once the broader `vd-runtime-boundary` work keeps the VD
-> session alive past completion and restores the in-viewer controls.
+> `2dfc19bd`). Only the `Open <App>` CTA ships. A follow-up cleanup
+> (commit `52b91567` review + fix-up commit) also dropped the
+> `virtualDisplayAvailable` field on `CompletionHandoff` because it had no
+> consumer; if/when the broader `vd-runtime-boundary` work re-introduces a
+> usable viewer CTA, the field can be added back at that point.
 
 ## Goal
 
@@ -30,7 +31,6 @@ At `TaskCompleted`, if the effective platform is `VIRTUAL_DISPLAY`, capture:
 data class CompletionHandoff(
     val appPackage: String?,
     val appLabel: String?,
-    val virtualDisplayAvailable: Boolean, // captured but not currently rendered
 )
 ```
 
@@ -46,7 +46,6 @@ No automatic app launch. No screenshot fallback. No promise to restore the exact
 - `AgentSession`: builds handoff metadata when emitting `TaskCompleted`.
   - `appPackage`: `services.platform.getCurrentPackageName()` in VD mode (filtered through `AppClassifier` to drop BLOCKED-tier packages and self/SystemUI).
   - `appLabel`: resolved from `PackageManager` with `NameNotFoundException` → null.
-  - `virtualDisplayAvailable`: true only while the current VD platform can still open the viewer. Captured for future use; not currently rendered.
 - `ChatMessage.Agent`: stores optional completion handoff metadata.
 - `ChatEventReducer`: copies `TaskCompleted.handoff` into the completed agent row.
 - `AgentRow` / final region: renders the `Open <App>` CTA under the final answer when `RowState.Complete` and `handoff != null`.

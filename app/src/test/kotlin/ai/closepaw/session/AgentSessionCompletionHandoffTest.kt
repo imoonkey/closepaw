@@ -57,8 +57,6 @@ class AgentSessionCompletionHandoffTest {
         assertThat(handoff).isNotNull()
         assertThat(handoff!!.appPackage).isEqualTo("com.example.target")
         assertThat(handoff.appLabel).isEqualTo("Target App")
-        // Fake platform isn't a real VirtualDisplayPlatform — viewer availability degrades to false.
-        assertThat(handoff.virtualDisplayAvailable).isFalse()
 
         job.cancel()
     }

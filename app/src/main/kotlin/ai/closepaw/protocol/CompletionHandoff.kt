@@ -4,15 +4,13 @@ import android.content.pm.PackageManager
 
 /**
  * Runtime metadata captured at `TaskCompleted` for Virtual Display tasks so the
- * chat row can render explicit handoff CTAs ("Open <App>", "View virtual screen").
- *
- * Absent (null) for non-VD completions. Carries only facts knowable at completion
- * time — no intent classification.
+ * chat row can render the explicit "Open <App>" handoff CTA. Absent (null) for
+ * non-VD completions. Carries only facts knowable at completion time — no intent
+ * classification.
  */
 data class CompletionHandoff(
         val appPackage: String?,
         val appLabel: String?,
-        val virtualDisplayAvailable: Boolean,
 )
 
 /**
@@ -20,12 +18,11 @@ data class CompletionHandoff(
  *
  * Drops self/system-UI packages and any package classified BLOCKED so the chat row
  * never offers a launcher CTA into apps the policy floor forbids (finance/auth).
- * Render-time filtering for launcher intent still happens later. Label resolution
- * catches [PackageManager.NameNotFoundException] and falls back to null.
+ * Render-time filtering for launcher intent resolution still happens later. Label
+ * resolution catches [PackageManager.NameNotFoundException] and falls back to null.
  */
 fun buildVdCompletionHandoff(
         appPackage: String?,
-        viewerAvailable: Boolean,
         packageManager: PackageManager,
         selfPackage: String,
         classifyTier: (String) -> AppTier,
@@ -46,6 +43,5 @@ fun buildVdCompletionHandoff(
     return CompletionHandoff(
             appPackage = filtered,
             appLabel = label,
-            virtualDisplayAvailable = viewerAvailable,
     )
 }

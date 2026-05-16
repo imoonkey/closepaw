@@ -113,6 +113,7 @@ NC='\033[0m'
 log() { echo -e "${BLUE}> $1${NC}"; }
 ok() { echo -e "${GREEN}✓ $1${NC}"; }
 warn() { echo -e "${YELLOW}! $1${NC}"; }
+err() { echo -e "${RED}x $1${NC}"; exit 1; }
 
 list_connected_devices() {
     adb devices | awk 'NR > 1 && $2 == "device" {print $1}'

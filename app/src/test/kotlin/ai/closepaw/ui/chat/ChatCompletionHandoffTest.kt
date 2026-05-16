@@ -41,7 +41,6 @@ class ChatCompletionHandoffTest {
         val handoff = CompletionHandoff(
             appPackage = "com.google.android.youtube",
             appLabel = "YouTube",
-            virtualDisplayAvailable = true,
         )
 
         f.reducer.handle(
@@ -86,7 +85,6 @@ class ChatCompletionHandoffTest {
         val handoff = CompletionHandoff(
             appPackage = "com.android.camera",
             appLabel = "Camera",
-            virtualDisplayAvailable = false,
         )
 
         appendCompletionToMessages(
