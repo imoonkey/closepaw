@@ -93,7 +93,7 @@ internal suspend fun executePointAction(
 
     for (channel in channels) {
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before $actionName attempt")
-        if (channel.requiresSemantic && !target.isSemantic()) continue
+        if (channel.requiresSemantic && semanticHint == null) continue
 
         val result = platform.performAction(channel.createAction(point, semanticHint))
         when (result) {
@@ -190,8 +190,6 @@ private fun isWithinDisplayBounds(point: Point, displayInfo: DisplayInfo): Boole
     return point.x in 0 until displayInfo.widthPixels &&
         point.y in 0 until displayInfo.heightPixels
 }
-
-private fun Target.isSemantic(): Boolean = this is Target.ElementIndex || this is Target.Text
 
 private fun refinePointActionTarget(
     actionName: String,
