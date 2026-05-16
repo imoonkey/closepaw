@@ -36,16 +36,19 @@ internal data class CompletionHandoffCtaVisibility(
  * @param canResolveLauncher returns true when [PackageManager.getLaunchIntentForPackage]
  *   would yield a non-null intent for the given package — injected so this stays
  *   testable. Only invoked when [CompletionHandoff.appPackage] is non-null.
+ * @param isVirtualDisplayViewerAvailable live session-level guard used to hide
+ *   stale completed rows once the VD session has shut down.
  */
 internal fun completionHandoffCtaVisibility(
     handoff: CompletionHandoff?,
     canResolveLauncher: (String) -> Boolean,
+    isVirtualDisplayViewerAvailable: Boolean = true,
 ): CompletionHandoffCtaVisibility {
     if (handoff == null) return CompletionHandoffCtaVisibility(false, false)
     val showOpenApp = handoff.appPackage?.let(canResolveLauncher) ?: false
     return CompletionHandoffCtaVisibility(
         showOpenApp = showOpenApp,
-        showOpenViewer = handoff.virtualDisplayAvailable,
+        showOpenViewer = handoff.virtualDisplayAvailable && isVirtualDisplayViewerAvailable,
     )
 }
 
@@ -54,22 +57,25 @@ internal fun completionHandoffCtaVisibility(
  * "Open <App>" launches the package on the real display, "View virtual screen"
  * opens the existing virtual display viewer. Each button is hidden when its
  * guard fails (per design_codex.md): an unresolvable / null package suppresses
- * Open, and `!virtualDisplayAvailable` suppresses the viewer button. Returns
- * nothing visible if neither guard passes.
+ * Open, and either captured or live viewer unavailability suppresses the viewer
+ * button. Returns nothing visible if neither guard passes.
  */
 @Composable
 internal fun CompletionHandoffCtaRow(
     handoff: CompletionHandoff,
     onOpenApp: (String) -> Unit,
     onOpenViewer: () -> Unit,
+    isVirtualDisplayViewerAvailable: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val pkg = handoff.appPackage
-    val visibility = remember(pkg, handoff.virtualDisplayAvailable) {
-        completionHandoffCtaVisibility(handoff) { p ->
-            context.packageManager.getLaunchIntentForPackage(p) != null
-        }
+    val visibility = remember(pkg, handoff.virtualDisplayAvailable, isVirtualDisplayViewerAvailable) {
+        completionHandoffCtaVisibility(
+            handoff = handoff,
+            canResolveLauncher = { p -> context.packageManager.getLaunchIntentForPackage(p) != null },
+            isVirtualDisplayViewerAvailable = isVirtualDisplayViewerAvailable,
+        )
     }
     if (!visibility.any) return
     val resolvablePkg: String? = if (visibility.showOpenApp) pkg else null

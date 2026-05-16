@@ -72,10 +72,13 @@ internal fun MainActivityContent(
     onSignOut: () -> Unit = {},
     initialSettingsDeepLink: SettingsDeepLink? = null,
     effectivePlatformModeFlow: StateFlow<PlatformMode?> = MutableStateFlow(null),
+    virtualDisplayViewerAvailableFlow: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
     ClosePawTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
         val effectivePlatformMode by effectivePlatformModeFlow.collectAsStateWithLifecycle()
+        val virtualDisplayViewerAvailable by
+            virtualDisplayViewerAvailableFlow.collectAsStateWithLifecycle()
 
         // Deep-link target captured when a banner/tap wants Settings opened at a
         // specific tab. Forwarded into SettingsSheet via initialPage/initialAuthTab.
@@ -101,6 +104,7 @@ internal fun MainActivityContent(
                 onLoadSessions = { viewModel.loadSessions() },
                 onOpenViewer = onOpenViewer,
                 onOpenApp = onOpenApp,
+                isVirtualDisplayViewerAvailable = virtualDisplayViewerAvailable,
                 repairModel = repairModel,
                 onFixAccessibility = onAccessibilityClick,
                 onFixOverlay = onOverlayClick,

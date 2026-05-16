@@ -33,6 +33,7 @@ fun MessageBubble(
     message: ChatMessage,
     onOpenApp: (String) -> Unit = {},
     onOpenViewer: () -> Unit = {},
+    isVirtualDisplayViewerAvailable: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
@@ -46,6 +47,7 @@ fun MessageBubble(
             message = message,
             onOpenApp = onOpenApp,
             onOpenViewer = onOpenViewer,
+            isVirtualDisplayViewerAvailable = isVirtualDisplayViewerAvailable,
             modifier = modifier,
         )
     }

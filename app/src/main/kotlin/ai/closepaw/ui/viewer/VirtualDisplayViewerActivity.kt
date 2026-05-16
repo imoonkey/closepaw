@@ -20,6 +20,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import ai.closepaw.app.AgentService
+import ai.closepaw.app.EXTRA_KEEP_VIEWER_OPEN_WHEN_IDLE
 import kotlinx.coroutines.launch
 
 /**
@@ -43,6 +44,8 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
     }
 
     private var surfaceView: SurfaceView? = null
+    private val keepOpenWhenIdle: Boolean
+        get() = intent.getBooleanExtra(EXTRA_KEEP_VIEWER_OPEN_WHEN_IDLE, false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,12 +76,18 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
             )
         }
 
-        // Service requests viewer-finish when the agent reaches a quiescent idle state
-        // (post-task in VD mode). Without this, the user is stranded on a frozen, dead VD
-        // surface with no overlay UI to navigate away from.
+        // Service requests viewer-finish when the agent reaches a quiescent idle state.
+        // Completion CTA launches opt into idle viewing and ignore that finish request
+        // until the VD is actually unavailable.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 AgentService.instance?.viewerFinishSignal?.collect {
+                    if (keepOpenWhenIdle &&
+                        AgentService.instance?.isVirtualDisplayViewerAvailable() == true
+                    ) {
+                        Log.d(TAG, "Ignoring idle finish request while VD is still available")
+                        return@collect
+                    }
                     if (!isFinishing) {
                         Log.d(TAG, "Service requested viewer finish")
                         finish()
@@ -100,7 +109,10 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
         // emit from onViewerOpened()→applyVisibility() may land before the lifecycle
         // collector subscribes (both happen this same tick). Poll synchronously so the
         // viewer never gets stranded on a quiet VD surface.
-        if (AgentService.instance?.shouldFinishViewerNow() == true && !isFinishing) {
+        if (!keepOpenWhenIdle &&
+            AgentService.instance?.shouldFinishViewerNow() == true &&
+            !isFinishing
+        ) {
             Log.d(TAG, "Agent already idle at viewer open - finishing immediately")
             finish()
         }

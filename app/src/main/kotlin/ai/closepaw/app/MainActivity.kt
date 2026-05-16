@@ -46,6 +46,7 @@ import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionLlmConfig
 import ai.closepaw.platform.OverlayTouchGate
+import ai.closepaw.platform.virtualdisplay.VirtualDisplayPlatform
 import ai.closepaw.protocol.SessionState
 import ai.closepaw.session.AgentSession
 import ai.closepaw.session.SessionCoordinator
@@ -252,13 +253,7 @@ class MainActivity : ComponentActivity() {
                         lifecycleScope.launch { coordinator.clearSession() }
                         viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
                     },
-                    onOpenViewer = {
-                        if (AgentService.instance?.isVirtualDisplayViewerAvailable() == true) {
-                            openViewer(this@MainActivity)
-                        } else {
-                            Log.d(TAG, "Open viewer suppressed: VD platform not running")
-                        }
-                    },
+                    onOpenViewer = { openCompletionViewerFromCta() },
                     onOpenApp = { pkg ->
                         packageManager.getLaunchIntentForPackage(pkg)
                             ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
@@ -277,7 +272,10 @@ class MainActivity : ComponentActivity() {
                     onCancelOAuth = ::handleCancelOAuth,
                     onSignOut = ::handleSignOut,
                     effectivePlatformModeFlow = AgentService.instance?.effectivePlatformMode
-                        ?: kotlinx.coroutines.flow.MutableStateFlow(null)
+                        ?: kotlinx.coroutines.flow.MutableStateFlow(null),
+                    virtualDisplayViewerAvailableFlow =
+                        AgentService.instance?.virtualDisplayViewerAvailable
+                            ?: kotlinx.coroutines.flow.MutableStateFlow(false),
                 )
                 pendingGoalForConfirmation?.let { goal ->
                     AlertDialog(
@@ -425,6 +423,33 @@ class MainActivity : ComponentActivity() {
         }
 
         Log.d(TAG, "Current session cleared")
+    }
+
+    private fun openCompletionViewerFromCta() {
+        val service = AgentService.instance
+        val localSession = coordinator.currentSession
+        val localViewerAvailable =
+            (localSession?.getServices()?.platform as? VirtualDisplayPlatform)
+                ?.isViewerAvailable() == true
+        val canOpen = canOpenCompletionViewer(
+            serviceViewerAvailable = service?.isVirtualDisplayViewerAvailable() == true,
+            servicePresent = service != null,
+            localSessionState = localSession?.state?.value,
+            localViewerAvailable = localViewerAvailable,
+        )
+        if (!canOpen) {
+            Log.d(TAG, "Open viewer suppressed: VD platform not running")
+            return
+        }
+
+        if (service != null &&
+            localSession != null &&
+            service.getActiveSession() !== localSession &&
+            localSession.state.value != SessionState.Shutdown
+        ) {
+            service.observeExternalSession(localSession, localSession.getServices().platform.mode)
+        }
+        openViewer(this, keepOpenWhenIdle = true)
     }
 
     private fun rebindActiveServiceSessionIfNeeded() {

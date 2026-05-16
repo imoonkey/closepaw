@@ -47,6 +47,22 @@ class CompletionHandoffCtaVisibilityTest {
     }
 
     @Test
+    fun `live viewer unavailable hides viewer button even when handoff snapshot was available`() {
+        val handoff = CompletionHandoff(
+            appPackage = "com.google.android.youtube",
+            appLabel = "YouTube",
+            virtualDisplayAvailable = true,
+        )
+        val v = completionHandoffCtaVisibility(
+            handoff = handoff,
+            canResolveLauncher = resolveAlways,
+            isVirtualDisplayViewerAvailable = false,
+        )
+        assertThat(v.showOpenApp).isTrue()
+        assertThat(v.showOpenViewer).isFalse()
+    }
+
+    @Test
     fun `null appPackage hides Open button`() {
         val handoff = CompletionHandoff(
             appPackage = null,
