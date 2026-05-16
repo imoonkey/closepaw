@@ -275,12 +275,6 @@ class SubAgentRunnerTest {
                 assertThat(result.message).contains("Could not find Notion app: Not installed")
         }
 
-        // Deleted: `runner returns narrative summary when executor hits step limit`.
-        // The MaxTurnsReached stop path no longer fires from the agent loop
-        // (ac-agent-loop-rewire removed the per-turn cap). Subagent runaway is
-        // now bounded by `timeoutMs` only; the timeout case is already covered
-        // by `runner returns timeout when child exceeds timeout`. The narrative
-        // formatter branch in SubAgentRunner remains for task-8 cleanup.
 }
 
 private fun buildServices(

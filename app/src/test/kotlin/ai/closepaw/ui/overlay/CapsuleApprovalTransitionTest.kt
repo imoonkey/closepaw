@@ -205,8 +205,6 @@ class CapsuleApprovalTransitionTest {
         assertThat(holder.mode.value).isEqualTo(CapsuleMode.Hidden)
     }
 
-    // Removed `MAX_TURNS sets Done` — TaskOutcome.MAX_TURNS deleted (auto-compact branch).
-
     @Test
     fun `task completed TASK_IMPOSSIBLE sets Done with impossible message`() {
         holder.onTaskStarted("task1", "input")

@@ -312,6 +312,79 @@ class AgentRunLoopTest {
         assertThat(llm.callCount).isEqualTo(0) // confirms planning was skipped
     }
 
+    // ---------------- Compactor circuit breaker: Failed×3 stops the loop ----------------
+
+    @Test
+    fun `consecutive compactor Failed×3 stops the loop with Error`() = runTest {
+        // Continue×2 is enough — the loop breaks on the 3rd maybeCompact() failure
+        // BEFORE turn 3 reaches the LLM.
+        val llm = ProgrammableLLMClient(
+            listOf(LLMBehavior.Continue, LLMBehavior.Continue)
+        )
+        // A compactor wired so every maybeCompact() trips Failed: trigger threshold
+        // is below the seeded history's token count, but the inner LLM throws.
+        val failingCompactorLlm = object : LLMClient() {
+            var calls = 0
+                private set
+
+            override suspend fun chatWithTools(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+            ): ResponsesResult {
+                calls++
+                throw RuntimeException("summary boom #$calls")
+            }
+
+            override fun chatWithToolsStreaming(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+            ): Flow<LLMStreamEvent> = flow { emit(LLMStreamEvent.Completed) }
+        }
+        val compactor = ai.closepaw.history.Compactor(
+            llmClient = failingCompactorLlm,
+            model = ai.closepaw.llm.ModelEntry(
+                name = "test-compactor",
+                displayName = "Test Compactor",
+                provider = ai.closepaw.llm.LLMProvider.OPENAI_API,
+                api = ai.closepaw.llm.ApiType.RESPONSE,
+                modelId = "test-compactor",
+                contextWindow = 100,
+            ),
+            initialPrompt = "",
+            updatePrompt = "",
+            staticOverheadTokens = 0,
+            reserveTokens = 10,
+            keepRecentTokens = 5,
+        )
+
+        val history = HistoryManager().apply {
+            // Pre-seed so historyTokens > triggerTokens (= 90) and findSafeCutPoint
+            // can locate a Message boundary in the kept tail.
+            repeat(4) {
+                addItem(ai.closepaw.history.ResponseItem.Message(
+                    ai.closepaw.history.MessageKind.ASSISTANT_TEXT,
+                    "x".repeat(200)
+                ))
+            }
+        }
+
+        val reason = newAgent(
+            llm,
+            compactor = compactor,
+            historyManager = history,
+        ).run()
+
+        assertThat(reason).isInstanceOf(AgentStopReason.Error::class.java)
+        assertThat((reason as AgentStopReason.Error).message).contains("Auto-compaction failed 3")
+        assertThat(failingCompactorLlm.calls).isEqualTo(3)
+        // Only two turns executed before the breaker tripped on the 3rd pre-turn check.
+        assertThat(llm.callCount).isEqualTo(2)
+    }
+
     // -------------------- Helpers --------------------
 
     private fun newAgent(
@@ -320,6 +393,8 @@ class AgentRunLoopTest {
         cancellationSignal: CompletableDeferred<AgentStopReason> = CompletableDeferred(),
         platform: AndroidPlatform = FakeAndroidPlatform(),
         evalTurnBudget: Int? = null,
+        compactor: ai.closepaw.history.Compactor? = null,
+        historyManager: HistoryManager = HistoryManager(),
     ): Agent {
         val toolRegistry = ToolRegistry().apply {
             if (registerCompleteTask) register(CompleteTaskTool())
@@ -335,7 +410,7 @@ class AgentRunLoopTest {
         val services = SessionServices(
             toolRegistry = toolRegistry,
             toolRouter = ToolRouter(toolRegistry, policyEngine),
-            historyManager = HistoryManager(),
+            historyManager = historyManager,
             sessionState = AgentSessionState(),
             policyEngine = policyEngine,
             appClassifier = AppClassifier(emptyMap()),
@@ -356,7 +431,7 @@ class AgentRunLoopTest {
                 evalTurnBudget = evalTurnBudget,
             ),
             services = services,
-            compactor = noopCompactor(),
+            compactor = compactor ?: noopCompactor(),
             eventEmitter = {},
             cancellationSignal = cancellationSignal
         )

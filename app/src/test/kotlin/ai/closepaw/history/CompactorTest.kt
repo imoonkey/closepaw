@@ -281,6 +281,49 @@ class CompactorTest {
         assertThat(digest.content).contains("step2")
     }
 
+    // ── CAS race ────────────────────────────────────────────────────────
+
+    @Test
+    fun `CAS race returns Stale when supplement arrives during summarization`() {
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val client = RecordingClient(
+            response = "## Progress\n- step1",
+            onCall = {
+                started.complete(Unit)
+                release.await()
+            }
+        )
+        val compactor = newCompactor(
+            client,
+            contextWindow = 2_000,
+            reserve = 200,
+            keepRecent = 200,
+        )
+        val history = HistoryManager()
+        repeat(6) { history.addItem(assistant(300)) }
+        history.addItem(assistant(50))
+
+        var outcome: CompactionOutcome? = null
+        runBlocking {
+            val job = async { outcome = compactor.maybeCompact("Goal", history) }
+            started.await()
+            // Concurrent supplement bumps the revision out from under the in-flight summarizer.
+            history.addItem(userIntent("Supplement: also do Y"))
+            release.complete(Unit)
+            job.await()
+        }
+
+        assertThat(outcome).isEqualTo(CompactionOutcome.Stale)
+        // Supplement preserved; no COMPACTION_SUMMARY inserted by the stale swap.
+        val items = history.getAll()
+        assertThat(items.last()).isInstanceOf(ResponseItem.Message::class.java)
+        assertThat((items.last() as ResponseItem.Message).content).contains("Supplement: also do Y")
+        assertThat(items.none {
+            it is ResponseItem.Message && it.kind == MessageKind.COMPACTION_SUMMARY
+        }).isTrue()
+    }
+
     // ── cancellation ────────────────────────────────────────────────────
 
     @Test
