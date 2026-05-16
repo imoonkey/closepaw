@@ -192,7 +192,7 @@ Key handoff-related suites verified to exist and pass under that run:
 1. **On-device e2e evidence captured.** Real-device run logged
    `PlatformFactory: Using VirtualDisplayPlatform: 1264x2800@560dpi` and all
    four flows were exercised by tap, with screenshots stored under
-   `projects/active/vd_completion_handoff/qa_evidence/`:
+   `projects/archive/20260516_vd_completion_handoff/qa_evidence/`:
    - `01_completion_chat_with_ctas.png` — completed VD row showing both
      `Open <App>` and `View virtual screen` CTAs (Flow A + B + C visibility).
    - `03_open_app_launcher.png` — after tapping `Open 系统桌面`,

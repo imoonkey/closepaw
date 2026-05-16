@@ -1,0 +1,150 @@
+{
+  "vd-completion-handoff": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Virtual Display completion handoff",
+    "description": "Keep VD task completion in ClosePaw chat by default and expose a single explicit Open <App> CTA for the last valid real app. New Session remains a pure chat reset and must not trigger app/viewer handoff. The originally designed View virtual screen CTA was implemented during the branch and removed before merge; restoring it belongs to vd-runtime-boundary once VD lifetime/controls are fixed.",
+    "design": "projects/archive/20260516_vd_completion_handoff/design_codex.md",
+    "acceptCriteria": [
+      "projects/archive/20260516_vd_completion_handoff/implementation_summary.md exists and records shipped PR #40",
+      "projects/archive/20260516_vd_completion_handoff/qa_report.md exists with shipped behavior notes",
+      "All vd-completion-handoff child tasks are terminal",
+      "No automatic app/viewer handoff happens on TaskCompleted or New Session"
+    ],
+    "priority": "high",
+    "tags": [
+      "virtual-display",
+      "chat",
+      "handoff"
+    ],
+    "estimate": "m",
+    "created": "2026-05-15T10:39:27Z",
+    "updated": "2026-05-16T06:35:25Z",
+    "note": "Archived after shipped implementation narrowed the handoff surface to a single Open <App> CTA; viewer CTA deferred to vd-runtime-boundary."
+  },
+  "vd-handoff-event-model": {
+    "parent": "vd-completion-handoff",
+    "depends": [],
+    "state": "done",
+    "title": "VD handoff event and chat model",
+    "description": "Add optional CompletionHandoff metadata to task completion and completed chat rows so VD completions can carry the last valid real app package/label. Final shipped model deliberately omits viewer availability after the viewer CTA was removed.",
+    "design": "projects/archive/20260516_vd_completion_handoff/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/protocol/*",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/model/*",
+      "app/src/test/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "CompletionHandoff(appPackage, appLabel) exists in protocol",
+      "TaskCompleted carries optional handoff metadata",
+      "Completed agent row model can represent absent handoff metadata without changing non-VD completions",
+      "./gradlew :app:testDebugUnitTest passed per projects/archive/20260516_vd_completion_handoff/implementation_summary.md"
+    ],
+    "priority": "high",
+    "tags": [
+      "virtual-display",
+      "chat",
+      "model"
+    ],
+    "estimate": "s",
+    "created": "2026-05-15T10:39:27Z",
+    "updated": "2026-05-16T06:35:25Z",
+    "note": "Shipped in PR #40; viewer availability field was removed before merge."
+  },
+  "vd-handoff-capture": {
+    "parent": "vd-completion-handoff",
+    "depends": [
+      "vd-handoff-event-model"
+    ],
+    "state": "done",
+    "title": "Capture VD completion handoff metadata",
+    "description": "Build handoff metadata when emitting TaskCompleted in VD mode: capture the last foreground app package/label after filtering self, SystemUI, and BLOCKED-tier packages. Accessibility mode emits no handoff.",
+    "design": "projects/archive/20260516_vd_completion_handoff/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt",
+      "app/src/main/kotlin/ai/closepaw/platform/virtualdisplay/*",
+      "app/src/test/kotlin/ai/closepaw/session/**"
+    ],
+    "acceptCriteria": [
+      "VD TaskCompleted emits handoff metadata with package/label when a valid VD foreground package is active",
+      "Accessibility-mode TaskCompleted has null/absent handoff metadata",
+      "Blocked, self, and SystemUI packages are filtered out at capture time",
+      "./gradlew :app:testDebugUnitTest passed per projects/archive/20260516_vd_completion_handoff/implementation_summary.md"
+    ],
+    "priority": "high",
+    "tags": [
+      "virtual-display",
+      "session"
+    ],
+    "estimate": "m",
+    "created": "2026-05-15T10:39:27Z",
+    "updated": "2026-05-16T06:35:25Z",
+    "note": "Shipped in PR #40."
+  },
+  "vd-handoff-render": {
+    "parent": "vd-completion-handoff",
+    "depends": [
+      "vd-handoff-capture"
+    ],
+    "state": "done",
+    "title": "Render explicit VD handoff CTAs",
+    "description": "Render the shipped completion-row CTA for valid VD handoff metadata and route taps explicitly: Open <App> launches the app on the real display. The View virtual screen CTA is intentionally absent until vd-runtime-boundary makes a retained viewer usable.",
+    "design": "projects/archive/20260516_vd_completion_handoff/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/*",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/*",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "Completed VD rows show Open <App> only when PackageManager can resolve a launcher intent and the package is allowed",
+      "Completed VD rows do not show View virtual screen in the shipped implementation",
+      "TaskCompleted itself does not start any activity; only CTA callbacks launch an app",
+      "./gradlew :app:testDebugUnitTest passed per projects/archive/20260516_vd_completion_handoff/implementation_summary.md"
+    ],
+    "priority": "high",
+    "tags": [
+      "virtual-display",
+      "chat",
+      "ui"
+    ],
+    "estimate": "m",
+    "created": "2026-05-15T10:39:27Z",
+    "updated": "2026-05-16T06:35:25Z",
+    "note": "Shipped in PR #40; viewer CTA removed before merge."
+  },
+  "new-session-no-handoff-regression": {
+    "parent": "vd-completion-handoff",
+    "depends": [
+      "vd-handoff-render"
+    ],
+    "state": "done",
+    "title": "New Session does not trigger VD handoff",
+    "description": "Regression coverage and routing/lifecycle behavior ensure tapping New Session never opens the last VD app or the VD viewer. Handoff remains available only through explicit completion CTAs on existing completed rows.",
+    "design": "projects/archive/20260516_vd_completion_handoff/design_codex.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/*",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/ChatHeader.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/chat/**",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/**"
+    ],
+    "acceptCriteria": [
+      "A regression or QA pass covers New Session after a completed VD task and observes no app/viewer handoff",
+      "ChatHeader New conversation action remains wired only to new-session/reset behavior",
+      "New Session clears handoff-bearing rows from chat state",
+      "./gradlew :app:testDebugUnitTest passed per projects/archive/20260516_vd_completion_handoff/implementation_summary.md"
+    ],
+    "priority": "high",
+    "tags": [
+      "virtual-display",
+      "regression",
+      "bug"
+    ],
+    "estimate": "s",
+    "created": "2026-05-15T10:39:27Z",
+    "updated": "2026-05-16T06:35:25Z",
+    "note": "Shipped in PR #40; real-device QA evidence captured in projects/archive/20260516_vd_completion_handoff/qa_evidence/."
+  }
+}

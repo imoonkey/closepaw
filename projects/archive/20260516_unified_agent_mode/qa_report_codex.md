@@ -12,7 +12,7 @@ Post-rebase verification for `task/unified-agent-mode` after rebasing onto curre
 
 1. **Build** — ✓
    - Ran `./gradlew --no-configuration-cache clean assembleDebug lint test`.
-   - Captured full log at `projects/active/unified_agent_mode/qa_artifacts_codex/gradle_clean_assembleDebug_lint_test.log`.
+   - Captured full log at `projects/archive/20260516_unified_agent_mode/qa_artifacts_codex/gradle_clean_assembleDebug_lint_test.log`.
    - Result: `BUILD SUCCESSFUL in 7s`.
 
 2. **Settings page renders cleanly** — ✓
@@ -37,7 +37,7 @@ Post-rebase verification for `task/unified-agent-mode` after rebasing onto curre
 
 5. **Reload preserves subagent action cards** — ✓
    - Pulled persisted session JSON:
-     `adb shell run-as ai.closepaw cat files/sessions/session-2026-05-16T01-50-13-ccf5ab04-67cf-4d2c-aef4-a2666fd1d9a2.json > projects/active/unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
+     `adb shell run-as ai.closepaw cat files/sessions/session-2026-05-16T01-50-13-ccf5ab04-67cf-4d2c-aef4-a2666fd1d9a2.json > projects/archive/20260516_unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
    - Inspected with:
      `jq '.messages[1].contentBlocks | map({type, toolName, state, title, resultSummary})' ...`
    - The agent message contains parent `delegate_task`, subagent `open_app` failure, subagent `open_app` success, `mobile_action` x3, `wait`, subagent `complete_task`, parent `complete_task`, and final text.
@@ -61,8 +61,8 @@ Post-rebase verification for `task/unified-agent-mode` after rebasing onto curre
 - `./scripts/debug-run.sh "Use delegate_task exactly once: ask a subagent to open Calculator or 计算器, compute 7*8, and return the displayed result."`
 - `adb -s 100.64.43.95:5555 exec-out screencap -p > <artifact>.png`
 - `adb -s 100.64.43.95:5555 shell uiautomator dump /sdcard/window.xml && adb -s 100.64.43.95:5555 pull /sdcard/window.xml <artifact>.xml`
-- `adb -s 100.64.43.95:5555 shell run-as ai.closepaw cat files/sessions/session-2026-05-16T01-50-13-ccf5ab04-67cf-4d2c-aef4-a2666fd1d9a2.json > projects/active/unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
-- `jq '.messages[1].contentBlocks | map({type, toolName, state, title, resultSummary})' projects/active/unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
+- `adb -s 100.64.43.95:5555 shell run-as ai.closepaw cat files/sessions/session-2026-05-16T01-50-13-ccf5ab04-67cf-4d2c-aef4-a2666fd1d9a2.json > projects/archive/20260516_unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
+- `jq '.messages[1].contentBlocks | map({type, toolName, state, title, resultSummary})' projects/archive/20260516_unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
 - `/home/qiguo/ld-workspace/agent-config/global/skills/update-tasks/scripts/update-tasks.py set fix-active-turn-survives-rotation <json>`
 
 ## Notes

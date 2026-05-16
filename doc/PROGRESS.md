@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-05-16: Archive completed task docs
+
+**What changed:**
+- Archived `unified-agent-mode` and `vd-completion-handoff` task trees into `projects/archive/20260516_unified-agent-mode.json` and `projects/archive/20260516_vd-completion-handoff.json`.
+- Moved their project docs from `projects/active/` to `projects/archive/20260516_unified_agent_mode/` and `projects/archive/20260516_vd_completion_handoff/`.
+- Updated live doc references to the archived VD handoff design/docs, and changed `vd-runtime-boundary` from dependency-blocked to human-review blocked now that the handoff dependency is shipped.
+
+**Why:**
+- Both projects are complete and should no longer appear in the active task/doc set.
+
+**Key files:** `projects/tasks.json`, `projects/archive/20260516_unified-agent-mode.json`, `projects/archive/20260516_vd-completion-handoff.json`, `projects/archive/20260516_unified_agent_mode/`, `projects/archive/20260516_vd_completion_handoff/`, `doc/main/ui/session/user_flows.md`
+**Verification:** `update-tasks.py archive` completed for both root tasks; `rg` link scan confirmed no remaining live docs point at the moved active directories.
+**Commit:** This commit
+**Next:** Explicitly prioritize `vd-runtime-boundary` when ready to revisit the post-completion viewer CTA.
+**Blockers:** None.
+
 ## 2026-05-16: VD completion handoff — Open <App> CTA + ancillary fixes
 
 
@@ -15,7 +31,7 @@
 
 **Why:**
 - Before: VD completions left the user staring at chat with no path to the app the agent had just left open on the virtual display. Manual workarounds (search/launcher) hid useful intent we already had at completion time.
-- Three rounds of codex review (`projects/active/vd_completion_handoff/codex_code_review.md`, `codex_general_review.md`, `codex_cleanup_review.md` + `codex_cleanup_rereview.md`) drove the design from two CTAs → safer two CTAs → single CTA → fully clean removal of dead plumbing. Re-review final verdict: **ship**.
+- Three rounds of codex review (`projects/archive/20260516_vd_completion_handoff/codex_code_review.md`, `codex_general_review.md`, `codex_cleanup_review.md` + `codex_cleanup_rereview.md`) drove the design from two CTAs → safer two CTAs → single CTA → fully clean removal of dead plumbing. Re-review final verdict: **ship**.
 
 **Key files:**
 - `app/src/main/kotlin/ai/closepaw/protocol/CompletionHandoff.kt` (new) + `TaskLifecycleEvents.kt`

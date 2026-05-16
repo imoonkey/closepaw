@@ -264,7 +264,7 @@ Tap calls `MainActivity.onOpenApp(pkg)` which launches the package's launcher in
 
 Accessibility-mode completions emit `handoff = null` (the agent worked on the real screen so the user is already there). `New Session` resets the chat and drops any handoff-bearing row; it never reads or invokes handoff metadata.
 
-> Earlier iterations of this feature also rendered a "View virtual screen" CTA. It was removed before merge because the post-completion viewer had no working takeover / edge glow / exit affordance — see `projects/active/vd_completion_handoff/design_codex.md` Update banner. The viewer CTA can return once `vd-runtime-boundary` keeps the VD alive past completion and restores the in-viewer controls.
+> Earlier iterations of this feature also rendered a "View virtual screen" CTA. It was removed before merge because the post-completion viewer had no working takeover / edge glow / exit affordance — see `projects/archive/20260516_vd_completion_handoff/design_codex.md` Update banner. The viewer CTA can return once `vd-runtime-boundary` keeps the VD alive past completion and restores the in-viewer controls.
 
 ## 10. debug-run.sh Compatibility
 

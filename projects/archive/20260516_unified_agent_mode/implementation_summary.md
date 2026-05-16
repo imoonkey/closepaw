@@ -1,6 +1,6 @@
 # Implementation Summary: Unified Agent Mode
 
-**Project**: `projects/active/unified_agent_mode/`
+**Project**: `projects/archive/20260516_unified_agent_mode/`
 **Branch**: `task/unified-agent-mode` (in worktree `.worktrees/unified-agent-mode/`)
 **Status**: Complete, verified, awaiting merge
 **Design**: [`design_claude.md`](design_claude.md)
