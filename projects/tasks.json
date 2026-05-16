@@ -728,7 +728,7 @@
   "vd-completion-handoff": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Virtual Display completion handoff",
     "description": "Keep VD task completion in ClosePaw chat by default and add explicit handoff CTAs for opening the last real app or viewing the virtual screen. New Session remains a pure chat reset and must not trigger app/viewer handoff.",
     "design": "projects/active/vd_completion_handoff/design_codex.md",
@@ -744,13 +744,13 @@
     ],
     "estimate": "m",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:47:20Z",
+    "updated": "2026-05-15T12:08:00Z",
     "worktree": "vd-completion-handoff"
   },
   "vd-handoff-event-model": {
     "parent": "vd-completion-handoff",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "VD handoff event and chat model",
     "description": "Add optional completion handoff metadata to task completion and completed chat rows so VD completions can carry last app package/label and viewer availability without adding intent classification.",
     "design": "projects/active/vd_completion_handoff/design_codex.md",
@@ -772,15 +772,16 @@
     ],
     "estimate": "s",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:47:20Z",
-    "worktree": "vd-completion-handoff"
+    "updated": "2026-05-15T11:10:00Z",
+    "worktree": "vd-completion-handoff",
+    "agent": "w-vd-handoff-event-model"
   },
   "vd-handoff-capture": {
     "parent": "vd-completion-handoff",
     "depends": [
       "vd-handoff-event-model"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Capture VD completion handoff metadata",
     "description": "Build handoff metadata when emitting TaskCompleted in VD mode: last foreground app package, app label, and whether the VD viewer can still be opened. Accessibility mode emits no handoff.",
     "design": "projects/active/vd_completion_handoff/design_codex.md",
@@ -802,15 +803,16 @@
     ],
     "estimate": "m",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:47:20Z",
-    "worktree": "vd-completion-handoff"
+    "updated": "2026-05-15T11:25:00Z",
+    "worktree": "vd-completion-handoff",
+    "agent": "w-vd-handoff-capture"
   },
   "vd-handoff-render": {
     "parent": "vd-completion-handoff",
     "depends": [
       "vd-handoff-capture"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Render explicit VD handoff CTAs",
     "description": "Render completion-row CTAs for valid VD handoff metadata and route taps explicitly: Open <App> launches the app on the real display, View virtual screen opens the existing VD viewer path.",
     "design": "projects/active/vd_completion_handoff/design_codex.md",
@@ -835,15 +837,16 @@
     ],
     "estimate": "m",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:47:20Z",
-    "worktree": "vd-completion-handoff"
+    "updated": "2026-05-15T11:35:00Z",
+    "worktree": "vd-completion-handoff",
+    "agent": "w-vd-handoff-render"
   },
   "new-session-no-handoff-regression": {
     "parent": "vd-completion-handoff",
     "depends": [
       "vd-handoff-render"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "New Session does not trigger VD handoff",
     "description": "Add regression coverage and any minimal routing/lifecycle correction needed so tapping New Session never opens the last VD app or the VD viewer. Handoff remains available only through explicit completion CTAs.",
     "design": "projects/active/vd_completion_handoff/design_codex.md",
@@ -868,8 +871,9 @@
     ],
     "estimate": "s",
     "created": "2026-05-15T10:39:27Z",
-    "updated": "2026-05-15T10:47:21Z",
-    "worktree": "vd-completion-handoff"
+    "updated": "2026-05-15T11:42:00Z",
+    "worktree": "vd-completion-handoff",
+    "agent": "w-new-session-no-handoff"
   },
   "vd-runtime-boundary": {
     "parent": null,
@@ -1117,7 +1121,7 @@
     "depends": [
       "new-session-no-handoff-regression"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex code review for VD completion handoff",
     "description": "Review the implemented VD completion handoff changes with a bug/risk-first stance. Focus on accidental app/viewer launches, stale VD metadata, lifecycle races, non-VD regressions, and missing tests before the work moves to QA.",
     "design": "projects/active/vd_completion_handoff/design_codex.md",
@@ -1145,14 +1149,16 @@
     "estimate": "s",
     "worktree": "vd-completion-handoff",
     "created": "2026-05-15T10:48:22Z",
-    "updated": "2026-05-15T10:48:22Z"
+    "updated": "2026-05-15T11:52:00Z",
+    "agent": "w-vd-handoff-codex-review",
+    "note": "Report at projects/active/vd_completion_handoff/codex_code_review.md. 2 HIGH + 1 MEDIUM findings; fixes addressed in vd-handoff-review-fixes."
   },
   "vd-handoff-qa": {
     "parent": "vd-completion-handoff",
     "depends": [
-      "vd-handoff-codex-code-review"
+      "vd-handoff-review-fixes"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "QA VD completion handoff flows",
     "description": "Validate the implemented VD completion handoff from the user's perspective. Exercise completion chat default, explicit Open <App>, explicit View virtual screen, and New Session not opening app/viewer after a completed VD task.",
     "design": "projects/active/vd_completion_handoff/design_codex.md",
@@ -1177,6 +1183,33 @@
     "estimate": "m",
     "worktree": "vd-completion-handoff",
     "created": "2026-05-15T10:48:22Z",
-    "updated": "2026-05-15T10:48:22Z"
+    "updated": "2026-05-15T12:08:00Z",
+    "agent": "w-vd-handoff-qa"
+  },
+  "vd-handoff-review-fixes": {
+    "parent": "vd-completion-handoff",
+    "depends": [
+      "vd-handoff-codex-code-review"
+    ],
+    "state": "done",
+    "agent": "w-vd-handoff-review-fixes",
+    "title": "Apply codex review HIGH fixes",
+    "description": "Block AppTier.BLOCKED apps from Open CTA; revalidate VD viewer liveness on tap; align CTA visibility helper with composable.",
+    "design": "projects/active/vd_completion_handoff/codex_code_review.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/CompletionHandoffCtaRow.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/CompletionHandoff.kt",
+      "app/src/test/kotlin/**"
+    ],
+    "priority": "high",
+    "tags": [
+      "virtual-display",
+      "fix",
+      "handoff"
+    ],
+    "worktree": "vd-completion-handoff",
+    "created": "2026-05-15T11:52:00Z",
+    "updated": "2026-05-15T12:00:00Z"
   }
 }
