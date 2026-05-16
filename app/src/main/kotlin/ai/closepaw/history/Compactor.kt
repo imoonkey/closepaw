@@ -214,7 +214,7 @@ class Compactor(
             systemPrompt = systemPrompt,
             inputItems = input,
             tools = emptyList(),
-            model = model.name,
+            model = model.modelId,
         )
         val text = result.textContent?.trim().orEmpty()
         require(text.isNotEmpty()) { "Empty summary returned by LLM" }

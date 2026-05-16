@@ -72,6 +72,7 @@ class CompactorTest {
         val capturedSystemPrompts = mutableListOf<String>()
         val capturedUserContents = mutableListOf<String>()
         val capturedTools = mutableListOf<List<FunctionTool>>()
+        val capturedModels = mutableListOf<String>()
         val callCount get() = capturedSystemPrompts.size
 
         override suspend fun chatWithTools(
@@ -83,6 +84,7 @@ class CompactorTest {
             onCall?.invoke()
             capturedSystemPrompts.add(systemPrompt)
             capturedTools.add(tools)
+            capturedModels.add(model)
             val userText = inputItems
                 .mapNotNull { item ->
                     runCatching { item.asEasyInputMessage().content().asTextInput() }.getOrNull()
@@ -390,5 +392,36 @@ class CompactorTest {
         val outcome = compactor.maybeCompact("Goal", history)
         assertThat(outcome).isInstanceOf(CompactionOutcome.Failed::class.java)
         assertThat((outcome as CompactionOutcome.Failed).reason).contains("provider 500")
+    }
+
+    // ── modelId vs name ─────────────────────────────────────────────────
+
+    @Test
+    fun `summarize is sent with provider modelId not the catalog alias`() = runBlocking {
+        val client = RecordingClient()
+        val aliasedModel = ModelEntry(
+            name = "alias",
+            displayName = "Aliased Model",
+            provider = LLMProvider.OPENAI_API,
+            api = ApiType.RESPONSE,
+            modelId = "provider/model",
+            contextWindow = 2_000,
+        )
+        val compactor = Compactor(
+            llmClient = client,
+            model = aliasedModel,
+            initialPrompt = "INITIAL_PROMPT",
+            updatePrompt = "UPDATE_PROMPT",
+            staticOverheadTokens = 0,
+            reserveTokens = 200,
+            keepRecentTokens = 200,
+        )
+        val history = HistoryManager()
+        repeat(6) { history.addItem(assistant(300)) }
+        history.addItem(assistant(50))
+
+        val outcome = compactor.maybeCompact("Goal", history)
+        assertThat(outcome).isInstanceOf(CompactionOutcome.Compacted::class.java)
+        assertThat(client.capturedModels.single()).isEqualTo("provider/model")
     }
 }
