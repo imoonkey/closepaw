@@ -25,12 +25,10 @@ class MainActivityModelValidationTest {
     private fun settings(
         backend: LLMBackendType = LLMBackendType.OPENAI,
         mainModel: String = "gpt-5.2",
-        subagent: String? = null,
     ): AppSettingsState {
         val s = mockk<AppSettingsState>(relaxed = true)
         every { s.llmBackend } returns backend
         every { s.selectedModel } returns mainModel
-        every { s.subagentModel } returns subagent
         return s
     }
 
@@ -68,30 +66,6 @@ class MainActivityModelValidationTest {
         assertThat(missing).hasSize(1)
         assertThat(missing[0].provider).isEqualTo(LLMProvider.OPENAI_CODEX)
         assertThat(missing[0].message).contains("ChatGPT sign-in required")
-    }
-
-    @Test
-    fun `flags both main and subagent missing keys`() {
-        val missing = findMissingCloudKeys(
-            settings(mainModel = "gpt-5.2", subagent = "autoglm-9b"),
-            catalog,
-            emptyAuthStore(),
-        )
-        val providers = missing.map { it.provider }
-        assertThat(providers).containsExactly(LLMProvider.OPENAI_API, LLMProvider.NOVITA)
-    }
-
-    @Test
-    fun `skips subagent when only main missing`() {
-        val store = mockk<AuthStore>(relaxed = true)
-        every { store.has(LLMProvider.OPENAI_API) } returns false
-        every { store.has(LLMProvider.NOVITA) } returns true
-        val missing = findMissingCloudKeys(
-            settings(mainModel = "gpt-5.2", subagent = "autoglm-9b"),
-            catalog,
-            store,
-        )
-        assertThat(missing.map { it.provider }).containsExactly(LLMProvider.OPENAI_API)
     }
 
     @Test

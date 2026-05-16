@@ -7,7 +7,6 @@ import android.util.Log
 import ai.closepaw.agent.Agent
 import ai.closepaw.agent.AgentEventDispatcher
 import ai.closepaw.agent.AgentExecutionConfig
-import ai.closepaw.agent.AgentExecutionRole
 import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentDefRegistry
 import ai.closepaw.agent.definition.ResolvedAgentRole
@@ -78,11 +77,8 @@ internal class SessionAgentRunner(
 
         val signal = CompletableDeferred<AgentStopReason>()
 
-        // Resolve model name based on agent role
-        val modelName = when (resolvedAgentDef.executionRole) {
-            AgentExecutionRole.MAIN -> config.mainModel
-            AgentExecutionRole.SUBAGENT -> config.subagentModel ?: config.mainModel
-        }
+        // Subagents inherit the main model — no per-role override.
+        val modelName = config.mainModel
 
         val agentConfig = AgentExecutionConfig(
             goal = taskInput,

@@ -17,7 +17,6 @@ data class AppSettings(
         val perceptionMode: String,
         val llmBackend: LLMBackendType,
         val localModel: LocalModelOption,
-        val subagentModel: String?,
         val platformMode: PlatformMode,
         val traceEnabled: Boolean,
         val browserScriptEnabled: Boolean,
@@ -35,7 +34,6 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_PERCEPTION_MODE = "perception_mode"
         private const val KEY_LLM_BACKEND = "llm_backend"
         private const val KEY_LOCAL_MODEL_ID = "local_model_id"
-        private const val KEY_SUBAGENT_MODEL = "subagent_model"
         private const val KEY_PLATFORM_MODE = "platform_mode"
         private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
         private const val KEY_TRACE_ENABLED = "trace_enabled"
@@ -87,7 +85,6 @@ class AppSettingsStore(private val context: Context) {
         val localModel = localModelId?.let { id ->
             AVAILABLE_LOCAL_MODELS.find { it.id == id }
         } ?: DEFAULT_LOCAL_MODEL
-        val subagentModel = prefs.getString(KEY_SUBAGENT_MODEL, null)
         val platformModeName = prefs.getString(KEY_PLATFORM_MODE, DEFAULT_PLATFORM_MODE.name)
                 ?: DEFAULT_PLATFORM_MODE.name
         val platformMode = try {
@@ -110,7 +107,6 @@ class AppSettingsStore(private val context: Context) {
                 perceptionMode = perceptionMode,
                 llmBackend = llmBackend,
                 localModel = localModel,
-                subagentModel = subagentModel,
                 platformMode = platformMode,
                 traceEnabled = traceEnabled,
                 browserScriptEnabled = browserScriptEnabled,
@@ -137,14 +133,6 @@ class AppSettingsStore(private val context: Context) {
             prefs().edit().putBoolean(KEY_BROWSER_SCRIPT_ENABLED, value).apply()
         }
         _browserScriptEnabled.value = value
-    }
-
-    fun saveSubagentModel(value: String?) {
-        if (value == null) {
-            prefs().edit().remove(KEY_SUBAGENT_MODEL).apply()
-        } else {
-            prefs().edit().putString(KEY_SUBAGENT_MODEL, value).apply()
-        }
     }
 
     fun saveModel(value: String) {

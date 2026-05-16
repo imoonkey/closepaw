@@ -90,10 +90,6 @@ internal suspend fun applyIntentPayloadToSettings(
         settingsState.updateModel(it)
         log("Main model set from intent: $it")
     }
-    payload.subagentModel?.let {
-        settingsState.updateSubagentModel(it)
-        log("Subagent model set from intent: $it")
-    }
     payload.debugMode?.let { enabled ->
         settingsState.updateDebugMode(enabled)
         log("Debug mode set from intent: $enabled")

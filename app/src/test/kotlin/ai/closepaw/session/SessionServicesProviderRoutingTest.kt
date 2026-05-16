@@ -58,7 +58,7 @@ class SessionServicesProviderRoutingTest {
   }
 
   @Test
-  fun `subagent model requires its provider credential`() {
+  fun `main model requires its provider credential`() {
     val context = contextWithCatalog()
     val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
@@ -67,8 +67,7 @@ class SessionServicesProviderRoutingTest {
     val config =
             SessionConfig(
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
-                    mainModel = "gpt-5.2",
-                    subagentModel = "autoglm-phone-9b-multilingual"
+                    mainModel = "autoglm-phone-9b-multilingual"
             )
 
     val error =

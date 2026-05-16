@@ -37,7 +37,6 @@ object TraceRecorderFactory {
                         llmBackend = config.llm.backendType.name,
                         model = config.mainModel,
                         mainModel = config.mainModel,
-                        subagentModel = config.subagentModel,
                         debugMode = config.debugMode,
                         screenshotInput = config.perceptionConfig.capturesScreenshot
                     )

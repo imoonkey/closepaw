@@ -32,13 +32,9 @@ data class SessionConfig(
         val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
         /**
          * Primary model name (key in llm_models.json) for the main agent.
+         * Subagents inherit this model — there is no separate subagent model.
          */
         val mainModel: String = "glm-5",
-        /**
-         * Model name (key in llm_models.json) for delegated subagents.
-         * When null, subagents fall back to [mainModel].
-         */
-        val subagentModel: String? = null,
         /** Platform mode: real screen (accessibility) or virtual display (Shizuku) */
         val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
         /** Tool names to exclude from the agent's allowed tool set (e.g. for eval) */

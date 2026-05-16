@@ -123,8 +123,6 @@ internal fun MainActivityContent(
                     selectedModel = settingsState.selectedModel,
                     onModelChange = settingsState::updateModel,
                     modelCatalog = modelCatalog,
-                    selectedSubagentModel = settingsState.subagentModel,
-                    onSubagentModelChange = settingsState::updateSubagentModel,
                     selectedLocalModel = settingsState.localModel.id,
                     onLocalModelChange = modelLoadingStatusHolder::updateLocalModel,
                     modelLoadingStatus = modelLoadingStatusHolder.status,

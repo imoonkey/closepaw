@@ -32,30 +32,6 @@ internal fun CloudModelDropdown(
 }
 
 @Composable
-internal fun SubagentModelDropdown(
-    selectedModel: String?,
-    modelOptions: List<Pair<String, String>>,
-    onModelChange: (String?) -> Unit
-) {
-    val options = listOf(null to "(Same as Main Model)") + modelOptions
-    val selectedDisplayName =
-        options.find { it.first == selectedModel }?.second ?: "(Same as Main Model)"
-
-    SettingsDropdown(
-        label = "Subagent Model",
-        value = selectedDisplayName,
-        leadingIcon = Icons.Outlined.Psychology,
-        options = options,
-        isSelected = { (modelId, _) -> modelId == selectedModel },
-        onOptionSelected = { (modelId, _) -> onModelChange(modelId) },
-        optionText = { (_, displayName) -> Text(displayName) },
-        optionLeadingIcon = { _, selected ->
-            if (selected) { { DropdownSelectedIndicator() } } else null
-        }
-    )
-}
-
-@Composable
 internal fun LocalModelDropdown(
     selectedModelId: String,
     onModelChange: (LocalModelOption) -> Unit

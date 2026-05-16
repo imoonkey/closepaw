@@ -17,7 +17,6 @@ class SessionCheckpointConfigSnapshotTest {
         val config =
             SessionConfig(
                 mainModel = "main-model",
-                subagentModel = "subagent-model",
                 perceptionConfig = PerceptionConfig.Hybrid(),
                 platformMode = PlatformMode.VIRTUAL_DISPLAY,
                 llm =
@@ -35,7 +34,6 @@ class SessionCheckpointConfigSnapshotTest {
         val restored = snapshot.toSessionConfig()
 
         assertThat(restored.mainModel).isEqualTo("main-model")
-        assertThat(restored.subagentModel).isEqualTo("subagent-model")
         assertThat(restored.perceptionConfig).isInstanceOf(PerceptionConfig.Hybrid::class.java)
         assertThat(restored.platformMode).isEqualTo(PlatformMode.VIRTUAL_DISPLAY)
         assertThat(restored.llm.backendType).isEqualTo(LLMBackendType.LOCAL)

@@ -12,9 +12,9 @@ data class MissingCredentialTarget(
 )
 
 /**
- * Validate that credentials exist for the main + subagent models selected for the next
- * session. Returns one entry per missing credential with provider info so the caller
- * can deep-link into the right settings tab.
+ * Validate that a credential exists for the main model selected for the next session.
+ * Returns one entry per missing credential with provider info so the caller can deep-link
+ * into the right settings tab.
  */
 internal fun findMissingCloudKeys(
     settingsState: AppSettingsState,
@@ -23,28 +23,19 @@ internal fun findMissingCloudKeys(
 ): List<MissingCredentialTarget> {
     if (settingsState.llmBackend != LLMBackendType.OPENAI) return emptyList()
 
-    val modelsToValidate = linkedSetOf(settingsState.selectedModel)
-    settingsState.subagentModel?.let(modelsToValidate::add)
+    val modelName = settingsState.selectedModel
+    val entry = modelCatalog.resolveOrNull(modelName)
+        ?: return listOf(MissingCredentialTarget(LLMProvider.OPENAI_API, "Unknown model: $modelName"))
+    val provider = entry.provider
+    if (provider == LLMProvider.LOCAL_LFM) return emptyList()
+    if (authStore.has(provider)) return emptyList()
 
-    return buildList {
-        for (modelName in modelsToValidate) {
-            val entry = modelCatalog.resolveOrNull(modelName)
-            if (entry == null) {
-                add(MissingCredentialTarget(LLMProvider.OPENAI_API, "Unknown model: $modelName"))
-                continue
-            }
-            val provider = entry.provider
-            if (provider == LLMProvider.LOCAL_LFM) continue
-            if (!authStore.has(provider)) {
-                val label = when (provider) {
-                    LLMProvider.OPENAI_CODEX -> "ChatGPT sign-in required"
-                    LLMProvider.OPENAI_API -> "OpenAI API key required"
-                    LLMProvider.OPENROUTER -> "OpenRouter API key required"
-                    LLMProvider.NOVITA -> "Novita API key required"
-                    LLMProvider.LOCAL_LFM -> continue
-                }
-                add(MissingCredentialTarget(provider, "${entry.displayName}: $label"))
-            }
-        }
+    val label = when (provider) {
+        LLMProvider.OPENAI_CODEX -> "ChatGPT sign-in required"
+        LLMProvider.OPENAI_API -> "OpenAI API key required"
+        LLMProvider.OPENROUTER -> "OpenRouter API key required"
+        LLMProvider.NOVITA -> "Novita API key required"
+        LLMProvider.LOCAL_LFM -> return emptyList()
     }
+    return listOf(MissingCredentialTarget(provider, "${entry.displayName}: $label"))
 }

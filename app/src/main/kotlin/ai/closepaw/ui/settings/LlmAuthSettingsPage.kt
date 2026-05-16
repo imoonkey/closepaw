@@ -1,7 +1,6 @@
 package ai.closepaw.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +26,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ai.closepaw.app.AuthStoreHolder
 import ai.closepaw.auth.AuthCredential
@@ -88,8 +86,6 @@ internal fun LlmAuthSettingsPage(
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
-    selectedSubagentModel: String?,
-    onSubagentModelChange: (String?) -> Unit,
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus,
@@ -127,14 +123,12 @@ internal fun LlmAuthSettingsPage(
     fun commitSignIn(action: () -> Unit) {
         onBackendChange(LLMBackendType.OPENAI)
         val target = resolveProviderForTab(LlmAuthTab.SIGN_IN, selectedModel, modelCatalog)
-        canonicalizeModels(
+        canonicalizeMainModel(
             modelCatalog = modelCatalog,
             provider = target,
             api = null,
             selectedModel = selectedModel,
-            onModelChange = onModelChange,
-            selectedSubagentModel = selectedSubagentModel,
-            onSubagentModelChange = onSubagentModelChange
+            onModelChange = onModelChange
         )
         action()
     }
@@ -184,8 +178,6 @@ internal fun LlmAuthSettingsPage(
                     selectedModel = selectedModel,
                     onModelChange = { commitSignIn { onModelChange(it) } },
                     modelCatalog = modelCatalog,
-                    selectedSubagentModel = selectedSubagentModel,
-                    onSubagentModelChange = { commitSignIn { onSubagentModelChange(it) } },
                     openAiAuthUiState = openAiAuthUiState,
                     onStartOAuth = { commitSignIn { onStartOAuth() } },
                     onCancelOAuth = onCancelOAuth,
@@ -198,8 +190,6 @@ internal fun LlmAuthSettingsPage(
                     selectedModel = selectedModel,
                     onModelChange = { commitApiKey { onModelChange(it) } },
                     modelCatalog = modelCatalog,
-                    selectedSubagentModel = selectedSubagentModel,
-                    onSubagentModelChange = { commitApiKey { onSubagentModelChange(it) } },
                     authStore = authStore,
                     onApiKeyPersist = { provider, key ->
                         commitApiKey { }
@@ -274,8 +264,6 @@ private fun SignInTabContent(
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
-    selectedSubagentModel: String?,
-    onSubagentModelChange: (String?) -> Unit,
     openAiAuthUiState: OpenAiAuthUiState,
     onStartOAuth: () -> Unit,
     onCancelOAuth: () -> Unit,
@@ -291,16 +279,6 @@ private fun SignInTabContent(
             modelOptions = modelOptions,
             onModelChange = onModelChange
         )
-    }
-    Spacer(modifier = Modifier.height(20.dp))
-    SettingsSection(title = "Subagent Model") {
-        Box(modifier = Modifier.testTag("qa-subagent-model-dropdown")) {
-            SubagentModelDropdown(
-                selectedModel = selectedSubagentModel,
-                modelOptions = modelOptions,
-                onModelChange = onSubagentModelChange
-            )
-        }
     }
     Spacer(modifier = Modifier.height(20.dp))
     SettingsSection(title = "Authentication") {
@@ -319,8 +297,6 @@ private fun ApiKeyTabContent(
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
-    selectedSubagentModel: String?,
-    onSubagentModelChange: (String?) -> Unit,
     authStore: AuthStore,
     onApiKeyPersist: (LLMProvider, String) -> Unit,
 ) {
@@ -362,29 +338,9 @@ private fun ApiKeyTabContent(
         CloudModelDropdown(
             selectedModel = selectedModel,
             modelOptions = modelOptions,
-            onModelChange = { picked ->
-                // Commit canonicalizes main + subagent if provider changed.
-                onModelChange(picked)
-                canonicalizeSubagentOnProviderChange(
-                    modelCatalog = modelCatalog,
-                    newMainModel = picked,
-                    selectedSubagentModel = selectedSubagentModel,
-                    onSubagentModelChange = onSubagentModelChange
-                )
-            }
+            onModelChange = onModelChange
         )
     }
-    Spacer(modifier = Modifier.height(20.dp))
-    SettingsSection(title = "Subagent Model") {
-        Box(modifier = Modifier.testTag("qa-subagent-model-dropdown")) {
-            SubagentModelDropdown(
-                selectedModel = selectedSubagentModel,
-                modelOptions = modelOptions,
-                onModelChange = onSubagentModelChange
-            )
-        }
-    }
-
     Spacer(modifier = Modifier.height(20.dp))
 
     // Provider-linked API key field — value backed by AuthStore.
@@ -426,52 +382,20 @@ private fun LocalTabContent(
 }
 
 /**
- * Canonicalize main/subagent model when provider or auth context changes.
- * If the current main model is invalid for the new context, replace with preferred.
- * If subagent's provider doesn't match new main's provider, reset to provider default
- * (or null if the provider has no entry).
+ * Replace the current main model with the preferred one for [provider] if it isn't
+ * valid for the new context.
  */
-private fun canonicalizeModels(
+private fun canonicalizeMainModel(
     modelCatalog: ModelCatalog,
     provider: LLMProvider,
     api: ApiType?,
     selectedModel: String,
-    onModelChange: (String) -> Unit,
-    selectedSubagentModel: String?,
-    onSubagentModelChange: (String?) -> Unit
+    onModelChange: (String) -> Unit
 ) {
     val validModels = modelCatalog.modelsFor(provider, api)
     val validNames = validModels.map { it.name }.toSet()
-    val currentProvider = modelCatalog.resolveOrNull(selectedModel)?.provider
-
     if (selectedModel !in validNames) {
         val preferred = validModels.firstOrNull()
         if (preferred != null) onModelChange(preferred.name)
-    }
-
-    // Subagent canonicalization: provider-change triggers reset.
-    if (currentProvider != provider) {
-        val subagentProvider = selectedSubagentModel?.let { modelCatalog.resolveOrNull(it)?.provider }
-        if (subagentProvider != provider) {
-            val subagentDefault = modelCatalog.preferredModelFor(provider)?.name
-            onSubagentModelChange(subagentDefault)
-        }
-    }
-}
-
-/**
- * On a main-model commit inside a tab that already matches the selected provider
- * (e.g. user picks a different model in API Key tab), ensure subagent still matches.
- */
-private fun canonicalizeSubagentOnProviderChange(
-    modelCatalog: ModelCatalog,
-    newMainModel: String,
-    selectedSubagentModel: String?,
-    onSubagentModelChange: (String?) -> Unit,
-) {
-    val newProvider = modelCatalog.resolveOrNull(newMainModel)?.provider ?: return
-    val subagentProvider = selectedSubagentModel?.let { modelCatalog.resolveOrNull(it)?.provider }
-    if (subagentProvider != null && subagentProvider != newProvider) {
-        onSubagentModelChange(modelCatalog.preferredModelFor(newProvider)?.name)
     }
 }

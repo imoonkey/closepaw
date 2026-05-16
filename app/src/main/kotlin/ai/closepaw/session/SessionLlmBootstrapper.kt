@@ -108,15 +108,10 @@ internal object SessionLlmBootstrapper {
             authStore: AuthStore?
     ) {
         if (authStore == null) return
-        val requiredModels = linkedSetOf(config.mainModel)
-        config.subagentModel?.let(requiredModels::add)
-        requiredModels.forEach { modelName ->
-            val entry = catalog.resolve(modelName)
-            val provider = entry.provider
-            if (provider == LLMProvider.LOCAL_LFM) return@forEach
-            if (!authStore.has(provider)) {
-                throw MissingCredential(provider)
-            }
+        val provider = catalog.resolve(config.mainModel).provider
+        if (provider == LLMProvider.LOCAL_LFM) return
+        if (!authStore.has(provider)) {
+            throw MissingCredential(provider)
         }
     }
 

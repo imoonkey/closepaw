@@ -50,8 +50,6 @@ class SettingsLlmAuthTest {
         onBackendChange: (LLMBackendType) -> Unit = {},
         selectedModel: String = "gpt-5.2",
         onModelChange: (String) -> Unit = {},
-        selectedSubagentModel: String? = null,
-        onSubagentModelChange: (String?) -> Unit = {},
         onStartOAuth: () -> Unit = {},
         initialAuthTab: AuthMode? = null,
     ) {
@@ -62,8 +60,6 @@ class SettingsLlmAuthTest {
                 selectedModel = selectedModel,
                 onModelChange = onModelChange,
                 modelCatalog = catalog(),
-                selectedSubagentModel = selectedSubagentModel,
-                onSubagentModelChange = onSubagentModelChange,
                 selectedLocalModel = "LFM2.5-1.2B-Instruct",
                 onLocalModelChange = {},
                 modelLoadingStatus = ModelLoadingStatus.Idle,

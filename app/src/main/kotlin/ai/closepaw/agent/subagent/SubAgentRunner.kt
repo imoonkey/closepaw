@@ -96,9 +96,8 @@ internal class IsolatedSubAgentRunner(
             )
         )
 
-        // Sub-agents use their dedicated model when available, otherwise fall back to main model
-        val childModelName = parentServices.config.subagentModel
-            ?: parentServices.config.mainModel
+        // Sub-agents inherit the parent's main model — no separate subagent model.
+        val childModelName = parentServices.config.mainModel
 
         val childCompactor = buildChildCompactor(childServices, childModelName)
 

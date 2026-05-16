@@ -59,7 +59,6 @@ sealed interface PersistedHistoryItem {
 @Serializable
 data class ConversationConfigSnapshot(
     val mainModel: String,
-    val subagentModel: String? = null,
     val perceptionMode: String,
     val platformMode: String,
     val llmBackendType: String = "OPENAI",
