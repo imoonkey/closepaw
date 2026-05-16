@@ -73,7 +73,15 @@ class AgentService : AccessibilityService() {
     )
     val viewerFinishSignal: SharedFlow<Unit> = _viewerFinishSignal.asSharedFlow()
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    /**
+     * Long-lived service-owned coroutine scope. Cancelled in [onDestroy].
+     *
+     * Exposed as `internal` so [AgentSession] callers in the app module can
+     * scope sessions to the service's lifetime instead of an Activity's. This
+     * is essential: a session created against `MainActivity.sessionScope`
+     * dies on rotation/recreation, killing in-flight LLM streams.
+     */
+    internal val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val serviceLifecycleOwner = ServiceLifecycleOwner()
     private var session: AgentSession? = null
     private var overlayController: ServiceOverlayController? = null
@@ -168,7 +176,7 @@ class AgentService : AccessibilityService() {
                         context = this,
                         lifecycleOwner = serviceLifecycleOwner,
                         savedStateRegistryOwner = serviceLifecycleOwner,
-                        scope = scope,
+                        scope = serviceScope,
                         appPackage = OUR_PACKAGE,
                         logTag = TAG,
                         onStop = { submitOp(Op.Shutdown) },
@@ -242,7 +250,7 @@ class AgentService : AccessibilityService() {
 
         val currentSession = session
         if (currentSession != null) {
-            // Detach shutdown onto a scope that outlives `scope`. The session handles
+            // Detach shutdown onto a scope that outlives `serviceScope`. The session handles
             // its own checkpoint persistence via NonCancellable, so the main goal here
             // is to avoid blocking the main thread (ANR risk).
             val shutdownScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -272,7 +280,7 @@ class AgentService : AccessibilityService() {
         serviceLifecycleOwner.onDestroy()
         super.onDestroy()
         _statusFlow.value = ""
-        scope.cancel()
+        serviceScope.cancel()
     }
 
     override fun onCreate() {
@@ -293,7 +301,7 @@ class AgentService : AccessibilityService() {
             return
         }
 
-        scope.launch { currentSession.submit(op) }
+        serviceScope.launch { currentSession.submit(op) }
     }
 
     private fun updateStatus(status: String) {
@@ -307,7 +315,7 @@ class AgentService : AccessibilityService() {
         val recordingService = agentSession.getServices().recordingService
 
         eventCollectorJob =
-                scope.launch {
+                serviceScope.launch {
                     try {
                         agentSession.events.collect { event ->
                             try {
@@ -344,13 +352,13 @@ class AgentService : AccessibilityService() {
             eventCollectorJob = null
             val oldSession = session
             session = null
-            scope.launch { oldSession?.submit(Op.Shutdown) }
+            serviceScope.launch { oldSession?.submit(Op.Shutdown) }
         }
 
         currentPlatformMode = platformMode
         overlayController?.setPlatformMode(platformMode)
 
-        scope.launch {
+        serviceScope.launch {
             try {
                 val settings = AppSettingsStore(this@AgentService).load()
                 val sessionConfig =
@@ -367,7 +375,7 @@ class AgentService : AccessibilityService() {
                             AgentSession.create(
                                     config = sessionConfig,
                                     service = this@AgentService,
-                                    scope = scope,
+                                    scope = serviceScope,
                                     authStore = authStore,
                                     visualizer = visualizer,
                                     overlayTouchGate = touchGate,

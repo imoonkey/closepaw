@@ -109,7 +109,7 @@ class OnboardingDemoController(
                     AgentSession.create(
                         config = config,
                         service = service,
-                        scope = scope,
+                        scope = service.serviceScope,
                         authStore = authStore,
                         baseUrlOverrides = baseUrlOverrides,
                         visualizer = visualizer,

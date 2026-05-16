@@ -636,7 +636,7 @@ class MainActivity : ComponentActivity() {
             AgentSession.reload(
                     snapshot = snapshot,
                     service = service,
-                    scope = sessionScope,
+                    scope = service.serviceScope,
                     authStore = authStore,
                     baseUrlOverrides = baseUrlOverrides,
                     visualizer = visualizer,
@@ -705,7 +705,7 @@ class MainActivity : ComponentActivity() {
                     AgentSession.create(
                             config = sessionConfig,
                             service = service,
-                            scope = sessionScope,
+                            scope = service.serviceScope,
                             authStore = authStore,
                             baseUrlOverrides = baseUrlOverrides,
                             visualizer = visualizer,
