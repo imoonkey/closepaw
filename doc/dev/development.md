@@ -91,6 +91,8 @@ After any code change, run setup to build, install, and configure permissions:
 
 This handles everything: build APK, install, grant permissions, enable accessibility, launch app.
 
+> `debug-run.sh` now invokes `setup.sh` as a preflight on every run, so the typical loop is just `./scripts/debug-run.sh ...` — the preflight is idempotent and fast when the APK is up-to-date and permissions are already granted. The standalone `./scripts/setup.sh` invocation above is for first-install or when you want the explicit build/perms pass without firing an agent goal.
+
 ### 2. Unit Tests (JVM)
 
 Run the local JVM test suite after code changes:

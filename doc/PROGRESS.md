@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-05-16: VD completion handoff — Open <App> CTA + ancillary fixes
+
+**What changed:**
+- New optional `CompletionHandoff(appPackage, appLabel)` field on `TaskCompleted`; populated only when the active platform is `VirtualDisplayPlatform`. `AgentSession.buildHandoffIfVd` captures the foreground package, filters self/SystemUI/`AppTier.BLOCKED` via `AppClassifier`, resolves the label through `PackageManager`.
+- `ChatEventReducer.handleTaskCompleted` copies handoff metadata onto `ChatMessage.Agent`. New `CompletionHandoffCtaRow` composable renders an **Open <App>** button under the final answer when the package resolves to a launcher intent. Tap routes through `MainActivity.onOpenApp(pkg)` which launches the package's launcher intent on display 0.
+- `TaskCompleted` itself never starts an activity — only explicit CTA taps do. `New Session` resets the chat and drops handoff rows; never reads handoff metadata.
+- An earlier "View virtual screen" CTA was implemented and then removed before merge (post-completion viewer had no working takeover/edge-glow/exit). The `virtualDisplayAvailable` capture field was also dropped because nothing consumed it; it can return when `vd-runtime-boundary` keeps the VD alive past task completion.
+- Ancillary fixes surfaced by QA on this branch:
+  - `AppSettingsStore` now persists `openai_base_url` in SharedPreferences (was in-memory, lost on every process restart — caused recurring LLM errors against Tailscale-proxied OpenAI).
+  - `scripts/debug-run.sh` runs `setup.sh` as a preflight on every invocation so accessibility/overlay/Shizuku state survives OEM drift and `adb install -r`; defines `err()` (was previously calling an undefined helper); passes caller-set `LLM_BACKEND` through.
+  - `scripts/setup.sh` captures caller-provided `LLM_BACKEND` before sourcing `.env` so `debug-run.sh --local` no longer trips the OpenAI API-key gate when `.env` declares `openai`; gradle invocation passes `--no-configuration-cache` to work around a pre-existing `licenseDebugReport` cache bug.
+
+**Why:**
+- Before: VD completions left the user staring at chat with no path to the app the agent had just left open on the virtual display. Manual workarounds (search/launcher) hid useful intent we already had at completion time.
+- Three rounds of codex review (`projects/active/vd_completion_handoff/codex_code_review.md`, `codex_general_review.md`, `codex_cleanup_review.md` + `codex_cleanup_rereview.md`) drove the design from two CTAs → safer two CTAs → single CTA → fully clean removal of dead plumbing. Re-review final verdict: **ship**.
+
+**Key files:**
+- `app/src/main/kotlin/ai/closepaw/protocol/CompletionHandoff.kt` (new) + `TaskLifecycleEvents.kt`
+- `app/src/main/kotlin/ai/closepaw/session/AgentSession.kt` (`buildHandoffIfVd`)
+- `app/src/main/kotlin/ai/closepaw/ui/chat/components/CompletionHandoffCtaRow.kt` (new)
+- `app/src/main/kotlin/ai/closepaw/ui/chat/{ChatEventReducer,ChatViewModel,ChatScreen}.kt` + `model/ChatMessage.kt` + `components/{AgentRow,MessageBubble}.kt`
+- `app/src/main/kotlin/ai/closepaw/app/{MainActivity,MainActivityContent,MainActivityUiHelpers,AgentService,AgentServiceViewerBridge}.kt`
+- `app/src/main/kotlin/ai/closepaw/app/{AppSettingsState,AppSettingsStore}.kt`
+- `scripts/{debug-run,setup}.sh`
+
+**Verification:** `./gradlew :app:assembleDebug :app:testDebugUnitTest` green (183 suites / 1734 tests / 0 failures). Real-device on Tecno P0110 (Android 16) Shizuku-granted: VD task completes → only `Open <App>` CTA renders → tap launches launcher on display 0 (`Window changed: pkg=com.android.launcher3 ... to=OTHER_APP`); `New Session` resets cleanly; `debug-run.sh --local` preflight no longer trips the OpenAI gate.
+**Commit:** `9be6c778..f66d14e9` (17 commits, PR #40)
+**Next:** `vd-runtime-boundary` task graph (still blocked) re-introduces a usable viewer post-completion — once that lands, restoring the `View virtual screen` CTA is straightforward (add the field back, render it).
+**Blockers:** None.
+
 ## 2026-05-15: Standalone agent prompt — stop nudging ask_user for system settings; trust stated intent
 
 **What changed:**

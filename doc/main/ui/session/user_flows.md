@@ -52,6 +52,7 @@ User types goal in capsule input → taps Send
       ├─ UI: TaskCompleted → completion text appended to chat
       │   ├─ Capsule → Done (3s) → Hidden
       │   ├─ Recording service finalizes agent message to disk
+      │   └─ VD completions: row also carries CompletionHandoff(appPackage, appLabel) → renders "Open <App>" CTA (see "VD completion handoff" below)
       │
       └─ Session alive in Hot Idle, awaiting follow-up
 ```
@@ -251,7 +252,21 @@ Two `SessionRecordingService` instances exist:
 
 The per-session RS is the one that captures `AgentEvent` data. On `TaskCompleted`, `completeAgentMessage()` finalizes the agent message buffer to ensure the on-disk session file is complete before Hot Idle.
 
-## 9. debug-run.sh Compatibility
+## 9. VD completion handoff
+
+When `TaskCompleted` fires while the active platform is `VirtualDisplayPlatform`, `AgentSession.buildHandoffIfVd()` attaches a `CompletionHandoff(appPackage, appLabel)` to the event. `ChatEventReducer.handleTaskCompleted` copies that metadata onto the completed `ChatMessage.Agent` row.
+
+`CompletionHandoffCtaRow` then renders an **Open <App>** button under the final answer when:
+- `handoff.appPackage` is non-null (capture filtered self/SystemUI/`AppTier.BLOCKED` via `AppClassifier`), AND
+- `PackageManager.getLaunchIntentForPackage(appPackage)` resolves on the real display.
+
+Tap calls `MainActivity.onOpenApp(pkg)` which launches the package's launcher intent with `FLAG_ACTIVITY_NEW_TASK` on display 0. `TaskCompleted` itself never starts an activity — only the explicit CTA does.
+
+Accessibility-mode completions emit `handoff = null` (the agent worked on the real screen so the user is already there). `New Session` resets the chat and drops any handoff-bearing row; it never reads or invokes handoff metadata.
+
+> Earlier iterations of this feature also rendered a "View virtual screen" CTA. It was removed before merge because the post-completion viewer had no working takeover / edge glow / exit affordance — see `projects/active/vd_completion_handoff/design_codex.md` Update banner. The viewer CTA can return once `vd-runtime-boundary` keeps the VD alive past completion and restores the in-viewer controls.
+
+## 10. debug-run.sh Compatibility
 
 `debug-run.sh` monitors agent execution and stops after the first task:
 
