@@ -28,16 +28,16 @@ object ActionDescriptionFormatter {
         pointLabel: String = "at",
         fallback: String? = null,
     ): String = when {
+        target.elementIndex != null ->
+            "element ${target.elementIndex}"
         target.text.isNotEmpty() ->
             "text \"${target.text}\" (index ${target.textIndex})"
         target.bounds != null ->
             "bounds (${target.bounds.x1},${target.bounds.y1})-(${target.bounds.x2},${target.bounds.y2})"
         target.point != null ->
             "$pointLabel (${target.point.x},${target.point.y})"
-        target.elementIndex != null ->
-            "element ${target.elementIndex}"
         else ->
-            fallback ?: "element ${target.elementIndex ?: -1}"
+            fallback ?: "element -1"
     }
 
     private fun formatMobileAction(args: JSONObject): String {
