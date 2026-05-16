@@ -79,7 +79,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_TRACE_RUN_ID = "trace_run_id"
         const val EXTRA_MAIN_MODEL = "main_model"
         const val EXTRA_SUBAGENT_MODEL = "subagent_model"
-        const val EXTRA_MAX_TURNS = "max_turns"
         const val EXTRA_APPROVAL_MODE = "approval_mode"
         const val EXTRA_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
         const val EXTRA_PLATFORM_MODE = "platform_mode"
@@ -87,6 +86,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
         const val EXTRA_NOVITA_API_KEY = "novita_api_key"
         const val EXTRA_OPENAI_BASE_URL = "openai_base_url"
+        const val EXTRA_EVAL_TURN_BUDGET = "eval_turn_budget"
     }
 
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
     private var pendingTraceRunId: String? = null
     private var pendingExcludedTools: Set<String> = emptySet()
     private var pendingApprovalMode: ApprovalMode? = null
+    private var pendingEvalTurnBudget: Int? = null
     private var pendingAutoStartGoal: String? = null
     private var pendingGoalRunnable: Runnable? = null
     private var pendingGoalForConfirmation by mutableStateOf<String?>(null)
@@ -368,12 +369,14 @@ class MainActivity : ComponentActivity() {
                 currentPendingTraceRunId = pendingTraceRunId,
                 currentPendingExcludedTools = pendingExcludedTools,
                 currentPendingApprovalMode = pendingApprovalMode,
+                currentPendingEvalTurnBudget = pendingEvalTurnBudget,
                 log = { message -> Log.d(TAG, message) }
             )
             pendingTraceEnabled = applyResult.pendingTraceEnabled
             pendingTraceRunId = applyResult.pendingTraceRunId
             pendingExcludedTools = applyResult.pendingExcludedTools
             pendingApprovalMode = applyResult.pendingApprovalMode
+            pendingEvalTurnBudget = applyResult.pendingEvalTurnBudget
 
             if (alreadyConsumed) {
                 Log.d(TAG, "Intent payload already consumed, skipping action dispatch")
@@ -609,6 +612,7 @@ class MainActivity : ComponentActivity() {
         pendingTraceRunId = null
         pendingExcludedTools = emptySet()
         pendingApprovalMode = null
+        pendingEvalTurnBudget = null
         pendingAutoStartGoal = null
 
         sessionHistoryManager.setActiveSessionId(session.sessionId.value)
@@ -677,7 +681,6 @@ class MainActivity : ComponentActivity() {
 
         val sessionConfig =
                 SessionConfig(
-                        maxTurns = settingsState.maxTurns,
                         approvalMode = pendingApprovalMode ?: ApprovalMode.SMART,
                         mainModel = settingsState.selectedModel,
                         subagentModel = settingsState.subagentModel,
@@ -697,7 +700,8 @@ class MainActivity : ComponentActivity() {
                                     else -> PerceptionConfig.AccessibilityOnly
                                 },
                         platformMode = settingsState.platformMode,
-                        excludedTools = pendingExcludedTools
+                        excludedTools = pendingExcludedTools,
+                        evalTurnBudget = pendingEvalTurnBudget
                 )
 
         val session =

@@ -52,7 +52,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = emptySet(),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -94,7 +93,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("complete_task"),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -153,7 +151,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("delegate_task", "remember_experience"),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -182,7 +179,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = emptySet(),
-                                                maxTurns = 1,
                                                 timeoutMs = 10
                                         ),
                                 parentServices = services,
@@ -224,7 +220,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("complete_task"),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -266,7 +261,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("complete_task"),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -281,34 +275,6 @@ class SubAgentRunnerTest {
                 assertThat(result.message).contains("Could not find Notion app: Not installed")
         }
 
-        @Test
-        fun `runner returns narrative summary when executor hits step limit`() = runTest {
-                val llm = ScriptedSubAgentLLMClient(events = listOf(LLMStreamEvent.Completed))
-                val services = buildServices(llm, includeCompleteTask = false)
-                val runner =
-                        IsolatedSubAgentRunner(
-                                roleDef =
-                                        AgentRoleDef(
-                                                name = "executor",
-                                                executionRole = AgentExecutionRole.SUBAGENT,
-                                                description = "Exec",
-                                                systemPrompt = "prompt",
-                                                allowedTools = emptySet(),
-                                                maxTurns = 1,
-                                                timeoutMs = 5_000
-                                        ),
-                                parentServices = services,
-                                parentSessionId = SessionId("session-1"),
-                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {},
-                                parentEventEmitter = {}
-                        )
-
-                val result = runner.run(SubAgentRequest(query = "Tap search"))
-
-                assertThat(result.success).isFalse()
-                assertThat(result.message).contains("Agent reached turn limit")
-                assertThat(result.message).contains("Delegated query: Tap search")
-        }
 }
 
 private fun buildServices(
@@ -334,7 +300,6 @@ private fun buildServices(
                 platform = FakeAndroidPlatform(),
                 config =
                         SessionConfig(
-                                maxTurns = 1,
                                 actionDelayMs = 0,
                                 llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
                         ),

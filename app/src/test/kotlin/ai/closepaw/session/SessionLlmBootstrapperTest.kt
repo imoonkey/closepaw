@@ -32,8 +32,7 @@ class SessionLlmBootstrapperTest {
                                                                 backendType =
                                                                         LLMBackendType.OPENAI
                                                         ),
-                                                mainModel = "test",
-                                                maxTurns = 1
+                                                mainModel = "test"
                                         ),
                                 context = mockk(relaxed = true),
                                 authStore = null

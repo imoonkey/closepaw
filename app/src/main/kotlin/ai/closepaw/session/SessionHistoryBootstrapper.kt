@@ -23,15 +23,13 @@ internal object SessionHistoryBootstrapper {
         val historyConfig =
                 HistoryConfig(
                         defaultTruncationPolicy = TruncationPolicy.AGGRESSIVE,
-                        autoCompress = true,
-                        maxTokenBudget = 18_000
                 )
         val historyManager = HistoryManager(historyConfig)
 
         val storage = SessionStorage(context, Dispatchers.IO)
         val recordingService = SessionRecordingService(storage, scope)
 
-        Log.d(TAG, "Created history stack with token budget=${historyConfig.maxTokenBudget}")
+        Log.d(TAG, "Created history stack (truncation=${historyConfig.defaultTruncationPolicy})")
 
         return SessionHistoryBootstrap(
                 historyManager = historyManager,

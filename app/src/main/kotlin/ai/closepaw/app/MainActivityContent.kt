@@ -128,8 +128,6 @@ internal fun MainActivityContent(
                     selectedLocalModel = settingsState.localModel.id,
                     onLocalModelChange = modelLoadingStatusHolder::updateLocalModel,
                     modelLoadingStatus = modelLoadingStatusHolder.status,
-                    maxTurns = settingsState.maxTurns,
-                    onMaxTurnsChange = settingsState::updateMaxTurns,
                     perceptionMode = settingsState.perceptionMode,
                     onPerceptionModeChange = settingsState::updatePerceptionMode,
                     debugMode = settingsState.debugMode,

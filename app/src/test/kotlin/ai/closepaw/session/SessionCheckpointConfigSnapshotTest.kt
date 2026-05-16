@@ -18,7 +18,6 @@ class SessionCheckpointConfigSnapshotTest {
             SessionConfig(
                 mainModel = "main-model",
                 subagentModel = "subagent-model",
-                maxTurns = 42,
                 perceptionConfig = PerceptionConfig.Hybrid(),
                 platformMode = PlatformMode.VIRTUAL_DISPLAY,
                 llm =
@@ -37,7 +36,6 @@ class SessionCheckpointConfigSnapshotTest {
 
         assertThat(restored.mainModel).isEqualTo("main-model")
         assertThat(restored.subagentModel).isEqualTo("subagent-model")
-        assertThat(restored.maxTurns).isEqualTo(42)
         assertThat(restored.perceptionConfig).isInstanceOf(PerceptionConfig.Hybrid::class.java)
         assertThat(restored.platformMode).isEqualTo(PlatformMode.VIRTUAL_DISPLAY)
         assertThat(restored.llm.backendType).isEqualTo(LLMBackendType.LOCAL)

@@ -1,7 +1,7 @@
 # Turn Prompt Anatomy
 
 > What each turn sends to the LLM: instructions, input items, and filtered tools.
-> Last updated: 2026-05-15
+> Last updated: 2026-05-16
 
 ## Overview
 
@@ -76,6 +76,20 @@ To control growth, `HistoryManager` proactively keeps only the last `recentFullS
 `Screen: {N} elements (compressed)`
 
 Default retained full observations: `recentFullScreens = 3`.
+
+When older history is summarized by `Compactor`, a single `ResponseItem.Message(kind = MessageKind.COMPACTION_SUMMARY)` replaces the discarded prefix. `COMPACTION_SUMMARY` is rendered as a **user-role** `easy_input_message` whose content is prefixed with:
+
+```
+[Context checkpoint from earlier work in this session]
+
+<summary text>
+```
+
+This makes provenance unambiguous: the model reads it as a runtime-supplied
+handoff, not as its own prior assistant output. The full-history pass-through
+in `HistoryManager.forPrompt()` still normalizes call/output pairs around it.
+
+→ See: [memory.md](memory.md#conversation-history--compaction) for the compaction algorithm and CAS semantics.
 
 ### 2.2 Working Memory Section (Optional)
 
@@ -159,11 +173,15 @@ Bodies are loaded only on the first turn after explicit mention; subsequent turn
 
 ### 2.5 Observation Section
 
-Final user message always includes current screen JSON:
+Final user message always includes current screen JSON. An optional `Turn N`
+header is rendered when a positive turn number is supplied — purely informational,
+not a `Turn N/M` budget. There is no "FINAL TURN" warning; the agent runs
+without a fixed turn cap (see [loop.md](loop.md#auto-compaction)).
 
 ````text
-[warning] ...optional warning...
-[final-turn] ...optional final-turn warning...
+Turn 7
+
+[warning] ...optional loop-detection warning...
 
 Screen state (N elements):
 ```json
@@ -178,10 +196,9 @@ If screenshot input is available and backend supports vision, the message also a
 ### Warnings Included
 
 Warnings are prepared in `AgentTurnRunner.buildWarnings(...)`:
-- Loop warning from `LoopDetectionPolicy` (factual message only—no severity levels)
-- Final-turn warning when `isFinalTurn()` returns true
+- Loop warning from `LoopDetectionPolicy` (factual message only — no severity levels)
 
-> See: `agent/cognition/policy/LoopDetectionPolicy.kt`, `agent/cognition/policy/TurnBudget.kt`
+> See: `agent/cognition/policy/LoopDetectionPolicy.kt`
 
 ---
 

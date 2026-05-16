@@ -100,7 +100,6 @@ class SessionStorageTest {
                 config =
                     ConversationConfigSnapshot(
                         mainModel = "m1",
-                        maxTurns = 10,
                         perceptionMode = "accessibility_only",
                         platformMode = "ACCESSIBILITY"
                     ),

@@ -46,7 +46,6 @@ internal class AgentTrace(
                     put("agent_role", JsonPrimitive(config.agentRole.name.lowercase()))
                     config.parentSessionId?.let { put("parent_session_id", JsonPrimitive(it.value)) }
                     config.delegationCallId?.let { put("delegation_call_id", JsonPrimitive(it)) }
-                    put("max_turns", JsonPrimitive(config.maxTurns))
                     put("ui_settle_delay_ms", JsonPrimitive(config.uiSettleDelayMs))
                     put("llm_backend", JsonPrimitive(services.config.llm.backendType.name))
                     put("model", JsonPrimitive(config.modelName))

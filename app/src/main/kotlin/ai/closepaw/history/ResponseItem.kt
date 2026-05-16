@@ -5,21 +5,21 @@ import org.json.JSONObject
 /**
  * Classification of [ResponseItem.Message] content.
  *
- * Replaces the ambiguous `role: String` + `isScreenObservation: Boolean` pairing.
- * API role is derived: [USER_INTENT]/[SCREEN_OBSERVATION] → "user",
- * [ASSISTANT_TEXT]/[COMPRESSION_DIGEST] → "assistant".
+ * API role is derived: [USER_INTENT]/[SCREEN_OBSERVATION]/[COMPACTION_SUMMARY] → "user",
+ * [ASSISTANT_TEXT] → "assistant". [COMPACTION_SUMMARY] is user-role because it is
+ * context the runtime feeds back, not assistant output.
  */
 enum class MessageKind {
     USER_INTENT,
     SCREEN_OBSERVATION,
     ASSISTANT_TEXT,
-    COMPRESSION_DIGEST;
+    COMPACTION_SUMMARY;
 
     /** Derive the API-level role string for LLM requests. */
     val apiRole: String
         get() = when (this) {
-            USER_INTENT, SCREEN_OBSERVATION -> "user"
-            ASSISTANT_TEXT, COMPRESSION_DIGEST -> "assistant"
+            USER_INTENT, SCREEN_OBSERVATION, COMPACTION_SUMMARY -> "user"
+            ASSISTANT_TEXT -> "assistant"
         }
 }
 

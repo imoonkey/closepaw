@@ -2,10 +2,10 @@ package ai.closepaw.agent
 
 import android.util.Log
 import ai.closepaw.agent.cognition.policy.LoopDetectionPolicy
-import ai.closepaw.agent.cognition.policy.isFinalTurn
 import ai.closepaw.agent.cognition.policy.LoopDetectionResult
 import ai.closepaw.agent.cognition.policy.ToolArbitrationResult
 import ai.closepaw.agent.cognition.policy.TurnToolPolicy
+import ai.closepaw.history.Compactor
 import ai.closepaw.model.ScreenSnapshot
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.ScreenStatePhase
@@ -29,7 +29,8 @@ internal class AgentTurnRunner(
         private val cancellationSignal: CompletableDeferred<AgentStopReason>,
         private val stopRequested: AtomicBoolean,
         private val trace: AgentTrace,
-        private val turnPolicyEngine: TurnToolPolicy
+        private val turnPolicyEngine: TurnToolPolicy,
+        private val compactor: Compactor? = null
 ) {
         companion object {
                 private const val TAG = "AgentTurnRunner"
@@ -54,7 +55,8 @@ internal class AgentTurnRunner(
                         services = services,
                         eventDispatcher = eventDispatcher,
                         trace = trace,
-                        turnPolicyEngine = turnPolicyEngine
+                        turnPolicyEngine = turnPolicyEngine,
+                        compactor = compactor
                 )
         }
 
@@ -204,8 +206,7 @@ internal class AgentTurnRunner(
 
                 val nextState = state.copy(navigationState = navigationState)
 
-                val finalTurn = isFinalTurn(turnNumber, config.maxTurns)
-                val warnings = buildWarnings(loopResult, finalTurn)
+                val warnings = buildWarnings(loopResult)
 
                 return PreparedTurn(
                         nextState = nextState,
@@ -215,13 +216,9 @@ internal class AgentTurnRunner(
 
         /** Build plain-text warning strings for the current observation. */
         private fun buildWarnings(
-                loopResult: LoopDetectionResult,
-                isFinalTurn: Boolean
+                loopResult: LoopDetectionResult
         ): List<String> = buildList {
                 loopResult.warning?.let { add("⚠️ ${it.message}") }
-                if (isFinalTurn) {
-                        add("🛑 FINAL TURN (${config.maxTurns}). Complete now or report progress.")
-                }
         }
 
         private fun decideTurnOutcome(

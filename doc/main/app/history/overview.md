@@ -1,14 +1,14 @@
 # Session History Persistence
 
-> Session recording, storage, runtime prompt history, compression pipeline, and resume.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Session recording, storage, runtime prompt history, context-window compaction, and resume.
+> Last updated: 2026-05-16
 
 ## Overview
 
 The session history system has three layers:
 
 1. **Persistence layer** — automatic recording of chat sessions to disk for browsing and resuming past conversations
-2. **Runtime layer** — in-memory conversation history management for LLM context with token budgeting, multi-phase compression, and proactive screen downgrade
+2. **Runtime layer** — in-memory conversation history (`HistoryManager`) with proactive screen downgrade plus context-window-driven auto-compaction (`Compactor`)
 3. **Checkpoint layer** — session state snapshots for process-death recovery (history + todos + scratchpad)
 
 ## Architecture
@@ -69,16 +69,17 @@ AgentEvent                     SessionRecordingService              File
 | Page | Focus |
 |------|-------|
 | [persistence.md](persistence.md) | SessionHistoryManager, SessionRecordingService, SessionStorage |
-| [runtime.md](runtime.md) | HistoryManager, compression pipeline, token budgeting |
+| [runtime.md](runtime.md) | HistoryManager (revision + CAS), Compactor, screen downgrade |
 | [models.md](models.md) | Data models: SessionRecord, MessageRecord, ScreenStateRecord |
 
 ## File Structure
 
 ```
 history/
-├── HistoryManager.kt              # Runtime prompt history + compression
-├── HistoryConfig.kt               # Token budgets, compression params
-├── ResponseItem.kt                # Conversation items (MessageKind)
+├── HistoryManager.kt              # Runtime prompt history + screen downgrade + revision/CAS
+├── HistoryConfig.kt               # Screen-retention config
+├── Compactor.kt                   # Context-window-triggered LLM summarization
+├── ResponseItem.kt                # Conversation items (MessageKind incl. COMPACTION_SUMMARY)
 ├── SessionHistoryManager.kt       # High-level session management
 ├── SessionRecordingService.kt     # Real-time event recording
 ├── AgentMessageBuffer.kt          # Streaming agent message buffer

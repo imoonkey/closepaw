@@ -24,8 +24,8 @@ class ReasonPatternTest(unittest.TestCase):
         self.assertEqual(_extract_reason(line), "GOAL_ACHIEVED")
 
     def test_matches_colon_with_space(self) -> None:
-        line = 'Session completed: sess_1, reason: MAX_TURNS'
-        self.assertEqual(_extract_reason(line), "MAX_TURNS")
+        line = 'Session completed: sess_1, reason: ERROR'
+        self.assertEqual(_extract_reason(line), "ERROR")
 
     def test_matches_mixed_case(self) -> None:
         line = 'reason: GoalAchieved'
@@ -154,14 +154,16 @@ class LogcatCompletionMonitorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             logcat = Path(tmp) / "logcat.log"
             logcat.write_text(
-                "AgentService: Task completed: t1, reason: MAX_TURNS\n"
+                "AgentService: Task completed: t1, reason: ERROR; eval turn budget reached (3)\n"
                 "AgentSession: Emitted event: SessionCompleted\n",
                 encoding="utf-8",
             )
             monitor = LogcatCompletionMonitor(max_wait_seconds=1, poll_interval_seconds=0.01)
             result = monitor.wait(logcat)
             self.assertEqual(result.bridge_status, "completed")
-            self.assertEqual(result.agent_completion_reason, "MAX_TURNS")
+            self.assertEqual(result.agent_completion_reason, "ERROR")
+            self.assertIsNotNone(result.matched_line)
+            self.assertIn("eval turn budget", result.matched_line)
 
     def test_ignores_unrelated_reason_lines_before_completion(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

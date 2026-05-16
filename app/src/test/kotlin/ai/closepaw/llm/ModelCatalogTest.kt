@@ -434,4 +434,60 @@ class ModelCatalogTest {
         val catalog = ModelCatalog.fromJson(json)
         assertNotNull(catalog.resolve("model"))
     }
+
+    // ── context_window ──────────────────────────────────────────────────
+
+    @Test
+    fun `contextWindow uses explicit JSON value when present`() {
+        val json = """
+            {
+              "explicit": {
+                "display_name": "Explicit",
+                "provider":"OPENAI_API",
+                "api": "chat",
+                "model_id": "m",
+                "context_window": 400000
+              }
+            }
+        """.trimIndent()
+        val entry = ModelCatalog.fromJson(json).resolve("explicit")
+        assertEquals(400_000, entry.contextWindow)
+    }
+
+    @Test
+    fun `contextWindow falls back to 128_000 for cloud providers when JSON omits it`() {
+        val entry = ModelCatalog.fromJson(sampleJson).resolve("gpt-5.2")
+        assertEquals(128_000, entry.contextWindow)
+    }
+
+    @Test
+    fun `contextWindow falls back to 8_000 for local backend when JSON omits it`() {
+        val json = """
+            {
+              "lfm": {
+                "display_name": "Local LFM",
+                "provider": "LOCAL_LFM",
+                "api": "chat",
+                "model_id": "lfm-local"
+              }
+            }
+        """.trimIndent()
+        val entry = ModelCatalog.fromJson(json).resolve("lfm")
+        assertEquals(8_000, entry.contextWindow)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `fromJson rejects non-positive context_window`() {
+        ModelCatalog.fromJson("""
+            {
+              "bad": {
+                "display_name": "Bad",
+                "provider":"OPENAI_API",
+                "api": "chat",
+                "model_id": "bad",
+                "context_window": 0
+              }
+            }
+        """.trimIndent())
+    }
 }

@@ -60,19 +60,20 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgentRunLoopTest {
 
-    // ---------------- Outcome: Continue + guard: MaxTurnsReached ----------------
+    // ---------------- Outcome: Continue + evalTurnBudget safety net ----------------
 
     @Test
-    fun `Continue outcome loops until MaxTurnsReached`() = runTest {
+    fun `Continue outcome loops until evalTurnBudget reached`() = runTest {
+        // evalTurnBudget = 2: two Continue turns run, then the loop stops with Error before turn 3.
         val llm = ProgrammableLLMClient(
-            // Three "Continue" responses: 1st turn runs, 2nd turn runs, 3rd attempt is gated.
             listOf(LLMBehavior.Continue, LLMBehavior.Continue)
         )
-        val agent = newAgent(llm, maxTurns = 2)
+        val agent = newAgent(llm, evalTurnBudget = 2)
 
         val reason = agent.run()
 
-        assertThat(reason).isEqualTo(AgentStopReason.MaxTurnsReached)
+        assertThat(reason).isInstanceOf(AgentStopReason.Error::class.java)
+        assertThat((reason as AgentStopReason.Error).message).contains("Eval turn budget")
         assertThat(llm.callCount).isEqualTo(2)
     }
 
@@ -81,7 +82,7 @@ class AgentRunLoopTest {
     @Test
     fun `Complete success via text-only response stops with GoalAchieved`() = runTest {
         val llm = ProgrammableLLMClient(listOf(LLMBehavior.TextOnly("done")))
-        val agent = newAgent(llm, maxTurns = 5)
+        val agent = newAgent(llm)
 
         val reason = agent.run()
 
@@ -94,7 +95,7 @@ class AgentRunLoopTest {
         val llm = ProgrammableLLMClient(
             listOf(LLMBehavior.CompleteTaskCall(success = true, answer = "ok"))
         )
-        val agent = newAgent(llm, maxTurns = 5, registerCompleteTask = true)
+        val agent = newAgent(llm, registerCompleteTask = true)
 
         val reason = agent.run()
 
@@ -109,7 +110,7 @@ class AgentRunLoopTest {
         val llm = ProgrammableLLMClient(
             listOf(LLMBehavior.CompleteTaskCall(success = false, answer = "blocked"))
         )
-        val agent = newAgent(llm, maxTurns = 5, registerCompleteTask = true)
+        val agent = newAgent(llm, registerCompleteTask = true)
 
         val reason = agent.run()
 
@@ -124,7 +125,7 @@ class AgentRunLoopTest {
         val llm = ProgrammableLLMClient(
             listOf(LLMBehavior.Throw(UnknownHostException("dns")))
         )
-        val agent = newAgent(llm, maxTurns = 5)
+        val agent = newAgent(llm)
 
         val reason = agent.run()
 
@@ -143,7 +144,7 @@ class AgentRunLoopTest {
                 LLMBehavior.TextOnly("done")                     // turn 3: complete
             )
         )
-        val agent = newAgent(llm, maxTurns = 5)
+        val agent = newAgent(llm)
 
         val reason = agent.run()
 
@@ -159,7 +160,7 @@ class AgentRunLoopTest {
                 LLMBehavior.Throw(SocketTimeoutException("t2")) // back-to-back -> retryCount=1, can't retry
             )
         )
-        val agent = newAgent(llm, maxTurns = 5)
+        val agent = newAgent(llm)
 
         val reason = agent.run()
 
@@ -177,7 +178,7 @@ class AgentRunLoopTest {
                 LLMBehavior.TextOnly("done")                     // succeeds
             )
         )
-        val agent = newAgent(llm, maxTurns = 6)
+        val agent = newAgent(llm)
 
         val reason = agent.run()
 
@@ -186,31 +187,26 @@ class AgentRunLoopTest {
     }
 
     @Test
-    fun `recoverable error on the last allowed turn cannot retry`() = runTest {
-        // hasRemainingTurns guard: turnCount(=1) < maxTurns(=1) is false.
+    fun `recoverable error retries indefinitely without a turn-count gate`() = runTest {
+        // Regression for removal of `hasRemainingTurns` from the retry gate. The
+        // loop must keep retrying until the retry counter itself is exhausted —
+        // a high turnCount alone should not block recovery.
         val llm = ProgrammableLLMClient(
-            listOf(LLMBehavior.Throw(SocketTimeoutException("only attempt")))
+            listOf(
+                LLMBehavior.Continue,                            // turn 1
+                LLMBehavior.Continue,                            // turn 2
+                LLMBehavior.Continue,                            // turn 3
+                LLMBehavior.Throw(SocketTimeoutException("t")), // turn 4: error -> retry (no turn gate)
+                LLMBehavior.TextOnly("recovered")                // turn 5: success
+            )
         )
-        val agent = newAgent(llm, maxTurns = 1)
+        val agent = newAgent(llm)
 
         val reason = agent.run()
 
-        assertThat(reason).isInstanceOf(AgentStopReason.Error::class.java)
-        assertThat(llm.callCount).isEqualTo(1)
-    }
-
-    // ---------------- Guard: MaxTurnsReached after a successful Continue ----------------
-
-    @Test
-    fun `MaxTurnsReached fires before next turn even after Continue`() = runTest {
-        // maxTurns=1: first turn runs (Continue), then top-of-loop guard rejects.
-        val llm = ProgrammableLLMClient(listOf(LLMBehavior.Continue))
-        val agent = newAgent(llm, maxTurns = 1)
-
-        val reason = agent.run()
-
-        assertThat(reason).isEqualTo(AgentStopReason.MaxTurnsReached)
-        assertThat(llm.callCount).isEqualTo(1)
+        assertThat(reason).isInstanceOf(AgentStopReason.GoalAchieved::class.java)
+        assertThat((reason as AgentStopReason.GoalAchieved).message).isEqualTo("recovered")
+        assertThat(llm.callCount).isEqualTo(5)
     }
 
     // ---------------- Transition: Running -> UserRequested via stop() ----------------
@@ -218,7 +214,7 @@ class AgentRunLoopTest {
     @Test
     fun `stop request before run causes UserRequested without invoking LLM`() = runTest {
         val llm = ProgrammableLLMClient(listOf(LLMBehavior.TextOnly("never")))
-        val agent = newAgent(llm, maxTurns = 5)
+        val agent = newAgent(llm)
         agent.stop()
 
         val reason = agent.run()
@@ -233,7 +229,7 @@ class AgentRunLoopTest {
         val cancellation = CompletableDeferred<AgentStopReason>().apply {
             complete(AgentStopReason.UserRequested)
         }
-        val agent = newAgent(llm, maxTurns = 5, cancellationSignal = cancellation)
+        val agent = newAgent(llm, cancellationSignal = cancellation)
 
         val reason = agent.run()
 
@@ -250,7 +246,7 @@ class AgentRunLoopTest {
         // GatedLLMClient parks each turn on `awaitTurn()` so we can interleave
         // pause/resume/stop deterministically between turns.
         val llm = GatedLLMClient()
-        val agent = newAgent(llm, maxTurns = 100)
+        val agent = newAgent(llm)
 
         val runJob = async { agent.run() }
         // Allow turn 1 to complete and re-enter the loop.
@@ -263,10 +259,6 @@ class AgentRunLoopTest {
         // Release turn 2's behavior so the runner finishes; the next iteration
         // is where the pause check fires.
         llm.completeTurn(LLMBehavior.Continue)
-        // Hard sync: await() returns only when the loop has reached the pause
-        // block and called pauseConfirmed.complete(Unit). At that point the
-        // loop is provably parked on `pauseState.first { !it }` — no scheduler
-        // sensitivity, no yield() races.
         pauseConfirmed.await()
 
         agent.resume()
@@ -283,20 +275,15 @@ class AgentRunLoopTest {
     fun `stop while paused unblocks the loop and exits with UserRequested`() = runTest(
         UnconfinedTestDispatcher()
     ) {
-        // Guards the post-pause `shouldContinue()` re-check (Agent.kt:78-81):
-        // a stop arriving during pause must terminate the run.
         val llm = GatedLLMClient()
-        val agent = newAgent(llm, maxTurns = 100)
+        val agent = newAgent(llm)
 
         val runJob = async { agent.run() }
         llm.awaitTurnCalled()
         val pauseConfirmed = agent.pause()
         llm.completeTurn(LLMBehavior.Continue)
-        // Hard sync: loop is provably parked in the pause block once this resolves.
         pauseConfirmed.await()
 
-        // stop() flips pauseState=false, which both wakes `first { !it }`
-        // AND makes the next shouldContinue() return false.
         agent.stop()
 
         val reason = runJob.await()
@@ -309,20 +296,11 @@ class AgentRunLoopTest {
     fun `in turn Cancelled outcome maps to UserRequested`() = runTest(
         UnconfinedTestDispatcher()
     ) {
-        // To exercise AgentTurnRunner.executeTurn's `isTurnCancelled()` check
-        // (which fires AFTER capturePreTurnSnapshot returns), we let the screen
-        // capture itself complete the cancellation signal. The turn enters with
-        // shouldContinue()=true at the loop top, captures the screen, then sees
-        // cancellation and returns TurnOutcome.Cancelled — the very transition
-        // documented at agent_run_loop.md "Running (turn) -> UserRequested".
         val cancellation = CompletableDeferred<AgentStopReason>()
         val platform = CancellingCapturePlatform(cancellation)
-        // The LLM must never be invoked: planning is reached only if the
-        // cancellation gate fails to short-circuit the turn.
         val llm = ProgrammableLLMClient(emptyList())
         val agent = newAgent(
             llm,
-            maxTurns = 5,
             cancellationSignal = cancellation,
             platform = platform
         )
@@ -334,21 +312,95 @@ class AgentRunLoopTest {
         assertThat(llm.callCount).isEqualTo(0) // confirms planning was skipped
     }
 
+    // ---------------- Compactor circuit breaker: Failed×3 stops the loop ----------------
+
+    @Test
+    fun `consecutive compactor Failed×3 stops the loop with Error`() = runTest {
+        // Continue×2 is enough — the loop breaks on the 3rd maybeCompact() failure
+        // BEFORE turn 3 reaches the LLM.
+        val llm = ProgrammableLLMClient(
+            listOf(LLMBehavior.Continue, LLMBehavior.Continue)
+        )
+        // A compactor wired so every maybeCompact() trips Failed: trigger threshold
+        // is below the seeded history's token count, but the inner LLM throws.
+        val failingCompactorLlm = object : LLMClient() {
+            var calls = 0
+                private set
+
+            override suspend fun chatWithTools(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+            ): ResponsesResult {
+                calls++
+                throw RuntimeException("summary boom #$calls")
+            }
+
+            override fun chatWithToolsStreaming(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+            ): Flow<LLMStreamEvent> = flow { emit(LLMStreamEvent.Completed) }
+        }
+        val compactor = ai.closepaw.history.Compactor(
+            llmClient = failingCompactorLlm,
+            model = ai.closepaw.llm.ModelEntry(
+                name = "test-compactor",
+                displayName = "Test Compactor",
+                provider = ai.closepaw.llm.LLMProvider.OPENAI_API,
+                api = ai.closepaw.llm.ApiType.RESPONSE,
+                modelId = "test-compactor",
+                contextWindow = 100,
+            ),
+            initialPrompt = "",
+            updatePrompt = "",
+            staticOverheadTokens = 0,
+            reserveTokens = 10,
+            keepRecentTokens = 5,
+        )
+
+        val history = HistoryManager().apply {
+            // Pre-seed so historyTokens > triggerTokens (= 90) and findSafeCutPoint
+            // can locate a Message boundary in the kept tail.
+            repeat(4) {
+                addItem(ai.closepaw.history.ResponseItem.Message(
+                    ai.closepaw.history.MessageKind.ASSISTANT_TEXT,
+                    "x".repeat(200)
+                ))
+            }
+        }
+
+        val reason = newAgent(
+            llm,
+            compactor = compactor,
+            historyManager = history,
+        ).run()
+
+        assertThat(reason).isInstanceOf(AgentStopReason.Error::class.java)
+        assertThat((reason as AgentStopReason.Error).message).contains("Auto-compaction failed 3")
+        assertThat(failingCompactorLlm.calls).isEqualTo(3)
+        // Only two turns executed before the breaker tripped on the 3rd pre-turn check.
+        assertThat(llm.callCount).isEqualTo(2)
+    }
+
     // -------------------- Helpers --------------------
 
     private fun newAgent(
         llm: LLMClient,
-        maxTurns: Int,
         registerCompleteTask: Boolean = false,
         cancellationSignal: CompletableDeferred<AgentStopReason> = CompletableDeferred(),
-        platform: AndroidPlatform = FakeAndroidPlatform()
+        platform: AndroidPlatform = FakeAndroidPlatform(),
+        evalTurnBudget: Int? = null,
+        compactor: ai.closepaw.history.Compactor? = null,
+        historyManager: HistoryManager = HistoryManager(),
     ): Agent {
         val toolRegistry = ToolRegistry().apply {
             if (registerCompleteTask) register(CompleteTaskTool())
         }
         val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val sessionConfig = SessionConfig(
-            maxTurns = maxTurns,
             actionDelayMs = 0,
             llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
         )
@@ -358,7 +410,7 @@ class AgentRunLoopTest {
         val services = SessionServices(
             toolRegistry = toolRegistry,
             toolRouter = ToolRouter(toolRegistry, policyEngine),
-            historyManager = HistoryManager(),
+            historyManager = historyManager,
             sessionState = AgentSessionState(),
             policyEngine = policyEngine,
             appClassifier = AppClassifier(emptyMap()),
@@ -374,11 +426,12 @@ class AgentRunLoopTest {
             config = AgentExecutionConfig(
                 goal = "goal",
                 sessionId = SessionId.generate(),
-                maxTurns = maxTurns,
                 uiSettleDelayMs = 0,
-                systemPrompt = "test prompt"
+                systemPrompt = "test prompt",
+                evalTurnBudget = evalTurnBudget,
             ),
             services = services,
+            compactor = compactor ?: noopCompactor(),
             eventEmitter = {},
             cancellationSignal = cancellationSignal
         )

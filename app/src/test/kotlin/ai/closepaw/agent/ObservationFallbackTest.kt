@@ -53,7 +53,6 @@ class ObservationFallbackTest {
             """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
         )
         val sessionConfig = SessionConfig(
-            maxTurns = 1,
             actionDelayMs = 0,
             llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
         )
@@ -78,7 +77,6 @@ class ObservationFallbackTest {
         val execConfig = AgentExecutionConfig(
             goal = "goal",
             sessionId = sessionId,
-            maxTurns = 1,
             uiSettleDelayMs = 0,
             systemPrompt = "p"
         )

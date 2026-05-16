@@ -46,8 +46,6 @@ fun SettingsSheet(
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus,
-    maxTurns: Int,
-    onMaxTurnsChange: (Int) -> Unit,
     perceptionMode: String,
     onPerceptionModeChange: (String) -> Unit,
     debugMode: Boolean,
@@ -118,7 +116,6 @@ fun SettingsSheet(
                     modelOptions = catalogModelOptions(modelCatalog.all()),
                     selectedLocalModel = selectedLocalModel,
                     modelCatalog = modelCatalog,
-                    maxTurns = maxTurns,
                     perceptionMode = perceptionMode,
                     isAccessibilityEnabled = isAccessibilityEnabled,
                     isOverlayEnabled = isOverlayEnabled,
@@ -147,8 +144,6 @@ fun SettingsSheet(
                     initialAuthTab = initialAuthTab,
                 )
                 SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
-                    maxTurns = maxTurns,
-                    onMaxTurnsChange = onMaxTurnsChange,
                     perceptionMode = perceptionMode,
                     onPerceptionModeChange = onPerceptionModeChange,
                     browserScriptEnabled = browserScriptEnabled,

@@ -43,7 +43,7 @@ stateDiagram-v2
     [*] --> Agent
     Agent --> TurnContinue: TurnOutcome.Continue
     TurnContinue --> Agent
-    Agent --> Stop: Complete / Error / Cancelled / MaxTurns
+    Agent --> Stop: Complete / Error / Cancelled
     Stop --> [*]
 ```
 

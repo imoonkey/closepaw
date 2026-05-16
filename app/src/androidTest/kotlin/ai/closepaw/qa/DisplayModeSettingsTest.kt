@@ -140,7 +140,6 @@ private fun HomeUnderTest(effectivePlatformMode: PlatformMode?) {
             modelOptions = listOf("gpt-5.2" to "GPT-5.2"),
             selectedLocalModel = "LFM2.5-1.2B-Instruct",
             modelCatalog = testModelCatalog(),
-            maxTurns = 20,
             perceptionMode = "accessibility_only",
             isAccessibilityEnabled = false,
             isOverlayEnabled = false,

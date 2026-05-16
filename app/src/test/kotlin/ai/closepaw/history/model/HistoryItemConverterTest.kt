@@ -72,4 +72,15 @@ class HistoryItemConverterTest {
         val restored = HistoryItemConverter.fromRecord(unknown) as ResponseItem.Message
         assertThat(restored.kind).isEqualTo(MessageKind.USER_INTENT)
     }
+
+    @Test
+    fun `fromRecord migrates legacy COMPRESSION_DIGEST kind to COMPACTION_SUMMARY`() {
+        val legacy = PersistedHistoryItem.Message(
+            kind = "COMPRESSION_DIGEST",
+            content = "## Progress\n- did X"
+        )
+        val restored = HistoryItemConverter.fromRecord(legacy) as ResponseItem.Message
+        assertThat(restored.kind).isEqualTo(MessageKind.COMPACTION_SUMMARY)
+        assertThat(restored.content).isEqualTo("## Progress\n- did X")
+    }
 }

@@ -342,7 +342,6 @@ class AgentService : AccessibilityService() {
     fun runAgent(
             goal: String,
             authStore: ai.closepaw.auth.AuthStore? = null,
-            maxSteps: Int = 20,
             platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     ) {
         if (!isServiceActive) {
@@ -366,7 +365,6 @@ class AgentService : AccessibilityService() {
                 val settings = AppSettingsStore(this@AgentService).load()
                 val sessionConfig =
                         SessionConfig(
-                                maxTurns = maxSteps,
                                 debugMode = true,
                                 traceEnabled = settings.traceEnabled,
                                 platformMode = platformMode

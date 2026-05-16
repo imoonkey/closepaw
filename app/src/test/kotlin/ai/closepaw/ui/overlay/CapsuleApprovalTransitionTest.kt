@@ -206,15 +206,6 @@ class CapsuleApprovalTransitionTest {
     }
 
     @Test
-    fun `task completed MAX_TURNS sets Done with reached message`() {
-        holder.onTaskStarted("task1", "input")
-        holder.onTaskCompleted(TaskOutcome.MAX_TURNS)
-        val mode = holder.mode.value
-        assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
-        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Max steps reached")
-    }
-
-    @Test
     fun `task completed TASK_IMPOSSIBLE sets Done with impossible message`() {
         holder.onTaskStarted("task1", "input")
         holder.onTaskCompleted(TaskOutcome.TASK_IMPOSSIBLE)

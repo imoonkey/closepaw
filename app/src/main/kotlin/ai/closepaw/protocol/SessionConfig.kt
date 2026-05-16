@@ -10,8 +10,6 @@ import ai.closepaw.perception.PerceptionConfig
  * Immutable after session creation.
  */
 data class SessionConfig(
-        /** Maximum number of turns before auto-stopping */
-        val maxTurns: Int = 50,
         /** Delay between actions in milliseconds (for UI to settle) */
         val actionDelayMs: Long = 2000,
         /** Approval mode for tool execution */
@@ -44,7 +42,12 @@ data class SessionConfig(
         /** Platform mode: real screen (accessibility) or virtual display (Shizuku) */
         val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
         /** Tool names to exclude from the agent's allowed tool set (e.g. for eval) */
-        val excludedTools: Set<String> = emptySet()
+        val excludedTools: Set<String> = emptySet(),
+        /**
+         * Eval-only safety net plumbed to [ai.closepaw.agent.AgentExecutionConfig.evalTurnBudget].
+         * Production leaves this null; eval bridge sets it from yaml `max_turns:`.
+         */
+        val evalTurnBudget: Int? = null
 )
 
 /** Canonical LLM routing config used at runtime. */

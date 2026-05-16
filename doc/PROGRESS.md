@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-05-16: Auto-compact — context-window-driven history compaction replaces `maxTurns`
+
+**What changed:**
+- Deleted the `maxTurns` hard cap from `SessionConfig`, `AgentExecutionConfig`, `AgentRoleDef`, trace, snapshot, all UI/settings/intent surfaces, and the prompt. `TaskOutcome.MAX_TURNS` and `AgentStopReason.MaxTurnsReached` were removed.
+- Added `ModelEntry.contextWindow` (parsed from `llm_models.json`; provider-mode fallback: 8 000 local, 128 000 cloud). All 12 catalog entries populated.
+- Added `HistoryManager.revision: Long`, `snapshot()`, and `replaceAllIfRevision(expected, …)` — CAS-swap that lets the new compactor work atomically against concurrent supplements.
+- New `history/Compactor.kt`: per-`Agent` LLM-summarizer. `maybeCompact` runs at the top of every turn; triggers when estimated tokens > `contextWindow − reserveTokens`. `findSafeCutPoint` walks back to `keepRecentTokens` then snaps forward past any `FunctionCallOutput` so call/output pairs stay atomic. `forceCompactNow` is the reactive variant used on `ContextWindowExceededException`.
+- New `llm/ContextWindowExceededException` raised by `CloudStreamRetryRunner` on HTTP 413 / `prompt_too_long` / `request_too_long` / Ollama context-overflow; `Turn.runStreaming` catches it once, runs `forceCompactNow`, and retries.
+- `MessageKind.COMPRESSION_DIGEST` → `COMPACTION_SUMMARY` with `apiRole = "user"`. `PromptBuilder` prefixes its body with `[Context checkpoint from earlier work in this session]\n\n`.
+- Agent loop gained a 3-strike circuit breaker (`MAX_CONSECUTIVE_COMPACTION_FAILURES = 3` → `AgentStopReason.Error`) plus an optional `evalTurnBudget` eval-only safety net (production: `null`; eval bridge plumbs the yaml key `max_turns` through to intent extra `eval_turn_budget`).
+- Old lossy Phase-2 eviction + `mergeAdjacentDigests` + `autoCompressIfNeeded` + `CompressionResult.BudgetUnreachable` removed from `HistoryManager`. The remaining `compress()` is lossless (normalize + downgrade only). `downgradeOldScreens` is unchanged.
+- Compaction prompt assets: `assets/prompts/compaction_initial.md`, `assets/prompts/compaction_update.md`.
+- Docs synced: `agent/loop.md`, `agent/memory.md` (added "Conversation History & Compaction"), `agent/overview.md`, `agent/turn_prompt_anatomy.md`, `agent/multiagent.md`, `app/history/{overview,runtime,models}.md`, `app/settings.md`, `protocol/{config,events,overview}.md`, `ui/capsule/state_machine.md`, `ui/session/state_machine.md`, `state_machines/{agent_run_loop,onboarding_demo_step,README}.md`, `eval/eval.md`.
+
+**Why:**
+- The old turn cap was an arbitrary integer that punished long-but-legitimate tasks ("Max turns reached" mid-progress), and worse, it leaked into the prompt as `Turn N/M` and `🛑 FINAL TURN` warnings — biasing the model toward premature completion or shortcuts.
+- The old `HistoryManager.compress()` Phase-2 eviction was lossy: it dropped items and left a one-line digest, giving the agent effective amnesia after a few cycles.
+- Auto-compaction lets the agent run as long as the work actually needs while keeping the prompt under the model's real context window, with structured summaries (Progress / In Progress / Blocked / User Updates / App State / Next Steps) instead of evicted holes.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/{history/{Compactor,HistoryManager,HistoryConfig,ResponseItem},agent/{Agent,Turn,AgentRuntimeTypes,AgentExecutionConfig,cognition/prompt/PromptBuilder,subagent/SubAgentRunner},llm/{ContextWindowExceededException,CloudStreamRetryRunner,ModelCatalog},protocol/{SessionConfig,TaskOutcome},session/{AgentSession,SessionAgentRunner,SessionCheckpointCoordinator,SessionHistoryBootstrapper},trace/{AgentTrace,TraceModels,TraceRecorderFactory},app/*}`, `app/src/main/assets/{llm_models.json,prompts/compaction_*.md}`, `eval/aw_bridge/native_agent_bridge.py`, `doc/main/**`.
+**Verification:** `./gradlew clean assembleDebug lint test` green on the worktree branch.
+**Commit:** range `2efcb905..8d0d5d4e`
+**Next:** Tune `staticOverheadTokens` / `reserveTokens` / `keepRecentTokens` if real-world eval traces show systematic over- or under-compaction.
+**Blockers:** None.
+
 ## 2026-05-16: Archive completed task docs
 
 **What changed:**

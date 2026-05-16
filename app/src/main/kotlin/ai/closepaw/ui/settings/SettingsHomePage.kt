@@ -35,7 +35,6 @@ internal fun SettingsHomePage(
     modelOptions: List<Pair<String, String>>,
     selectedLocalModel: String,
     modelCatalog: ModelCatalog,
-    maxTurns: Int,
     perceptionMode: String,
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
@@ -81,7 +80,7 @@ internal fun SettingsHomePage(
             SectionHeader("Behavior")
             SettingsNavigationRow(
                 title = "Agent Behavior",
-                subtitle = agentBehaviorSubtitle(maxTurns, perceptionMode),
+                subtitle = agentBehaviorSubtitle(perceptionMode),
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }
             )
 
@@ -134,15 +133,13 @@ private fun llmSubtitle(
 }
 
 private fun agentBehaviorSubtitle(
-    maxTurns: Int,
     perceptionMode: String
 ): String {
-    val perception = when (perceptionMode) {
+    return when (perceptionMode) {
         "hybrid" -> "Hybrid"
         "screenshot_only" -> "Screenshot"
         else -> "Accessibility"
     }
-    return "$maxTurns turns · $perception"
 }
 
 private fun permissionsSubtitle(

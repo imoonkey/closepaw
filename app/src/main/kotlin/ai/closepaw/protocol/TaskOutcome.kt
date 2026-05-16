@@ -5,9 +5,6 @@ enum class TaskOutcome {
     /** Goal was achieved successfully. */
     GOAL_ACHIEVED,
 
-    /** Maximum turns reached. */
-    MAX_TURNS,
-
     /** Agent decided the task cannot be completed. */
     TASK_IMPOSSIBLE,
 

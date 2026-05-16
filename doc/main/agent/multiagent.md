@@ -1,7 +1,7 @@
 # Multi-Agent System
 
 > Subagent delegation and unified agent-mode wiring.
-> Last updated: 2026-05-15
+> Last updated: 2026-05-16
 
 ## Unified Delegation Model
 
@@ -35,7 +35,7 @@ The parent history only records the `delegate_task` call and result. The subagen
 - system prompt text
 - allowed tool set, including `delegate_task`
 - runtime role metadata for the main agent
-- delegation properties (`delegatable`, `maxTurns`, `timeoutMs`, `description`)
+- delegation properties (`delegatable`, `timeoutMs`, `description`) — `timeoutMs` is the runaway guard for delegated subagents (no `maxTurns`; the child agent has its own per-turn auto-compaction)
 
 `AgentDefRegistry.main` returns `DefaultRoleDef`. `AgentDefRegistry.delegatableRoles()` returns the same single definition because `DefaultRoleDef.delegatable = true`.
 
@@ -44,14 +44,14 @@ The parent history only records the `delegate_task` call and result. The subagen
 > See: `agent/subagent/SubAgentRunner.kt`
 
 Executes one delegated request with isolated runtime state:
-- Creates a child `Agent` with a fresh `HistoryManager`
+- Creates a child `Agent` with a fresh `HistoryManager` and a fresh `Compactor` bound to the child model
 - Reuses the default role prompt and tool allowlist
 - Filters child tools to remove `delegate_task` and `remember_experience`
 - Shares parent scratchpad intentionally for data handoff
 - Runs as `AgentExecutionRole.SUBAGENT`
 - Returns normalized `SubAgentResult(success, message)`
-- Produces a narrative summary when the turn limit is reached
-- Handles timeout via `withTimeoutOrNull`
+- Produces a narrative summary via `DelegationSummaryFormatter` when the subagent times out
+- Handles timeout via `withTimeoutOrNull` against `resolvedRoleDef.timeoutMs`
 
 ### DelegateTaskTool
 
@@ -102,7 +102,7 @@ Only action events are streamed into the parent chat row/capsule path. Thought d
 
 ## Adding New Subagents
 
-The current architecture intentionally has one delegatable role. Add a new role only if there is a concrete need for a distinct prompt, tool allowlist, turn budget, or timeout; otherwise keep delegation on `DefaultRoleDef` and use runtime exclusions in `SubAgentRunner`.
+The current architecture intentionally has one delegatable role. Add a new role only if there is a concrete need for a distinct prompt, tool allowlist, or timeout; otherwise keep delegation on `DefaultRoleDef` and use runtime exclusions in `SubAgentRunner`.
 
 ---
 

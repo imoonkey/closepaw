@@ -15,8 +15,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
     var selectedModel by mutableStateOf(AppSettingsStore.DEFAULT_MODEL)
         private set
-    var maxTurns by mutableStateOf(AppSettingsStore.DEFAULT_MAX_TURNS)
-        private set
     var debugMode by mutableStateOf(AppSettingsStore.DEFAULT_DEBUG_MODE)
         private set
     var perceptionMode by mutableStateOf(AppSettingsStore.DEFAULT_PERCEPTION_MODE)
@@ -41,7 +39,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
     fun load() {
         val settings = store.load()
         selectedModel = settings.selectedModel
-        maxTurns = settings.maxTurns
         debugMode = settings.debugMode
         perceptionMode = settings.perceptionMode
         llmBackend = settings.llmBackend
@@ -54,7 +51,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
         Log.d(
                 TAG,
-                "Settings loaded: backend=$llmBackend, model=$selectedModel, subagentModel=$subagentModel, localModel=${localModel.id}, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, platformMode=$platformMode"
+                "Settings loaded: backend=$llmBackend, model=$selectedModel, subagentModel=$subagentModel, localModel=${localModel.id}, debugMode=$debugMode, perceptionMode=$perceptionMode, platformMode=$platformMode"
         )
     }
 
@@ -81,11 +78,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
     fun updateOpenaiBaseUrl(url: String) {
         openaiBaseUrl = url
         store.saveOpenaiBaseUrl(url)
-    }
-
-    fun updateMaxTurns(value: Int) {
-        maxTurns = value
-        store.saveMaxTurns(value)
     }
 
     fun updateDebugMode(value: Boolean) {

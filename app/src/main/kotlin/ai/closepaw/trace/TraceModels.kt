@@ -60,6 +60,5 @@ data class TraceRunConfig(
     @SerialName("main_model") val mainModel: String = model,
     @SerialName("subagent_model") val subagentModel: String? = null,
     @SerialName("debug_mode") val debugMode: Boolean,
-    @SerialName("screenshot_input") val screenshotInput: Boolean,
-    @SerialName("max_turns") val maxTurns: Int
+    @SerialName("screenshot_input") val screenshotInput: Boolean
 )

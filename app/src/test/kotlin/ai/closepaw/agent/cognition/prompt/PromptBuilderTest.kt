@@ -128,15 +128,13 @@ class PromptBuilderTest {
     fun `buildObservationText places warnings before screen state`() {
         val builder = createBuilder()
         val warnings = listOf(
-            "⚠️ Screen unchanged for 3 turns.",
-            "🛑 FINAL TURN (10). Complete now."
+            "⚠️ Screen unchanged for 3 turns."
         )
         val text = builder.buildObservationText(observationWithElements, warnings)
 
         val warningIdx = text.indexOf("⚠️ Screen unchanged")
         val screenIdx = text.indexOf("Screen state")
         assertThat(warningIdx).isLessThan(screenIdx)
-        assertThat(text).contains("🛑 FINAL TURN")
     }
 
     @Test
@@ -214,6 +212,94 @@ class PromptBuilderTest {
         assertThat(observation.screenJson).isNull()
         assertThat(observation.hasAccessibility).isFalse()
         assertThat(observation.screenBlock).contains("no accessibility tree")
+    }
+
+    @Test
+    fun `buildObservationText renders Turn N without budget`() {
+        val builder = createBuilder()
+        val text = builder.buildObservationText(observationWithElements, emptyList(), turnNumber = 3)
+
+        assertThat(text).contains("Turn 3")
+        assertThat(text).doesNotContainMatch("Turn \\d+/\\d+")
+    }
+
+    @Test
+    fun `buildObservationText omits turn header when turnNumber is zero`() {
+        val builder = createBuilder()
+        val text = builder.buildObservationText(observationWithElements, emptyList())
+
+        assertThat(text).doesNotContain("Turn ")
+    }
+
+    @Test
+    fun `PromptBuilder never renders budget or FINAL TURN by itself`() {
+        val historyManager = HistoryManager()
+        historyManager.addItem(userIntent("Goal: Test"))
+        val builder = PromptBuilder(
+            historyManager = historyManager,
+            sessionState = AgentSessionState(),
+            supportsVision = true
+        )
+
+        // No warnings supplied — PromptBuilder must not synthesize budget/FINAL TURN strings.
+        val items = builder.buildInputItems(
+            observation = emptyObservation,
+            turnNumber = 5
+        )
+
+        val text = items.joinToString("\n") { item ->
+            runCatching { item.asEasyInputMessage().content().asTextInput() }.getOrDefault("")
+        }
+
+        assertThat(text).doesNotContainMatch("Turn \\d+/\\d+")
+        assertThat(text).doesNotContain("FINAL TURN")
+    }
+
+    // ── COMPACTION_SUMMARY rendering ────────────────────────────────────
+
+    @Test
+    fun `COMPACTION_SUMMARY content is prefixed with context checkpoint banner`() {
+        val historyManager = HistoryManager()
+        historyManager.addItem(userIntent("Goal: Test"))
+        historyManager.addItem(
+            ResponseItem.Message(
+                kind = MessageKind.COMPACTION_SUMMARY,
+                content = "Earlier the agent opened Settings and toggled WiFi off."
+            )
+        )
+
+        val builder = PromptBuilder(
+            historyManager = historyManager,
+            sessionState = AgentSessionState(),
+            supportsVision = true
+        )
+
+        val items = builder.buildInputItems(emptyObservation)
+
+        // Find the summary item — it's the second history message.
+        val summaryText = items[1].asEasyInputMessage().content().asTextInput()
+        assertThat(summaryText).startsWith("[Context checkpoint from earlier work in this session]\n\n")
+        assertThat(summaryText).contains("Earlier the agent opened Settings and toggled WiFi off.")
+    }
+
+    @Test
+    fun `regular USER_INTENT and ASSISTANT_TEXT messages have no checkpoint prefix`() {
+        val historyManager = HistoryManager()
+        historyManager.addItem(userIntent("Goal: Just do it"))
+        historyManager.addItem(assistantMessage("Done"))
+
+        val builder = PromptBuilder(
+            historyManager = historyManager,
+            sessionState = AgentSessionState(),
+            supportsVision = true
+        )
+
+        val items = builder.buildInputItems(emptyObservation)
+
+        val intentText = items[0].asEasyInputMessage().content().asTextInput()
+        val assistantText = items[1].asEasyInputMessage().content().asTextInput()
+        assertThat(intentText).doesNotContain("Context checkpoint")
+        assertThat(assistantText).doesNotContain("Context checkpoint")
     }
 
     // ── Full buildInputItems ────────────────────────────────────────────

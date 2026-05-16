@@ -202,7 +202,7 @@ class NativeAgentBridge:
             "main_model",
             self._config.main_model,
             "--ei",
-            "max_turns",
+            "eval_turn_budget",
             str(self._config.max_turns),
         ]
         if self._config.executor_model:

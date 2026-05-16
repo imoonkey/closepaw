@@ -48,14 +48,13 @@ Invalid source/callId are ignored.
 Guard: ignore when already `Hidden|Done|Error`. Clears `isStopPending`.
 
 - `GOAL_ACHIEVED` → `Done(message ?: "Task completed")`
-- `MAX_TURNS` → `Done("Max steps reached")`
 - `TASK_IMPOSSIBLE` → `Done("Task impossible")`
 - `USER_STOPPED` → `Done("Stopped")`
 - `ERROR` → `Error("Error occurred")`
 
 `Done` auto-hides to `Hidden` after 3s.
 
-(`TaskOutcome` enum is exactly these five values; there is no `INTERRUPTED` or `IDLE_TIMEOUT` task outcome.)
+(`TaskOutcome` enum is exactly these four values; there is no `MAX_TURNS`, `INTERRUPTED`, or `IDLE_TIMEOUT` task outcome. Production runs are bounded by context-window auto-compaction, not a turn count — see [agent/loop.md](../../agent/loop.md#auto-compaction).)
 
 ### 2.4 Session completion path (`onSessionEnded`)
 

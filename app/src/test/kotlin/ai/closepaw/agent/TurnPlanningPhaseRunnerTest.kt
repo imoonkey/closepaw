@@ -171,7 +171,6 @@ private class PlanningHarness(
                 appClassifier = AppClassifier(emptyMap()),
                 platform = FakeAndroidPlatform(),
                 config = SessionConfig(
-                    maxTurns = 1,
                     actionDelayMs = 0,
                     mainModel = modelName,
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
@@ -191,7 +190,6 @@ private class PlanningHarness(
             val config = AgentExecutionConfig(
                 goal = "goal",
                 sessionId = sessionId,
-                maxTurns = 1,
                 uiSettleDelayMs = 0,
                 systemPrompt = "test prompt",
                 modelName = modelName

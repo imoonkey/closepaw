@@ -3,72 +3,84 @@
     "display_name": "GPT-5.2",
     "provider": "OPENAI_API",
     "api": "response",
-    "model_id": "gpt-5.2"
+    "model_id": "gpt-5.2",
+    "context_window": 400000
   },
   "gpt-5.2-chat": {
     "display_name": "GPT-5.2 (Chat API)",
     "provider": "OPENAI_API",
     "api": "chat",
-    "model_id": "gpt-5.2"
+    "model_id": "gpt-5.2",
+    "context_window": 400000
   },
   "gpt-5.2-codex": {
     "display_name": "GPT-5.2 (ChatGPT sign-in)",
     "provider": "OPENAI_CODEX",
     "api": "response",
-    "model_id": "gpt-5.2"
+    "model_id": "gpt-5.2",
+    "context_window": 400000
   },
   "glm-5": {
     "display_name": "GLM-5",
     "provider": "OPENROUTER",
     "api": "chat",
-    "model_id": "z-ai/glm-5"
+    "model_id": "z-ai/glm-5",
+    "context_window": 200000
   },
   "minimax-m2.5": {
     "display_name": "Minimax M2.5",
     "provider": "OPENROUTER",
     "api": "chat",
-    "model_id": "minimax/minimax-m2.5"
+    "model_id": "minimax/minimax-m2.5",
+    "context_window": 1000000
   },
   "kimi-k2.5": {
     "display_name": "Kimi K2.5",
     "provider": "OPENROUTER",
     "api": "chat",
-    "model_id": "moonshotai/kimi-k2.5"
+    "model_id": "moonshotai/kimi-k2.5",
+    "context_window": 256000
   },
   "qwen3-vl-235b-a22b-instruct": {
     "display_name": "Qwen 3 VL 235B A22B Instruct",
     "provider": "OPENROUTER",
     "api": "chat",
-    "model_id": "qwen/qwen3-vl-235b-a22b-instruct"
+    "model_id": "qwen/qwen3-vl-235b-a22b-instruct",
+    "context_window": 256000
   },
   "autoglm-phone-9b-multilingual": {
     "display_name": "AutoGLM Phone 9B Multilingual",
     "provider": "NOVITA",
     "api": "chat",
-    "model_id": "zai-org/autoglm-phone-9b-multilingual"
+    "model_id": "zai-org/autoglm-phone-9b-multilingual",
+    "context_window": 128000
   },
   "qwen3.5": {
     "display_name": "Qwen 3.5",
     "provider": "OPENROUTER",
     "api": "chat",
-    "model_id": "qwen/qwen3.5-plus-02-15"
+    "model_id": "qwen/qwen3.5-plus-02-15",
+    "context_window": 1000000
   },
   "gpt-5.4": {
     "display_name": "GPT-5.4",
     "provider": "OPENAI_API",
     "api": "response",
-    "model_id": "gpt-5.4"
+    "model_id": "gpt-5.4",
+    "context_window": 400000
   },
   "gpt-5.4-chat": {
     "display_name": "GPT-5.4 (Chat API)",
     "provider": "OPENAI_API",
     "api": "chat",
-    "model_id": "gpt-5.4"
+    "model_id": "gpt-5.4",
+    "context_window": 400000
   },
   "gpt-5.4-codex": {
     "display_name": "GPT-5.4 (ChatGPT sign-in)",
     "provider": "OPENAI_CODEX",
     "api": "response",
-    "model_id": "gpt-5.4"
+    "model_id": "gpt-5.4",
+    "context_window": 400000
   }
 }

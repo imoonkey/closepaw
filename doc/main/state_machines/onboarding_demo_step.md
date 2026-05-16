@@ -49,7 +49,6 @@ The controller resolves the awaited `TaskCompleted` event under a 60 s timeout. 
 | `taskCompleted == null` (timeout) | `onFailure("The demo timed out before opening Settings.")` | `Failure` |
 | `outcome == GOAL_ACHIEVED && lastPackageName == "com.android.settings"` | `onSuccess("Settings app opened successfully!")` | `Success` |
 | `outcome == GOAL_ACHIEVED && lastPackageName != settings` | `onSuccess("Demo task completed!")` (still success) | `Success` |
-| `outcome == MAX_TURNS` | `onFailure("Demo reached maximum attempts")` | `Failure` |
 | `outcome == ERROR` | `onFailure("Demo encountered an error")` | `Failure` |
 | `outcome == TASK_IMPOSSIBLE` | `onFailure("Demo could not complete the task")` | `Failure` |
 | other outcome | `onFailure("Demo ended: $outcome")` | `Failure` |
@@ -72,7 +71,7 @@ stateDiagram-v2
     Preflight --> ApiKey_Step: apiKey != Done
     Preflight --> Running: gates ok
     Running --> Success: GOAL_ACHIEVED
-    Running --> Failure: timeout / MAX_TURNS / ERROR / TASK_IMPOSSIBLE / generic exception
+    Running --> Failure: timeout / ERROR / TASK_IMPOSSIBLE / generic exception
     Running --> CredentialError: MissingCredential / OAuthRefreshFailed / WrongCredentialType
     Failure --> Preflight: startDemo() (retry)
     CredentialError --> ApiKey_Step: goToAuthStep()
@@ -102,21 +101,20 @@ stateDiagram-v2
 | Transition | Side-effects |
 |---|---|
 | `Ready → Preflight` | (none beyond state mutation) |
-| `Preflight → Running` | Builds `SessionConfig(maxTurns=5, AUTO_APPROVE, OPENAI backend, AccessibilityOnly)` (OnboardingDemoController.kt:80-91), creates `AgentSession` on `Dispatchers.IO`, registers it with `AgentService.observeExternalSession`, launches event collector, submits `Op.UserInput("Open the Settings app")` (OnboardingDemoController.kt:96-131) |
+| `Preflight → Running` | Builds `SessionConfig(AUTO_APPROVE, OPENAI backend, AccessibilityOnly)` (OnboardingDemoController.kt), creates `AgentSession` on `Dispatchers.IO`, registers it with `AgentService.observeExternalSession`, launches event collector, submits `Op.UserInput("Open the Settings app")` |
 | `Running → Success` | Persists `Done`, schedules `advanceToNextStep` after 400 ms (OnboardingViewModel.kt:271-277); also `onBringToFront` |
 | `Running → Failure/CredentialError` | `onBringToFront`; no persistence |
 | any → (controller exit) | `shutdownSession()` submits `Op.Shutdown` and clears `demoSession` reference |
 
 ## Error / recovery paths
 
-- 60 s timeout (`TIMEOUT_MS`, OnboardingDemoController.kt:51) maps to `Failure`.
+- 60 s timeout (`TIMEOUT_MS`) maps to `Failure`. The demo no longer has its own turn cap — production runs are bounded by context-window auto-compaction. The 60 s wall-clock timeout is what guards against a runaway demo.
 - Credential exceptions are mapped to `CredentialError` with `isOAuth` derived from `provider == OPENAI_CODEX` (OnboardingDemoController.kt:174-197).
 - Non-credential exceptions fall through to `Failure("Demo failed: …")`.
 - Controller's `cancel()` cancels the coroutine job and shuts down the session — used implicitly when `run` is called again.
 
 ## Open questions / smells
 
-- The demo blocks waiting for `TaskCompleted` via a 200 ms polling loop on a captured local `var` (OnboardingDemoController.kt:134-139). Functional but a `Channel`/`callbackFlow` would be cleaner and avoid the polling jitter.
-- `MAX_TURNS = 5` is hard-coded (OnboardingDemoController.kt:52). Some devices/locales may legitimately need more turns to reach Settings; `Failure("Demo reached maximum attempts")` may misrepresent a slow-but-correct flow.
-- `Skipped` is set by `skipStep` directly (OnboardingViewModel.kt:298-302) without going through any controller — the demo `AgentSession` in flight (if any) is **not** cancelled here. UNCONFIRMED whether a stale demo session can outlive a `Skipped` transition.
-- `enterStep(WizardStep.Complete)` re-uses `DemoStepState.Ready` as a placeholder (OnboardingViewModel.kt:368-370) — see [onboarding_wizard.md](onboarding_wizard.md).
+- The demo blocks waiting for `TaskCompleted` via a 200 ms polling loop on a captured local `var`. Functional but a `Channel`/`callbackFlow` would be cleaner and avoid the polling jitter.
+- `Skipped` is set by `skipStep` directly without going through any controller — the demo `AgentSession` in flight (if any) is **not** cancelled here. UNCONFIRMED whether a stale demo session can outlive a `Skipped` transition.
+- `enterStep(WizardStep.Complete)` re-uses `DemoStepState.Ready` as a placeholder — see [onboarding_wizard.md](onboarding_wizard.md).
