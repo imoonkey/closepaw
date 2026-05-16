@@ -97,6 +97,30 @@ class CodexResponseClientTest {
         assertThat(json.has("max_output_tokens")).isFalse()
     }
 
+    @Test
+    fun `CodexRequestBuilder signature has no max-output-tokens parameter (enforces no-forward)`() {
+        // Codex backend rejects max_output_tokens. The LLMClient contract still
+        // exposes the cap (so other providers can honor it), but Codex must
+        // never forward it. Asserting the builder signature catches any future
+        // change that would silently start forwarding the cap.
+        val params = CodexRequestBuilder::class.java
+            .getDeclaredMethod(
+                "buildRequestBody",
+                String::class.java,
+                List::class.java,
+                List::class.java,
+                String::class.java,
+            )
+            .parameterTypes
+        assertThat(params).asList()
+            .containsExactly(
+                String::class.java,
+                List::class.java,
+                List::class.java,
+                String::class.java,
+            ).inOrder()
+    }
+
     // ── Error response classification ─────────────────────────────────────
 
     @Test(expected = RateLimitException::class)
