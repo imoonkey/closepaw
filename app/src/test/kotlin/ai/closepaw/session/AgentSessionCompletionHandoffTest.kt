@@ -231,7 +231,8 @@ private class QuickCompletionLLMClient : LLMClient() {
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
             tools: List<FunctionTool>,
-            model: String
+            model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult =
             ResponsesResult(textContent = "done", toolCalls = emptyList(), responseId = "resp")
 

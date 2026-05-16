@@ -34,18 +34,25 @@ abstract class LLMClient {
     
     /**
      * Call the LLM with tool/function calling support (non-streaming).
-     * 
+     *
      * @param systemPrompt System/developer instructions
      * @param inputItems Conversation history as ResponseInputItem list
      * @param tools Tool definitions for function calling
      * @param model Model to use (ignored for local models)
+     * @param maxOutputTokens Optional cap on the response output token count. Used by
+     *   bounded-length calls such as compaction summaries. Cloud providers translate
+     *   it into the appropriate provider field (Responses API: `max_output_tokens`;
+     *   Chat Completions: `max_completion_tokens`). Providers without a native cap
+     *   (Codex backend forbids the field; LFM SDK has no knob) accept the value
+     *   but cannot enforce it.
      * @return ResponsesResult containing text output and/or tool calls
      */
     abstract suspend fun chatWithTools(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String = DEFAULT_MODEL
+        model: String = DEFAULT_MODEL,
+        maxOutputTokens: Long? = null,
     ): ResponsesResult
     
     /**

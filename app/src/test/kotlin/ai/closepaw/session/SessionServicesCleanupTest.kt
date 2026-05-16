@@ -55,7 +55,8 @@ class SessionServicesCleanupTest {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
             ): ResponsesResult = error("unused")
 
             override fun chatWithToolsStreaming(
@@ -97,7 +98,8 @@ class SessionServicesCleanupTest {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
             ): ResponsesResult = error("unused")
 
             override fun chatWithToolsStreaming(
@@ -123,7 +125,8 @@ class SessionServicesCleanupTest {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
             ): ResponsesResult = error("unused")
 
             override fun chatWithToolsStreaming(
@@ -168,7 +171,8 @@ class SessionServicesCleanupTest {
                     systemPrompt: String,
                     inputItems: List<ResponseInputItem>,
                     tools: List<FunctionTool>,
-                    model: String
+                    model: String,
+        maxOutputTokens: Long?,
                 ): ResponsesResult = error("unused")
 
                 override fun chatWithToolsStreaming(

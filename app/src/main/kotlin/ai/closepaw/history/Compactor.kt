@@ -251,6 +251,7 @@ class Compactor(
             inputItems = input,
             tools = emptyList(),
             model = model.modelId,
+            maxOutputTokens = maxSummaryTokens,
         )
         val text = result.textContent?.trim().orEmpty()
         require(text.isNotEmpty()) { "Empty summary returned by LLM" }

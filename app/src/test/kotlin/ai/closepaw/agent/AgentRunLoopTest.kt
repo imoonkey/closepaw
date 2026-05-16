@@ -331,7 +331,8 @@ class AgentRunLoopTest {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
             ): ResponsesResult {
                 calls++
                 throw RuntimeException("summary boom #$calls")
@@ -467,7 +468,8 @@ private class ProgrammableLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult {
         // Agent uses streaming exclusively in this path; non-streaming is a
         // sanity guard so unexpected callers are easy to spot.
@@ -532,7 +534,8 @@ private class GatedLLMClient : LLMClient() {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult = error("non-streaming chatWithTools should not be invoked")
 
     override fun chatWithToolsStreaming(

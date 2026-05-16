@@ -1,10 +1,15 @@
 package ai.closepaw.llm
 
+import ai.liquid.leap.Conversation
 import ai.liquid.leap.ModelRunner
 import ai.liquid.leap.manifest.LeapDownloader
 import ai.liquid.leap.manifest.ProgressData
+import ai.liquid.leap.message.ChatMessage
+import ai.liquid.leap.message.MessageResponse
 import android.content.Context
 import com.google.common.truth.Truth.assertThat
+import com.openai.models.responses.EasyInputMessage
+import com.openai.models.responses.ResponseInputItem
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -13,6 +18,7 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.slot
 import io.mockk.unmockkAll
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertThrows
@@ -360,5 +366,78 @@ class LFMLLMClientTest {
             LFMLLMClient.ModelLoadingState.Loading,
             LFMLLMClient.ModelLoadingState.Ready,
         ).inOrder()
+    }
+
+    // ---------- maxOutputTokens cap enforcement ----------
+    //
+    // Leap SDK exposes no native max-output-tokens knob, so the local client
+    // enforces the cap client-side by truncating the streamed text once the
+    // running estimate (~4 chars / token) exceeds it. This test verifies the
+    // cap is honored end-to-end: an oversized provider chunk is truncated
+    // mid-stream, and subsequent chunks are dropped.
+
+    @Test
+    fun `chatWithTools truncates streamed text once maxOutputTokens cap is hit`() = runBlocking {
+        captureProgressLambda()
+        val conversation = mockk<Conversation>(relaxed = true)
+        every { runner.createConversationFromHistory(any<List<ChatMessage>>()) } returns conversation
+        // Two chunks: first carries 100 chars, second another 100. With a 10-token
+        // cap (~40 chars), only ~40 chars of the first chunk should survive and the
+        // second chunk should be dropped entirely.
+        every { conversation.generateResponse(any<ChatMessage>()) } returns flowOf(
+            MessageResponse.Chunk("x".repeat(100)),
+            MessageResponse.Chunk("y".repeat(100)),
+        )
+
+        val client = LFMLLMClient(context)
+        val result = client.chatWithTools(
+            systemPrompt = "you are helpful",
+            inputItems = listOf(
+                ResponseInputItem.ofEasyInputMessage(
+                    EasyInputMessage.builder()
+                        .role(EasyInputMessage.Role.USER)
+                        .content("hi")
+                        .build()
+                )
+            ),
+            tools = emptyList(),
+            model = "irrelevant-for-local",
+            maxOutputTokens = 10L,
+        )
+
+        // 10 tokens * 4 chars/token = 40 chars cap.
+        assertThat(result.textContent).isNotNull()
+        assertThat(result.textContent!!.length).isEqualTo(40)
+        // No 'y' chars — second chunk was dropped, not appended past the cap.
+        assertThat(result.textContent).doesNotContain("y")
+    }
+
+    @Test
+    fun `chatWithTools without cap keeps the full streamed text`() = runBlocking {
+        captureProgressLambda()
+        val conversation = mockk<Conversation>(relaxed = true)
+        every { runner.createConversationFromHistory(any<List<ChatMessage>>()) } returns conversation
+        every { conversation.generateResponse(any<ChatMessage>()) } returns flowOf(
+            MessageResponse.Chunk("x".repeat(100)),
+            MessageResponse.Chunk("y".repeat(100)),
+        )
+
+        val client = LFMLLMClient(context)
+        val result = client.chatWithTools(
+            systemPrompt = "s",
+            inputItems = listOf(
+                ResponseInputItem.ofEasyInputMessage(
+                    EasyInputMessage.builder()
+                        .role(EasyInputMessage.Role.USER)
+                        .content("hi")
+                        .build()
+                )
+            ),
+            tools = emptyList(),
+            model = "irrelevant-for-local",
+            maxOutputTokens = null,
+        )
+
+        assertThat(result.textContent!!.length).isEqualTo(200)
     }
 }

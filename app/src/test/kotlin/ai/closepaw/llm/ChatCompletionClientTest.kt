@@ -91,6 +91,34 @@ class ChatCompletionClientTest {
         assertThat(params.messages()).hasSize(2)
     }
 
+    @Test
+    fun `buildParams forwards maxOutputTokens as maxCompletionTokens`() {
+        val client = ChatCompletionClient(apiKey)
+        val params = invokeBuildParams(
+            client,
+            systemPrompt = "s",
+            inputItems = listOf(userMsg("hi")),
+            tools = emptyList(),
+            model = "gpt-4o",
+            maxOutputTokens = 5_000L,
+        )
+        assertThat(params.maxCompletionTokens().orElse(null)).isEqualTo(5_000L)
+    }
+
+    @Test
+    fun `buildParams omits maxCompletionTokens when cap is null`() {
+        val client = ChatCompletionClient(apiKey)
+        val params = invokeBuildParams(
+            client,
+            systemPrompt = "s",
+            inputItems = listOf(userMsg("hi")),
+            tools = emptyList(),
+            model = "gpt-4o",
+            maxOutputTokens = null,
+        )
+        assertThat(params.maxCompletionTokens().isPresent).isFalse()
+    }
+
     // ── Error classification (provider error → domain exception) ──────────
 
     @Test
@@ -162,17 +190,19 @@ class ChatCompletionClientTest {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long? = null,
     ): ChatCompletionCreateParams {
         val m = ChatCompletionClient::class.java.getDeclaredMethod(
             "buildParams",
             String::class.java,
             List::class.java,
             List::class.java,
-            String::class.java
+            String::class.java,
+            java.lang.Long::class.java
         )
         m.isAccessible = true
-        return m.invoke(client, systemPrompt, inputItems, tools, model) as ChatCompletionCreateParams
+        return m.invoke(client, systemPrompt, inputItems, tools, model, maxOutputTokens) as ChatCompletionCreateParams
     }
 
     /** Replace the private `client: OpenAIClient` with a mock whose create() call executes [onCreate]. */

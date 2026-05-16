@@ -55,6 +55,7 @@ class CompactorTest {
         staticOverhead: Long = 0,
         reserve: Long = 10_000,
         keepRecent: Long = 5_000,
+        maxSummary: Long = 5_000,
     ) = Compactor(
         llmClient = client,
         model = model(contextWindow),
@@ -63,6 +64,7 @@ class CompactorTest {
         staticOverheadTokens = staticOverhead,
         reserveTokens = reserve,
         keepRecentTokens = keepRecent,
+        maxSummaryTokens = maxSummary,
     )
 
     private class RecordingClient(
@@ -73,18 +75,21 @@ class CompactorTest {
         val capturedUserContents = mutableListOf<String>()
         val capturedTools = mutableListOf<List<FunctionTool>>()
         val capturedModels = mutableListOf<String>()
+        val capturedMaxOutputTokens = mutableListOf<Long?>()
         val callCount get() = capturedSystemPrompts.size
 
         override suspend fun chatWithTools(
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
             tools: List<FunctionTool>,
-            model: String
+            model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult {
             onCall?.invoke()
             capturedSystemPrompts.add(systemPrompt)
             capturedTools.add(tools)
             capturedModels.add(model)
+            capturedMaxOutputTokens.add(maxOutputTokens)
             val userText = inputItems
                 .mapNotNull { item ->
                     runCatching { item.asEasyInputMessage().content().asTextInput() }.getOrNull()
@@ -413,7 +418,8 @@ class CompactorTest {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
             ): ResponsesResult = throw RuntimeException("provider 500")
 
             override fun chatWithToolsStreaming(
@@ -467,5 +473,29 @@ class CompactorTest {
         val outcome = compactor.maybeCompact("Goal", history)
         assertThat(outcome).isInstanceOf(CompactionOutcome.Compacted::class.java)
         assertThat(client.capturedModels.single()).isEqualTo("provider/model")
+    }
+
+    // ── maxSummaryTokens cap forwarding ─────────────────────────────────
+
+    @Test
+    fun `summarize forwards maxSummaryTokens as maxOutputTokens to the LLM call`() = runBlocking {
+        val client = RecordingClient()
+        val compactor = newCompactor(
+            client,
+            contextWindow = 2_000,
+            reserve = 200,
+            keepRecent = 200,
+            maxSummary = 1_234L,
+        )
+        val history = HistoryManager()
+        repeat(6) { history.addItem(assistant(300)) }
+        history.addItem(assistant(50))
+
+        val outcome = compactor.maybeCompact("Open Settings", history)
+
+        assertThat(outcome).isInstanceOf(CompactionOutcome.Compacted::class.java)
+        // The cap is plumbed through the abstract LLMClient.chatWithTools surface,
+        // covering both cloud and local clients (they share the same abstract method).
+        assertThat(client.capturedMaxOutputTokens.single()).isEqualTo(1_234L)
     }
 }

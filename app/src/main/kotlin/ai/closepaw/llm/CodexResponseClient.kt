@@ -45,8 +45,12 @@ class CodexResponseClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult = withContext(Dispatchers.IO) {
+        // Codex backend forbids `max_output_tokens` (see CodexRequestBuilder).
+        // Accept the parameter to satisfy the LLMClient contract, but cannot
+        // forward it to the wire format.
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
         CloudLlmRetry.executeWithRetry(tag = TAG, operationName = "codex chatWithTools") {

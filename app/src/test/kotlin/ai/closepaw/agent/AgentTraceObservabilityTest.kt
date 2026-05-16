@@ -198,7 +198,8 @@ private class NoopLLMClient : LLMClient() {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult {
                 return ResponsesResult(
                         textContent = "",

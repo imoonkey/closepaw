@@ -40,7 +40,8 @@ internal object SkippedLLMClient : LLMClient() {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult = ResponsesResult(textContent = null, toolCalls = emptyList(), responseId = "noop")
 
     override fun chatWithToolsStreaming(

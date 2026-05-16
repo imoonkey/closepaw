@@ -276,7 +276,8 @@ private class SequencingStreamingLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult = throw UnsupportedOperationException("non-streaming path not used")
 
     override fun chatWithToolsStreaming(

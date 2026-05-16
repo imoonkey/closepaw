@@ -170,7 +170,8 @@ class LFMLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult {
         val runner = getOrLoadModel()
         val (conversation, lastMessage) = buildConversation(runner, systemPrompt, inputItems)
@@ -188,10 +189,30 @@ class LFMLLMClient(
         val textBuffer = StringBuilder()
         val toolCalls = mutableListOf<LLMToolCall>()
         var completeToolCalls: List<LLMToolCall> = emptyList()
+        // Leap SDK exposes no native max-output-tokens knob, so we enforce the
+        // cap client-side by truncating the streamed text once the running
+        // estimate exceeds it. ~4 chars per token, consistent with
+        // HistoryManager.estimateTokenCount.
+        val maxChars: Long = maxOutputTokens?.let { (it * 4L).coerceAtLeast(1L) } ?: Long.MAX_VALUE
+        var truncated = false
 
         generateResponseWithOptions(conversation, lastMessage).collect { response ->
+            if (truncated) return@collect
             when (response) {
-                is MessageResponse.Chunk -> textBuffer.append(response.text)
+                is MessageResponse.Chunk -> {
+                    if (textBuffer.length >= maxChars) {
+                        truncated = true
+                    } else {
+                        val remaining = maxChars - textBuffer.length
+                        val text = response.text
+                        if (text.length <= remaining) {
+                            textBuffer.append(text)
+                        } else {
+                            textBuffer.append(text, 0, remaining.toInt())
+                            truncated = true
+                        }
+                    }
+                }
                 is MessageResponse.FunctionCalls -> {
                     toolCalls.addAll(convertFunctionCalls(response.functionCalls))
                 }

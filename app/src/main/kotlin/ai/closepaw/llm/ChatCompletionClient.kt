@@ -54,13 +54,14 @@ class ChatCompletionClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult = withContext(Dispatchers.IO) {
         CloudLlmRetry.executeWithRetry(
                 tag = TAG,
                 operationName = "chat-completions chatWithTools"
         ) {
-            executeChatWithTools(systemPrompt, inputItems, tools, model)
+            executeChatWithTools(systemPrompt, inputItems, tools, model, maxOutputTokens)
         }
     }
 
@@ -68,13 +69,14 @@ class ChatCompletionClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult {
         Log.d(TAG, "Calling Chat Completions API with ${inputItems.size} input items, ${tools.size} tools")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
         try {
-            val params = buildParams(systemPrompt, inputItems, tools, model)
+            val params = buildParams(systemPrompt, inputItems, tools, model, maxOutputTokens)
             val response = client.chat().completions().create(params)
 
             val choice = response.choices().firstOrNull()
@@ -271,7 +273,8 @@ class ChatCompletionClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long? = null,
     ): ChatCompletionCreateParams {
         val messages = buildList {
             add(ChatCompletionInterop.systemMessage(systemPrompt))
@@ -279,11 +282,14 @@ class ChatCompletionClient(
         }
         val chatTools = ChatCompletionInterop.convertTools(tools)
 
-        return ChatCompletionCreateParams.builder()
+        val builder = ChatCompletionCreateParams.builder()
             .model(ChatModel.of(model))
             .messages(messages)
             .tools(chatTools)
-            .build()
+
+        maxOutputTokens?.let { builder.maxCompletionTokens(it) }
+
+        return builder.build()
     }
 
     override suspend fun cleanup() {

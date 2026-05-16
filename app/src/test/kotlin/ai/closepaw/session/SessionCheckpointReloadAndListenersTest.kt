@@ -392,7 +392,8 @@ class SessionCheckpointReloadAndListenersTest {
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
             tools: List<FunctionTool>,
-            model: String
+            model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult = ResponsesResult(textContent = "ok", toolCalls = emptyList(), responseId = "r")
 
         override fun chatWithToolsStreaming(
