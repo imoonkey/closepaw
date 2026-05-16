@@ -69,6 +69,12 @@ internal suspend fun executePointAction(
                 attemptTrail = emptyList()
             )
         }
+        is TargetResolver.ResolveResult.Ambiguous -> {
+            return ActionOutcome.Failed(
+                reason = resolvedTarget.reason,
+                attemptTrail = emptyList()
+            )
+        }
     }
 
     if (!isWithinDisplayBounds(point, displayInfo)) {

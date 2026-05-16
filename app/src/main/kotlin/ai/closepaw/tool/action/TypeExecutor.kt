@@ -51,6 +51,12 @@ class TypeExecutor(
                     attemptTrail = emptyList()
                 )
             }
+            is TargetResolver.ResolveResult.Ambiguous -> {
+                return ActionOutcome.Failed(
+                    reason = resolvedTarget.reason,
+                    attemptTrail = emptyList()
+                )
+            }
         }
 
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before type")
