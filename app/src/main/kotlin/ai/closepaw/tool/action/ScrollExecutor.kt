@@ -123,13 +123,16 @@ class ScrollExecutor(
     ): Bounds? {
         if (target != null) {
             val resolved = targetResolver.resolve(target, snapshot)
-            if (resolved is TargetResolver.ResolveResult.Resolved) {
+            // Scroll is area-based: only a Resolved result with real bounds can drive it.
+            // Coordinate-fallback Resolved (semantic miss → hint point) carries no bounds
+            // and must not synthesize any; Ambiguous and NotFound are rejected outright.
+            if (resolved is TargetResolver.ResolveResult.Resolved && !resolved.coordinateFallback) {
                 val bounds = resolved.bounds
                 if (bounds != null && bounds.width > 0 && bounds.height > 0) {
                     return bounds
                 }
             }
-            // Explicit targets (element_index/text) must resolve — no silent fallback
+            // Explicit semantic targets (element_index/text) must resolve to real bounds.
             if (target is Target.ElementIndex || target is Target.Text) {
                 return null
             }
