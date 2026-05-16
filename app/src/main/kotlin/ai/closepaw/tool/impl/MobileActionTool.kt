@@ -18,8 +18,10 @@ import org.json.JSONObject
  * Implements ToolSpec directly. No base class, no ActionHandler indirection.
  * Validation is inline; execution is delegated to per-action executors.
  *
- * Key design: single targeting. One action, one target.
- * element_index OR text OR x,y. Multiple = validation error.
+ * Targeting: semantic targets (element_index, text) are mutually exclusive.
+ * x/y may accompany a semantic target as a fallback coordinate hint; the
+ * semantic target stays canonical. Bare x/y is allowed for click/long_press/
+ * type, but scroll rejects it because scroll is area-based.
  */
 class MobileActionTool : ToolSpec {
 
@@ -28,13 +30,13 @@ class MobileActionTool : ToolSpec {
     override val description: String = """
 Perform touch interactions on the device screen.
 
-Targeting (click, long_press, type): specify EXACTLY ONE — element_index (preferred), text, or x/y coordinates.
+Targeting (click, long_press, type): prefer exactly one target — element_index (preferred), text, or x/y coordinates. If both a semantic target (element_index or text) and x/y are supplied, the semantic target is primary and x/y is treated only as a fallback hint. element_index and text are mutually exclusive.
 
 Actions:
 - click: Tap element
 - long_press: Long press element
 - type: Type text into element (or focused field if no target)
-- scroll: Scroll content direction (direction="down" reveals content below). Optional element_index for specific scrollable.
+- scroll: Scroll content direction (direction="down" reveals content below). Optional element_index/text for specific scrollable; bare x/y is not accepted.
 - swipe: Precision coordinate gesture (sliders, drag-and-drop). Requires start/end [x,y].
 """.trimIndent()
 
@@ -98,40 +100,33 @@ Actions:
     }
 
     // ============================================================
-    // Validation: one-of target enforcement
+    // Validation: canonical target normalization
     // ============================================================
+    //
+    // Semantic targets (element_index, text) are mutually exclusive.
+    // x/y may accompany a semantic target as a fallback coordinate hint.
+    // Bare x/y is allowed for click/long_press/type, but not for scroll.
 
     private fun validateTargetedAction(
         params: JSONObject, action: String, required: Boolean
     ): ValidationResult {
         val hasElement = params.has("element_index")
         val hasText = params.optString("text", "").trim().isNotEmpty()
-        val hasCoords = params.has("x") || params.has("y")
-        val count = listOf(hasElement, hasText, hasCoords).count { it }
+        val hasAnyCoord = params.has("x") || params.has("y")
 
-        if (count == 0 && required) {
+        if (hasElement && hasText) {
+            return ValidationResult.Invalid(
+                "$action accepts only ONE semantic target. Got: element_index and text"
+            )
+        }
+        if (!hasElement && !hasText && !hasAnyCoord && required) {
             return ValidationResult.Invalid(
                 "$action requires one of: element_index, text, or x/y coordinates"
             )
         }
-        if (count > 1) {
-            return ValidationResult.Invalid(
-                "$action accepts only ONE targeting method. Got: ${targetNames(hasElement, hasText, hasCoords)}"
-            )
-        }
 
-        if (hasElement) {
-            val idx = params.optInt("element_index", -1)
-            if (idx < 0) return ValidationResult.Invalid("element_index must be >= 0")
-        }
-        if (hasCoords) {
-            if (!params.has("x") || !params.has("y")) {
-                return ValidationResult.Invalid("$action requires both x and y when using coordinates")
-            }
-            if (params.optInt("x", -1) < 0 || params.optInt("y", -1) < 0) {
-                return ValidationResult.Invalid("x and y must be >= 0")
-            }
-        }
+        validateElementIndex(params)?.let { return it }
+        validateCoordinates(params, action)?.let { return it }
         if (params.has("text_index") && !hasText) {
             return ValidationResult.Invalid("text_index requires text")
         }
@@ -161,11 +156,46 @@ Actions:
         if (direction !in setOf("up", "down", "left", "right")) {
             return ValidationResult.Invalid("direction must be one of: up, down, left, right")
         }
-        if (params.has("element_index")) {
-            val idx = params.optInt("element_index", -1)
-            if (idx < 0) return ValidationResult.Invalid("element_index must be >= 0")
+
+        val hasElement = params.has("element_index")
+        val hasText = params.optString("text", "").trim().isNotEmpty()
+        val hasAnyCoord = params.has("x") || params.has("y")
+
+        if (hasElement && hasText) {
+            return ValidationResult.Invalid(
+                "scroll accepts only ONE semantic target. Got: element_index and text"
+            )
+        }
+        // Scroll is area-based; bare coordinates have no scrollable to operate on.
+        if (hasAnyCoord && !hasElement && !hasText) {
+            return ValidationResult.Invalid(
+                "scroll does not accept bare x/y. Provide element_index or text; x/y is only a coordinate hint for a semantic target."
+            )
+        }
+
+        validateElementIndex(params)?.let { return it }
+        validateCoordinates(params, "scroll")?.let { return it }
+        if (params.has("text_index") && !hasText) {
+            return ValidationResult.Invalid("text_index requires text")
         }
         return ValidationResult.Valid
+    }
+
+    private fun validateElementIndex(params: JSONObject): ValidationResult.Invalid? {
+        if (!params.has("element_index")) return null
+        val idx = params.optInt("element_index", -1)
+        return if (idx < 0) ValidationResult.Invalid("element_index must be >= 0") else null
+    }
+
+    private fun validateCoordinates(params: JSONObject, action: String): ValidationResult.Invalid? {
+        if (!params.has("x") && !params.has("y")) return null
+        if (!params.has("x") || !params.has("y")) {
+            return ValidationResult.Invalid("$action requires both x and y when using coordinates")
+        }
+        if (params.optInt("x", -1) < 0 || params.optInt("y", -1) < 0) {
+            return ValidationResult.Invalid("x and y must be >= 0")
+        }
+        return null
     }
 
     private fun validateSwipeAction(params: JSONObject): ValidationResult {
@@ -195,14 +225,19 @@ Actions:
     // Target parsing + description building
     // ============================================================
 
-    private fun parseOptionalTarget(params: JSONObject): Target? = when {
-        params.has("element_index") ->
-            Target.ElementIndex(params.getInt("element_index"))
-        params.optString("text", "").trim().isNotEmpty() ->
-            Target.Text(params.getString("text"), params.optInt("text_index", 0))
-        params.has("x") && params.has("y") ->
+    private fun parseOptionalTarget(params: JSONObject): Target? {
+        val hint = if (params.has("x") && params.has("y")) {
             Target.Coordinate(params.getInt("x"), params.getInt("y"))
-        else -> null
+        } else null
+
+        return when {
+            params.has("element_index") ->
+                Target.ElementIndex(params.getInt("element_index"), hint)
+            params.optString("text", "").trim().isNotEmpty() ->
+                Target.Text(params.getString("text"), params.optInt("text_index", 0), hint)
+            hint != null -> hint
+            else -> null
+        }
     }
 
     private fun buildDescription(action: String, target: Target?, params: JSONObject): String {
@@ -236,14 +271,6 @@ Actions:
             }
             else -> "$action $targetDesc"
         }
-    }
-
-    private fun targetNames(hasElement: Boolean, hasText: Boolean, hasCoords: Boolean): String {
-        return buildList {
-            if (hasElement) add("element_index")
-            if (hasText) add("text")
-            if (hasCoords) add("x/y")
-        }.joinToString(", ")
     }
 
     private fun requireTarget(action: String, target: Target?): Target {

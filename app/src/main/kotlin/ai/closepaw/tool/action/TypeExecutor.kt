@@ -1,5 +1,6 @@
 package ai.closepaw.tool.action
 
+import ai.closepaw.model.Point
 import ai.closepaw.model.ScreenSnapshot
 import ai.closepaw.platform.ActionResult
 import ai.closepaw.platform.AndroidPlatform
@@ -11,9 +12,12 @@ import kotlinx.coroutines.delay
  * Type executor: set text on target node, with tap-to-focus fallback.
  *
  * Fallback table:
- *   With target:
+ *   With semantic target (or pure coordinate):
  *     Attempt 1: SetTextOnNodeAt(x, y, text, clear)
  *     Attempt 2: TapAt(x, y) → delay → SetTextOnFocused(text, clear)
+ *   With coordinate fallback (semantic miss + coordinateHint):
+ *     Attempt 1: TapAt(x, y) → delay → SetTextOnFocused(text, clear)
+ *     (SetTextOnNodeAt skipped — no semantic node was resolved.)
  *   Without target:
  *     Attempt 1: SetTextOnFocused(text, clear)
  *
@@ -43,9 +47,15 @@ class TypeExecutor(
         }
 
         val resolvedTarget = targetResolver.resolve(target, snapshot)
-        val point = when (resolvedTarget) {
-            is TargetResolver.ResolveResult.Resolved -> resolvedTarget.point
+        val resolved = when (resolvedTarget) {
+            is TargetResolver.ResolveResult.Resolved -> resolvedTarget
             is TargetResolver.ResolveResult.NotFound -> {
+                return ActionOutcome.Failed(
+                    reason = resolvedTarget.reason,
+                    attemptTrail = emptyList()
+                )
+            }
+            is TargetResolver.ResolveResult.Ambiguous -> {
                 return ActionOutcome.Failed(
                     reason = resolvedTarget.reason,
                     attemptTrail = emptyList()
@@ -55,6 +65,44 @@ class TypeExecutor(
 
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before type")
 
+        return if (resolved.coordinateFallback) {
+            typeViaTapToFocus(
+                point = resolved.point,
+                inputText = inputText,
+                clear = clear,
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = isCancelled,
+                attemptTrail = attemptTrail,
+                resolverWarnings = resolved.warnings,
+                appClassifier = appClassifier
+            )
+        } else {
+            typeOnNodeWithTapFallback(
+                point = resolved.point,
+                inputText = inputText,
+                clear = clear,
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = isCancelled,
+                attemptTrail = attemptTrail,
+                resolverWarnings = resolved.warnings,
+                appClassifier = appClassifier
+            )
+        }
+    }
+
+    private suspend fun typeOnNodeWithTapFallback(
+        point: Point,
+        inputText: String,
+        clear: Boolean,
+        snapshot: ScreenSnapshot?,
+        platform: AndroidPlatform,
+        isCancelled: () -> Boolean,
+        attemptTrail: MutableList<String>,
+        resolverWarnings: List<String>,
+        appClassifier: AppClassifier?
+    ): ActionOutcome {
         // Attempt 1: SetTextOnNodeAt
         val directResult = platform.performAction(
             UIAction.SetTextOnNodeAt(point.x, point.y, inputText, clear)
@@ -65,7 +113,7 @@ class TypeExecutor(
             return ActionOutcome.Success(
                 message = formatActionMessage(
                     "Typed into element at (${point.x},${point.y})",
-                    analysis.warnings
+                    resolverWarnings + analysis.warnings
                 ),
                 observation = analysis.observation,
                 attemptTrail = attemptTrail,
@@ -80,11 +128,38 @@ class TypeExecutor(
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled between type attempts")
 
         // Attempt 2: Tap to focus, then SetTextOnFocused.
-        // Skipped in VD mode — tap triggers IME on the wrong display.
+        return typeViaTapToFocus(
+            point = point,
+            inputText = inputText,
+            clear = clear,
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = isCancelled,
+            attemptTrail = attemptTrail,
+            resolverWarnings = resolverWarnings,
+            appClassifier = appClassifier
+        )
+    }
+
+    private suspend fun typeViaTapToFocus(
+        point: Point,
+        inputText: String,
+        clear: Boolean,
+        snapshot: ScreenSnapshot?,
+        platform: AndroidPlatform,
+        isCancelled: () -> Boolean,
+        attemptTrail: MutableList<String>,
+        resolverWarnings: List<String>,
+        appClassifier: AppClassifier?
+    ): ActionOutcome {
+        // Tap-to-focus is skipped in VD mode — tap triggers IME on the wrong display.
         if (!platform.allowTapToFocus()) {
             attemptTrail.add("TapToFocus: skipped (VD mode)")
             return ActionOutcome.Failed(
-                reason = "SetTextOnNodeAt failed and tap-to-focus disabled in VD mode",
+                reason = formatActionMessage(
+                    "Type at (${point.x},${point.y}) failed: tap-to-focus disabled in VD mode",
+                    resolverWarnings
+                ),
                 attemptTrail = attemptTrail
             )
         }
@@ -93,7 +168,10 @@ class TypeExecutor(
         if (tapResult is ActionResult.Failure) {
             attemptTrail.add("TapToFocus: ${tapResult.reason}")
             return ActionOutcome.Failed(
-                reason = "Type at (${point.x},${point.y}) failed after all attempts",
+                reason = formatActionMessage(
+                    "Type at (${point.x},${point.y}) failed after all attempts",
+                    resolverWarnings
+                ),
                 attemptTrail = attemptTrail
             )
         }
@@ -112,7 +190,7 @@ class TypeExecutor(
             return ActionOutcome.Success(
                 message = formatActionMessage(
                     "Typed via tap-to-focus at (${point.x},${point.y})",
-                    analysis.warnings
+                    resolverWarnings + analysis.warnings
                 ),
                 observation = analysis.observation,
                 attemptTrail = attemptTrail,
@@ -125,7 +203,10 @@ class TypeExecutor(
         attemptTrail.add("SetTextOnFocused: ${(focusedResult as? ActionResult.Failure)?.reason ?: "failed"}")
 
         return ActionOutcome.Failed(
-            reason = "Type at (${point.x},${point.y}) failed after all attempts",
+            reason = formatActionMessage(
+                "Type at (${point.x},${point.y}) failed after all attempts",
+                resolverWarnings
+            ),
             attemptTrail = attemptTrail
         )
     }

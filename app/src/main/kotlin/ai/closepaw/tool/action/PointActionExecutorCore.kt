@@ -69,12 +69,21 @@ internal suspend fun executePointAction(
                 attemptTrail = emptyList()
             )
         }
+        is TargetResolver.ResolveResult.Ambiguous -> {
+            return ActionOutcome.Failed(
+                reason = resolvedTarget.reason,
+                attemptTrail = emptyList()
+            )
+        }
     }
 
     if (!isWithinDisplayBounds(point, displayInfo)) {
         return ActionOutcome.Failed(
-            reason = "Resolved $actionName target (${point.x},${point.y}) is outside display bounds " +
-                "${displayInfo.widthPixels}x${displayInfo.heightPixels}",
+            reason = formatActionMessage(
+                "Resolved $actionName target (${point.x},${point.y}) is outside display bounds " +
+                    "${displayInfo.widthPixels}x${displayInfo.heightPixels}",
+                resolvedWarnings
+            ),
             attemptTrail = emptyList()
         )
     }
@@ -87,7 +96,7 @@ internal suspend fun executePointAction(
 
     for (channel in channels) {
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before $actionName attempt")
-        if (channel.requiresSemantic && !target.isSemantic()) continue
+        if (channel.requiresSemantic && semanticHint == null) continue
 
         val result = platform.performAction(channel.createAction(point, semanticHint))
         when (result) {
@@ -185,14 +194,14 @@ private fun isWithinDisplayBounds(point: Point, displayInfo: DisplayInfo): Boole
         point.y in 0 until displayInfo.heightPixels
 }
 
-private fun Target.isSemantic(): Boolean = this is Target.ElementIndex || this is Target.Text
-
 private fun refinePointActionTarget(
     actionName: String,
     target: Target,
     resolved: TargetResolver.ResolveResult.Resolved,
     snapshot: ScreenSnapshot?
 ): TargetResolver.ResolveResult.Resolved {
+    if (resolved.coordinateFallback) return resolved
+
     val snap = snapshot ?: return resolved
     val element = findResolvedElement(target, resolved, snap.elements) ?: return resolved
     if (element.isClickable || element.isLongClickable) return resolved

@@ -181,4 +181,27 @@ class ActionTargetTest {
         assertThat(ActionDescriptionFormatter.format(call))
             .isEqualTo("Long press text \"Item\" (index 0) for 2000ms")
     }
+
+    // --- Coordinate-hint normalization: formatter priority alignment ---
+
+    @Test
+    fun `formatter element_index plus xy displays element-targeted`() {
+        val call = ToolCallRequest("1", "mobile_action",
+            JSONObject("""{"action":"click","element_index":14,"x":540,"y":1230}"""))
+        assertThat(ActionDescriptionFormatter.format(call)).isEqualTo("Click element 14")
+    }
+
+    @Test
+    fun `formatter text plus xy displays text-targeted`() {
+        val call = ToolCallRequest("1", "mobile_action",
+            JSONObject("""{"action":"click","text":"Save","text_index":0,"x":50,"y":75}"""))
+        assertThat(ActionDescriptionFormatter.format(call)).isEqualTo("Click text \"Save\" (index 0)")
+    }
+
+    @Test
+    fun `formatter legacy element_index plus text plus bounds plus point picks element_index first`() {
+        val call = ToolCallRequest("1", "mobile_action",
+            JSONObject("""{"action":"click","element_index":7,"text":"Save","text_index":0,"x1":0,"y1":0,"x2":100,"y2":100,"x":50,"y":50}"""))
+        assertThat(ActionDescriptionFormatter.format(call)).isEqualTo("Click element 7")
+    }
 }

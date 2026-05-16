@@ -31,11 +31,13 @@ class ScrollExecutor(
     ): ActionOutcome {
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before scroll")
 
-        val scrollArea = resolveScrollArea(target, snapshot, platform)
-            ?: return ActionOutcome.Failed(
-                reason = "Scroll target not found: ${targetDescription(target!!)}",
+        val scrollArea = when (val result = resolveScrollArea(target, snapshot, platform)) {
+            is ScrollAreaResult.Resolved -> result.bounds
+            is ScrollAreaResult.Failed -> return ActionOutcome.Failed(
+                reason = formatActionMessage(result.reason, result.warnings),
                 attemptTrail = emptyList()
             )
+        }
         val attemptTrail = mutableListOf<String>()
 
         for (channel in ActionPriorityOrder.scroll) {
@@ -120,22 +122,49 @@ class ScrollExecutor(
         target: Target?,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform
-    ): Bounds? {
+    ): ScrollAreaResult {
         if (target != null) {
             val resolved = targetResolver.resolve(target, snapshot)
-            if (resolved is TargetResolver.ResolveResult.Resolved) {
-                val bounds = resolved.bounds
-                if (bounds != null && bounds.width > 0 && bounds.height > 0) {
-                    return bounds
+            when (resolved) {
+                is TargetResolver.ResolveResult.Resolved -> {
+                    // Scroll is area-based: only a Resolved result with real bounds can drive it.
+                    // Coordinate-fallback Resolved (semantic miss -> hint point) carries no bounds
+                    // and must not synthesize any.
+                    if (!resolved.coordinateFallback) {
+                        val bounds = resolved.bounds
+                        if (bounds != null && bounds.width > 0 && bounds.height > 0) {
+                            return ScrollAreaResult.Resolved(bounds)
+                        }
+                    }
+                    if (target is Target.ElementIndex || target is Target.Text) {
+                        return ScrollAreaResult.Failed(
+                            reason = "Scroll target not found: ${targetDescription(target)}",
+                            warnings = resolved.warnings
+                        )
+                    }
                 }
-            }
-            // Explicit targets (element_index/text) must resolve — no silent fallback
-            if (target is Target.ElementIndex || target is Target.Text) {
-                return null
+                is TargetResolver.ResolveResult.NotFound -> {
+                    if (target is Target.ElementIndex || target is Target.Text) {
+                        return ScrollAreaResult.Failed(
+                            reason = "Scroll target not found: ${targetDescription(target)}. ${resolved.reason}"
+                        )
+                    }
+                }
+                is TargetResolver.ResolveResult.Ambiguous -> {
+                    return ScrollAreaResult.Failed(resolved.reason)
+                }
             }
         }
         val display = platform.getDisplayInfo()
-        return Bounds(0, 0, display.widthPixels, display.heightPixels)
+        return ScrollAreaResult.Resolved(Bounds(0, 0, display.widthPixels, display.heightPixels))
+    }
+
+    private sealed interface ScrollAreaResult {
+        data class Resolved(val bounds: Bounds) : ScrollAreaResult
+        data class Failed(
+            val reason: String,
+            val warnings: List<String> = emptyList()
+        ) : ScrollAreaResult
     }
 
     private fun targetDescription(target: Target): String = when (target) {
