@@ -220,7 +220,7 @@ class CompactorTest {
         val items = history.getAll()
         assertThat((items[0] as ResponseItem.Message).kind).isEqualTo(MessageKind.USER_INTENT)
         assertThat((items[0] as ResponseItem.Message).content).isEqualTo("Goal: Open Settings")
-        assertThat((items[1] as ResponseItem.Message).kind).isEqualTo(MessageKind.COMPRESSION_DIGEST)
+        assertThat((items[1] as ResponseItem.Message).kind).isEqualTo(MessageKind.COMPACTION_SUMMARY)
         assertThat((items[1] as ResponseItem.Message).content).contains("Progress")
         // Tail preserved
         assertThat(items.size).isGreaterThan(2)
@@ -269,14 +269,14 @@ class CompactorTest {
         assertThat(client2.capturedUserContents.single()).contains("<previous-summary>")
         assertThat(client2.capturedUserContents.single()).contains("step1")
 
-        // Result history has exactly ONE COMPRESSION_DIGEST (not duplicated)
+        // Result history has exactly ONE COMPACTION_SUMMARY (not duplicated)
         val digestCount = history.getAll().count {
-            it is ResponseItem.Message && it.kind == MessageKind.COMPRESSION_DIGEST
+            it is ResponseItem.Message && it.kind == MessageKind.COMPACTION_SUMMARY
         }
         assertThat(digestCount).isEqualTo(1)
         // …and it contains the *new* summary (step2)
         val digest = history.getAll().first {
-            it is ResponseItem.Message && it.kind == MessageKind.COMPRESSION_DIGEST
+            it is ResponseItem.Message && it.kind == MessageKind.COMPACTION_SUMMARY
         } as ResponseItem.Message
         assertThat(digest.content).contains("step2")
     }

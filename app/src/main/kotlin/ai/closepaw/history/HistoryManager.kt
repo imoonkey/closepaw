@@ -9,8 +9,10 @@ import android.util.Log
  * - Tracks conversation history as a list of ResponseItems
  * - Supports truncation policies for tool outputs (to manage context window)
  * - History normalization (ensures call/output pairs match)
- * - Multi-phase compression pipeline: screen downgrade → group eviction → hard guard
  * - Proactive screen downgrade on every new SCREEN_OBSERVATION
+ *
+ * Lossy eviction lives in the past. Context-window pressure is now handled by
+ * [Compactor] via [snapshot] / [replaceAllIfRevision].
  *
  * Note: This manages CONVERSATION history, not memory files.
  */
@@ -57,13 +59,11 @@ class HistoryManager(
         lastTokenEstimate = null
         _revision++
 
-        // Proactive screen downgrade (Phase 1 of design)
         if (item is ResponseItem.Message && item.kind == MessageKind.SCREEN_OBSERVATION) {
             downgradeOldScreens()
         }
 
         Log.d(TAG, "Added item: ${item.javaClass.simpleName}, total items: ${items.size}")
-        autoCompressIfNeeded()
         onMutation?.invoke()
     }
 
@@ -89,7 +89,6 @@ class HistoryManager(
         if (hasNewScreen) downgradeOldScreens()
 
         Log.d(TAG, "Recorded ${newItems.size} items, total: ${items.size}")
-        autoCompressIfNeeded()
         onMutation?.invoke()
     }
 
@@ -179,13 +178,14 @@ class HistoryManager(
     // ===== Compression Pipeline =====
 
     /**
-     * Compress history to fit within [targetTokens].
+     * Lightweight compression: normalize call/output pairs and downgrade old
+     * screen observations to one-liners.
      *
-     * Pipeline:
-     * - Phase 0: Normalize call/output pairs.
-     * - Phase 1: Downgrade old screen observations to one-liners.
-     * - Phase 2: Group-aware eviction with COMPRESSION_DIGEST breadcrumb.
-     * - Phase 3: Merge adjacent digests; return BudgetUnreachable if impossible.
+     * Lossy eviction was removed when [Compactor] took over context-window
+     * pressure. This method now only applies the cheap, lossless passes and
+     * returns whether the result is below [targetTokens]. The [targetTokens]
+     * argument is retained for the caller's diagnostics; this method does not
+     * try to force the result under it.
      */
     @Synchronized
     fun compress(targetTokens: Long): CompressionResult {
@@ -193,137 +193,19 @@ class HistoryManager(
         if (before <= targetTokens) return CompressionResult.Noop(before, before)
 
         Log.d(TAG, "Compressing: $before → target $targetTokens tokens")
-        var stepsApplied = 0
 
-        // Phase 0: normalize
         val normalized = normalizeHistory(items.toList())
         items.clear()
         items.addAll(normalized)
         lastTokenEstimate = null
 
-        // Phase 1: screen downgrade
         downgradeOldScreens()
-        lastTokenEstimate = null
-        if (estimateTokenCount() <= targetTokens) {
-            stepsApplied++
-            val after = estimateTokenCount()
-            Log.d(TAG, "Compression done after Phase 1: $after tokens")
-            onMutation?.invoke()
-            return CompressionResult.Compressed(before, after, stepsApplied)
-        }
-        stepsApplied++
-
-        // Phase 2: group-aware eviction
-        val protectedTail = config.recentWindowSize.coerceAtMost(items.size)
-        var evictedScreens = 0
-        var evictedActions = 0
-        var firstEvictionIndex = -1
-
-        // Running token total — updated incrementally as we evict to avoid
-        // O(n) full-history rescans inside the eviction loop.
-        var runningTokens = estimateTokenCount()
-
-        // Dynamic boundary: protectedTail items at the end are never touched.
-        // Recalculated every iteration because removals shift items left.
-        var i = 0
-        while (i < (items.size - protectedTail).coerceAtLeast(0) &&
-            runningTokens > targetTokens
-        ) {
-            val item = items[i]
-
-            // Never evict USER_INTENT
-            if (item is ResponseItem.Message && item.kind == MessageKind.USER_INTENT) {
-                i++
-                continue
-            }
-
-            // Skip existing COMPRESSION_DIGEST (will be merged in Phase 3)
-            if (item is ResponseItem.Message && item.kind == MessageKind.COMPRESSION_DIGEST) {
-                i++
-                continue
-            }
-
-            if (firstEvictionIndex < 0) firstEvictionIndex = i
-
-            when (item) {
-                is ResponseItem.Message -> {
-                    if (item.kind == MessageKind.SCREEN_OBSERVATION) {
-                        evictedScreens++
-                    } else {
-                        evictedActions++
-                    }
-                    runningTokens -= item.estimateTokens()
-                    items.removeAt(i)
-                }
-                is ResponseItem.FunctionCall -> {
-                    // Remove call + paired output as atomic group
-                    val callId = item.id
-                    runningTokens -= item.estimateTokens()
-                    items.removeAt(i)
-                    val dynamicBoundary = (items.size - protectedTail).coerceAtLeast(0)
-                    val outputIdx = items.indexOfFirst {
-                        it is ResponseItem.FunctionCallOutput && it.callId == callId
-                    }
-                    if (outputIdx >= 0 && outputIdx < dynamicBoundary) {
-                        runningTokens -= items[outputIdx].estimateTokens()
-                        items.removeAt(outputIdx)
-                        if (outputIdx < i) i--
-                        evictedActions++ // count the paired output as a separate eviction
-                    }
-                    evictedActions++ // count the call
-                }
-                is ResponseItem.FunctionCallOutput -> {
-                    // Orphaned output (call already removed) — safe to evict
-                    evictedActions++
-                    runningTokens -= item.estimateTokens()
-                    items.removeAt(i)
-                }
-            }
-        }
-        lastTokenEstimate = if (evictedScreens + evictedActions > 0) null else lastTokenEstimate
-
-        // Insert digest breadcrumb if we evicted anything
-        if (evictedScreens + evictedActions > 0) {
-            val totalEvicted = evictedScreens + evictedActions
-            val digestContent = buildString {
-                append("[Compressed] Removed $totalEvicted earlier items: ")
-                val parts = mutableListOf<String>()
-                if (evictedActions > 0) parts.add("$evictedActions tool actions")
-                if (evictedScreens > 0) parts.add("$evictedScreens screen observations")
-                append(parts.joinToString(", "))
-                append(". History truncated to save context.")
-            }
-            val insertAt = firstEvictionIndex.coerceAtMost(items.size)
-            items.add(insertAt, ResponseItem.Message(
-                kind = MessageKind.COMPRESSION_DIGEST,
-                content = digestContent
-            ))
-            lastTokenEstimate = null
-            stepsApplied++
-        }
-
-        // Phase 3: merge adjacent digests + hard guard
-        mergeAdjacentDigests()
         lastTokenEstimate = null
 
         val after = estimateTokenCount()
-        if (after > targetTokens) {
-            // Check if only USER_INTENT + digests remain
-            val onlyProtected = items.all { item ->
-                item is ResponseItem.Message &&
-                    (item.kind == MessageKind.USER_INTENT || item.kind == MessageKind.COMPRESSION_DIGEST)
-            }
-            if (onlyProtected) {
-                Log.w(TAG, "BudgetUnreachable: $after tokens, only USER_INTENT + digests remain")
-                onMutation?.invoke()
-                return CompressionResult.BudgetUnreachable(after, after)
-            }
-        }
-
-        Log.d(TAG, "Compression done: $before → $after tokens, $stepsApplied steps")
         onMutation?.invoke()
         return if (after < before) {
-            CompressionResult.Compressed(before, after, stepsApplied)
+            CompressionResult.Compressed(before, after, stepsApplied = 1)
         } else {
             CompressionResult.Noop(before, after)
         }
@@ -378,7 +260,6 @@ class HistoryManager(
         val toDowngrade = screenIndices.dropLast(config.recentFullScreens)
         for (idx in toDowngrade) {
             val msg = items[idx] as ResponseItem.Message
-            // Skip already-compressed screens
             if (msg.content.startsWith("Screen:") && msg.content.contains("(compressed)")) continue
             items[idx] = msg.copy(content = compressScreenContent(msg.content))
         }
@@ -398,28 +279,6 @@ class HistoryManager(
             "Screen: screenshot only (compressed)"
         } else {
             "Screen: unknown (compressed)"
-        }
-    }
-
-    /** Merge adjacent COMPRESSION_DIGEST messages into one. */
-    private fun mergeAdjacentDigests() {
-        var i = 0
-        while (i < items.size - 1) {
-            val current = items[i]
-            val next = items[i + 1]
-            if (current is ResponseItem.Message && current.kind == MessageKind.COMPRESSION_DIGEST &&
-                next is ResponseItem.Message && next.kind == MessageKind.COMPRESSION_DIGEST
-            ) {
-                val merged = ResponseItem.Message(
-                    kind = MessageKind.COMPRESSION_DIGEST,
-                    content = current.content + "\n" + next.content
-                )
-                items[i] = merged
-                items.removeAt(i + 1)
-                // Don't increment — check if the merged result is also adjacent to another digest
-            } else {
-                i++
-            }
         }
     }
 
@@ -445,21 +304,10 @@ class HistoryManager(
 
         return result
     }
-
-    private fun autoCompressIfNeeded() {
-        if (!config.autoCompress) return
-        if (config.maxTokenBudget <= 0) return
-        val trigger = (config.maxTokenBudget * config.autoCompressThreshold).toLong()
-        if (estimateTokenCount() > trigger) {
-            val target = (config.maxTokenBudget * config.compressTargetRatio).toLong()
-            compress(target)
-        }
-    }
 }
 
 /** Result of a [HistoryManager.compress] call. */
 sealed class CompressionResult {
     data class Noop(val before: Long, val after: Long) : CompressionResult()
     data class Compressed(val before: Long, val after: Long, val stepsApplied: Int) : CompressionResult()
-    data class BudgetUnreachable(val after: Long, val minimumPossible: Long) : CompressionResult()
 }

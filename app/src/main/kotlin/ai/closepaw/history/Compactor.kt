@@ -63,7 +63,7 @@ class Compactor(
     private val reserveTokens: Long = 24_000,
     private val keepRecentTokens: Long = 20_000,
     private val maxSummaryTokens: Long = 5_000,
-    private val summaryKind: MessageKind = MessageKind.COMPRESSION_DIGEST,
+    private val summaryKind: MessageKind = MessageKind.COMPACTION_SUMMARY,
 ) {
 
     companion object {
@@ -229,7 +229,7 @@ class Compactor(
                         MessageKind.USER_INTENT -> "USER_INTENT"
                         MessageKind.SCREEN_OBSERVATION -> "SCREEN"
                         MessageKind.ASSISTANT_TEXT -> "ASSISTANT"
-                        MessageKind.COMPRESSION_DIGEST -> "PRIOR_SUMMARY"
+                        MessageKind.COMPACTION_SUMMARY -> "PRIOR_SUMMARY"
                     }
                     append('[').append(tag).append("] ").append(item.content).append('\n')
                 }
