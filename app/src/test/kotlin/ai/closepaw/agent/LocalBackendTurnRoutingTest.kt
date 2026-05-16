@@ -78,6 +78,7 @@ class LocalBackendTurnRoutingTest {
                                                 modelName = "gpt-5.2"
                                         ),
                                 services = services,
+                                compactor = noopCompactor(),
                                 eventEmitter = {},
                                 cancellationSignal = CompletableDeferred()
                         )

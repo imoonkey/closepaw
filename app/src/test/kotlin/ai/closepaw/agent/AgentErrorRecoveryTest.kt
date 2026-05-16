@@ -51,6 +51,7 @@ class AgentErrorRecoveryTest {
                                                 systemPrompt = "test prompt"
                                         ),
                                 services = services,
+                                compactor = noopCompactor(),
                                 eventEmitter = {},
                                 cancellationSignal = CompletableDeferred()
                         )
@@ -75,6 +76,7 @@ class AgentErrorRecoveryTest {
                                                 systemPrompt = "test prompt"
                                         ),
                                 services = services,
+                                compactor = noopCompactor(),
                                 eventEmitter = {},
                                 cancellationSignal = CompletableDeferred()
                         )
@@ -103,6 +105,7 @@ class AgentErrorRecoveryTest {
                                                 systemPrompt = "test prompt"
                                         ),
                                 services = services,
+                                compactor = noopCompactor(),
                                 eventEmitter = {},
                                 cancellationSignal = CompletableDeferred()
                         )

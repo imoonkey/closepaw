@@ -68,5 +68,14 @@ data class AgentExecutionConfig(
      * Model name (key in llm_models.json) for this agent's LLM calls.
      * Set by SessionAgentRunner based on agent role.
      */
-    val modelName: String = "gpt-5.2"
+    val modelName: String = "gpt-5.2",
+
+    /**
+     * Eval-only safety net. When non-null, the agent loop stops with
+     * [AgentStopReason.Error] once `turnCount >= evalTurnBudget`. Production
+     * leaves this null — the production stop condition is auto-compaction
+     * failure x 3 (circuit breaker in [Agent]). The eval bridge sets this so a
+     * runaway eval cannot burn the budget.
+     */
+    val evalTurnBudget: Int? = null
 )

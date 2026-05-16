@@ -8,8 +8,12 @@ import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentRoleDef
 import ai.closepaw.agent.definition.ResolvedAgentRole
 import ai.closepaw.agent.cognition.policy.DelegationSummaryFormatter
+import ai.closepaw.history.Compactor
 import ai.closepaw.history.HistoryManager
 import ai.closepaw.history.ResponseItem
+import ai.closepaw.llm.ApiType
+import ai.closepaw.llm.LLMProvider
+import ai.closepaw.llm.ModelEntry
 import ai.closepaw.protocol.*
 import ai.closepaw.session.AgentSessionState
 import ai.closepaw.session.SessionServices
@@ -59,7 +63,9 @@ internal class IsolatedSubAgentRunner(
     private val parentServices: SessionServices,
     private val parentSessionId: SessionId,
     private val eventDispatcher: AgentEventDispatcher,
-    private val parentEventEmitter: suspend (AgentEvent) -> Unit
+    private val parentEventEmitter: suspend (AgentEvent) -> Unit,
+    private val compactionInitialPrompt: String = "",
+    private val compactionUpdatePrompt: String = "",
 ) : SubAgentRunner {
 
     /**
@@ -95,6 +101,8 @@ internal class IsolatedSubAgentRunner(
         val childModelName = parentServices.config.subagentModel
             ?: parentServices.config.mainModel
 
+        val childCompactor = buildChildCompactor(childServices, childModelName)
+
         val childAgent = Agent(
             config = AgentExecutionConfig(
                 goal = request.toGoal(),
@@ -112,6 +120,7 @@ internal class IsolatedSubAgentRunner(
                 modelName = childModelName
             ),
             services = childServices,
+            compactor = childCompactor,
             eventEmitter = { event -> bridgeEvent(event) },
             cancellationSignal = CompletableDeferred()
         )
@@ -157,6 +166,34 @@ internal class IsolatedSubAgentRunner(
                 SubAgentResult(success = false, message = "Timeout after ${resolvedRoleDef.timeoutMs}ms")
             }
         }
+    }
+
+    private fun buildChildCompactor(
+        childServices: SessionServices,
+        childModelName: String,
+    ): Compactor {
+        val catalog = childServices.modelCatalog
+        val entry = catalog.resolveOrNull(childModelName)
+        val (llmClient, modelEntry) = if (entry != null) {
+            val client = runCatching { childServices.llmClientFactory.create(childModelName) }
+                .getOrNull() ?: childServices.llmClient
+            client to entry
+        } else {
+            childServices.llmClient to ModelEntry(
+                name = childModelName,
+                displayName = childModelName,
+                provider = LLMProvider.OPENAI_API,
+                api = ApiType.RESPONSE,
+                modelId = childModelName,
+                contextWindow = 128_000,
+            )
+        }
+        return Compactor(
+            llmClient = llmClient,
+            model = modelEntry,
+            initialPrompt = compactionInitialPrompt,
+            updatePrompt = compactionUpdatePrompt,
+        )
     }
 
     private suspend fun bridgeEvent(event: AgentEvent) {

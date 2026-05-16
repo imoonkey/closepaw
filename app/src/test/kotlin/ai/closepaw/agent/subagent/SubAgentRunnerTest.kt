@@ -281,34 +281,12 @@ class SubAgentRunnerTest {
                 assertThat(result.message).contains("Could not find Notion app: Not installed")
         }
 
-        @Test
-        fun `runner returns narrative summary when executor hits step limit`() = runTest {
-                val llm = ScriptedSubAgentLLMClient(events = listOf(LLMStreamEvent.Completed))
-                val services = buildServices(llm, includeCompleteTask = false)
-                val runner =
-                        IsolatedSubAgentRunner(
-                                roleDef =
-                                        AgentRoleDef(
-                                                name = "executor",
-                                                executionRole = AgentExecutionRole.SUBAGENT,
-                                                description = "Exec",
-                                                systemPrompt = "prompt",
-                                                allowedTools = emptySet(),
-                                                maxTurns = 1,
-                                                timeoutMs = 5_000
-                                        ),
-                                parentServices = services,
-                                parentSessionId = SessionId("session-1"),
-                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {},
-                                parentEventEmitter = {}
-                        )
-
-                val result = runner.run(SubAgentRequest(query = "Tap search"))
-
-                assertThat(result.success).isFalse()
-                assertThat(result.message).contains("Agent reached turn limit")
-                assertThat(result.message).contains("Delegated query: Tap search")
-        }
+        // Deleted: `runner returns narrative summary when executor hits step limit`.
+        // The MaxTurnsReached stop path no longer fires from the agent loop
+        // (ac-agent-loop-rewire removed the per-turn cap). Subagent runaway is
+        // now bounded by `timeoutMs` only; the timeout case is already covered
+        // by `runner returns timeout when child exceeds timeout`. The narrative
+        // formatter branch in SubAgentRunner remains for task-8 cleanup.
 }
 
 private fun buildServices(

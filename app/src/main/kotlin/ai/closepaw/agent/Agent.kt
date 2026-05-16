@@ -2,6 +2,8 @@ package ai.closepaw.agent
 
 import android.util.Log
 import ai.closepaw.agent.cognition.policy.TurnToolPolicy
+import ai.closepaw.history.CompactionOutcome
+import ai.closepaw.history.Compactor
 import ai.closepaw.trace.AgentTrace
 import ai.closepaw.history.MessageKind
 import ai.closepaw.history.ResponseItem
@@ -21,12 +23,14 @@ import kotlinx.coroutines.sync.withLock
 class Agent(
         private val config: AgentExecutionConfig,
         private val services: SessionServices,
+        private val compactor: Compactor,
         private val eventEmitter: suspend (AgentEvent) -> Unit,
         private val cancellationSignal: CompletableDeferred<AgentStopReason>
 ) {
     companion object {
         private const val TAG = "Agent"
         private const val MAX_RECOVERABLE_RETRIES = 1
+        private const val MAX_CONSECUTIVE_COMPACTION_FAILURES = 3
     }
 
     private var turnCount = 0
@@ -63,6 +67,7 @@ class Agent(
         var stopReason: AgentStopReason? = null
         var turnRunnerState = TurnRunnerState()
         var recoverableRetryCount = 0
+        var consecutiveCompactionFailures = 0
         var lastKnownPackage: String? = null
         try {
         while (shouldContinue()) {
@@ -80,10 +85,40 @@ class Agent(
                 break
             }
 
-            if (turnCount >= config.maxTurns) {
-                Log.w(TAG, "Max turns (${config.maxTurns}) reached")
-                eventDispatcher.status("⚠️ Max turns reached")
-                stopReason = AgentStopReason.MaxTurnsReached
+            // Auto-compact before each turn.
+            when (val outcome = compactor.maybeCompact(config.goal, services.historyManager)) {
+                is CompactionOutcome.Compacted -> {
+                    consecutiveCompactionFailures = 0
+                    eventDispatcher.status(
+                            "📚 Compacted history (${outcome.before} → ${outcome.after} tokens)"
+                    )
+                }
+                is CompactionOutcome.Failed -> {
+                    consecutiveCompactionFailures++
+                    Log.w(
+                            TAG,
+                            "Auto-compaction failed ($consecutiveCompactionFailures/$MAX_CONSECUTIVE_COMPACTION_FAILURES): ${outcome.reason}"
+                    )
+                    if (consecutiveCompactionFailures >= MAX_CONSECUTIVE_COMPACTION_FAILURES) {
+                        eventDispatcher.status("❌ Auto-compaction failed 3× in a row")
+                        stopReason = AgentStopReason.Error(
+                                "Auto-compaction failed 3× in a row (${outcome.reason})"
+                        )
+                        break
+                    }
+                }
+                CompactionOutcome.Stale,
+                CompactionOutcome.Skipped,
+                CompactionOutcome.NothingToCompact -> consecutiveCompactionFailures = 0
+            }
+
+            // Eval-only safety net (production: config.evalTurnBudget = null).
+            if (config.evalTurnBudget != null && turnCount >= config.evalTurnBudget) {
+                Log.w(TAG, "Eval turn budget (${config.evalTurnBudget}) reached")
+                eventDispatcher.status("⚠️ Eval turn budget reached")
+                stopReason = AgentStopReason.Error(
+                        "Eval turn budget reached (${config.evalTurnBudget})"
+                )
                 break
             }
 
@@ -131,8 +166,7 @@ class Agent(
                     }
 
                     val retryLimit = MAX_RECOVERABLE_RETRIES
-                    val hasRemainingTurns = turnCount < config.maxTurns
-                    val canRetry = hasRemainingTurns && recoverableRetryCount < retryLimit
+                    val canRetry = recoverableRetryCount < retryLimit
 
                     if (!canRetry) {
                         eventDispatcher.status("❌ Error: ${result.message}")

@@ -241,6 +241,7 @@ private constructor(
                     sessionId = sessionId,
                     config = config,
                     emitEvent = { event -> emit(event) },
+                    context = service,
             )
 
     private val checkpointCoordinator = SessionCheckpointCoordinator(
