@@ -1119,7 +1119,7 @@
   "fix-active-turn-survives-rotation": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Active agent turn survives MainActivity rotation/relaunch",
     "description": "During post-rebase QA, the first delegation run was interrupted by a device orientation change. MainActivity relaunched while OpenAI streaming was in flight; the stream was closed, a returned delegate_task tool call was followed by JobCancellationException, and no ToolCallReceived/delegate_task execution occurred. Investigate session/lifecycle ownership so active agent turns are not canceled by Activity configuration changes or foreground relaunches, or explicitly handle the cancellation as a recoverable session error.",
     "scope": [
@@ -1141,6 +1141,6 @@
       "streaming"
     ],
     "created": "2026-05-16T05:53:17Z",
-    "updated": "2026-05-16T05:53:17Z"
+    "updated": "2026-05-16T06:19:28Z"
   }
 }
