@@ -60,6 +60,6 @@ Lightweight summary for session list UI (avoids loading full content): `id`, `fi
 
 ## Converters
 
-**HistoryItemConverter** (`history/model/HistoryItemConverter.kt`): Bidirectional `ResponseItem` ↔ `PersistedHistoryItem` conversion. `resolveMessageKind()` handles legacy checkpoint migration.
+**HistoryItemConverter** (`history/model/HistoryItemConverter.kt`): Bidirectional `ResponseItem` ↔ `PersistedHistoryItem` conversion. `resolveMessageKind()` handles legacy checkpoint migration (including the historical `COMPRESSION_DIGEST` → `COMPACTION_SUMMARY` rename).
 
 **MessageConverter** (`history/model/MessageConverter.kt`): Bidirectional `ChatMessage` ↔ `MessageRecord` conversion for UI layer.

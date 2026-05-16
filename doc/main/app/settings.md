@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-05-15 (unified agent mode)
+> Last updated: 2026-05-16 (auto-compact: dropped Max Turns control)
 
 ## Overview
 
@@ -29,10 +29,14 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `maxTurns` | `Int` | `20` | Max turns per task (UI default; protocol default is 50) |
 | `debugMode` | `Boolean` | `false` | Verbose logging + debug artifacts |
 | `browserScriptEnabled` | `Boolean` | `false` | Enables experimental `browser_script` execution gate |
 | `termuxShellEnabled` | `Boolean` | `true` | Allows `termux_shell` exposure when Termux is installed and bridge-ready |
+
+There is no Max Turns setting. Production runs are bounded by context-window
+auto-compaction (see [agent/loop.md](../agent/loop.md#auto-compaction)), not by a
+turn count. The eval bridge has its own `eval_turn_budget` safety net wired
+through `SessionConfig.evalTurnBudget` (`null` in production).
 
 ### Platform
 
@@ -60,7 +64,6 @@ Settings are compiled into `SessionConfig` when creating a session:
 
 ```kotlin
 data class SessionConfig(
-    val maxTurns: Int = 50,
     val actionDelayMs: Long = 2000,
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     val llm: SessionLlmConfig = SessionLlmConfig(),
@@ -68,6 +71,7 @@ data class SessionConfig(
     val subagentModel: String? = null,
     val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
     val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
+    val evalTurnBudget: Int? = null,   // eval-only safety net
     // ...
 )
 ```
@@ -90,7 +94,6 @@ The settings UI is a full-screen page overlay with sub-page navigation (system b
 | Cloud Model | Main model dropdown (visible when Cloud) |
 | Subagent Model | Optional subagent model dropdown (visible when Cloud) |
 | Local Model | Model selection + loading status indicator (visible when Local) |
-| Max Turns | Dropdown: 10, 20, 50 |
 | Termux Shell | Enable toggle plus install/setup/restart state row for `termux_shell` |
 | Perception Mode | 3-button toggle: Accessibility Only, Hybrid, Screenshot Only |
 | API Keys | LLM & Authentication page (provider → model hierarchy: Sign In / API Key / Local tabs) — see Auth Section below |
@@ -114,7 +117,7 @@ The settings UI is a full-screen page overlay with sub-page navigation (system b
 ui/settings/
 ├── SettingsSheet.kt         # Main composable (full-screen page + BackHandler)
 ├── SettingsModels.kt        # Data models (LocalModelOption, ModelLoadingStatus)
-├── SettingsDropdowns.kt     # Backend/model/turns dropdowns
+├── SettingsDropdowns.kt     # Backend/model dropdowns
 ├── SettingsDropdown.kt      # Generic reusable dropdown composable
 ├── SettingsWidgets.kt       # Shared widgets (Header, Section, Row, StatusIndicator)
 └── ApiKeyFields.kt          # API key input fields (masked + visibility toggle)
@@ -128,7 +131,6 @@ ui/settings/
 
 `AppSettingsStore` keys:
 - `llm_backend` — `OPENAI` or `LOCAL`
-- `max_turns` — integer
 - `debug_mode` — boolean
 - `trace_enabled` — boolean
 - `browser_script_enabled` — boolean, gates `browser_script` before Shizuku/Chrome preflight

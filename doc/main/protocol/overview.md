@@ -126,7 +126,7 @@ protocol/
 ├── SessionConfig.kt          # Session configuration
 ├── SessionState.kt           # 5-state machine
 ├── SessionId.kt              # Session identifier
-├── TaskOutcome.kt            # Task-level outcome (GOAL_ACHIEVED / MAX_TURNS / TASK_IMPOSSIBLE / ERROR / USER_STOPPED)
+├── TaskOutcome.kt            # Task-level outcome (GOAL_ACHIEVED / TASK_IMPOSSIBLE / ERROR / USER_STOPPED)
 ├── SessionEndReason.kt       # Session-level shutdown reason (USER_STOPPED / IDLE_TIMEOUT / INTERRUPTED)
 ├── Session/Task/Turn/Streaming/Action/Approval/AskUser/
 │   Thought/SubAgent/Perception/StatusEvents.kt

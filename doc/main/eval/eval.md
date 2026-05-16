@@ -66,6 +66,15 @@ Key fields: `package_name`, `activity`, `llm_backend`,
 `max_turns`, `auto_start`, `fresh_session`, `max_wait_seconds`,
 `excluded_tools`, `clear_memory_before_task`, `api_keys`.
 
+The yaml-side `max_turns` key is preserved for backwards compatibility, but the
+runner now plumbs it through to `SessionConfig.evalTurnBudget` (intent extra
+`eval_turn_budget`). It is an **eval-only runaway safety net**, not a
+production turn cap: hitting it stops the agent with
+`AgentStopReason.Error("Eval turn budget reached (...)")` and the task records
+`TaskOutcome.ERROR`. There is no `MAX_TURNS` outcome — production runs are
+bounded by context-window auto-compaction instead. See
+[agent/loop.md](../agent/loop.md#auto-compaction).
+
 ### YAML Structure
 
 ```yaml
