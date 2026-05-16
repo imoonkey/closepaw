@@ -4,74 +4,70 @@
 
 **PASS-with-follow-ups**
 
-All required flows verified. One follow-up: Gradle configuration-cache + `:app:licenseDebugReport` interaction (already noted in the code review). No regressions found.
+## Context
+
+Post-rebase verification for `task/unified-agent-mode` after rebasing onto current `main`.
 
 ## Flows Verified
 
-1. **Build (`./gradlew clean assembleDebug lint test`)** — ✓
-   - Output: `qa_artifacts_codex/gradle_clean_assembleDebug_lint_test.log` → `BUILD SUCCESSFUL in 6s` (after the configuration-cache workaround documented in the code review).
+1. **Build** — ✓
+   - Ran `./gradlew --no-configuration-cache clean assembleDebug lint test`.
+   - Captured full log at `projects/active/unified_agent_mode/qa_artifacts_codex/gradle_clean_assembleDebug_lint_test.log`.
+   - Result: `BUILD SUCCESSFUL in 7s`.
 
 2. **Settings page renders cleanly** — ✓
-   - APK installed on device `100.64.43.95:5555`.
-   - Screenshots: `qa_artifacts_codex/settings_home.png`, `settings_llm.png`, `drawer.png`.
-   - uiautomator dumps: `settings_home_uiautomator.xml`, `settings_llm_uiautomator.xml`.
-   - Settings home renders without crash. No "Mode" or "Pro/Basic" dropdown visible. "Subagent Model" label appears in the LLM auth page (replacing former "Executor Model").
+   - Installed fresh debug APK on `100.64.43.95:5555`.
+   - Settings home renders without crash; no `Mode`, `Pro`, or `Basic` dropdown appears in the uiautomator dump.
+   - LLM auth subpage renders after scrolling and shows `Subagent Model`.
+   - Evidence: `settings_home.png`, `settings_home_uiautomator.xml`, `settings_llm.png`, `settings_llm_uiautomator.xml`.
 
-3. **Main agent simple task** — ✓
-   - Captured in `qa_artifacts_codex/debug_run_simple_open_settings.log`.
-   - Task completed successfully end-to-end without delegation; full UI tools available to the main agent as designed.
+3. **Main agent simple task, no delegation** — ✓
+   - Ran `./scripts/debug-run.sh "Open Settings"` with `DEBUG_AUTO_APPROVE=true`.
+   - Task completed in 2 turns with `open_app` followed by parent `complete_task`.
+   - Chat shows final answer `Opened Settings.` and the log shows `Task completed ... outcome: GOAL_ACHIEVED`.
+   - Evidence: `debug_run_simple_open_settings.log`, `debug_run_simple_agent.log`, `simple_after_run_chat.png`, `simple_after_run_chat_uiautomator.xml`.
 
-4. **Delegation triggers and subagent actions visible (Design C verification)** — ✓ (strongest evidence in this report)
-   - Run command captured in `qa_artifacts_codex/debug_run_delegation_auto_approve.log`.
-   - Goal: "Delegate to a subagent: open the calculator and compute 7*8."
-   - Trace summary: `parent stop_reason=GoalAchieved`, parent `tool_calls=2`, subagent `tool_calls=7` (1 failure on the first `open_app` for "Calculator" → recovered with "计算器", then 6 successful actions through the multiplication).
-   - Subagent reported `56` back to parent; parent issued `complete_task` with answer "The subagent computed 7×8 = 56."
-   - Live chat UI captured during delegation with the actions panel expanded:
-     - `qa_artifacts_codex/delegation_live_chat.png`, `delegation_live_chat_uiautomator.xml`
-     - `qa_artifacts_codex/delegation_live_actions_expanded.png`, `delegation_live_actions_expanded_uiautomator.xml`
-   - Sequential frames during the run: `qa_artifacts_codex/delegation_success_seq/delegation_success_000.png` through `_031.png` (32 frames at 2s intervals).
+4. **Delegation triggers and subagent actions visible (Design C)** — ✓
+   - Ran `./scripts/debug-run.sh "Use delegate_task exactly once: ask a subagent to open Calculator or 计算器, compute 7*8, and return the displayed result."` with `DEBUG_AUTO_APPROVE=true`.
+   - Parent called `delegate_task`; subagent attempted `open_app("Calculator")`, recovered with `open_app("计算器")`, performed `mobile_action` steps, and completed with `56`.
+   - Parent received the subagent result and completed with `56`.
+   - Expanded chat action ledger shows the parent `delegate_task` plus subagent `open_app`, `mobile_action`, `wait`, and `complete_task` cards in the same row.
+   - Capsule stayed active during delegation; 10-frame sequence captured with `adb exec-out screencap -p`.
+   - Evidence: `debug_run_delegation.log`, `debug_run_delegation_agent.log`, `delegation_sequence/delegation_0.png` through `delegation_9.png`, `delegation_actions_expanded.png`, `delegation_actions_expanded_uiautomator.xml`.
 
-5. **Reload preserves subagent action cards (Design C persistence)** — ✓
-   - Saved persisted session JSON to `qa_artifacts_codex/persisted_session_with_subagent_actions.json` (pulled via `adb shell run-as ai.closepaw cat files/sessions/session-2026-05-15T08-16-28-26f6fa6a-71de-4f7e-896c-de449ea82d6d.json`).
-   - The single agent message row for the delegation turn contains the following content blocks, in order:
-     1. `thought`
-     2. `action: delegate_task` (parent) → success, resultSummary="Sub-agent 'default' completed: 56"
-     3. `action: open_app` (subagent) → failed (Calculator)
-     4. `action: open_app` (subagent) → success (计算器)
-     5. `action: mobile_action` (subagent) → success (typed 7)
-     6. `action: mobile_action` (subagent) → success (typed ×)
-     7. `action: wait` (subagent) → success
-     8. `action: mobile_action` (subagent) → success (typed 8)
-     9. `action: complete_task` (subagent) → success
-     10. `thought` (parent)
-     11. `action: complete_task` (parent) → success
-     12. `final_text`
-   - Each action has a UUID `id` field (e.g. `call_mrrVadLYyK6eElkdmiETgkL0` for the parent's delegate_task). Subagent actions interleave with parent's in the same row without collision — exactly the Design C-minimal invariant.
-   - This file IS the reload source: any subsequent app open reads it back to populate the chat surface, so the on-disk state IS the post-reload state.
-   - LLM-context isolation also verified: the parent's separate context file (`context-2026-05-15T08-16-28-...json`) only shows the `delegate_task` function call + its summarized result; subagent's intermediate steps are NOT in the parent's HistoryManager (Layer 1 isolation preserved as designed).
+5. **Reload preserves subagent action cards** — ✓
+   - Pulled persisted session JSON:
+     `adb shell run-as ai.closepaw cat files/sessions/session-2026-05-16T01-50-13-ccf5ab04-67cf-4d2c-aef4-a2666fd1d9a2.json > projects/active/unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
+   - Inspected with:
+     `jq '.messages[1].contentBlocks | map({type, toolName, state, title, resultSummary})' ...`
+   - The agent message contains parent `delegate_task`, subagent `open_app` failure, subagent `open_app` success, `mobile_action` x3, `wait`, subagent `complete_task`, parent `complete_task`, and final text.
+   - Force-stopped/relaunched the app, reopened the recent session from the drawer, and expanded the action row; subagent action cards still render.
+   - Evidence: `persisted_session_with_subagent_actions.json`, `reload_delegation_session.png`, `reload_delegation_actions_expanded.png`, `reload_delegation_actions_expanded_uiautomator.xml`.
 
-6. **Subagent ask_user displays** — ✓ code-traced (no runtime test crafted)
-   - `AskUserTool` is registered once with the parent's `eventDispatcher` in `SessionAgentRunner.ensureAskUserToolRegistered` (`app/src/main/kotlin/ai/closepaw/session/SessionAgentRunner.kt:171`).
-   - The same instance is shared into the subagent via `toolRegistry.createFilteredCopy` (subagent gets the same tool registry minus excluded names; AskUserTool is not excluded). Therefore an ask_user call from the subagent emits via the parent's dispatcher → parent's `AgentServiceEventHandler.kt` `AskUser` handler → `ServiceOverlayController.onAskUser` (`app/src/main/kotlin/ai/closepaw/app/ServiceOverlayController.kt:389`) → same overlay path as main-agent ask_user.
-   - `UserResponseChannel` is a single shared instance with one pending lock — `AskUserTool.validate` rejects a second concurrent ask_user, so main and subagent cannot collide.
-   - Did not craft a runtime delegation that itself triggers ask_user during this QA run (would require tuning the subagent prompt). Marking as code-traced rather than runtime-tested.
-
-7. **Full test + lint suite passes** — ✓
-   - From step (1), `BUILD SUCCESSFUL`.
+6. **Subagent ask_user displays** — ✓ code-traced
+   - `SessionAgentRunner.ensureAskUserToolRegistered` registers `AskUserTool` with the parent `eventDispatcher` (`app/src/main/kotlin/ai/closepaw/session/SessionAgentRunner.kt:168`).
+   - `SubAgentRunner` creates the child registry via `toolRegistry.createFilteredCopy(...)`; `ask_user` is not excluded, so the child keeps the same `AskUserTool` instance (`app/src/main/kotlin/ai/closepaw/agent/subagent/SubAgentRunner.kt:78`).
+   - `AskUserTool` emits through that dispatcher, then `AgentServiceEventHandler` routes `AskUser` to `ServiceOverlayController.onAskUser` (`AgentServiceEventHandler.kt:174`, `ServiceOverlayController.kt:389`).
+   - `UserResponseChannel` enforces a single pending request, preventing parent/subagent ask_user collisions.
 
 ## Commands Run
 
-- `./gradlew --no-configuration-cache clean assembleDebug lint test` (configuration-cache workaround, see code review Low #1)
-- `adb install -r app/build/outputs/apk/debug/app-debug.apk`
-- `./scripts/debug-run.sh "Open Settings"` (simple flow)
-- `./scripts/debug-run.sh "Delegate to a subagent: open the calculator and compute 7*8."` (delegation flow, AUTO_APPROVE)
-- `adb shell uiautomator dump /sdcard/window.xml && adb pull /sdcard/window.xml ...` (×N for each captured surface)
-- `adb exec-out screencap -p > <path>.png` (×N including 32-frame sequence during delegation)
-- `adb shell run-as ai.closepaw cat files/sessions/session-2026-05-15T08-16-28-26f6fa6a-71de-4f7e-896c-de449ea82d6d.json` (persistence inspection)
+- `./gradlew --no-configuration-cache clean assembleDebug lint test`
+- `adb connect 100.64.43.95:5555`
+- `adb -s 100.64.43.95:5555 install -r app/build/outputs/apk/debug/app-debug.apk`
+- `adb -s 100.64.43.95:5555 shell settings put secure enabled_accessibility_services ai.closepaw/ai.closepaw.app.AgentService`
+- `adb -s 100.64.43.95:5555 shell settings put secure accessibility_enabled 1`
+- `./scripts/debug-run.sh "Open Settings"`
+- `./scripts/debug-run.sh "Use delegate_task exactly once: ask a subagent to open Calculator or 计算器, compute 7*8, and return the displayed result."`
+- `adb -s 100.64.43.95:5555 exec-out screencap -p > <artifact>.png`
+- `adb -s 100.64.43.95:5555 shell uiautomator dump /sdcard/window.xml && adb -s 100.64.43.95:5555 pull /sdcard/window.xml <artifact>.xml`
+- `adb -s 100.64.43.95:5555 shell run-as ai.closepaw cat files/sessions/session-2026-05-16T01-50-13-ccf5ab04-67cf-4d2c-aef4-a2666fd1d9a2.json > projects/active/unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
+- `jq '.messages[1].contentBlocks | map({type, toolName, state, title, resultSummary})' projects/active/unified_agent_mode/qa_artifacts_codex/persisted_session_with_subagent_actions.json`
+- `/home/qiguo/ld-workspace/agent-config/global/skills/update-tasks/scripts/update-tasks.py set fix-active-turn-survives-rotation <json>`
 
 ## Notes
 
-- The QA worker hit an LLM 413 (Payload Too Large) error mid-run after capturing the bulk of the artifacts; this report was synthesized by the orchestrator from the captured artifacts on disk and an additional persisted-session inspection. All artifacts are reproducible from the saved files.
-- **Follow-up filed**: Gradle configuration-cache + `:app:licenseDebugReport` issue. Documented in the code review (Low #1). Not specific to unified-agent-mode work — pre-existing build infrastructure issue.
-- **Follow-up not filed**: Runtime test of subagent `ask_user`. Code-traced confirms wiring is correct; runtime test deferred until a real product flow exercises this path naturally.
-- All 9 implementation tasks plus the codex code-review fixes (commits 6f23899f, 34d06a9a) are landed and verified.
+- No code fixes were made.
+- The first delegation attempt was interrupted by a device orientation change/relaunch while the OpenAI stream was in flight. The LLM had returned `delegate_task`, but the stream was canceled before `ToolCallReceived`, so delegation did not start. I locked device rotation and reran successfully.
+- Follow-up filed: `fix-active-turn-survives-rotation`.
+- `qa_artifacts_codex/` contains fresh post-rebase artifacts. The pre-rebase artifacts remain in `qa_artifacts_codex_pre_rebase/` and were not used as evidence for conclusions.

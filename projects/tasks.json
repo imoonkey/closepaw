@@ -1115,5 +1115,32 @@
     "note": "Optional Phase 2. Start only after the manager boundary is stable and human review confirms the service wrapper is still worth it.",
     "created": "2026-05-15T10:39:27Z",
     "updated": "2026-05-15T10:39:27Z"
+  },
+  "fix-active-turn-survives-rotation": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Active agent turn survives MainActivity rotation/relaunch",
+    "description": "During post-rebase QA, the first delegation run was interrupted by a device orientation change. MainActivity relaunched while OpenAI streaming was in flight; the stream was closed, a returned delegate_task tool call was followed by JobCancellationException, and no ToolCallReceived/delegate_task execution occurred. Investigate session/lifecycle ownership so active agent turns are not canceled by Activity configuration changes or foreground relaunches, or explicitly handle the cancellation as a recoverable session error.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity*.kt",
+      "app/src/main/kotlin/ai/closepaw/session/**",
+      "app/src/main/kotlin/ai/closepaw/llm/**",
+      "scripts/debug-run.sh"
+    ],
+    "acceptCriteria": [
+      "A debug-run remains active and either completes or emits a clear recoverable error if MainActivity rotates/relaunches during an LLM streaming call",
+      "Regression coverage or a documented manual repro exists for rotation/relaunch during an active turn",
+      "./gradlew --no-configuration-cache assembleDebug test passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "qa-follow-up",
+      "lifecycle",
+      "streaming"
+    ],
+    "created": "2026-05-16T05:53:17Z",
+    "updated": "2026-05-16T05:53:17Z"
   }
 }
