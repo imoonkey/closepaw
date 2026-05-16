@@ -1,6 +1,9 @@
 package ai.closepaw.agent
 
 import android.util.Log
+import ai.closepaw.history.Compactor
+import ai.closepaw.history.HistoryManager
+import ai.closepaw.llm.ContextWindowExceededException
 import ai.closepaw.llm.LLMClient
 import ai.closepaw.llm.LLMStreamEvent
 import ai.closepaw.llm.LLMToolCall
@@ -17,11 +20,21 @@ import org.json.JSONObject
  *
  * Pure LLM-calling wrapper. All input construction is handled by PromptBuilder;
  * Turn only cares about sending items to the model and interpreting the response.
+ *
+ * The optional [compactor]/[historyManager]/[currentGoal] triple wires the reactive
+ * auto-compaction path in [runStreaming]: when the provider rejects a request with
+ * a [ContextWindowExceededException], the turn runs [Compactor.forceCompactNow]
+ * once and retries the streaming call. When any of the three is null the catch
+ * block simply rethrows the exception (no recovery). Full wiring lives in
+ * task `ac-agent-loop-rewire`.
  */
 class Turn(
         private val toolRegistry: ToolRegistry,
         private val llmClient: LLMClient,
-        private val allowedToolNames: Set<String>? = null
+        private val allowedToolNames: Set<String>? = null,
+        private val compactor: Compactor? = null,
+        private val historyManager: HistoryManager? = null,
+        private val currentGoal: (() -> String)? = null
 ) {
     companion object {
         private const val TAG = "Turn"
@@ -76,69 +89,105 @@ class Turn(
     ): Flow<TurnStreamEvent> = flow {
         Log.d(TAG, "Running streaming turn with LLM streaming, model=$model")
 
-        try {
-            val request = prepareRequest(inputItems, model)
-            Log.d(TAG, "Streaming turn with ${request.inputItems.size} input items")
+        var attemptedRecovery = false
+        while (true) {
+            try {
+                streamOnce(systemPrompt, inputItems, model) { event -> emit(event) }
+                return@flow
+            } catch (e: ContextWindowExceededException) {
+                val cap = compactor
+                val hm = historyManager
+                val goalFn = currentGoal
+                if (attemptedRecovery || cap == null || hm == null || goalFn == null) {
+                    if (attemptedRecovery) {
+                        Log.e(TAG, "Context-window exceeded after reactive compaction; propagating", e)
+                    } else {
+                        Log.e(
+                                TAG,
+                                "Context-window exceeded but no compactor wiring available; propagating",
+                                e
+                        )
+                    }
+                    emit(TurnStreamEvent.Error(e))
+                    return@flow
+                }
+                attemptedRecovery = true
+                Log.w(TAG, "Context-window exceeded; running reactive compaction and retrying", e)
+                val outcome = cap.forceCompactNow(goalFn.invoke(), hm)
+                Log.i(TAG, "Reactive compaction outcome: $outcome")
+                // Loop continues for one retry attempt.
+            } catch (e: Exception) {
+                Log.e(TAG, "Streaming turn failed", e)
+                emit(TurnStreamEvent.Error(e))
+                return@flow
+            }
+        }
+    }
 
-            val textAccumulator = StringBuilder()
-            val toolCalls = mutableListOf<LLMToolCall>()
+    private suspend fun streamOnce(
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            model: String,
+            emit: suspend (TurnStreamEvent) -> Unit
+    ) {
+        val request = prepareRequest(inputItems, model)
+        Log.d(TAG, "Streaming turn with ${request.inputItems.size} input items")
 
-            llmClient.chatWithToolsStreaming(
-                            systemPrompt = systemPrompt,
-                            inputItems = request.inputItems,
-                            tools = request.tools,
-                            model = request.model
-                    )
-                    .collect { event ->
-                        when (event) {
-                            is LLMStreamEvent.Created -> {
-                                Log.d(TAG, "Response created with ID: ${event.responseId}")
-                            }
-                            is LLMStreamEvent.TextDelta -> {
-                                textAccumulator.append(event.delta)
-                                emit(TurnStreamEvent.TextDelta(event.delta))
-                            }
-                            is LLMStreamEvent.ToolCallDone -> {
-                                val llmToolCall = event.toolCall
-                                toolCalls.add(llmToolCall)
+        val textAccumulator = StringBuilder()
+        val toolCalls = mutableListOf<LLMToolCall>()
 
-                                Log.d(
+        llmClient.chatWithToolsStreaming(
+                        systemPrompt = systemPrompt,
+                        inputItems = request.inputItems,
+                        tools = request.tools,
+                        model = request.model
+                )
+                .collect { event ->
+                    when (event) {
+                        is LLMStreamEvent.Created -> {
+                            Log.d(TAG, "Response created with ID: ${event.responseId}")
+                        }
+                        is LLMStreamEvent.TextDelta -> {
+                            textAccumulator.append(event.delta)
+                            emit(TurnStreamEvent.TextDelta(event.delta))
+                        }
+                        is LLMStreamEvent.ToolCallDone -> {
+                            val llmToolCall = event.toolCall
+                            toolCalls.add(llmToolCall)
+
+                            Log.d(
+                                    TAG,
+                                    "Received tool call: ${llmToolCall.name} with id ${llmToolCall.callId}"
+                            )
+
+                            val toolCallRequest = convertToToolCallRequest(llmToolCall)
+                            if (allowedToolNames?.contains(toolCallRequest.name) != false) {
+                                emit(TurnStreamEvent.ToolCallReceived(toolCallRequest))
+                            } else {
+                                Log.w(
                                         TAG,
-                                        "Received tool call: ${llmToolCall.name} with id ${llmToolCall.callId}"
+                                        "Suppressing disallowed streaming tool event: ${toolCallRequest.name}"
                                 )
-
-                                val toolCallRequest = convertToToolCallRequest(llmToolCall)
-                                if (allowedToolNames?.contains(toolCallRequest.name) != false) {
-                                    emit(TurnStreamEvent.ToolCallReceived(toolCallRequest))
-                                } else {
-                                    Log.w(
-                                            TAG,
-                                            "Suppressing disallowed streaming tool event: ${toolCallRequest.name}"
-                                    )
-                                }
-                            }
-                            is LLMStreamEvent.Completed -> {
-                                Log.d(TAG, "Response completed, building final result")
-                            }
-                            is LLMStreamEvent.Failed -> {
-                                Log.e(TAG, event.error)
-                                throw RuntimeException(event.error)
                             }
                         }
+                        is LLMStreamEvent.Completed -> {
+                            Log.d(TAG, "Response completed, building final result")
+                        }
+                        is LLMStreamEvent.Failed -> {
+                            Log.e(TAG, event.error)
+                            throw RuntimeException(event.error)
+                        }
                     }
+                }
 
-            val textContent = textAccumulator.toString().takeIf { it.isNotEmpty() }
-            val result = processResponse(textContent, toolCalls)
+        val textContent = textAccumulator.toString().takeIf { it.isNotEmpty() }
+        val result = processResponse(textContent, toolCalls)
 
-            Log.d(
-                    TAG,
-                    "Streaming turn complete: text=${textContent?.take(100)}..., toolCalls=${toolCalls.size}"
-            )
-            emit(TurnStreamEvent.Complete(result))
-        } catch (e: Exception) {
-            Log.e(TAG, "Streaming turn failed", e)
-            emit(TurnStreamEvent.Error(e))
-        }
+        Log.d(
+                TAG,
+                "Streaming turn complete: text=${textContent?.take(100)}..., toolCalls=${toolCalls.size}"
+        )
+        emit(TurnStreamEvent.Complete(result))
     }
 
     private fun convertToToolCallRequest(llmToolCall: LLMToolCall): ToolCallRequest {
