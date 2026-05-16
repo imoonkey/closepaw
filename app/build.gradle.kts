@@ -134,7 +134,18 @@ licenseReport {
 // Surface the license JSON to debug builds too. The plugin auto-wires
 // `licenseReleaseReport` into the release `assets` task, but debug needs an
 // explicit hook so the in-app page works in regular `assembleDebug` builds.
+//
+// gradle-license-plugin 0.9.8 calls `Task.project` at execution time, which
+// is incompatible with Gradle's configuration cache and causes the report
+// to silently emit `[]` (asset wiped) when config cache is active. Mark the
+// tasks as not-compatible so Gradle falls back to a non-cached execution
+// just for them — the rest of the build keeps using the cache.
 afterEvaluate {
+    listOf("licenseDebugReport", "licenseReleaseReport").forEach { name ->
+        tasks.findByName(name)?.notCompatibleWithConfigurationCache(
+            "gradle-license-plugin 0.9.8 uses Task.project at execution time"
+        )
+    }
     tasks.findByName("mergeDebugAssets")?.dependsOn("licenseDebugReport")
 
     // Kotlin 2.3.0's `produceReleaseComposeMapping` ships an older ASM that
