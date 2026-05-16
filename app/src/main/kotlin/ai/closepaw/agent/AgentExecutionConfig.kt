@@ -24,10 +24,7 @@ data class AgentExecutionConfig(
     
     /** Task ID for this execution (optional, defaults to session ID if not provided) */
     val taskId: String = sessionId.value,
-    
-    /** Maximum number of turns before stopping */
-    val maxTurns: Int = 50,
-    
+
     /** Delay after action execution (for UI settling) */
     val uiSettleDelayMs: Long = 3000,
     

@@ -40,7 +40,6 @@ class LocalBackendTurnRoutingTest {
                 val sessionConfig =
                         SessionConfig(
                                 llm = SessionLlmConfig(backendType = LLMBackendType.LOCAL),
-                                maxTurns = 1,
                                 actionDelayMs = 0
                         )
                 val toolRegistry = ToolRegistry()
@@ -72,7 +71,6 @@ class LocalBackendTurnRoutingTest {
                                         AgentExecutionConfig(
                                                 goal = "Say done",
                                                 sessionId = SessionId("local-routing-test"),
-                                                maxTurns = 1,
                                                 uiSettleDelayMs = 0,
                                                 systemPrompt = "You are a test agent.",
                                                 modelName = "gpt-5.2"

@@ -363,7 +363,6 @@ class AgentService : AccessibilityService() {
                 val settings = AppSettingsStore(this@AgentService).load()
                 val sessionConfig =
                         SessionConfig(
-                                maxTurns = maxSteps,
                                 debugMode = true,
                                 traceEnabled = settings.traceEnabled,
                                 platformMode = platformMode

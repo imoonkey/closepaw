@@ -10,7 +10,6 @@ import ai.closepaw.tool.ToolName
 sealed class AgentStopReason {
     data class GoalAchieved(val message: String = "Goal achieved") : AgentStopReason()
     data object UserRequested : AgentStopReason()
-    data object MaxTurnsReached : AgentStopReason()
     data class TaskImpossible(val message: String) : AgentStopReason()
     data class Error(val message: String) : AgentStopReason()
 }

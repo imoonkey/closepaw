@@ -7,7 +7,6 @@ import ai.closepaw.agent.AgentExecutionRole
 import ai.closepaw.agent.AgentStopReason
 import ai.closepaw.agent.definition.AgentRoleDef
 import ai.closepaw.agent.definition.ResolvedAgentRole
-import ai.closepaw.agent.cognition.policy.DelegationSummaryFormatter
 import ai.closepaw.history.Compactor
 import ai.closepaw.history.HistoryManager
 import ai.closepaw.history.ResponseItem
@@ -108,7 +107,6 @@ internal class IsolatedSubAgentRunner(
                 goal = request.toGoal(),
                 sessionId = childSessionId,
                 taskId = childTaskId,
-                maxTurns = resolvedRoleDef.maxTurns,
                 uiSettleDelayMs = parentServices.config.actionDelayMs,
                 debugMode = parentServices.config.debugMode,
                 systemPrompt = resolvedRoleDef.systemPrompt,
@@ -139,19 +137,6 @@ internal class IsolatedSubAgentRunner(
                         ?: "Sub-agent '${roleDef.name}' completed."
                     SubAgentResult(success = true, message = message)
                 }
-            }
-            AgentStopReason.MaxTurnsReached -> {
-                val narrative = DelegationSummaryFormatter.format(
-                    maxTurns = resolvedRoleDef.maxTurns,
-                    delegatedQuery = request.query,
-                    history = childServices.historyManager.getAll()
-                )
-
-                SubAgentResult(
-                    success = false,
-                    message = completion?.toFailureMessage(roleDef.name)
-                        ?: narrative
-                )
             }
             AgentStopReason.UserRequested -> {
                 SubAgentResult(success = false, message = "Sub-agent was stopped.")

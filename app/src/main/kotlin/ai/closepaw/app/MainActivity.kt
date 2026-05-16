@@ -677,7 +677,6 @@ class MainActivity : ComponentActivity() {
 
         val sessionConfig =
                 SessionConfig(
-                        maxTurns = settingsState.maxTurns,
                         approvalMode = pendingApprovalMode ?: ApprovalMode.SMART,
                         mainModel = settingsState.selectedModel,
                         subagentModel = settingsState.subagentModel,

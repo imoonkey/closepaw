@@ -88,14 +88,14 @@ internal class SessionAgentRunner(
             goal = taskInput,
             sessionId = sessionId,
             taskId = taskId,
-            maxTurns = config.maxTurns,
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
             systemPrompt = resolvePromptTemplates(resolvedAgentDef.systemPrompt),
             allowedToolNames = resolvedAgentDef.allowedToolNames,
             agentId = sessionId.value,
             agentRole = resolvedAgentDef.executionRole,
-            modelName = modelName
+            modelName = modelName,
+            evalTurnBudget = config.evalTurnBudget
         )
 
         val compactor = buildCompactor(

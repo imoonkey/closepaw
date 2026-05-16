@@ -100,7 +100,6 @@ internal class TurnPlanningPhaseRunner(
                                 observation = observation,
                                 warnings = warnings,
                                 turnNumber = turnNumber,
-                                maxTurns = config.maxTurns,
                                 appSkill = appSkill,
                                 recalledMemory = recalledMemory,
                                 activatedAgentSkills = activatedSkillBodies

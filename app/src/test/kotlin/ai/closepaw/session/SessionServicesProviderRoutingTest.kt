@@ -39,8 +39,7 @@ class SessionServicesProviderRoutingTest {
     val config =
             SessionConfig(
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
-                    mainModel = "glm-4.7",
-                    maxTurns = 1
+                    mainModel = "glm-4.7"
             )
     val services =
             SessionServices.create(
@@ -69,8 +68,7 @@ class SessionServicesProviderRoutingTest {
             SessionConfig(
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
                     mainModel = "gpt-5.2",
-                    subagentModel = "autoglm-phone-9b-multilingual",
-                    maxTurns = 1
+                    subagentModel = "autoglm-phone-9b-multilingual"
             )
 
     val error =

@@ -89,7 +89,6 @@ class OnboardingDemoController(
 
             try {
                 val config = SessionConfig(
-                    maxTurns = MAX_TURNS,
                     approvalMode = ApprovalMode.AUTO_APPROVE,
                     llm = SessionLlmConfig(
                         backendType = LLMBackendType.OPENAI,
@@ -169,7 +168,6 @@ class OnboardingDemoController(
                             onSuccess("Demo task completed!")
                         } else {
                             val reason = when (completed.outcome) {
-                                TaskOutcome.MAX_TURNS -> "Demo reached maximum attempts"
                                 TaskOutcome.ERROR -> "Demo encountered an error"
                                 TaskOutcome.TASK_IMPOSSIBLE -> "Demo could not complete the task"
                                 else -> "Demo ended: ${completed.outcome}"

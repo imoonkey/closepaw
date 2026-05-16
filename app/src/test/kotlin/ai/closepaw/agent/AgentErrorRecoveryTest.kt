@@ -46,7 +46,6 @@ class AgentErrorRecoveryTest {
                                         AgentExecutionConfig(
                                                 goal = "goal",
                                                 sessionId = SessionId.generate(),
-                                                maxTurns = 1,
                                                 uiSettleDelayMs = 0,
                                                 systemPrompt = "test prompt"
                                         ),
@@ -71,7 +70,6 @@ class AgentErrorRecoveryTest {
                                         AgentExecutionConfig(
                                                 goal = "goal",
                                                 sessionId = SessionId.generate(),
-                                                maxTurns = 1,
                                                 uiSettleDelayMs = 0,
                                                 systemPrompt = "test prompt"
                                         ),
@@ -100,7 +98,6 @@ class AgentErrorRecoveryTest {
                                         AgentExecutionConfig(
                                                 goal = "goal",
                                                 sessionId = SessionId.generate(),
-                                                maxTurns = 1,
                                                 uiSettleDelayMs = 0,
                                                 systemPrompt = "test prompt"
                                         ),
@@ -123,7 +120,6 @@ private fun buildServices(llmClient: LLMClient): SessionServices {
         val platform = FakeAndroidPlatform()
         val config =
                 SessionConfig(
-                        maxTurns = 1,
                         actionDelayMs = 0,
                         llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
                 )

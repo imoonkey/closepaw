@@ -52,7 +52,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = emptySet(),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -94,7 +93,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("complete_task"),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -153,7 +151,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("delegate_task", "remember_experience"),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -182,7 +179,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = emptySet(),
-                                                maxTurns = 1,
                                                 timeoutMs = 10
                                         ),
                                 parentServices = services,
@@ -224,7 +220,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("complete_task"),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -266,7 +261,6 @@ class SubAgentRunnerTest {
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
                                                 allowedTools = setOf("complete_task"),
-                                                maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
                                 parentServices = services,
@@ -312,7 +306,6 @@ private fun buildServices(
                 platform = FakeAndroidPlatform(),
                 config =
                         SessionConfig(
-                                maxTurns = 1,
                                 actionDelayMs = 0,
                                 llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
                         ),

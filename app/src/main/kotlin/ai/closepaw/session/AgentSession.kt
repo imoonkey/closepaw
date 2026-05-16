@@ -477,7 +477,6 @@ private constructor(
     private fun AgentStopReason.toTaskOutcome(): TaskOutcome =
             when (this) {
                 is AgentStopReason.GoalAchieved -> TaskOutcome.GOAL_ACHIEVED
-                is AgentStopReason.MaxTurnsReached -> TaskOutcome.MAX_TURNS
                 is AgentStopReason.UserRequested -> TaskOutcome.USER_STOPPED
                 is AgentStopReason.TaskImpossible -> TaskOutcome.TASK_IMPOSSIBLE
                 is AgentStopReason.Error -> TaskOutcome.ERROR

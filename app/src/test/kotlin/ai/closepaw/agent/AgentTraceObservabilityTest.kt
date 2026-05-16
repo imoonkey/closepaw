@@ -61,7 +61,6 @@ class AgentTraceObservabilityTest {
                         AgentExecutionConfig(
                                 goal = "test",
                                 sessionId = SessionId("session-1"),
-                                maxTurns = 1,
                                 systemPrompt = "test prompt"
                         )
                 )
@@ -112,7 +111,6 @@ private fun buildServices(traceRecorder: TraceRecorder): SessionServices {
         val platform = FakeAndroidPlatform()
         val config =
                 SessionConfig(
-                        maxTurns = 1,
                         actionDelayMs = 0,
                         mainModel = "gpt-5.2",
                         llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)

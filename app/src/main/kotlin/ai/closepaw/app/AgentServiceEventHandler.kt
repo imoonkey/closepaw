@@ -189,7 +189,6 @@ internal class AgentServiceEventHandler(
     }
 
     private fun TaskOutcome.isError(): Boolean = when (this) {
-        TaskOutcome.MAX_TURNS,
         TaskOutcome.TASK_IMPOSSIBLE,
         TaskOutcome.ERROR -> true
         TaskOutcome.GOAL_ACHIEVED,
@@ -197,7 +196,6 @@ internal class AgentServiceEventHandler(
     }
 
     private fun defaultErrorText(outcome: TaskOutcome): String = when (outcome) {
-        TaskOutcome.MAX_TURNS -> "Max turns reached"
         TaskOutcome.TASK_IMPOSSIBLE -> "Task cannot be completed"
         TaskOutcome.ERROR -> "Error"
         // Non-error outcomes never enter defaultErrorText — kept for exhaustiveness.
