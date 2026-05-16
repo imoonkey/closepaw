@@ -48,7 +48,6 @@ class OnboardingDemoController(
         private const val TAG = "OnboardingDemo"
         private const val DEMO_GOAL = "Open the Settings app"
         private const val TIMEOUT_MS = 60_000L
-        private const val MAX_TURNS = 5
         private const val SETTINGS_PACKAGE = "com.android.settings"
 
         /**

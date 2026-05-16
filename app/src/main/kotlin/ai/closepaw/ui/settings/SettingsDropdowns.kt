@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -81,25 +80,6 @@ internal fun LocalModelDropdown(
                 )
             }
         },
-        optionLeadingIcon = { _, selected ->
-            if (selected) { { DropdownSelectedIndicator() } } else null
-        }
-    )
-}
-
-@Composable
-internal fun MaxTurnsDropdown(
-    maxTurns: Int,
-    onMaxTurnsChange: (Int) -> Unit
-) {
-    SettingsDropdown(
-        label = "Max Turns",
-        value = "$maxTurns turns",
-        leadingIcon = Icons.Outlined.Repeat,
-        options = MAX_TURNS_OPTIONS,
-        isSelected = { turns -> turns == maxTurns },
-        onOptionSelected = onMaxTurnsChange,
-        optionText = { turns -> Text("$turns turns") },
         optionLeadingIcon = { _, selected ->
             if (selected) { { DropdownSelectedIndicator() } } else null
         }

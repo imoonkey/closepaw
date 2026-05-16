@@ -339,7 +339,6 @@ class AgentService : AccessibilityService() {
     fun runAgent(
             goal: String,
             authStore: ai.closepaw.auth.AuthStore? = null,
-            maxSteps: Int = 20,
             platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     ) {
         if (!isServiceActive) {

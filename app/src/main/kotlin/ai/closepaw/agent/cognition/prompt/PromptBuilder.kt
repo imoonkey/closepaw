@@ -41,7 +41,6 @@ internal class PromptBuilder(
         observation: TurnObservation,
         warnings: List<String> = emptyList(),
         turnNumber: Int = 0,
-        @Suppress("UNUSED_PARAMETER") maxTurns: Int = 0,
         appSkill: String? = null,
         recalledMemory: String? = null,
         activatedAgentSkills: String? = null

@@ -103,8 +103,6 @@ class SettingsTermuxRowTest {
                 }
                 CompositionLocalProvider(LocalContext provides recording) {
                     AgentBehaviorSettingsPage(
-                        maxTurns = 20,
-                        onMaxTurnsChange = {},
                         perceptionMode = "accessibility_only",
                         onPerceptionModeChange = {},
                         browserScriptEnabled = false,

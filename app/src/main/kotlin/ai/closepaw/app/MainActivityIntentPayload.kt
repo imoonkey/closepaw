@@ -15,7 +15,6 @@ data class MainActivityIntentPayload(
         val platformMode: PlatformMode?,
         val mainModel: String?,
         val subagentModel: String?,
-        val maxTurns: Int?,
         val approvalMode: ApprovalMode?,
         val browserScriptEnabled: Boolean?,
         val goalText: String?,
@@ -80,17 +79,6 @@ data class MainActivityIntentPayload(
                         it.isNotBlank()
                     }
 
-            val maxTurns =
-                    if (intent.hasExtra(MainActivity.EXTRA_MAX_TURNS)) {
-                        intent.getIntExtra(
-                                        MainActivity.EXTRA_MAX_TURNS,
-                                        AppSettingsStore.DEFAULT_MAX_TURNS
-                                )
-                                .takeIf { it > 0 }
-                    } else {
-                        null
-                    }
-
             val approvalMode =
                     intent.getStringExtra(MainActivity.EXTRA_APPROVAL_MODE)?.let { raw ->
                         try {
@@ -144,7 +132,6 @@ data class MainActivityIntentPayload(
                     platformMode = platformMode,
                     mainModel = mainModel,
                     subagentModel = subagentModel,
-                    maxTurns = maxTurns,
                     approvalMode = approvalMode,
                     browserScriptEnabled = browserScriptEnabled,
                     goalText = goalText,

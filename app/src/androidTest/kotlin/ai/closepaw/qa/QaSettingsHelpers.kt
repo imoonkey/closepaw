@@ -46,8 +46,6 @@ internal fun TestSettingsSheet(
             selectedLocalModel = "LFM2.5-1.2B-Instruct",
             onLocalModelChange = {},
             modelLoadingStatus = ModelLoadingStatus.Idle,
-            maxTurns = 20,
-            onMaxTurnsChange = {},
             perceptionMode = "accessibility_only",
             onPerceptionModeChange = {},
             debugMode = false,
