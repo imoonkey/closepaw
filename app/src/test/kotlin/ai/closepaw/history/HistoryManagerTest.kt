@@ -148,7 +148,7 @@ class HistoryManagerTest {
 
     @Test
     fun `P0 recent window items are protected from eviction`() {
-        val manager = HistoryManager(HistoryConfig(recentWindowSize = 4, recentFullScreens = 1))
+        val manager = HistoryManager(HistoryConfig(recentFullScreens = 1))
 
         // Build history: old items + recent window
         manager.recordItems(
@@ -275,7 +275,7 @@ class HistoryManagerTest {
 
     @Test
     fun `compress evicts call and paired output together in large history`() {
-        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2))
+        val manager = HistoryManager(HistoryConfig())
         manager.addItem(ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "task"))
         repeat(100) { idx ->
             manager.addItem(

@@ -97,13 +97,12 @@ via `snapshot` / `replaceAllIfRevision`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `recentFullScreens` | 3 | Recent screen observations kept as full JSON; older ones downgraded |
-| `recentWindowSize` | 10 | Tail items protected from downgrade |
+| `recentFullScreens` | 2 | Recent screen observations kept as full JSON; older ones downgraded |
 | `defaultTruncationPolicy` | varies | Tool-output truncation applied on ingestion |
 
 The old eviction-budget fields (`maxTokenBudget`, `autoCompressThreshold`,
-`compressTargetRatio`, `autoCompress`) were removed together with the lossy
-Phase-2 pipeline.
+`compressTargetRatio`, `autoCompress`, `recentWindowSize`) were removed together
+with the lossy Phase-2 pipeline.
 
 **TruncationPolicy** — applied on ingestion of `FunctionCallOutput`s (tool
 outputs are usually 13–65 tokens but unbounded in principle): `NONE` (unlimited),
