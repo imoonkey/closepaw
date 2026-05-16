@@ -62,12 +62,12 @@ internal suspend fun streamWithRetry(
                 lastError = null
             )
         } catch (e: Exception) {
-            classifyContextWindowError(e)?.let { throw it }
+            classifyContextWindowExceeded(e)?.let { throw it }
             val classified = when (e) {
                 is RateLimitException, is TransientException -> e
                 else -> OpenAIErrorClassifier.classify(e)
             }
-            classifyContextWindowError(classified)?.let { throw it }
+            classifyContextWindowExceeded(classified)?.let { throw it }
             lastException = classified
             when (
                 val retryAction =
@@ -109,43 +109,4 @@ internal suspend fun streamWithRetry(
         failureEmitted = failureEmitted,
         lastError = lastException
     )
-}
-
-/**
- * Detect provider signals that indicate the request exceeded the model's context
- * window. Recognizes:
- *  - OpenAI/Anthropic error bodies containing `prompt_too_long`,
- *    `request_too_long`, or `request_too_large`.
- *  - HTTP 413 (Payload Too Large).
- *  - Ollama's `prompt too long; exceeded max context length` (or just
- *    `exceeded max context length`).
- *
- * Returns `null` when the exception does not match any of the above; otherwise
- * wraps the original error in a [ContextWindowExceededException] so the runner
- * can rethrow it past the generic retry/backoff policy.
- */
-private val HTTP_413_CODE = Regex("""(?<![A-Za-z0-9])413(?![A-Za-z0-9])""")
-
-private fun classifyContextWindowError(e: Throwable): ContextWindowExceededException? {
-    if (e is ContextWindowExceededException) return e
-    val message = e.message.orEmpty()
-    val cause = e.cause?.message.orEmpty()
-    val combined = "$message\n$cause"
-    val lower = combined.lowercase()
-
-    val matched = lower.contains("prompt_too_long") ||
-        lower.contains("request_too_long") ||
-        lower.contains("request_too_large") ||
-        lower.contains("exceeded max context length") ||
-        lower.contains("prompt too long") ||
-        lower.contains("context_length_exceeded") ||
-        lower.contains("payload too large") ||
-        HTTP_413_CODE.containsMatchIn(combined)
-
-    return if (matched) {
-        ContextWindowExceededException(
-            message = e.message ?: "Prompt exceeded context window",
-            cause = e,
-        )
-    } else null
 }

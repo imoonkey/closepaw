@@ -8,6 +8,7 @@ import ai.closepaw.llm.ContextWindowExceededException
 import ai.closepaw.llm.LLMClient
 import ai.closepaw.llm.LLMStreamEvent
 import ai.closepaw.llm.LLMToolCall
+import ai.closepaw.llm.classifyContextWindowExceeded
 import ai.closepaw.tool.ToolRegistry
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
@@ -98,75 +99,86 @@ class Turn(
         var currentInputItems = inputItems
         var attemptedRecovery = false
         while (true) {
-            try {
+            val contextWindowError: ContextWindowExceededException = try {
                 streamOnce(systemPrompt, currentInputItems, model) { event -> emit(event) }
                 return@flow
             } catch (e: ContextWindowExceededException) {
-                val cap = compactor
-                val hm = historyManager
-                val goalFn = currentGoal
-                if (attemptedRecovery || cap == null || hm == null || goalFn == null) {
-                    if (attemptedRecovery) {
-                        Log.e(TAG, "Context-window exceeded after reactive compaction; propagating", e)
-                    } else {
-                        Log.e(
-                                TAG,
-                                "Context-window exceeded but no compactor wiring available; propagating",
-                                e
-                        )
-                    }
+                e
+            } catch (e: Exception) {
+                // Some providers (and the local LFM client) surface overflow as a
+                // Failed event whose message bubbles up as an unclassified
+                // RuntimeException. Re-classify here so we route to compaction
+                // instead of treating it as a generic terminal error.
+                val reclassified = classifyContextWindowExceeded(e)
+                if (reclassified != null) {
+                    reclassified
+                } else {
+                    Log.e(TAG, "Streaming turn failed", e)
                     emit(TurnStreamEvent.Error(e))
                     return@flow
                 }
-                attemptedRecovery = true
-                Log.w(TAG, "Context-window exceeded; running reactive compaction and retrying", e)
-                val outcome = cap.forceCompactNow(goalFn.invoke(), hm)
-                Log.i(TAG, "Reactive compaction outcome: $outcome")
-                when (outcome) {
-                    is CompactionOutcome.Compacted -> {
-                        if (rebuildInputItems == null) {
-                            Log.e(
-                                    TAG,
-                                    "Compaction succeeded but no rebuildInputItems provided; cannot retry with shrunken history"
-                            )
-                            emit(
-                                    TurnStreamEvent.Error(
-                                            ContextWindowExceededException(
-                                                    "Compaction succeeded but caller did not supply rebuildInputItems; cannot retry",
-                                                    cause = e
-                                            )
-                                    )
-                            )
-                            return@flow
-                        }
-                        currentInputItems = rebuildInputItems.invoke()
-                        // Loop continues for one retry with the fresh prompt.
-                    }
-                    is CompactionOutcome.Failed,
-                    CompactionOutcome.Stale,
-                    CompactionOutcome.NothingToCompact,
-                    CompactionOutcome.Skipped -> {
-                        val why = when (outcome) {
-                            is CompactionOutcome.Failed -> "Failed(${outcome.reason})"
-                            CompactionOutcome.Stale -> "Stale"
-                            CompactionOutcome.NothingToCompact -> "NothingToCompact"
-                            CompactionOutcome.Skipped -> "Skipped"
-                        }
+            }
+
+            val cap = compactor
+            val hm = historyManager
+            val goalFn = currentGoal
+            if (attemptedRecovery || cap == null || hm == null || goalFn == null) {
+                if (attemptedRecovery) {
+                    Log.e(TAG, "Context-window exceeded after reactive compaction; propagating", contextWindowError)
+                } else {
+                    Log.e(
+                            TAG,
+                            "Context-window exceeded but no compactor wiring available; propagating",
+                            contextWindowError
+                    )
+                }
+                emit(TurnStreamEvent.Error(contextWindowError))
+                return@flow
+            }
+            attemptedRecovery = true
+            Log.w(TAG, "Context-window exceeded; running reactive compaction and retrying", contextWindowError)
+            val outcome = cap.forceCompactNow(goalFn.invoke(), hm)
+            Log.i(TAG, "Reactive compaction outcome: $outcome")
+            when (outcome) {
+                is CompactionOutcome.Compacted -> {
+                    if (rebuildInputItems == null) {
+                        Log.e(
+                                TAG,
+                                "Compaction succeeded but no rebuildInputItems provided; cannot retry with shrunken history"
+                        )
                         emit(
                                 TurnStreamEvent.Error(
                                         ContextWindowExceededException(
-                                                "Compaction could not reduce history below context window (outcome=$why)",
-                                                cause = e
+                                                "Compaction succeeded but caller did not supply rebuildInputItems; cannot retry",
+                                                cause = contextWindowError
                                         )
                                 )
                         )
                         return@flow
                     }
+                    currentInputItems = rebuildInputItems.invoke()
+                    // Loop continues for one retry with the fresh prompt.
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Streaming turn failed", e)
-                emit(TurnStreamEvent.Error(e))
-                return@flow
+                is CompactionOutcome.Failed,
+                CompactionOutcome.Stale,
+                CompactionOutcome.NothingToCompact,
+                CompactionOutcome.Skipped -> {
+                    val why = when (outcome) {
+                        is CompactionOutcome.Failed -> "Failed(${outcome.reason})"
+                        CompactionOutcome.Stale -> "Stale"
+                        CompactionOutcome.NothingToCompact -> "NothingToCompact"
+                        CompactionOutcome.Skipped -> "Skipped"
+                    }
+                    emit(
+                            TurnStreamEvent.Error(
+                                    ContextWindowExceededException(
+                                            "Compaction could not reduce history below context window (outcome=$why)",
+                                            cause = contextWindowError
+                                    )
+                            )
+                    )
+                    return@flow
+                }
             }
         }
     }
@@ -222,6 +234,7 @@ class Turn(
                         }
                         is LLMStreamEvent.Failed -> {
                             Log.e(TAG, event.error)
+                            classifyContextWindowExceeded(event.error)?.let { throw it }
                             throw RuntimeException(event.error)
                         }
                     }
