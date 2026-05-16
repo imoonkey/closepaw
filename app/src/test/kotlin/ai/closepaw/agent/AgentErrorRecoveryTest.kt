@@ -149,7 +149,8 @@ private class AgentErrorTestLLMClient(private val throwable: Throwable) : LLMCli
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult {
                 throw throwable
         }

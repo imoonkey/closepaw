@@ -61,14 +61,15 @@ class OpenAIResponseClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult {
         return withContext(Dispatchers.IO) {
             CloudLlmRetry.executeWithRetry(
                     tag = TAG,
                     operationName = "responses chatWithTools"
             ) {
-                executeChatWithTools(systemPrompt, inputItems, tools, model)
+                executeChatWithTools(systemPrompt, inputItems, tools, model, maxOutputTokens)
             }
         }
     }
@@ -190,13 +191,14 @@ class OpenAIResponseClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult {
         Log.d(TAG, "Calling Responses API with ${inputItems.size} input items, ${tools.size} tools")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
         try {
-            val params = buildResponseParams(systemPrompt, inputItems, tools, model)
+            val params = buildResponseParams(systemPrompt, inputItems, tools, model, maxOutputTokens)
 
             Log.d(TAG, "Making Responses API call to OpenAI...")
 
@@ -247,12 +249,15 @@ class OpenAIResponseClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long? = null,
     ): ResponseCreateParams {
         val builder = ResponseCreateParams.builder()
             .model(ChatModel.of(model))
             .instructions(systemPrompt)
             .input(ResponseCreateParams.Input.ofResponse(inputItems))
+
+        maxOutputTokens?.let { builder.maxOutputTokens(it) }
 
         tools.forEach { tool ->
             builder.addTool(tool)

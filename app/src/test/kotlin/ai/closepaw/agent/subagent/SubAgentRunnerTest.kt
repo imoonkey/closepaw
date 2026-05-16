@@ -316,7 +316,8 @@ private class SubAgentTestLLMClient(private val delayMs: Long) : LLMClient() {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult {
                 return ResponsesResult(
                         textContent = "done",
@@ -344,7 +345,8 @@ private class ScriptedSubAgentLLMClient(private val events: List<LLMStreamEvent>
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult {
                 return ResponsesResult(
                         textContent = null,

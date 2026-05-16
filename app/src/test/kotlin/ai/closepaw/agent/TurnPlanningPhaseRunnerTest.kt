@@ -219,7 +219,8 @@ private class CapturingLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult =
         ResponsesResult(textContent = textContent, toolCalls = emptyList(), responseId = "noop")
 

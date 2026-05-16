@@ -121,7 +121,8 @@ private class FakeTestLLMClient : LLMClient() {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult {
                 error("Not used in tests")
         }

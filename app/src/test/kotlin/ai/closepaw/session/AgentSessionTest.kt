@@ -1111,7 +1111,8 @@ private class SessionTestLLMClient(private val delayMs: Long) : LLMClient() {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult {
                 return ResponsesResult(
                         textContent = "done",
@@ -1139,7 +1140,8 @@ private class FailingStreamingSessionTestLLMClient : LLMClient() {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult {
                 throw UnsupportedOperationException("Not used in this test")
         }
@@ -1184,7 +1186,8 @@ private class GatedStreamingLLMClient : LLMClient() {
                 systemPrompt: String,
                 inputItems: List<ResponseInputItem>,
                 tools: List<FunctionTool>,
-                model: String
+                model: String,
+        maxOutputTokens: Long?,
         ): ResponsesResult = ResponsesResult(textContent = "done", toolCalls = emptyList(), responseId = "resp")
 
         override fun chatWithToolsStreaming(

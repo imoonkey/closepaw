@@ -315,7 +315,8 @@ private class CapturingTurnLLMClient(
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
             tools: List<FunctionTool>,
-            model: String
+            model: String,
+        maxOutputTokens: Long?,
     ): ResponsesResult {
         lastToolNames = tools.map { it.name() }
         return response
