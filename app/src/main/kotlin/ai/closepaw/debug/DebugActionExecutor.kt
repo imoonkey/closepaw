@@ -159,17 +159,17 @@ class DebugActionExecutor(private val service: AgentService) {
         }
     }
 
-    private fun performShizukuAction(action: UIAction): ActionResult {
-        val injector = getOrCreateShizukuInjector()
+    private suspend fun performShizukuAction(action: UIAction): ActionResult {
+        val injector = withContext(Dispatchers.IO) { getOrCreateShizukuInjector() }
             ?: return ActionResult.Failure("Shizuku injector unavailable")
         return when (action) {
             is UIAction.TapAt -> {
                 showClick(action.x, action.y)
-                injector.injectTap(action.x, action.y)
+                withContext(Dispatchers.IO) { injector.injectTap(action.x, action.y) }
             }
             is UIAction.ClickNodeAt -> {
                 showClick(action.x, action.y)
-                injector.injectTap(action.x, action.y)
+                withContext(Dispatchers.IO) { injector.injectTap(action.x, action.y) }
             }
             else -> ActionResult.Failure("Shizuku mode only supports tap/click, got ${action::class.simpleName}")
         }
