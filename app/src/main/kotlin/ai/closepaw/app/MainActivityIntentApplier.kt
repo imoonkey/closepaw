@@ -14,6 +14,7 @@ internal data class MainActivityIntentApplyResult(
     val pendingTraceRunId: String?,
     val pendingExcludedTools: Set<String>,
     val pendingApprovalMode: ApprovalMode?,
+    val pendingEvalTurnBudget: Int?,
 )
 
 /**
@@ -40,6 +41,7 @@ internal suspend fun applyIntentPayloadToSettings(
     currentPendingTraceRunId: String?,
     currentPendingExcludedTools: Set<String>,
     currentPendingApprovalMode: ApprovalMode?,
+    currentPendingEvalTurnBudget: Int?,
     log: (String) -> Unit,
     browserScriptGate: suspend () -> BrowserScriptToggleError? = { gateBrowserScriptEnable() },
 ): MainActivityIntentApplyResult {
@@ -49,6 +51,7 @@ internal suspend fun applyIntentPayloadToSettings(
             pendingTraceRunId = currentPendingTraceRunId,
             pendingExcludedTools = currentPendingExcludedTools,
             pendingApprovalMode = currentPendingApprovalMode,
+            pendingEvalTurnBudget = currentPendingEvalTurnBudget,
         )
     }
 
@@ -132,11 +135,16 @@ internal suspend fun applyIntentPayloadToSettings(
         payload.approvalMode?.also { mode ->
             log("Approval mode set from intent: $mode")
         } ?: currentPendingApprovalMode
+    val pendingEvalTurnBudget =
+        payload.evalTurnBudget?.also { budget ->
+            log("Eval turn budget set from intent: $budget")
+        } ?: currentPendingEvalTurnBudget
 
     return MainActivityIntentApplyResult(
         pendingTraceEnabled = pendingTraceEnabled,
         pendingTraceRunId = pendingTraceRunId,
         pendingExcludedTools = pendingExcludedTools,
         pendingApprovalMode = pendingApprovalMode,
+        pendingEvalTurnBudget = pendingEvalTurnBudget,
     )
 }

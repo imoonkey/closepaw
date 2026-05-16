@@ -22,7 +22,8 @@ data class MainActivityIntentPayload(
         val debugMode: Boolean?,
         val traceEnabled: Boolean?,
         val traceRunId: String?,
-        val excludedTools: Set<String>
+        val excludedTools: Set<String>,
+        val evalTurnBudget: Int?
 ) {
     companion object {
         fun from(intent: Intent): MainActivityIntentPayload {
@@ -122,6 +123,14 @@ data class MainActivityIntentPayload(
                             ?.toSet()
                             ?: emptySet()
 
+            val evalTurnBudget =
+                    if (intent.hasExtra(MainActivity.EXTRA_EVAL_TURN_BUDGET)) {
+                        intent.getIntExtra(MainActivity.EXTRA_EVAL_TURN_BUDGET, 0)
+                                .takeIf { it > 0 }
+                    } else {
+                        null
+                    }
+
             return MainActivityIntentPayload(
                     apiKey = apiKey,
                     openRouterApiKey = openRouterApiKey,
@@ -139,7 +148,8 @@ data class MainActivityIntentPayload(
                     debugMode = debugMode,
                     traceEnabled = traceEnabled,
                     traceRunId = traceRunId,
-                    excludedTools = excludedTools
+                    excludedTools = excludedTools,
+                    evalTurnBudget = evalTurnBudget
             )
         }
 
