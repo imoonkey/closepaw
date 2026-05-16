@@ -37,7 +37,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
     var browserScriptEnabled by mutableStateOf(AppSettingsStore.DEFAULT_BROWSER_SCRIPT_ENABLED)
         private set
 
-    /** Transient base URL override for OPENAI provider (set from intent, not persisted). */
+    /** Base URL override for OPENAI provider (set from intent / Settings; persisted). */
     var openaiBaseUrl by mutableStateOf("")
         private set
 
@@ -54,6 +54,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         platformMode = settings.platformMode
         traceEnabled = settings.traceEnabled
         browserScriptEnabled = settings.browserScriptEnabled
+        openaiBaseUrl = settings.openaiBaseUrl
 
         Log.d(
                 TAG,
@@ -83,6 +84,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
     fun updateOpenaiBaseUrl(url: String) {
         openaiBaseUrl = url
+        store.saveOpenaiBaseUrl(url)
     }
 
     fun updateMaxTurns(value: Int) {
