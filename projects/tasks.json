@@ -697,7 +697,8 @@
   "ac-model-context-window": {
     "parent": "auto-compact",
     "depends": [],
-    "state": "ready",
+    "state": "done",
+    "agent": "w-ac-mcw",
     "title": "task-1: Model catalog context_window field",
     "description": "Add ModelEntry.contextWindow: Int (required, validated > 0). Populate all 12 entries in llm_models.json with realistic values. Local backend default fallback returns 8_000 (Leap on-device models are typically 4-32K), cloud default 128_000 if unspecified.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -725,7 +726,8 @@
   "ac-history-revision-cas": {
     "parent": "auto-compact",
     "depends": [],
-    "state": "ready",
+    "state": "done",
+    "agent": "w-ac-hrc",
     "title": "task-2: HistoryManager revision + CAS",
     "description": "Add monotonically increasing _revision: Long field. Expose snapshot(): Pair<Long, List<ResponseItem>> for atomic read. Add replaceAllIfRevision(expected, newItems): Boolean that CAS-swaps only if revision matches. addItem/recordItems/replaceAll/clear all bump revision. This closes the supplement race during Compactor LLM call.",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -756,7 +758,8 @@
       "ac-model-context-window",
       "ac-history-revision-cas"
     ],
-    "state": "ready",
+    "state": "running",
+    "agent": "w-ac-cc",
     "title": "task-3: Compactor core (cut-point + summarize + CAS)",
     "description": "New file history/Compactor.kt (~180 LOC). Pi-mono-style cut-point: walk back accumulating tokens, snap forward to nearest safe boundary (any Message item or FunctionCall; never FunctionCallOutput). Summarize discarded prefix via LLM call (no tools, ~5K maxTokens). New history layout: [USER_INTENT(currentGoal), COMPACTION_SUMMARY, ...kept]. CAS swap via HistoryManager.replaceAllIfRevision. Rethrow CancellationException. forceCompactNow() for reactive path (shrunken keepRecentTokens).",
     "design": "projects/active/auto_compact/design_claude.md",
@@ -1101,7 +1104,7 @@
   "codex-targeting-normalization": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Codex targeting normalization",
     "description": "Implement the Codex Targeting Normalization design: accept semantic target plus x/y as a coordinate hint, preserve one canonical target, fail contradictory evidence as Ambiguous, and keep scroll area semantics strict.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1120,12 +1123,12 @@
     ],
     "worktree": "codex-targeting-normalization",
     "created": "2026-05-16T09:18:15Z",
-    "updated": "2026-05-16T09:18:15Z"
+    "updated": "2026-05-16T10:11:44Z"
   },
   "ctn-target-model-coordinate-hint": {
     "parent": "codex-targeting-normalization",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Target model coordinate hint",
     "description": "Extend Target semantic variants with optional coordinateHint and update TargetResolver to prefer semantic resolution, use strict half-open bounds containment, return Ambiguous for contradictory semantic/hint evidence, and mark semantic-miss coordinate fallback with warnings and coordinateFallback=true.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1150,14 +1153,15 @@
     ],
     "worktree": "codex-targeting-normalization",
     "created": "2026-05-16T09:18:15Z",
-    "updated": "2026-05-16T09:18:15Z"
+    "updated": "2026-05-16T09:42:49Z",
+    "agent": "w-ctn-target-model-coordinate-hint"
   },
   "ctn-mobile-action-normalize-dual-target": {
     "parent": "codex-targeting-normalization",
     "depends": [
       "ctn-target-model-coordinate-hint"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "MobileActionTool dual-target normalization",
     "description": "Replace one-of target validation with canonical target validation. Allow element_index+x/y and text+x/y as semantic-primary coordinate hints, keep element_index+text invalid, reject negative element_index even with coords, and update tool description wording.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1181,14 +1185,15 @@
     ],
     "worktree": "codex-targeting-normalization",
     "created": "2026-05-16T09:18:15Z",
-    "updated": "2026-05-16T09:18:15Z"
+    "updated": "2026-05-16T09:46:15Z",
+    "agent": "w-ctn-mobile-action-normalize-dual-target"
   },
   "ctn-point-executor-resolved-semantic-guard": {
     "parent": "codex-targeting-normalization",
     "depends": [
       "ctn-target-model-coordinate-hint"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Point executor resolved semantic guard",
     "description": "Update PointActionExecutorCore so semantic node-action channels are gated on resolved semanticHint, not target shape. Coordinate fallback must skip node actions; Ambiguous resolution must fail without dispatch.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1211,14 +1216,15 @@
     ],
     "worktree": "codex-targeting-normalization",
     "created": "2026-05-16T09:18:15Z",
-    "updated": "2026-05-16T09:18:15Z"
+    "updated": "2026-05-16T09:46:15Z",
+    "agent": "w-ctn-point-executor-resolved-semantic-guard"
   },
   "ctn-type-executor-coordinate-fallback": {
     "parent": "codex-targeting-normalization",
     "depends": [
       "ctn-target-model-coordinate-hint"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "TypeExecutor coordinate fallback path",
     "description": "Make type semantics explicit for semantic-miss coordinate fallback: semantic-resolved type keeps SetTextOnNodeAt primary; semantic-miss coordinate fallback uses TapAt then SetTextOnFocused and propagates resolver warnings.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1241,14 +1247,15 @@
     ],
     "worktree": "codex-targeting-normalization",
     "created": "2026-05-16T09:18:15Z",
-    "updated": "2026-05-16T09:18:15Z"
+    "updated": "2026-05-16T09:46:15Z",
+    "agent": "w-ctn-type-executor-coordinate-fallback"
   },
   "ctn-scroll-coordinate-fallback-guard": {
     "parent": "codex-targeting-normalization",
     "depends": [
       "ctn-target-model-coordinate-hint"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Scroll coordinate fallback guard",
     "description": "Make scroll rejection of coordinate fallback explicit. Scroll is area-based: semantic scroll targets require resolved bounds, and semantic-miss coordinate fallback must not become a synthetic scroll area.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1271,14 +1278,15 @@
     ],
     "worktree": "codex-targeting-normalization",
     "created": "2026-05-16T09:18:15Z",
-    "updated": "2026-05-16T09:18:15Z"
+    "updated": "2026-05-16T09:46:15Z",
+    "agent": "w-ctn-scroll-coordinate-fallback-guard"
   },
   "ctn-target-description-alignment": {
     "parent": "codex-targeting-normalization",
     "depends": [
       "ctn-mobile-action-normalize-dual-target"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Target description alignment",
     "description": "Align ActionDescriptionFormatter display priority with runtime priority. element_index should display before text, then legacy bounds, then x/y, including legacy trace inputs where validation was bypassed.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1301,7 +1309,8 @@
     ],
     "worktree": "codex-targeting-normalization",
     "created": "2026-05-16T09:18:16Z",
-    "updated": "2026-05-16T09:18:16Z"
+    "updated": "2026-05-16T09:47:43Z",
+    "agent": "w-ctn-target-description-alignment"
   },
   "ctn-targeting-tests-docs": {
     "parent": "codex-targeting-normalization",
@@ -1312,7 +1321,7 @@
       "ctn-scroll-coordinate-fallback-guard",
       "ctn-target-description-alignment"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Targeting tests and docs",
     "description": "Implement the concrete test matrix from the design and update mobile_action docs. Cover validation, target parsing, TargetResolver boundary/fallback behavior, point executor dispatch behavior, TypeExecutor fallback, ScrollExecutor guard, and ActionDescriptionFormatter ordering.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1343,7 +1352,8 @@
     ],
     "worktree": "codex-targeting-normalization",
     "created": "2026-05-16T09:18:16Z",
-    "updated": "2026-05-16T09:18:16Z"
+    "updated": "2026-05-16T09:53:28Z",
+    "agent": "w-ctn-targeting-tests-docs"
   },
   "ac-codex-review": {
     "parent": "auto-compact",
@@ -1407,7 +1417,7 @@
     "depends": [
       "ctn-targeting-tests-docs"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex review + auto-fix findings",
     "description": "(1) Spawn codex via multmux against the codex-targeting-normalization worktree to review implementation against projects/active/codex_targeting_normalization/design_codex.md. Severity-tag findings to projects/active/codex_targeting_normalization/impl_review_codex.md. Focus: validation matrix in MobileActionTool matches design (element_index+x/y allowed; text+x/y allowed; element_index+text rejected; bare x/y scroll rejected); coordinateHint propagation through TargetResolver into PointActionExecutorCore runs in-bounds check with half-open Rect.contains and fails out-of-bounds as Ambiguous; TypeExecutor coordinate-fallback skips SetTextOnNodeAt only on resolver miss; ScrollExecutor never uses coordinate fallback; ActionDescriptionFormatter display order matches MobileActionTool execution order. (2) For every blocker/major finding, apply a fix in the worktree. (3) Re-run targeted tests. (4) If a finding cannot be fixed in one pass, record under `## Deferred` with rationale and create a follow-up task. Single-pass.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1429,14 +1439,15 @@
       "qa"
     ],
     "created": "2026-05-16T09:24:50Z",
-    "updated": "2026-05-16T09:26:34Z"
+    "updated": "2026-05-16T09:59:13Z",
+    "agent": "w-ctn-codex-review"
   },
   "ctn-device-qa": {
     "parent": "codex-targeting-normalization",
     "depends": [
       "ctn-codex-review"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Real-device QA + auto-fix findings",
     "description": "Hands-on QA on a real Android device via ux-visual-debug skill. Scenarios: (1) in-bounds Codex shape — semantic + xy hint inside bounds → executes via semantic node action, no fallback warning; (2) ambiguity — semantic + xy hint outside bounds → Ambiguous failure, no UI tap dispatched; (3) coordinate fallback — semantic miss + xy hint → falls back, coordinateFallback=true, warning surfaces; (4) type fallback — type with semantic miss + xy hint → tap-to-focus + SetTextOnFocused; (5) scroll guard — scroll with element_index + xy hint, if element does not resolve, fails (never falls back); (6) regression — common single-target click/type/scroll/swipe still work. Record in projects/active/codex_targeting_normalization/device_qa_notes.md. For each fail, fix in worktree and re-verify. Single-pass per scenario.",
     "design": "projects/active/codex_targeting_normalization/design_codex.md",
@@ -1457,6 +1468,7 @@
       "device"
     ],
     "created": "2026-05-16T09:24:50Z",
-    "updated": "2026-05-16T09:26:34Z"
+    "updated": "2026-05-16T10:11:44Z",
+    "agent": "w-ctn-device-qa"
   }
 }
