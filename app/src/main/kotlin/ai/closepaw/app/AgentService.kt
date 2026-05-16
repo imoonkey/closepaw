@@ -150,6 +150,7 @@ class AgentService : AccessibilityService() {
             }
 
     private val debugExecReceiver = ActionDebugReceiver()
+    private val debugMobileActionReceiver = ai.closepaw.debug.MobileActionDebugReceiver()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -220,6 +221,7 @@ class AgentService : AccessibilityService() {
 
         registerDebugStopReceiverIfNeeded(this, stopReceiver)
         registerDebugExecReceiverIfNeeded(this, debugExecReceiver)
+        registerDebugMobileActionReceiverIfNeeded(this, debugMobileActionReceiver)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -277,6 +279,7 @@ class AgentService : AccessibilityService() {
         actionVisualizer = null
         unregisterDebugStopReceiverIfNeeded(this, stopReceiver)
         unregisterDebugExecReceiverIfNeeded(this, debugExecReceiver)
+        unregisterDebugMobileActionReceiverIfNeeded(this, debugMobileActionReceiver)
         serviceLifecycleOwner.onDestroy()
         super.onDestroy()
         _statusFlow.value = ""
