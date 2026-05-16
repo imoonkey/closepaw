@@ -43,8 +43,6 @@ import ai.closepaw.ui.theme.closePaw
 internal fun AgentRow(
     message: ChatMessage.Agent,
     onOpenApp: (String) -> Unit,
-    onOpenViewer: () -> Unit,
-    isVirtualDisplayViewerAvailable: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.closePaw.spacing
@@ -103,8 +101,6 @@ internal fun AgentRow(
             CompletionHandoffCtaRow(
                 handoff = message.handoff,
                 onOpenApp = onOpenApp,
-                onOpenViewer = onOpenViewer,
-                isVirtualDisplayViewerAvailable = isVirtualDisplayViewerAvailable,
             )
         }
     }

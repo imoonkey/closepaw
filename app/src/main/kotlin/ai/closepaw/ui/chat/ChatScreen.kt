@@ -85,7 +85,6 @@ fun ChatScreen(
     onLoadSessions: () -> Unit,
     onOpenViewer: () -> Unit,
     onOpenApp: (String) -> Unit,
-    isVirtualDisplayViewerAvailable: Boolean = false,
     repairModel: PermissionRepairModel? = null,
     onFixAccessibility: () -> Unit = {},
     onFixOverlay: () -> Unit = {},
@@ -222,8 +221,6 @@ fun ChatScreen(
                     MessageList(
                         messages = messages,
                         onOpenApp = onOpenApp,
-                        onOpenViewer = onOpenViewer,
-                        isVirtualDisplayViewerAvailable = isVirtualDisplayViewerAvailable,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -243,8 +240,6 @@ fun ChatScreen(
 private fun MessageList(
     messages: List<ChatMessage>,
     onOpenApp: (String) -> Unit,
-    onOpenViewer: () -> Unit,
-    isVirtualDisplayViewerAvailable: Boolean,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -318,8 +313,6 @@ private fun MessageList(
                 MessageBubble(
                     message = message,
                     onOpenApp = onOpenApp,
-                    onOpenViewer = onOpenViewer,
-                    isVirtualDisplayViewerAvailable = isVirtualDisplayViewerAvailable,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

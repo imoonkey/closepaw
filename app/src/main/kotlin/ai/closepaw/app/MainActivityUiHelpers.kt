@@ -8,9 +8,6 @@ import ai.closepaw.llm.LFMLLMClient
 import ai.closepaw.ui.settings.ModelLoadingStatus
 import ai.closepaw.ui.viewer.VirtualDisplayViewerActivity
 
-internal const val EXTRA_KEEP_VIEWER_OPEN_WHEN_IDLE =
-    "ai.closepaw.extra.KEEP_VIEWER_OPEN_WHEN_IDLE"
-
 internal fun LFMLLMClient.ModelLoadingState.toUiStatus(): ModelLoadingStatus {
     return when (this) {
         is LFMLLMClient.ModelLoadingState.NotLoaded -> ModelLoadingStatus.Idle
@@ -31,10 +28,6 @@ internal fun openOverlaySettings(context: Context) {
     context.startActivity(intent)
 }
 
-internal fun openViewer(context: Context, keepOpenWhenIdle: Boolean = false) {
-    val intent = Intent(context, VirtualDisplayViewerActivity::class.java)
-    if (keepOpenWhenIdle) {
-        intent.putExtra(EXTRA_KEEP_VIEWER_OPEN_WHEN_IDLE, true)
-    }
-    context.startActivity(intent)
+internal fun openViewer(context: Context) {
+    context.startActivity(Intent(context, VirtualDisplayViewerActivity::class.java))
 }

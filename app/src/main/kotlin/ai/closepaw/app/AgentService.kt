@@ -55,9 +55,6 @@ class AgentService : AccessibilityService() {
 
     private val _effectivePlatformMode = MutableStateFlow<PlatformMode?>(null)
     val effectivePlatformMode: StateFlow<PlatformMode?> = _effectivePlatformMode.asStateFlow()
-    private val _virtualDisplayViewerAvailable = MutableStateFlow(false)
-    val virtualDisplayViewerAvailable: StateFlow<Boolean> =
-        _virtualDisplayViewerAvailable.asStateFlow()
 
     /**
      * Signal that the VirtualDisplayViewerActivity should finish itself. Emitted by the
@@ -100,7 +97,6 @@ class AgentService : AccessibilityService() {
                     sessionCleared = {
                         session = null
                         _effectivePlatformMode.value = null
-                        _virtualDisplayViewerAvailable.value = false
                     },
                     overlayController = { overlayController }
             )
@@ -132,7 +128,6 @@ class AgentService : AccessibilityService() {
         session = externalSession
         currentPlatformMode = platformMode
         _effectivePlatformMode.value = platformMode
-        publishViewerAvailability()
         overlayController?.setPlatformMode(platformMode)
         observeSession(externalSession)
     }
@@ -268,7 +263,6 @@ class AgentService : AccessibilityService() {
         }
         session = null
         _effectivePlatformMode.value = null
-        _virtualDisplayViewerAvailable.value = false
 
         overlayController?.dispose()
         overlayController = null
@@ -319,7 +313,6 @@ class AgentService : AccessibilityService() {
                         agentSession.events.collect { event ->
                             try {
                                 eventHandler.handleEvent(event, recordingService)
-                                publishViewerAvailability()
                             } catch (e: Exception) {
                                 Log.e(
                                         TAG,
@@ -352,7 +345,6 @@ class AgentService : AccessibilityService() {
             eventCollectorJob = null
             val oldSession = session
             session = null
-            _virtualDisplayViewerAvailable.value = false
             scope.launch { oldSession?.submit(Op.Shutdown) }
         }
 
@@ -404,21 +396,6 @@ class AgentService : AccessibilityService() {
 
     fun onViewerOpened() {
         viewerBridge.onViewerOpened()
-    }
-
-    /**
-     * Live check for whether the current session can still serve the VD viewer.
-     * Returns true only when a VirtualDisplayPlatform exists and its arbiter state
-     * is Running. Safe to call from the main thread (no blocking).
-     */
-    fun isVirtualDisplayViewerAvailable(): Boolean = viewerBridge.isViewerAvailable()
-
-    private fun publishViewerAvailability() {
-        val currentSession = session
-        _virtualDisplayViewerAvailable.value =
-            currentSession != null &&
-                currentSession.state.value != SessionState.Shutdown &&
-                currentSession.getServices().platform.mode == PlatformMode.VIRTUAL_DISPLAY
     }
 
     /**
