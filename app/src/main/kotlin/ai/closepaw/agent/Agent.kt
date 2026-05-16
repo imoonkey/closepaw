@@ -52,7 +52,8 @@ class Agent(
                     cancellationSignal = cancellationSignal,
                     stopRequested = stopRequested,
                     trace = trace,
-                    turnPolicyEngine = TurnToolPolicy()
+                    turnPolicyEngine = TurnToolPolicy(),
+                    compactor = compactor
             )
 
     suspend fun run(): AgentStopReason {

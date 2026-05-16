@@ -5,6 +5,7 @@ import ai.closepaw.agent.cognition.policy.LoopDetectionPolicy
 import ai.closepaw.agent.cognition.policy.LoopDetectionResult
 import ai.closepaw.agent.cognition.policy.ToolArbitrationResult
 import ai.closepaw.agent.cognition.policy.TurnToolPolicy
+import ai.closepaw.history.Compactor
 import ai.closepaw.model.ScreenSnapshot
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.ScreenStatePhase
@@ -28,7 +29,8 @@ internal class AgentTurnRunner(
         private val cancellationSignal: CompletableDeferred<AgentStopReason>,
         private val stopRequested: AtomicBoolean,
         private val trace: AgentTrace,
-        private val turnPolicyEngine: TurnToolPolicy
+        private val turnPolicyEngine: TurnToolPolicy,
+        private val compactor: Compactor? = null
 ) {
         companion object {
                 private const val TAG = "AgentTurnRunner"
@@ -53,7 +55,8 @@ internal class AgentTurnRunner(
                         services = services,
                         eventDispatcher = eventDispatcher,
                         trace = trace,
-                        turnPolicyEngine = turnPolicyEngine
+                        turnPolicyEngine = turnPolicyEngine,
+                        compactor = compactor
                 )
         }
 
