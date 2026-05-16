@@ -1,6 +1,11 @@
 package ai.closepaw.history
 
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.junit.Test
 
@@ -447,5 +452,119 @@ class HistoryManagerTest {
         val outputs = remaining.filterIsInstance<ResponseItem.FunctionCallOutput>().map { it.callId }.toSet()
         // Every surviving call should have its output; no orphan outputs remain
         assertThat(outputs).isEqualTo(calls)
+    }
+
+    // ── Revision + CAS ───────────────────────────────────────────────────
+
+    @Test
+    fun `revision starts at zero and increments on every mutation`() {
+        val manager = HistoryManager()
+        assertThat(manager.revision).isEqualTo(0L)
+
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "a"))
+        val afterAdd = manager.revision
+        assertThat(afterAdd).isGreaterThan(0L)
+
+        manager.recordItems(listOf(ResponseItem.Message(MessageKind.ASSISTANT_TEXT, "b")))
+        assertThat(manager.revision).isGreaterThan(afterAdd)
+        val afterRecord = manager.revision
+
+        manager.replaceAll(listOf(ResponseItem.Message(MessageKind.USER_INTENT, "c")))
+        assertThat(manager.revision).isGreaterThan(afterRecord)
+        val afterReplace = manager.revision
+
+        manager.clear()
+        assertThat(manager.revision).isGreaterThan(afterReplace)
+    }
+
+    @Test
+    fun `snapshot returns matching revision and items list`() {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "goal"))
+        manager.addItem(ResponseItem.Message(MessageKind.ASSISTANT_TEXT, "step"))
+
+        val (rev, snap) = manager.snapshot()
+        assertThat(rev).isEqualTo(manager.revision)
+        assertThat(snap).hasSize(2)
+
+        // Snapshot is an immutable copy: mutating history doesn't change it.
+        manager.addItem(ResponseItem.Message(MessageKind.ASSISTANT_TEXT, "more"))
+        assertThat(snap).hasSize(2)
+        assertThat(manager.revision).isGreaterThan(rev)
+    }
+
+    @Test
+    fun `replaceAllIfRevision swaps on match and bumps revision`() {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "goal"))
+        val (rev, _) = manager.snapshot()
+
+        val newItems = listOf(
+            ResponseItem.Message(MessageKind.USER_INTENT, "Goal: goal"),
+            ResponseItem.Message(MessageKind.COMPRESSION_DIGEST, "summary"),
+        )
+        val swapped = manager.replaceAllIfRevision(rev, newItems)
+
+        assertThat(swapped).isTrue()
+        assertThat(manager.getAll()).hasSize(2)
+        assertThat(manager.revision).isGreaterThan(rev)
+    }
+
+    @Test
+    fun `replaceAllIfRevision returns false when revision moved`() {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "goal"))
+        val (rev, _) = manager.snapshot()
+
+        // Concurrent mutation bumps revision out from under us.
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "supplement: do also Y"))
+
+        val swapped = manager.replaceAllIfRevision(
+            rev,
+            listOf(ResponseItem.Message(MessageKind.COMPRESSION_DIGEST, "summary"))
+        )
+
+        assertThat(swapped).isFalse()
+        // History untouched by the failed CAS.
+        val items = manager.getAll().filterIsInstance<ResponseItem.Message>()
+        assertThat(items.map { it.content }).containsExactly(
+            "goal",
+            "supplement: do also Y",
+        ).inOrder()
+    }
+
+    @Test
+    fun `concurrent supplement during simulated long compactor causes CAS to fail and supplement survives`() = runBlocking {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "Goal: open settings"))
+        manager.addItem(ResponseItem.Message(MessageKind.ASSISTANT_TEXT, "I will tap the icon"))
+
+        // Compactor's first step: atomic read.
+        val (snapRev, snapItems) = manager.snapshot()
+
+        // Simulate a long-running LLM summarization on an IO worker; in
+        // parallel, a supplement arrives from the user and is appended.
+        val compactor = async(Dispatchers.IO) {
+            delay(50) // pretend the LLM is summarizing
+            val newItems = listOf(
+                ResponseItem.Message(MessageKind.USER_INTENT, "Goal: open settings"),
+                ResponseItem.Message(MessageKind.COMPRESSION_DIGEST, "summary of $snapItems"),
+            )
+            manager.replaceAllIfRevision(snapRev, newItems)
+        }
+
+        // Supplement injected mid-flight (main thread style — happens before LLM returns).
+        withContext(Dispatchers.Default) {
+            delay(10)
+            manager.addItem(ResponseItem.Message(MessageKind.USER_INTENT, "also: turn on dark mode"))
+        }
+
+        val casResult = compactor.await()
+        assertThat(casResult).isFalse()
+
+        // Supplement is preserved; compaction's half-baked summary is dropped.
+        val finalItems = manager.getAll().filterIsInstance<ResponseItem.Message>()
+        assertThat(finalItems.map { it.content }).contains("also: turn on dark mode")
+        assertThat(finalItems.none { it.kind == MessageKind.COMPRESSION_DIGEST }).isTrue()
     }
 }

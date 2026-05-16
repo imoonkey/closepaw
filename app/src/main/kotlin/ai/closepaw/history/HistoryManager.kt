@@ -33,6 +33,13 @@ class HistoryManager(
     @Volatile
     private var onMutation: (() -> Unit)? = null
 
+    // Monotonically increasing revision — bumped by every mutation. Enables CAS
+    // swap from Compactor so a concurrent supplement during a long LLM call
+    // cannot be silently overwritten.
+    @Volatile
+    private var _revision: Long = 0
+    val revision: Long get() = _revision
+
     fun setMutationListener(listener: (() -> Unit)?) {
         onMutation = listener
     }
@@ -48,6 +55,7 @@ class HistoryManager(
         val processed = processItem(item, config.defaultTruncationPolicy)
         items.add(processed)
         lastTokenEstimate = null
+        _revision++
 
         // Proactive screen downgrade (Phase 1 of design)
         if (item is ResponseItem.Message && item.kind == MessageKind.SCREEN_OBSERVATION) {
@@ -76,6 +84,7 @@ class HistoryManager(
             }
         }
         lastTokenEstimate = null
+        _revision++
 
         if (hasNewScreen) downgradeOldScreens()
 
@@ -95,7 +104,33 @@ class HistoryManager(
         items.clear()
         items.addAll(newItems)
         lastTokenEstimate = null
+        _revision++
         Log.d(TAG, "History replaced, total items: ${items.size}")
+    }
+
+    /**
+     * Atomic read of (revision, items snapshot). Use with [replaceAllIfRevision]
+     * to perform a read-modify-write under contention without holding the
+     * monitor for the duration of the work (e.g. an LLM summarization call).
+     */
+    @Synchronized
+    fun snapshot(): Pair<Long, List<ResponseItem>> = _revision to items.toList()
+
+    /**
+     * CAS-replace history. Swaps only if [expected] matches the current
+     * revision; returns true on swap, false on mismatch (caller should discard
+     * derived state and retry). Bumps revision and notifies mutation listener
+     * on success.
+     */
+    @Synchronized
+    fun replaceAllIfRevision(expected: Long, newItems: List<ResponseItem>): Boolean {
+        if (_revision != expected) return false
+        items.clear()
+        items.addAll(newItems)
+        lastTokenEstimate = null
+        _revision++
+        onMutation?.invoke()
+        return true
     }
 
     /** Get all history items (defensive copy). */
@@ -121,6 +156,7 @@ class HistoryManager(
     fun clear() {
         items.clear()
         lastTokenEstimate = null
+        _revision++
         Log.d(TAG, "History cleared")
     }
 
