@@ -31,6 +31,7 @@ import java.util.Date
 @Composable
 fun MessageBubble(
     message: ChatMessage,
+    onOpenApp: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
@@ -42,6 +43,7 @@ fun MessageBubble(
         )
         is ChatMessage.Agent -> AgentRow(
             message = message,
+            onOpenApp = onOpenApp,
             modifier = modifier,
         )
     }

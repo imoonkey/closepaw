@@ -73,9 +73,7 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
             )
         }
 
-        // Service requests viewer-finish when the agent reaches a quiescent idle state
-        // (post-task in VD mode). Without this, the user is stranded on a frozen, dead VD
-        // surface with no overlay UI to navigate away from.
+        // Service requests viewer-finish when the agent reaches a quiescent idle state.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 AgentService.instance?.viewerFinishSignal?.collect {

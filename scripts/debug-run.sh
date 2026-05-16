@@ -113,6 +113,7 @@ NC='\033[0m'
 log() { echo -e "${BLUE}> $1${NC}"; }
 ok() { echo -e "${GREEN}✓ $1${NC}"; }
 warn() { echo -e "${YELLOW}! $1${NC}"; }
+err() { echo -e "${RED}x $1${NC}"; exit 1; }
 
 list_connected_devices() {
     adb devices | awk 'NR > 1 && $2 == "device" {print $1}'
@@ -304,6 +305,13 @@ if [[ "$DEVICE" == emulator-* ]]; then
 else
     ok "Selected physical device: $DEVICE"
 fi
+
+# Preflight: re-run setup.sh so build + permissions are wired up. Cheap when
+# APK is up-to-date and re-granting overlay/a11y/Shizuku is idempotent.
+# Export LLM_BACKEND so setup.sh's API-key gate matches the backend this run
+# will actually use (otherwise --local fails on the OpenAI key check).
+log "Running setup.sh preflight..."
+LLM_BACKEND="$LLM_BACKEND" "$SCRIPT_DIR/setup.sh" || err "Preflight failed (see setup.sh output above)"
 
 # Clear logs and start streaming capture
 adb logcat -c

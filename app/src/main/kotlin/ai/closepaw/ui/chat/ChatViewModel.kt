@@ -50,7 +50,8 @@ internal fun appendCompletionToMessages(
         rawResult: String?,
         timestamp: Long,
         taskId: String,
-        isError: Boolean = false
+        isError: Boolean = false,
+        handoff: ai.closepaw.protocol.CompletionHandoff? = null,
 ) {
     val terminalRowState = if (isError) RowState.Error else RowState.Complete
     val index = messages.indexOfLast { it is ChatMessage.Agent }
@@ -62,7 +63,8 @@ internal fun appendCompletionToMessages(
                         contentBlocks = newBlocks,
                         state = AgentMessageState.Complete,
                         rowState = if (current.rowState == RowState.Error || isError) RowState.Error else RowState.Complete,
-                        completedTimestamp = timestamp
+                        completedTimestamp = timestamp,
+                        handoff = handoff,
                 )
         return
     }
@@ -75,7 +77,8 @@ internal fun appendCompletionToMessages(
                     contentBlocks = seedBlocks,
                     state = AgentMessageState.Complete,
                     rowState = terminalRowState,
-                    completedTimestamp = timestamp
+                    completedTimestamp = timestamp,
+                    handoff = handoff,
             )
     )
 }

@@ -42,6 +42,7 @@ import ai.closepaw.ui.theme.closePaw
 @Composable
 internal fun AgentRow(
     message: ChatMessage.Agent,
+    onOpenApp: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.closePaw.spacing
@@ -94,6 +95,13 @@ internal fun AgentRow(
 
         if (finalText != null) {
             FinalAnswer(text = finalText.text)
+        }
+
+        if (message.rowState == RowState.Complete && message.handoff != null) {
+            CompletionHandoffCtaRow(
+                handoff = message.handoff,
+                onOpenApp = onOpenApp,
+            )
         }
     }
 }

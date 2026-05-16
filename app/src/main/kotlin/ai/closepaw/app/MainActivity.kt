@@ -253,6 +253,11 @@ class MainActivity : ComponentActivity() {
                         viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
                     },
                     onOpenViewer = { openViewer(this@MainActivity) },
+                    onOpenApp = { pkg ->
+                        packageManager.getLaunchIntentForPackage(pkg)
+                            ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                            ?.let { startActivity(it) }
+                    },
                     isAccessibilityEnabled = AgentService.instance != null,
                     isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
                     onAccessibilityClick = { openAccessibilitySettings(this@MainActivity) },
@@ -266,7 +271,7 @@ class MainActivity : ComponentActivity() {
                     onCancelOAuth = ::handleCancelOAuth,
                     onSignOut = ::handleSignOut,
                     effectivePlatformModeFlow = AgentService.instance?.effectivePlatformMode
-                        ?: kotlinx.coroutines.flow.MutableStateFlow(null)
+                        ?: kotlinx.coroutines.flow.MutableStateFlow(null),
                 )
                 pendingGoalForConfirmation?.let { goal ->
                     AlertDialog(

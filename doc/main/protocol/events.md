@@ -19,7 +19,7 @@ AgentEvent (sealed interface)
 │   └── SupplementReceived(text)
 ├── TaskLifecycleEvent
 │   ├── TaskStarted(taskId, input)
-│   └── TaskCompleted(taskId, result?, outcome: TaskOutcome)
+│   └── TaskCompleted(taskId, result?, outcome: TaskOutcome, handoff: CompletionHandoff?)
 ├── TurnDomainEvent
 │   ├── TurnStarted(turnId, turnNumber)
 │   ├── TurnCompleted(turnId, turnNumber)
@@ -57,7 +57,7 @@ AgentEvent (sealed interface)
 | `AskUser` | Agent needs user help | `type`, `message`, `callId` |
 | `SupplementReceived` | User sent mid-task supplement | `text` |
 | `SessionTakeover` | User takes over (after agent pauses) | — |
-| `TaskCompleted` | Task ends | `taskId`, `result`, `outcome` |
+| `TaskCompleted` | Task ends | `taskId`, `result`, `outcome`, `handoff?` (VD only; carries foreground `appPackage` + `appLabel` so chat can render an `Open <App>` CTA) |
 | `SessionCompleted` | Session terminates | `reason` |
 
 ## Enums

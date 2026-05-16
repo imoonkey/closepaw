@@ -448,7 +448,8 @@ private constructor(
                         timestamp = now(),
                         taskId = taskId,
                         result = resultMessage,
-                        outcome = outcome
+                        outcome = outcome,
+                        handoff = buildHandoffIfVd(),
                 )
         )
 
@@ -480,6 +481,24 @@ private constructor(
                 is AgentStopReason.TaskImpossible -> TaskOutcome.TASK_IMPOSSIBLE
                 is AgentStopReason.Error -> TaskOutcome.ERROR
             }
+
+    /**
+     * Capture runtime handoff metadata when running a Virtual Display platform; null otherwise.
+     *
+     * VD mode reads the current foreground package so chat can render the explicit
+     * "Open <App>" CTA. Accessibility mode emits no handoff — the agent worked on
+     * the real screen so the user is already there.
+     */
+    private fun buildHandoffIfVd(): CompletionHandoff? {
+        val platform = services.platform
+        if (platform.mode != PlatformMode.VIRTUAL_DISPLAY) return null
+        return buildVdCompletionHandoff(
+                appPackage = platform.getCurrentPackageName(),
+                packageManager = service.packageManager,
+                selfPackage = service.packageName,
+                classifyTier = { services.appClassifier.classify(it) },
+        )
+    }
 
     private suspend fun handleTakeover() {
         val confirmed = lifecycleMutex.withLock {
@@ -595,7 +614,8 @@ private constructor(
                             timestamp = now(),
                             taskId = runningTaskId,
                             result = null,
-                            outcome = TaskOutcome.USER_STOPPED
+                            outcome = TaskOutcome.USER_STOPPED,
+                            handoff = buildHandoffIfVd(),
                     )
             )
         }

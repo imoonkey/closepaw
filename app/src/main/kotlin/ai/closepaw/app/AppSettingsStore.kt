@@ -24,7 +24,8 @@ data class AppSettings(
         val platformMode: PlatformMode,
         val traceEnabled: Boolean,
         val browserScriptEnabled: Boolean,
-        val termuxShellEnabled: Boolean
+        val termuxShellEnabled: Boolean,
+        val openaiBaseUrl: String
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -45,6 +46,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_TRACE_ENABLED = "trace_enabled"
         private const val KEY_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
         private const val KEY_TERMUX_SHELL_ENABLED = "termux_shell_enabled"
+        private const val KEY_OPENAI_BASE_URL = "openai_base_url"
 
         const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_MAX_TURNS = 20
@@ -116,6 +118,7 @@ class AppSettingsStore(private val context: Context) {
                 KEY_TERMUX_SHELL_ENABLED,
                 DEFAULT_TERMUX_SHELL_ENABLED
         )
+        val openaiBaseUrl = prefs.getString(KEY_OPENAI_BASE_URL, "") ?: ""
 
         return AppSettings(
                 selectedModel = selectedModel,
@@ -129,7 +132,8 @@ class AppSettingsStore(private val context: Context) {
                 platformMode = platformMode,
                 traceEnabled = traceEnabled,
                 browserScriptEnabled = browserScriptEnabled,
-                termuxShellEnabled = termuxShellEnabled
+                termuxShellEnabled = termuxShellEnabled,
+                openaiBaseUrl = openaiBaseUrl
         )
     }
 
@@ -184,6 +188,14 @@ class AppSettingsStore(private val context: Context) {
 
     fun savePerceptionMode(value: String) {
         prefs().edit().putString(KEY_PERCEPTION_MODE, value).apply()
+    }
+
+    fun saveOpenaiBaseUrl(value: String) {
+        if (value.isBlank()) {
+            prefs().edit().remove(KEY_OPENAI_BASE_URL).apply()
+        } else {
+            prefs().edit().putString(KEY_OPENAI_BASE_URL, value).apply()
+        }
     }
 
     fun saveAgentMode(value: AgentMode) {

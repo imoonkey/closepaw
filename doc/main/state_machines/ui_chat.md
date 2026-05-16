@@ -106,7 +106,7 @@ stateDiagram-v2
 | `ActionProposed` | Clear `streamingBuffer`; append `ContentBlock.Action(state = Proposed)` to the open agent. (Buffer cleared so the next `MessageDelta` starts a fresh text block after the action card.) |
 | `ActionExecuted` | If matching `Proposed` block exists, mutate it in place; otherwise append a new `Action` block already in the executed state. |
 | `ThoughtUpdate` | Append a new `ContentBlock.Thought(text)` to the open agent's `contentBlocks`. Each update is a distinct trace item — no merging with the prior Thought (Track A spec §4.1). Empty thoughts are dropped. Streaming buffer is cleared so the next `MessageDelta` starts a fresh Text block. |
-| `TaskCompleted` | Append a completion summary text block (per `completionSummary(result)`); set state `Complete`; set `rowState = Complete` (preserved as `Error` if already errored); clear buffer; clear `currentAgentMessageId`. |
+| `TaskCompleted` | Append a completion summary text block (per `completionSummary(result)`); set state `Complete`; set `rowState = Complete` (preserved as `Error` if already errored); copy `TaskCompleted.handoff` onto the row (VD-only metadata that drives the post-completion `Open <App>` CTA — see [ui/session/user_flows.md](../ui/session/user_flows.md#vd-completion-handoff)); clear buffer; clear `currentAgentMessageId`. |
 | `SessionError` | If an `Agent` exists, append `⚠️ <message>` text block, mark `Complete`, set `rowState = Error`. Otherwise create a fresh `Agent` containing only the error and set `showEmptyState = false`. |
 | `SupplementReceived` | Same operation as `TaskStarted` minus the agent-id binding (id is `supplement-<timestamp>`). |
 | anything else | Silently ignored (default branch is `else -> Unit`). |
