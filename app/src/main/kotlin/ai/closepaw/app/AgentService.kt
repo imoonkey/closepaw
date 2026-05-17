@@ -422,6 +422,22 @@ class AgentService : AccessibilityService() {
         viewerBridge.onMainAppVisible()
     }
 
+    /**
+     * Bring MainActivity to the foreground and ask it to prompt for RECORD_AUDIO. Used by the
+     * overlay path — `RequestPermission` is an Activity-result contract, so the prompt cannot
+     * be launched from this Service. MainActivity reads the extra in onCreate/onNewIntent and
+     * fires the launcher once Compose is mounted.
+     */
+    fun requestVoicePermissionViaMainActivity() {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(MainActivity.EXTRA_REQUEST_VOICE_PERMISSION, true)
+        }
+        startActivity(intent)
+    }
+
     fun onMainAppHidden() {
         viewerBridge.onMainAppHidden()
     }

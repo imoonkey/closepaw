@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_NOVITA_API_KEY = "novita_api_key"
         const val EXTRA_OPENAI_BASE_URL = "openai_base_url"
         const val EXTRA_EVAL_TURN_BUDGET = "eval_turn_budget"
+        const val EXTRA_REQUEST_VOICE_PERMISSION = "request_voice_permission"
     }
 
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -113,6 +114,21 @@ class MainActivity : ComponentActivity() {
         ai.closepaw.ui.settings.OpenAiAuthUiState.SignedOut
     )
     private var oauthJob: kotlinx.coroutines.Job? = null
+    private var pendingVoicePermissionRequest by mutableStateOf(false)
+
+    internal fun isVoicePermissionRequestPending(): Boolean = pendingVoicePermissionRequest
+
+    internal fun clearVoicePermissionRequest() {
+        pendingVoicePermissionRequest = false
+    }
+
+    private fun consumeVoicePermissionRequestIfPresent(intent: Intent) {
+        if (intent.getBooleanExtra(EXTRA_REQUEST_VOICE_PERMISSION, false)) {
+            pendingVoicePermissionRequest = true
+            // Defensively strip the extra so subsequent recompositions / intent re-reads do not re-fire.
+            intent.removeExtra(EXTRA_REQUEST_VOICE_PERMISSION)
+        }
+    }
 
     private enum class SessionLaunchPolicy {
         AUTO,
@@ -167,6 +183,7 @@ class MainActivity : ComponentActivity() {
             onboardingViewModel = vm
         }
 
+        consumeVoicePermissionRequestIfPresent(intent)
         handleIntent(intent)
         val sessionStorage = SessionStorage(applicationContext)
         sessionHistoryManager = SessionHistoryManager.create(sessionStorage, sessionScope)
@@ -299,6 +316,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent called")
         setIntent(intent)
+        consumeVoicePermissionRequestIfPresent(intent)
         intentPayloadConsumed = false
         if (onboardingRequired && isEvalIntent(intent)) {
             Log.d(TAG, "Eval intent received during onboarding; bypassing onboarding")
