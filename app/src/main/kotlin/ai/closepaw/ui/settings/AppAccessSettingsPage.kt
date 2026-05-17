@@ -55,13 +55,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Six filter modes for the App Security list. The four state filters compare against
+ * Six filter modes for the App Access list. The four state filters compare against
  * the effective tier; `Custom` selects rows with an explicit user override; `Restricted`
  * selects bundled-BLOCKED rows.
  */
 private enum class AppFilter(val label: String) {
     All("All"),
-    Always("Always"),
+    Allow("Allow"),
     Ask("Ask"),
     Reject("Reject"),
     Custom("Custom"),
@@ -69,7 +69,7 @@ private enum class AppFilter(val label: String) {
 }
 
 @Composable
-internal fun AppSecuritySettingsPage(
+internal fun AppAccessSettingsPage(
     appClassifier: AppClassifier,
     onBack: () -> Unit,
     onClose: () -> Unit,
@@ -87,7 +87,7 @@ internal fun AppSecuritySettingsPage(
     var filter by rememberSaveable { mutableStateOf(AppFilter.All) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        SettingsSubPageHeader(title = "App Security", onBack = onBack, onClose = onClose)
+        SettingsSubPageHeader(title = "App Access", onBack = onBack, onClose = onClose)
 
         Column(
             modifier = Modifier
@@ -361,7 +361,7 @@ private fun TierSegmentedSelector(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         SegmentChip(
-            label = "Always",
+            label = "Allow",
             isSelected = selected == AppTier.NORMAL,
             onClick = { onPick(AppTier.NORMAL) },
             modifier = Modifier.weight(1f),
@@ -459,7 +459,7 @@ private fun filterRows(
         val bundled = classifier.bundledTier(pkg)
         when (filter) {
             AppFilter.All -> true
-            AppFilter.Always -> classifier.classify(pkg) == AppTier.NORMAL
+            AppFilter.Allow -> classifier.classify(pkg) == AppTier.NORMAL
             AppFilter.Ask -> classifier.classify(pkg) == AppTier.CAUTIOUS
             AppFilter.Reject -> classifier.classify(pkg) == AppTier.BLOCKED
             AppFilter.Custom -> overrides.containsKey(pkg)

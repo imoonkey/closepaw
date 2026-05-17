@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * UI-only row model for the App Security settings list.
+ * UI-only row model for the App Access settings list.
  *
  * Holds the platform [AppInfo] plus an on-demand [iconLoader] so a 200-app
  * `LazyColumn` does not pin 200 drawables in memory — the lambda is invoked

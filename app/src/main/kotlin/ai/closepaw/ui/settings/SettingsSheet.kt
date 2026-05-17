@@ -35,7 +35,7 @@ enum class SettingsPage {
     LLM_AUTH,
     AGENT_BEHAVIOR,
     PERMISSIONS_ADVANCED,
-    APP_SECURITY,
+    APP_ACCESS,
     OPEN_SOURCE_LICENSES,
 }
 
@@ -181,7 +181,7 @@ fun SettingsSheet(
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss
                 )
-                SettingsPage.APP_SECURITY -> AppSecuritySettingsPage(
+                SettingsPage.APP_ACCESS -> AppAccessSettingsPage(
                     appClassifier = appClassifier,
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss,

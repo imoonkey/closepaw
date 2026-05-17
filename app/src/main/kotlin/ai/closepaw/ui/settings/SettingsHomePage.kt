@@ -97,16 +97,16 @@ internal fun SettingsHomePage(
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }
             )
 
-            SectionHeader("System")
+            SectionHeader("Access")
             SettingsNavigationRow(
                 title = "Permissions & Advanced",
                 subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode, effectivePlatformMode),
                 onClick = { onNavigate(SettingsPage.PERMISSIONS_ADVANCED) }
             )
             SettingsNavigationRow(
-                title = "App Security",
-                subtitle = appSecuritySubtitle(appClassifier),
-                onClick = { onNavigate(SettingsPage.APP_SECURITY) }
+                title = "App Access",
+                subtitle = appAccessSubtitle(appClassifier),
+                onClick = { onNavigate(SettingsPage.APP_ACCESS) }
             )
 
             SectionHeader("About")
@@ -181,7 +181,7 @@ private fun permissionsSubtitle(
 }
 
 /**
- * Subtitle for the App Security entry on the Settings home page.
+ * Subtitle for the App Access entry on the Settings home page.
  *
  * `N` (apps customized) tracks the live `userOverrides` map via `collectAsState`.
  * `M` (restricted) is the count of bundled-BLOCKED packages among the currently
@@ -190,7 +190,7 @@ private fun permissionsSubtitle(
  * if the scan hasn't finished yet, render the count as `…` rather than block.
  */
 @Composable
-private fun appSecuritySubtitle(classifier: AppClassifier): String {
+private fun appAccessSubtitle(classifier: AppClassifier): String {
     val context = LocalContext.current
     val overrides by classifier.userOverrides.collectAsState()
     val restrictedCount by produceState<Int?>(initialValue = null, context, classifier) {
