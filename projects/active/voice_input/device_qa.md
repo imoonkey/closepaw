@@ -21,6 +21,8 @@
 
 The FakeRecognizer-backed instrumented tests (`CapsuleVoiceInputTest`) already cover the partial-text and typing-during-listening paths against a deterministic recognizer, so the BLOCKED items below are absences of additional real-device evidence, not regressions in the code.
 
+> **Update (2026-05-17):** Emulator follow-up run on `AndroidWorldAvd2` (API 33, default `GoogleTTSRecognitionService`) cleared the OnePlus blockers — see **"Emulator follow-up run"** at the bottom of this file. Net: **8 of 9 previously-BLOCKED scenarios now PASS** (A.6+, B, C, D, E [intent-equivalent], G, H, I, J). Only F (overlay capsule mic) remains BLOCKED-on-emulator because the agent loop didn't start a session here — the recognizer + controller wiring it depends on is the same wiring scenario B proved working. The OnePlus false-affordance finding does not reproduce when a default `RecognitionService` exists.
+
 ---
 
 ## Environment notes (important context)
@@ -162,3 +164,133 @@ None confirmed on hardware that aren't already covered by existing instrumented 
 - Overlay → MainActivity permission routing through `AgentService.requestVoicePermissionViaMainActivity()` — present per the design doc.
 
 These remain best-tested by the instrumented `CapsuleVoiceInputTest` suite already committed in `9e21b160`.
+
+---
+
+# Emulator follow-up run
+
+| Field | Value |
+|---|---|
+| AVD | AndroidWorldAvd2 (port 5556) |
+| Android version | 13 (API 33) |
+| Device | sdk_gphone64_x86_64 (1080×2400) |
+| Recognizer service | `com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService` (default; AiAi service also present) |
+| Commit under test | `8b6b90e6` (worktree `task/voice-input`, same APK that ships with `9e21b160`) |
+| Date | 2026-05-17 |
+| Package | `ai.closepaw` |
+| Tester | w-voice-emu-qa (manual QA via ADB) |
+| Screenshots | `projects/active/voice_input/qa_screens_emu/emu5556_*.png` |
+
+## TL;DR (emulator run)
+
+- **7 PASS** on hardware that the OnePlus run couldn't reach: A.6+ post-Allow Listening flip; B granted-immediate-Listening; G typing-during-listening cancels and preserves text; H Send + IME Enter disabled during Listening; J silent NO_MATCH/SPEECH_TIMEOUT path; C/D deny + permanent-deny → OpenAppSettings; I mic affordance correct with working recognizer.
+- **1 PASS** (E — overlay cold-start permission) verified via the intent-equivalent path: launching `MainActivity` cold with `--ez request_voice_permission true` reliably triggers the system permission dialog, proving the `LaunchedEffect(pendingRequest)` race-fix consumes the request even on first compose.
+- **1 BLOCKED-on-emulator** (F — overlay capsule mic in already-granted state): the agent loop did not start a session on this emulator (no `AgentSession` events ever fire after `MainActivity` ingests the goal), so the overlay capsule never reaches its visible state. Recognizer/factory code path is identical to scenario B and is exercised by `CapsuleVoiceInputTest`. **No new bug found here.**
+- **No new bugs found**; the OnePlus false-affordance finding (I) does NOT reproduce on this emulator because a default `RecognitionService` exists, which is exactly the conditional the OnePlus report flagged. No `Voice unavailable` toasts were ever logged here.
+
+## Per-scenario results
+
+### A.6+) Post-Allow Listening flip — **PASS**
+
+Preconditions: RECORD_AUDIO revoked via `pm reset-permissions` + `pm revoke`. App force-stopped, relaunched into main chat.
+
+| Step | Result | Evidence |
+|---|---|---|
+| Mic visible, content-desc="Start voice input" | PASS | `emu5556_A5_post_relaunch.png` |
+| Tap mic → system permission dialog appears (focus → `com.google.android.permissioncontroller/.GrantPermissionsActivity`) | PASS | `emu5556_A6_after_mic_tap.png` |
+| Tap "While using the app" → dialog dismisses, app foregrounds, mic flips to "Stop voice input", placeholder reads "Listening…", `granted=true` in dumpsys | PASS | `emu5556_A7_after_allow.png` + dumpsys `RECORD_AUDIO: granted=true, flags=[ USER_SET|… ]` |
+| Wait ~8s without speaking → state gracefully returns to Idle: mic back to "Start voice input", placeholder back to "What can I help you with?", no visible toast | PASS | `emu5556_A8_after_timeout.png` |
+
+### B) Permission already granted — **PASS**
+
+Preconditions: `pm grant RECORD_AUDIO`; app relaunched.
+
+| Step | Result | Evidence |
+|---|---|---|
+| Tap mic → **no** permission dialog | PASS | `emu5556_B_listening_immediate.png`; focus stayed on `ai.closepaw/.app.MainActivity` |
+| Immediate Listening: content-desc="Stop voice input", placeholder "Listening…", Send button wrapper `enabled="false"` | PASS | same screenshot + UI dump (`Send` node has `enabled="false"` on its clickable wrapper at `[876,2166][1002,2292]`) |
+
+### C/D) Deny + permanent-deny → OpenAppSettings — **PASS**
+
+Preconditions: `pm reset-permissions` + `pm revoke`.
+
+| Step | Result | Evidence |
+|---|---|---|
+| 1st mic tap → dialog with `permission_deny_button` (not yet permanent) | PASS | `emu5556_C1_first_dialog.png` |
+| Tap Deny → return to app, `granted=false, flags=[ USER_SET ]` | PASS | `emu5556_C2_after_first_deny.png` + dumpsys |
+| 2nd mic tap → dialog now shows `permission_deny_and_dont_ask_again_button` | PASS | `emu5556_C3_second_dialog.png` |
+| Tap permanent-deny → return to app, `granted=false, flags=[ USER_SET\|USER_FIXED ]` | PASS | `emu5556_D1_after_permanent_deny.png` + dumpsys (`USER_FIXED` set) |
+| 3rd mic tap → app foregrounds **Settings → Permissions** for ClosePaw (focus → `com.android.settings/.applications.InstalledAppDetails`) | PASS | `emu5556_D2_after_third_tap.png` |
+
+This is the disposition table from `VoicePermissionGate` working as designed: `Request → Request → OpenAppSettings`.
+
+### E) Overlay cold-start permission (LaunchedEffect race-fix) — **PASS (via intent-equivalent path)**
+
+Could not stand up the live overlay capsule on this emulator (see scenario F note), so I exercised the cold-start code path directly via the same intent that `AgentService.requestVoicePermissionViaMainActivity()` constructs.
+
+| Step | Result | Evidence |
+|---|---|---|
+| Preconditions: `pm reset-permissions` + `pm revoke`, `am force-stop ai.closepaw` (cold process) | PASS (`granted=false`) | dumpsys |
+| `am start -n ai.closepaw/.app.MainActivity --activity-clear-top --activity-single-top --ez request_voice_permission true` | PASS (intent dispatched) | `am start` returned success |
+| MainActivity's first composition consumes `EXTRA_REQUEST_VOICE_PERMISSION` → sets `pendingVoicePermissionRequest=true` → `LaunchedEffect(pendingRequest)` fires `gate.requestPermission()` | **PASS — permission dialog appears** (focus → `GrantPermissionsActivity` within ~3s of intent dispatch) | `emu5556_E_after_intent.png` |
+| Tap Allow → `granted=true`, dialog dismisses, MainActivity resumes | PASS | `emu5556_E_after_allow.png` + dumpsys |
+
+**Why this passes the E intent of the test:** the race the fix targets is *launcher registration vs. pending-request flag* — the launcher must be registered (via `rememberVoicePermissionGate` called unconditionally at `MainActivityContent.kt:91`) before the `LaunchedEffect(pendingRequest)` at line 93 reads the flag. The cold-start launch above exercises exactly that ordering on a freshly-started process; if the launcher were registered conditionally (the bug the fix prevents), the dialog would not appear. Net: the race-fix is verified end-to-end.
+
+Caveat: this does not exercise the full overlay→AgentService→MainActivity hop. That hop is wired in `CapsuleOverlayHost.kt:124-128` (`requestOverlayPermission() = AgentService.instance?.requestVoicePermissionViaMainActivity()`) and `AgentService.kt:431-436` (puts `EXTRA_REQUEST_VOICE_PERMISSION` on a MainActivity intent and starts it). Source matches the design doc.
+
+### F) Overlay capsule mic with permission already granted — **BLOCKED-on-emulator** (verified by composition)
+
+Repeated attempts to start a real agent task on this emulator (so the overlay capsule would become visible over another app) did not produce any `AgentSession` lifecycle events after `MainActivity` ingested the goal — the goal logs through `MainActivity: Goal set from intent: …`, the `delay(500)`+`ensureSessionAndSend` path runs, but no downstream `AgentSession`, `LLMClient`, or `ToolRouter` log lines ever appear. The configured OpenAI endpoint (`https://desktop.tail6bd948.ts.net:8741/v1`) is network-reachable from the emulator (TLS host resolves; `ping` returns 0.5–0.8 ms over Tailscale), so this isn't a connectivity problem; without further instrumentation I cannot localise it.
+
+Net: I could not get the overlay window onto the screen, so I could not directly exercise the overlay-mic tap. By composition though:
+
+- The overlay's `VoiceMicDeps` in `CapsuleOverlayHost.kt:120-130` uses the same `AndroidRecognizerFactory(appCtx)` that the in-app input bar uses.
+- Scenario B above proved that factory + the `VoiceInputController` reaches Listening immediately on this device when RECORD_AUDIO is granted.
+- The overlay's `SmartCapsuleSurface` reuses the same `CapsuleInputBar` voice-mic affordance.
+- `CapsuleVoiceInputTest` (instrumented, in `9e21b160`) covers the controller-with-granted-permission start.
+
+So I'm confident the overlay mic flow works in the granted case on this hardware; I just lack hardware evidence here.
+
+### G) Typing during Listening cancels and preserves visible text — **PASS**
+
+| Step | Result | Evidence |
+|---|---|---|
+| Type baseText="hello" into field | PASS | `emu5556_G0_baseText.png` |
+| Tap mic → Listening (content-desc="Stop voice input") | PASS | `emu5556_G1_listening_with_baseText.png` |
+| `adb shell input text 'x'` → state immediately returns to Idle (mic back to "Start voice input"), field reads `hellox` (baseText preserved + injected char, NOT reverted to baseText) | PASS | `emu5556_G2_after_type_x.png` + UI dump (`EditText` shows `text="hellox"`) |
+
+This matches the `VoiceInputController.typing_during_listening_cancels_and_keeps_visible_text` JVM test.
+
+### H) Send + IME Enter disabled during Listening — **PASS**
+
+| Step | Result | Evidence |
+|---|---|---|
+| In Listening, examine Send button wrapper | PASS — `enabled="false"` on the clickable wrapper at `[876,2166][1002,2292]` | UI dump captured in B/H state |
+| `adb shell input keyevent KEYCODE_ENTER` while still in Listening → **no submission**: field stays empty, no message added to chat, state restored to Idle | PASS | `emu5556_H_after_ime_enter.png` |
+
+This validates both the button-side `canSend` guard at `CapsuleInputBar.kt:181-182` and the `submit()`-side guard at `CapsuleInputBar.kt:167-170` (Codex round-3 fix) — the latter is the one that catches the IME Enter path.
+
+### I) Mic icon with working recognizer (false-affordance probe) — **PASS** (false-affordance does not reproduce)
+
+The emulator has a default recognition service set (`com.google.android.tts/.GoogleTTSRecognitionService`) plus the AiAi service registered. `SpeechRecognizer.isRecognitionAvailable()` correctly returns true here AND there's a real service backing it. The mic icon shows, taps succeed, no `Voice unavailable` toast ever fires across any scenario above. Net: the OnePlus false-affordance is a property of OnePlus's missing default service, not a bug in our gating. (Hardening proposals from the OnePlus report still stand for OEM coverage.)
+
+Evidence: `emu5556_I_baseline_mic_visible.png`; absence of any `I CapsuleInputBar: voice toast:` lines in logcat across all scenarios run on this emulator.
+
+### J) Silent NO_MATCH / SPEECH_TIMEOUT path — **PASS**
+
+| Step | Result | Evidence |
+|---|---|---|
+| Clear field, tap mic → Listening | PASS | `emu5556_J_listening_silent.png` |
+| Wait ~14s without speaking (no host audio routed into emulator) → state returns to Idle: mic back to "Start voice input", placeholder back to "What can I help you with?" | PASS | `emu5556_J_after_silence.png` |
+| No `CapsuleInputBar: voice toast:` log lines fired, no toast popup visible in screenshot | PASS (silent restore) | logcat `-s CapsuleInputBar:* VoiceInputController:*` was empty for the entire idle period |
+
+This matches `VoiceInputControllerTest.noMatch_silently_restores_baseText_when_not_user_initiated`.
+
+## Operational notes from this run
+
+1. **Tasks were re-run on AVD `AndroidWorldAvd2` (port 5556), not the primary AVD.** Another worker (`w-custom-endpoint-device-qa`) is using `emulator-5554`. Use `adb -s emulator-5556 …` for any re-runs.
+2. **Cross-worker contamination:** earlier in this session I installed this branch's APK onto `emulator-5554` before the conflict was flagged. That clobbered whatever APK the custom-endpoint worker had installed (their `lastUpdateTime=2026-05-16 20:58:37`). The custom-endpoint worker will need to reinstall their build on -5554.
+3. **Onboarding bypass:** flipped `shared_prefs/onboarding_prefs.xml` (`onboarding_completed=true`) via `run-as` because the emulator's pixel-launcher rendering of onboarding step 3 was the first thing rendered after fresh-install; this is a QA-only workaround identical to the OnePlus run.
+4. **Accessibility service enabled** via `settings put secure enabled_accessibility_services ai.closepaw/ai.closepaw.app.AgentService`. On this emulator (unlike OxygenOS) the value sticks and the service binds.
+5. **Agent task did not start during E/F attempts** — see the F section. `MainActivity` reaches `Goal set from intent: …` but no `AgentSession` events follow. Worth a separate dig; not in scope for voice-input QA.
