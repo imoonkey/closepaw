@@ -10,6 +10,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -68,6 +70,10 @@ class AppSettingsStore(private val context: Context) {
 
     private val _disabledAgentSkills = MutableStateFlow(loadDisabledAgentSkills())
     val disabledAgentSkills: StateFlow<Set<String>> = _disabledAgentSkills.asStateFlow()
+
+    // Serializes setSkillDisabled so concurrent toggles from the UI cannot lose entries
+    // via the read-modify-write between _disabledAgentSkills.value and the prefs commit.
+    private val disabledSkillsMutex = Mutex()
 
     /** Plain prefs for non-secret settings only (model, turns, mode, etc.). */
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -262,10 +268,10 @@ class AppSettingsStore(private val context: Context) {
         }
     }
 
-    suspend fun setSkillDisabled(name: String, disabled: Boolean) {
+    suspend fun setSkillDisabled(name: String, disabled: Boolean) = disabledSkillsMutex.withLock {
         val current = _disabledAgentSkills.value
         val next = if (disabled) current + name else current - name
-        if (next == current) return
+        if (next == current) return@withLock
         withContext(Dispatchers.IO) {
             val editor = prefs().edit()
             if (next.isEmpty()) {
