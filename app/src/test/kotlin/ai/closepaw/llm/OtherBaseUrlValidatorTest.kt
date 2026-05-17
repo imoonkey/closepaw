@@ -103,4 +103,46 @@ class OtherBaseUrlValidatorTest {
         assertThat(result.isSuccess).isTrue()
         assertThat(result.getOrThrow()).isEqualTo("https://api.example.com/v1")
     }
+
+    // ── reject sensitive URL segments (Codex review HIGH #2) ─────────────
+
+    @Test
+    fun `rejects user-info in URL and message does not echo the secret`() {
+        val result = OtherBaseUrlValidator.validate(
+            "https://eve:supersecret@api.example.com/v1",
+            allowDebugHttp = false,
+        )
+        assertThat(result.isFailure).isTrue()
+        val msg = result.exceptionOrNull()?.message.orEmpty()
+        // The actual user-info from the input must not appear in the error,
+        // but the error may name the rejected element ("credentials").
+        assertThat(msg).doesNotContain("supersecret")
+        assertThat(msg).doesNotContain("eve")
+        assertThat(msg).contains("credentials")
+    }
+
+    @Test
+    fun `rejects query string and message does not echo the secret`() {
+        val result = OtherBaseUrlValidator.validate(
+            "https://api.example.com/v1?api_key=supersecret",
+            allowDebugHttp = false,
+        )
+        assertThat(result.isFailure).isTrue()
+        val msg = result.exceptionOrNull()?.message.orEmpty()
+        assertThat(msg).doesNotContain("supersecret")
+        assertThat(msg).doesNotContain("api_key")
+        assertThat(msg).contains("query")
+    }
+
+    @Test
+    fun `rejects fragment and message does not echo the secret`() {
+        val result = OtherBaseUrlValidator.validate(
+            "https://api.example.com/v1#supersecret",
+            allowDebugHttp = false,
+        )
+        assertThat(result.isFailure).isTrue()
+        val msg = result.exceptionOrNull()?.message.orEmpty()
+        assertThat(msg).doesNotContain("supersecret")
+        assertThat(msg).contains("fragment")
+    }
 }

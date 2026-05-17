@@ -4,6 +4,7 @@ import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ModelCatalogRepository
+import ai.closepaw.llm.ModelIdValidator
 import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.protocol.LLMBackendType
 
@@ -85,9 +86,11 @@ private fun findOtherMissing(
     } else if (OtherBaseUrlValidator.validate(baseUrl).isFailure) {
         missing += MissingCredentialTarget(LLMProvider.OTHER, "Other: base URL invalid")
     }
-    if (settingsState.otherModelId.isBlank()) {
+    val modelId = settingsState.otherModelId
+    if (modelId.isBlank()) {
         missing += MissingCredentialTarget(LLMProvider.OTHER, "Other: custom model id required")
+    } else if (ModelIdValidator.validate(modelId).isFailure) {
+        missing += MissingCredentialTarget(LLMProvider.OTHER, "Other: custom model id invalid")
     }
     return missing
 }
-

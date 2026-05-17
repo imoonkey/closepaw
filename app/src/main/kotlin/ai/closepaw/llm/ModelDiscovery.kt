@@ -114,9 +114,9 @@ object ModelDiscovery {
         provider: LLMProvider,
         sourceBaseUrl: String,
     ): DiscoveredModel? {
-        val rawId = obj.stringOrNull("id")?.trim() ?: return null
-        val modelId = rawId.takeIf(::isValidModelId) ?: run {
-            Log.d(TAG, "Skipping malformed model id: '$rawId'")
+        val rawId = obj.stringOrNull("id") ?: return null
+        val modelId = ModelIdValidator.validate(rawId).getOrElse {
+            Log.d(TAG, "Skipping invalid model id")
             return null
         }
 
@@ -160,15 +160,10 @@ object ModelDiscovery {
 
     /**
      * Reject model ids that contain whitespace or start with `/` or `:`.
-     * Such ids would either break the namespacing scheme
-     * (`other:` prefix vs. a `:foo` model id) or fail to deserialize cleanly.
+     * Delegates to [ModelIdValidator] so the rule is identical for manually
+     * configured OTHER ids and discovered ids.
      */
-    private fun isValidModelId(id: String): Boolean {
-        if (id.isBlank()) return false
-        if (id.any { it.isWhitespace() }) return false
-        if (id.startsWith('/') || id.startsWith(':')) return false
-        return true
-    }
+    private fun isValidModelId(id: String): Boolean = ModelIdValidator.validate(id).isSuccess
 
     /**
      * Strip ASCII / Unicode control characters from the display name and cap
@@ -261,7 +256,10 @@ object ModelDiscovery {
             if (code !in 200..299) {
                 val err = (connection.errorStream ?: connection.inputStream)
                     ?.bufferedReader()?.use { it.readText() }.orEmpty()
-                throw IOException("HTTP $code from $url: ${err.take(200)}")
+                // Surface a host-only identifier so a misconfigured URL
+                // with embedded credentials or query secrets never reaches
+                // the UI banner or log sink.
+                throw IOException("HTTP $code from ${url.host}: ${err.take(200)}")
             }
             return connection.inputStream.bufferedReader().use { it.readText() }
         } finally {

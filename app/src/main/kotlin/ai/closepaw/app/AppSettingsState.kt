@@ -147,4 +147,3 @@ class AppSettingsState(
         store.savePlatformMode(value)
     }
 }
-

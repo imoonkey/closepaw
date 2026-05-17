@@ -39,6 +39,7 @@ import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ModelCatalogRepository
 import ai.closepaw.llm.ModelCatalogRepositoryHolder
+import ai.closepaw.llm.ModelIdValidator
 import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.LLMBackendType
@@ -451,7 +452,19 @@ private fun ApiKeyTabContent(
                 discoveryState = discoveryState,
                 allowDebugHttp = BuildConfig.DEBUG,
                 onRefresh = {
-                    refreshScope.launch { repo.refresh(selectedProvider, apiKeyText) }
+                    // Pass the LIVE typed URL to the repo, not the persisted
+                    // value: the 300ms persist debounce can lag the typed
+                    // text and would otherwise route the current key to the
+                    // STALE persisted URL (Codex review CRITICAL #1). For
+                    // OPENROUTER, the URL is seed-fixed.
+                    val baseUrl = when (selectedProvider) {
+                        LLMProvider.OPENROUTER -> LLMProvider.OPENROUTER.defaultBaseUrl.orEmpty()
+                        LLMProvider.OTHER ->
+                            OtherBaseUrlValidator.validate(otherBaseUrlText).getOrNull().orEmpty()
+                        else -> ""
+                    }
+                    if (baseUrl.isBlank()) return@RefreshModelsRow
+                    refreshScope.launch { repo.refresh(selectedProvider, apiKeyText, baseUrl) }
                 },
             )
         } else {
@@ -531,7 +544,7 @@ internal fun shouldAutoFlipToOtherCustom(
     if (apiKeyText.isBlank()) return false
     if (otherBaseUrlText.isBlank() || otherModelIdText.isBlank()) return false
     val normalizedUrl = OtherBaseUrlValidator.validate(otherBaseUrlText).getOrNull() ?: return false
-    val trimmedModelId = otherModelIdText.trim()
+    val trimmedModelId = ModelIdValidator.validate(otherModelIdText).getOrNull() ?: return false
     val entry = modelCatalog.resolveOrNull(ModelCatalogRepository.OTHER_CUSTOM_NAME) ?: return false
     if (entry.baseUrl != normalizedUrl || entry.modelId != trimmedModelId) return false
     if (selectedModel == ModelCatalogRepository.OTHER_CUSTOM_NAME) return false

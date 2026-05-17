@@ -6,6 +6,7 @@ import ai.closepaw.app.AppSettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -52,9 +53,8 @@ class ModelCatalogRepository(
      */
     fun invalidate() {
         _catalog.value = load()
-        _discoveryState.value = _discoveryState.value.copy(
-            lastFetchedAt = readLastFetchedAt(),
-        )
+        val freshTimestamps = readLastFetchedAt()
+        _discoveryState.update { it.copy(lastFetchedAt = freshTimestamps) }
     }
 
     /**
@@ -63,39 +63,81 @@ class ModelCatalogRepository(
      * surfaced via [discoveryState]; the existing cache is preserved on
      * failure.
      *
-     * For [LLMProvider.OPENROUTER] the URL comes from the seed default; for
-     * [LLMProvider.OTHER] from the validated `otherBaseUrl` setting. Other
-     * providers are rejected because their `/models` payloads are either too
-     * thin (OpenAI) or unavailable (LOCAL_LFM, OPENAI_CODEX).
+     * The caller MUST pass a [baseUrl] that has already been validated and
+     * normalized — passing the live UI value (rather than reading from
+     * [AppSettingsStore]) closes the persistence-debounce race where the
+     * user edits OTHER's URL from A→B and taps refresh before the 300ms
+     * debounce commits, which would otherwise send the current key to A.
+     *
+     * Stale completion safety: discovery and cache state mutations check
+     * the live effective baseUrl at completion time and ignore the result
+     * when the user has moved on (e.g. a slow refresh against URL A
+     * finishes after the user switched to URL B).
+     *
+     * For [LLMProvider.OPENROUTER] the caller should pass
+     * `LLMProvider.OPENROUTER.defaultBaseUrl!!`; for [LLMProvider.OTHER] the
+     * validated `otherBaseUrl` setting. Other providers are rejected because
+     * their `/models` payloads are either too thin (OpenAI) or unavailable
+     * (LOCAL_LFM, OPENAI_CODEX).
      */
-    suspend fun refresh(provider: LLMProvider, key: String) {
+    suspend fun refresh(provider: LLMProvider, key: String, baseUrl: String) {
         require(provider == LLMProvider.OPENROUTER || provider == LLMProvider.OTHER) {
             "Refresh only supported for OPENROUTER and OTHER (got $provider)"
         }
-        val baseUrl = effectiveBaseUrlFor(provider)
-            ?: run {
-                _discoveryState.value = _discoveryState.value.withError(
-                    provider,
-                    "Configure a base URL before refreshing.",
-                )
-                return
+        require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
+        // Defence in depth: even if the UI gates on validation, we re-check
+        // here so a misuse of the API can't write a malformed URL into the
+        // cache. For OPENROUTER, ensure the caller didn't ask us to fetch
+        // from a non-default URL.
+        when (provider) {
+            LLMProvider.OPENROUTER -> {
+                if (baseUrl != provider.defaultBaseUrl) {
+                    updateDiscoveryState {
+                        it.withError(provider, "OPENROUTER base URL is fixed.")
+                    }
+                    return
+                }
             }
-        _discoveryState.value = _discoveryState.value.withRefreshing(provider, true)
+            LLMProvider.OTHER -> {
+                if (OtherBaseUrlValidator.validate(baseUrl).getOrNull() != baseUrl) {
+                    updateDiscoveryState {
+                        it.withError(provider, "Base URL is not valid.")
+                    }
+                    return
+                }
+            }
+            else -> {}
+        }
+
+        updateDiscoveryState { it.withRefreshing(provider, true) }
         try {
             val discovered = discoverFn(provider, baseUrl, key)
             val cacheKey = ModelDiscoveryCache.cacheKey(provider, baseUrl)
             val now = clock()
+            // Stale-completion guard: if the user has switched URL while
+            // discovery was in flight, drop the result silently. Cache is
+            // NOT written and state is NOT updated for the now-stale URL.
+            val live = effectiveBaseUrlFor(provider)
+            if (live != baseUrl) {
+                Log.d(TAG, "Dropping stale refresh result for $provider (URL changed during fetch)")
+                updateDiscoveryState { it.withRefreshing(provider, false) }
+                return
+            }
             discoveryCache.write(cacheKey, now, discovered)
             _catalog.value = load()
-            _discoveryState.value = _discoveryState.value
-                .withRefreshing(provider, false)
-                .withSuccess(provider, now)
+            updateDiscoveryState {
+                it.withRefreshing(provider, false).withSuccess(provider, now)
+            }
         } catch (e: Exception) {
             Log.w(TAG, "refresh($provider) failed", e)
-            _discoveryState.value = _discoveryState.value
-                .withRefreshing(provider, false)
-                .withError(provider, e.message ?: "Refresh failed")
+            updateDiscoveryState {
+                it.withRefreshing(provider, false).withError(provider, e.message ?: "Refresh failed")
+            }
         }
+    }
+
+    private inline fun updateDiscoveryState(transform: (DiscoveryState) -> DiscoveryState) {
+        _discoveryState.update(transform)
     }
 
     /**
@@ -146,8 +188,11 @@ class ModelCatalogRepository(
 
     private fun synthOtherEntry(): ModelEntry? {
         val settings = settingsStore.load()
-        val modelId = settings.otherModelId.trim()
-        if (modelId.isBlank()) return null
+        // Validate the model id with the same rules discovery uses — a stray
+        // whitespace or leading "/" / ":" would create a catalog entry that
+        // cannot be safely round-tripped through the namespacing scheme.
+        val modelId = ModelIdValidator.validate(settings.otherModelId).getOrNull()
+            ?: return null
         // Reject (don't synth) if the persisted base URL fails validation. Without this,
         // ensureRequiredCredentials sees a synth row, calls into the factory, and the
         // OpenAI SDK constructor surfaces a non-credential error with no clean OTHER

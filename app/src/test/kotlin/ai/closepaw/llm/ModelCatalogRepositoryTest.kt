@@ -225,7 +225,7 @@ class ModelCatalogRepositoryTest {
             clock = { 9_999L },
         )
 
-        repo.refresh(LLMProvider.OPENROUTER, "sk-fake")
+        repo.refresh(LLMProvider.OPENROUTER, "sk-fake", openRouterBase)
         val after = repo.catalog.value
         assertThat(after.resolveOrNull("openrouter:anthropic/claude-opus-4.7")).isNotNull()
         assertThat(repo.discoveryState.value.lastFetchedAt[LLMProvider.OPENROUTER]).isEqualTo(9_999L)
@@ -236,6 +236,7 @@ class ModelCatalogRepositoryTest {
     fun `refresh failure surfaces error in discoveryState and leaves cache untouched`() = runTest {
         val cache = ModelDiscoveryCache(context = realContextForCache())
         val store = fakeSettingsStore(otherBaseUrl = "", otherModelId = "")
+        val openRouterBase = LLMProvider.OPENROUTER.defaultBaseUrl!!
         val repo = ModelCatalogRepository(
             context = contextReturningAsset(seedBytes()),
             settingsStore = store,
@@ -243,7 +244,7 @@ class ModelCatalogRepositoryTest {
             discoverFn = { _, _, _ -> throw java.io.IOException("HTTP 503") },
         )
 
-        repo.refresh(LLMProvider.OPENROUTER, "sk-fake")
+        repo.refresh(LLMProvider.OPENROUTER, "sk-fake", openRouterBase)
 
         val state = repo.discoveryState.value
         assertThat(state.lastError[LLMProvider.OPENROUTER]).contains("503")
@@ -253,7 +254,7 @@ class ModelCatalogRepositoryTest {
     }
 
     @Test
-    fun `OTHER refresh rejected when baseUrl missing or invalid`() = runTest {
+    fun `OTHER refresh rejected when baseUrl invalid`() = runTest {
         val cache = ModelDiscoveryCache(context = realContextForCache())
         val store = fakeSettingsStore(otherBaseUrl = "", otherModelId = "")
         val repo = ModelCatalogRepository(
@@ -263,9 +264,75 @@ class ModelCatalogRepositoryTest {
             discoverFn = { _, _, _ -> error("should not be called") },
         )
 
-        repo.refresh(LLMProvider.OTHER, "sk-fake")
+        repo.refresh(LLMProvider.OTHER, "sk-fake", baseUrl = "not-a-url")
 
         assertThat(repo.discoveryState.value.lastError[LLMProvider.OTHER]).isNotNull()
+    }
+
+    @Test
+    fun `refresh uses caller-provided baseUrl, NOT persisted settings (race fix)`() = runTest {
+        // Codex review CRITICAL #1: persisted A, live B; refresh must hit B.
+        val cache = ModelDiscoveryCache(context = realContextForCache())
+        val staleUrlA = "https://api-a.example.com/v1"
+        val freshUrlB = "https://api-b.example.com/v1"
+        val store = mockk<AppSettingsStore>(relaxed = true)
+        // Settings store has the OLD URL (debounce hasn't committed B yet).
+        every { store.load() } returns defaultSettings(otherBaseUrl = staleUrlA, otherModelId = "")
+        var discoverHit: String? = null
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = cache,
+            discoverFn = { _, base, _ -> discoverHit = base; emptyList() },
+        )
+
+        repo.refresh(LLMProvider.OTHER, "sk-fake", baseUrl = freshUrlB)
+
+        assertThat(discoverHit).isEqualTo(freshUrlB)
+    }
+
+    @Test
+    fun `stale refresh completion is dropped when effective baseUrl moved on`() = runTest {
+        val cache = ModelDiscoveryCache(context = realContextForCache())
+        val urlA = "https://api-a.example.com/v1"
+        val urlB = "https://api-b.example.com/v1"
+        var currentUrl = urlA
+        val store = mockk<AppSettingsStore>(relaxed = true)
+        every { store.load() } answers { defaultSettings(otherBaseUrl = currentUrl, otherModelId = "") }
+        var discoverHit: String? = null
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = cache,
+            discoverFn = { _, base, _ ->
+                discoverHit = base
+                // Simulate the user switching URL while we're "in flight".
+                currentUrl = urlB
+                listOf(
+                    DiscoveredModel(
+                        entry = ModelEntry(
+                            name = "other:vendor/from-a",
+                            displayName = "From A",
+                            provider = LLMProvider.OTHER,
+                            api = ApiType.CHAT,
+                            modelId = "vendor/from-a",
+                            contextWindow = 128_000,
+                            baseUrl = urlA,
+                        ),
+                        created = 0L,
+                    )
+                )
+            },
+        )
+
+        repo.refresh(LLMProvider.OTHER, "sk-fake", baseUrl = urlA)
+
+        // discover() was called with the captured URL...
+        assertThat(discoverHit).isEqualTo(urlA)
+        // ...but because the effective URL flipped to B mid-fetch, the result was dropped.
+        assertThat(cache.readAll()).isEmpty()
+        assertThat(repo.discoveryState.value.lastFetchedAt[LLMProvider.OTHER]).isNull()
+        assertThat(repo.discoveryState.value.refreshing).isEmpty()
     }
 
     @Test
@@ -298,7 +365,7 @@ class ModelCatalogRepositoryTest {
             },
         )
 
-        repo.refresh(LLMProvider.OTHER, "sk-fake")
+        repo.refresh(LLMProvider.OTHER, "sk-fake", baseUrl = urlA)
         // After refresh against A, the catalog shows the A entry.
         assertThat(repo.catalog.value.names()).contains("other:vendor/from-$urlA")
 

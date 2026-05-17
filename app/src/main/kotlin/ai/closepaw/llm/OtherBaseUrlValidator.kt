@@ -12,13 +12,18 @@ import java.net.URISyntaxException
  *  - release: scheme must be `https`. No exceptions.
  *  - debug (`allowDebugHttp=true`): `https` always allowed; `http` allowed only
  *    when host is `localhost`, `127.0.0.1`, or `10.0.2.2` (emulator loopback).
+ *  - reject user-info, query string, and fragment — they typically encode
+ *    secrets (`https://user:pass@host`, `?api_key=…`, `#token`) and would
+ *    otherwise be persisted to the discovery cache and echoed into log /
+ *    error messages.
  *
  * `allowDebugHttp` is injected (default reads `BuildConfig.DEBUG`) so JVM unit
  * tests can verify both policy branches without flipping build types.
  *
  * Returns the normalized URL (whitespace trimmed, single trailing `/` removed)
  * via [Result.success]. Returns a descriptive failure via [Result.failure]
- * suitable for surfacing in the settings UI verbatim.
+ * suitable for surfacing in the settings UI verbatim. Error messages never
+ * contain the rejected sensitive segments.
  */
 object OtherBaseUrlValidator {
 
@@ -46,6 +51,25 @@ object OtherBaseUrlValidator {
         val host = uri.host
         if (host.isNullOrBlank()) {
             return Result.failure(IllegalArgumentException("Base URL must include a host"))
+        }
+
+        // Reject sensitive segments WITHOUT echoing them back. Even encoded
+        // (raw*) forms count — a user-info segment is a secret regardless of
+        // url-encoding, and we don't want it persisted to the disco cache.
+        if (!uri.rawUserInfo.isNullOrEmpty()) {
+            return Result.failure(
+                IllegalArgumentException("Base URL must not contain credentials (user:pass@…)")
+            )
+        }
+        if (!uri.rawQuery.isNullOrEmpty()) {
+            return Result.failure(
+                IllegalArgumentException("Base URL must not contain a query string")
+            )
+        }
+        if (!uri.rawFragment.isNullOrEmpty()) {
+            return Result.failure(
+                IllegalArgumentException("Base URL must not contain a fragment")
+            )
         }
 
         if (scheme == "http") {

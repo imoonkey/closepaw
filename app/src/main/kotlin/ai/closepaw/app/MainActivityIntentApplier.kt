@@ -3,6 +3,7 @@ package ai.closepaw.app
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
+import ai.closepaw.llm.ModelIdValidator
 import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.ui.settings.BrowserScriptToggleError
@@ -94,9 +95,17 @@ internal suspend fun applyIntentPayloadToSettings(
         }
     }
     payload.otherModelId?.let { modelId ->
-        settingsState.updateOtherModelId(modelId)
-        otherChanged = true
-        log("OTHER model id set from intent: $modelId")
+        // Validate at the intent boundary so a bad id (whitespace, leading
+        // ":" / "/") never reaches settings — discovery and the synth path
+        // would otherwise enforce the same rule and silently drop the entry.
+        ModelIdValidator.validate(modelId).onSuccess { trimmed ->
+            settingsState.updateOtherModelId(trimmed)
+            otherChanged = true
+            log("OTHER model id set from intent: $trimmed")
+        }.onFailure { err ->
+            // Don't echo the rejected id verbatim — keep the log non-secret.
+            log("OTHER model id from intent rejected: ${err.message}")
+        }
     }
     // Make absolutely sure the catalog reflects OTHER writes. The settings updates already
     // call `onOtherSettingsChanged()` (which invalidates the repo), but the OTHER api key

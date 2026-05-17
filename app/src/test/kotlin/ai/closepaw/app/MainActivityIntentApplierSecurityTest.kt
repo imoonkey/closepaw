@@ -373,6 +373,56 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(logs.any { it.contains("OTHER base URL from intent rejected") }).isTrue()
     }
 
+    @Test
+    fun `debug build skips invalid OTHER model id and leaves settings untouched`() = runBlocking<Unit> {
+        // Codex review MEDIUM #4: model id from intent must be validated with
+        // the same rules discovery + synth use. A whitespace-containing id
+        // would otherwise be persisted, then silently dropped by synth, with
+        // no clue to the user.
+        val payload = MainActivityIntentPayload(
+            apiKey = null,
+            openRouterApiKey = null,
+            openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = null,
+            otherModelId = "vendor model with space",
+            backendType = null,
+            perceptionMode = null,
+            platformMode = null,
+            mainModel = null,
+            approvalMode = null,
+            browserScriptEnabled = null,
+            goalText = null,
+            freshSession = false,
+            debugMode = null,
+            traceEnabled = null,
+            traceRunId = null,
+            excludedTools = emptySet(),
+            evalTurnBudget = null,
+        )
+        var invalidateCount = 0
+        val logs = mutableListOf<String>()
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
+            log = { logs += it },
+            invalidateCatalog = { invalidateCount++ },
+        )
+
+        assertThat(settingsState.otherModelId).isEmpty()
+        assertThat(invalidateCount).isEqualTo(0)
+        assertThat(logs.any { it.contains("OTHER model id from intent rejected") }).isTrue()
+    }
+
     private fun browserScriptPayload(enabled: Boolean): MainActivityIntentPayload =
         MainActivityIntentPayload(
             apiKey = null,
