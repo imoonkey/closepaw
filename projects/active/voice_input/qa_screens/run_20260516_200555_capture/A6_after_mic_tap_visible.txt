@@ -1,0 +1,8 @@
+是否允许「ClosePaw」使用麦克风录音？
+com.android.permissioncontroller:id/permission_message
+拒绝
+com.android.permissioncontroller:id/permission_deny_button
+本次使用时允许
+com.android.permissioncontroller:id/permission_allow_one_time_button
+使用期间允许
+com.android.permissioncontroller:id/permission_allow_foreground_only_button
