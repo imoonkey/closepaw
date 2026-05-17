@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -34,6 +35,8 @@ import ai.closepaw.llm.LFMLLMClient
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.llm.ModelCatalogRepository
+import ai.closepaw.llm.ModelCatalogRepositoryHolder
 import ai.closepaw.onboarding.OnboardingDemoController
 import ai.closepaw.onboarding.OnboardingEffect
 import ai.closepaw.onboarding.OnboardingStore
@@ -91,6 +94,7 @@ class MainActivity : ComponentActivity() {
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val coordinator = SessionCoordinator(sessionScope)
     private lateinit var settingsState: AppSettingsState
+    private lateinit var modelCatalogRepo: ModelCatalogRepository
     private lateinit var modelLoadingStatusHolder: ModelLoadingStatusHolder
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
@@ -119,17 +123,8 @@ class MainActivity : ComponentActivity() {
         FORCE_FRESH
     }
 
-    private val modelCatalog: ModelCatalog by lazy {
-        try {
-            val json = assets.open("llm_models.json").bufferedReader().use { it.readText() }
-            ModelCatalog.fromJson(json)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to load model catalog for UI", e)
-            ModelCatalog.fromJson(
-                    """{"glm-5":{"display_name":"GLM-5","provider":"OPENROUTER","api":"chat","model_id":"z-ai/glm-5"}}"""
-            )
-        }
-    }
+    private val modelCatalog: ModelCatalog
+        get() = modelCatalogRepo.catalog.value
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -138,6 +133,7 @@ class MainActivity : ComponentActivity() {
         pendingGoalForConfirmation = savedInstanceState?.getString(KEY_PENDING_GOAL_CONFIRMATION)
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
+        modelCatalogRepo = ModelCatalogRepositoryHolder.get(applicationContext)
         modelLoadingStatusHolder = ModelLoadingStatusHolder(applicationContext, lifecycleScope, settingsState)
 
         // Onboarding: migrate + check completion
@@ -214,6 +210,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 var repairModel by remember { mutableStateOf(deriveRepairModel()) }
                 val lifecycleOwner = LocalLifecycleOwner.current
+                val catalogSnapshot by modelCatalogRepo.catalog.collectAsStateWithLifecycle()
                 DisposableEffect(lifecycleOwner) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
@@ -227,7 +224,7 @@ class MainActivity : ComponentActivity() {
                     viewModel = viewModel,
                     settingsState = settingsState,
                     modelLoadingStatusHolder = modelLoadingStatusHolder,
-                    modelCatalog = modelCatalog,
+                    modelCatalog = catalogSnapshot,
                     showSettings = showSettings,
                     onShowSettingsChange = {
                         showSettings = it

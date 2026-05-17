@@ -2,6 +2,7 @@ package ai.closepaw.session
 
 import android.os.Looper
 import com.google.common.truth.Truth.assertThat
+import ai.closepaw.llm.ModelCatalogRepository
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionLlmConfig
@@ -22,6 +23,10 @@ class SessionLlmBootstrapperTest {
             every { Looper.getMainLooper() } returns mainLooper
             every { Looper.myLooper() } returns mainLooper
 
+            // Fixture repo — relaxed mock so we don't need real assets; the main-thread guard
+            // throws before the catalog is read so the StateFlow stub is never touched.
+            val repo = mockk<ModelCatalogRepository>(relaxed = true)
+
             val error =
                     assertThrows(IllegalStateException::class.java) {
                         SessionLlmBootstrapper.create(
@@ -34,6 +39,7 @@ class SessionLlmBootstrapperTest {
                                                         ),
                                                 mainModel = "test"
                                         ),
+                                catalogRepository = repo,
                                 context = mockk(relaxed = true),
                                 authStore = null
                         )

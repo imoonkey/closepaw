@@ -1,7 +1,6 @@
 package ai.closepaw.session
 
 import android.content.Context
-import android.content.res.AssetManager
 import android.os.Looper
 import android.util.Log
 import ai.closepaw.auth.AuthStore
@@ -12,10 +11,9 @@ import ai.closepaw.llm.LLMClientFactory
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.llm.ModelCatalogRepository
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
-import kotlinx.serialization.SerializationException
-import java.util.WeakHashMap
 
 internal data class SessionLlmBootstrap(
         val modelCatalog: ModelCatalog,
@@ -26,18 +24,17 @@ internal data class SessionLlmBootstrap(
 /** Creates catalog + LLM factory + runtime LLM client for a session. */
 internal object SessionLlmBootstrapper {
     private const val TAG = "SessionLlmBootstrap"
-    private val catalogLock = Any()
-    private val cachedCatalogByAssets = WeakHashMap<AssetManager, ModelCatalog>()
 
     fun create(
             config: SessionConfig,
+            catalogRepository: ModelCatalogRepository,
             context: Context,
             authStore: AuthStore?,
             baseUrlOverrides: Map<LLMProvider, String> = emptyMap()
     ): SessionLlmBootstrap {
         requireOffMainThread()
         val backend = config.llm.backendType
-        val baseCatalog = getOrLoadModelCatalog(context)
+        val baseCatalog = catalogRepository.catalog.value
 
         val modelCatalog = baseCatalog.withBaseUrlOverrides(baseUrlOverrides)
         if (baseUrlOverrides.isNotEmpty()) {
@@ -71,34 +68,11 @@ internal object SessionLlmBootstrapper {
         )
     }
 
-    private fun getOrLoadModelCatalog(context: Context): ModelCatalog {
-        val assets = context.assets
-        synchronized(catalogLock) {
-            cachedCatalogByAssets[assets]?.let { return it }
-            val loaded = loadModelCatalog(context)
-            cachedCatalogByAssets[assets] = loaded
-            return loaded
-        }
-    }
-
     private fun requireOffMainThread() {
         val mainLooper = Looper.getMainLooper() ?: return
         check(Looper.myLooper() != mainLooper) {
             "SessionLlmBootstrapper.create() must not be called on the main thread; " +
-                    "asset I/O would block the UI"
-        }
-    }
-
-    private fun loadModelCatalog(context: Context): ModelCatalog {
-        return try {
-            val json = context.assets.open("llm_models.json").bufferedReader().use { it.readText() }
-            ModelCatalog.fromJson(json)
-        } catch (e: java.io.IOException) {
-            Log.w(TAG, "Failed to read llm_models.json from assets; using fallback", e)
-            ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
-        } catch (e: SerializationException) {
-            Log.w(TAG, "Failed to parse llm_models.json; using fallback", e)
-            ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
+                    "catalog snapshot read should run off-main"
         }
     }
 
@@ -114,16 +88,4 @@ internal object SessionLlmBootstrapper {
             throw MissingCredential(provider)
         }
     }
-
-    private const val FALLBACK_CATALOG_JSON =
-            """
-        {
-          "glm-5": {
-            "display_name": "GLM-5",
-            "provider": "OPENROUTER",
-            "api": "chat",
-            "model_id": "z-ai/glm-5"
-          }
-        }
-        """
 }

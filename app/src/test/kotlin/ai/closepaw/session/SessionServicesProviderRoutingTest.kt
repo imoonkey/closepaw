@@ -9,6 +9,8 @@ import ai.closepaw.auth.FakeSharedPreferences
 import ai.closepaw.auth.MissingCredential
 import ai.closepaw.llm.ChatCompletionClient
 import ai.closepaw.llm.LLMProvider
+import ai.closepaw.llm.ModelCatalogRepository
+import ai.closepaw.llm.ModelCatalogRepositoryHolder
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionLlmConfig
@@ -19,6 +21,7 @@ import io.mockk.mockk
 import java.io.ByteArrayInputStream
 import java.io.File
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -29,9 +32,15 @@ class SessionServicesProviderRoutingTest {
   @get:Rule
   val tempDir = TemporaryFolder()
 
+  @After
+  fun tearDown() {
+    ModelCatalogRepositoryHolder.resetForTest()
+  }
+
   @Test
   fun `openrouter model works without openai key`() {
     val context = contextWithCatalog()
+    installFixtureCatalogRepo(context)
     val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
       authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-or-test"))
@@ -60,6 +69,7 @@ class SessionServicesProviderRoutingTest {
   @Test
   fun `main model requires its provider credential`() {
     val context = contextWithCatalog()
+    installFixtureCatalogRepo(context)
     val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
       authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-openai-test"))
@@ -91,6 +101,7 @@ class SessionServicesProviderRoutingTest {
     val context = mockk<Context>(relaxed = true)
     val assets = mockk<AssetManager>()
     every { context.assets } returns assets
+    every { context.applicationContext } returns context
     every { context.filesDir } returns tempDir.newFolder("files")
     every { assets.list(any<String>()) } answers {
       val file = File("src/main/assets", firstArg<String>())
@@ -104,6 +115,19 @@ class SessionServicesProviderRoutingTest {
       }
     }
     return context
+  }
+
+  /**
+   * Install a fixture [ModelCatalogRepository] backed by [context]'s mocked assets so
+   * `SessionServices.create` resolves models from CATALOG_JSON rather than the real seed.
+   */
+  private fun installFixtureCatalogRepo(context: Context) {
+    val repo = ModelCatalogRepository(
+        context = context,
+        settingsStore = mockk(relaxed = true),
+        discoveryCache = mockk(relaxed = true),
+    )
+    ModelCatalogRepositoryHolder.setForTest(repo)
   }
 
   companion object {
