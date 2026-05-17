@@ -122,6 +122,11 @@ class CapsuleOverlayHost(
                     object : VoiceMicDeps {
                         override val factory = AndroidRecognizerFactory(appCtx)
                         override val activity: android.app.Activity? = null
+                        override fun isPermissionGranted(): Boolean =
+                            androidx.core.content.ContextCompat.checkSelfPermission(
+                                appCtx,
+                                android.Manifest.permission.RECORD_AUDIO,
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                         override fun requestOverlayPermission() {
                             AgentService.instance?.requestVoicePermissionViaMainActivity()
                         }

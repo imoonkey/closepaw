@@ -57,10 +57,15 @@ import kotlinx.coroutines.launch
  * Dependencies needed for the mic leadingIcon. Callers in MAIN_APP supply a real [activity];
  * overlay callers pass [activity] = null and implement [requestOverlayPermission] to route the
  * RECORD_AUDIO prompt through MainActivity (since overlays cannot host an ActivityResultLauncher).
+ *
+ * [isPermissionGranted] lets the overlay branch skip the MainActivity hop when RECORD_AUDIO is
+ * already granted — otherwise tapping mic with permission would yank the user into MainActivity
+ * just for the permission check to no-op.
  */
 interface VoiceMicDeps {
     val factory: RecognizerFactory
     val activity: Activity?
+    fun isPermissionGranted(): Boolean
     fun requestOverlayPermission()
 }
 
@@ -209,7 +214,11 @@ internal fun CapsuleInputBar(
                     gate.openAppSettings()
             }
         } else {
-            v.requestOverlayPermission()
+            if (v.isPermissionGranted()) {
+                voiceController?.start(baseText = inputText)
+            } else {
+                v.requestOverlayPermission()
+            }
         }
     }
 

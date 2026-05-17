@@ -68,9 +68,11 @@ private class FakeRecognizerFactory(var available: Boolean = true) : RecognizerF
 private class FakeVoiceMicDeps(
     override val factory: RecognizerFactory,
     override val activity: Activity? = null,
+    var permissionGranted: Boolean = true,
     val onOverlayRequest: () -> Unit = {},
 ) : VoiceMicDeps {
     var overlayRequestCount = 0
+    override fun isPermissionGranted(): Boolean = permissionGranted
     override fun requestOverlayPermission() {
         overlayRequestCount++
         onOverlayRequest()
@@ -136,11 +138,15 @@ class CapsuleVoiceInputTest {
         compose.onNodeWithTag("qa-capsule-mic", useUnmergedTree = true).assertDoesNotExist()
     }
 
-    // (c) Overlay path: activity == null routes mic taps through
+    // (c) Overlay path with permission ungranted: activity == null routes mic taps through
     // requestOverlayPermission() and MUST NOT spin up a Recognizer.
     @Test fun overlay_path_when_activity_is_null() {
         val factory = FakeRecognizerFactory(available = true)
-        val deps = FakeVoiceMicDeps(factory = factory, activity = null)
+        val deps = FakeVoiceMicDeps(
+            factory = factory,
+            activity = null,
+            permissionGranted = false,
+        )
 
         compose.setContent { Host(deps = deps) }
 
@@ -151,6 +157,30 @@ class CapsuleVoiceInputTest {
         assertTrue(
             "Recognizer must not be created on overlay path; created=${factory.created.size}",
             factory.created.isEmpty(),
+        )
+    }
+
+    // (c2) Overlay path with permission already granted: must start the controller directly
+    // (no MainActivity bounce) — fixes the device-QA bug where granted-overlay yanked the user
+    // into MainActivity just for the permission check to no-op.
+    @Test fun overlay_path_with_permission_granted_starts_controller_directly() {
+        val factory = FakeRecognizerFactory(available = true)
+        val deps = FakeVoiceMicDeps(
+            factory = factory,
+            activity = null,
+            permissionGranted = true,
+        )
+
+        compose.setContent { Host(deps = deps) }
+
+        compose.onNodeWithTag("qa-capsule-mic", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+
+        assertEquals(0, deps.overlayRequestCount)
+        assertEquals(
+            "Controller must spin up a Recognizer on granted overlay path",
+            1,
+            factory.created.size,
         )
     }
 

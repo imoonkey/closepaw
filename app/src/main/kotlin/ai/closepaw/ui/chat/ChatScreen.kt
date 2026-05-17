@@ -113,6 +113,11 @@ fun ChatScreen(
         object : VoiceMicDeps {
             override val factory = AndroidRecognizerFactory(ctx.applicationContext)
             override val activity: android.app.Activity? = activity
+            override fun isPermissionGranted(): Boolean =
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    ctx,
+                    android.Manifest.permission.RECORD_AUDIO,
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             override fun requestOverlayPermission() {
                 // MAIN_APP path uses the in-process activity launcher; the overlay route is unused
                 // here. Fallback safely to the AgentService bridge so misuse is non-fatal.
