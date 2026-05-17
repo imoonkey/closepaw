@@ -1,6 +1,7 @@
 package ai.closepaw.tool.impl
 
 import com.google.common.truth.Truth.assertThat
+import ai.closepaw.memory.MemoryScope
 import ai.closepaw.memory.MemoryStore
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.test.FakeAndroidPlatform
@@ -89,25 +90,24 @@ class RememberExperienceToolTest {
         val result = tool.createInvocation(params).execute(buildContext())
 
         assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
-        assertThat(store.readUserMemory()).contains("Prefer search over scrolling")
+        assertThat(store.read(MemoryScope.USER)).contains("Prefer search over scrolling")
         assertThat((result as ToolExecutionResult.Success).output)
             .contains("user/preferences")
     }
 
     @Test
-    fun `execute writes app operational note without legacy prefix`() = runTest {
+    fun `execute writes app operational note`() = runTest {
         val params = JSONObject()
             .put("scope", "app")
             .put("section", "operational_notes")
             .put("package_name", "com.android.settings")
-            .put("content", "[pitfall] BACK may dismiss keyboard first")
+            .put("content", "BACK may dismiss keyboard first")
 
         val result = tool.createInvocation(params).execute(buildContext())
 
         assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
-        val content = store.readAppMemory("com.android.settings")!!
+        val content = store.read(MemoryScope.APP, "com.android.settings")!!
         assertThat(content).contains("BACK may dismiss keyboard first")
-        assertThat(content).doesNotContain("[pitfall]")
     }
 
     @Test
@@ -127,7 +127,7 @@ class RememberExperienceToolTest {
         assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)
         assertThat((result as ToolExecutionResult.Failure).error)
             .contains("restricted by security policy")
-        assertThat(store.readAppMemory("com.blocked.bank")).isNull()
+        assertThat(store.read(MemoryScope.APP, "com.blocked.bank")).isNull()
     }
 
     @Test

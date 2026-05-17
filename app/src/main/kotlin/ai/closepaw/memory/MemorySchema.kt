@@ -25,6 +25,13 @@ enum class MemorySection(val wireValue: String, val heading: String) {
     }
 }
 
+sealed class SaveResult {
+    object Success : SaveResult()
+    object TooLarge : SaveResult()
+    object InvalidScope : SaveResult()
+    data class IoError(val message: String) : SaveResult()
+}
+
 object MemorySchema {
     fun sectionsFor(scope: MemoryScope): List<MemorySection> =
         when (scope) {

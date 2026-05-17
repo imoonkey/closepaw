@@ -8,22 +8,24 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Persistent markdown-based memory store for scope-first V2 memory files.
+ * Persistent markdown-based memory store. Read is side-effect-free (raw file
+ * contents). Writes go through atomic temp-file replace. Append performs
+ * schema-aware insertion under the target section heading per explicit rules
+ * (see design_claude.md → Append insertion rules).
  */
 class MemoryStore(
     private val memoryDir: File,
-    val maxContentLength: Int = DEFAULT_MAX_CONTENT_LENGTH
+    val maxContentLength: Int = DEFAULT_MAX_CONTENT_LENGTH,
+    val maxFileBytes: Int = DEFAULT_MAX_FILE_BYTES
 ) {
     companion object {
         private const val TAG = "MemoryStore"
         const val DEFAULT_MAX_CONTENT_LENGTH = 2000
+        const val DEFAULT_MAX_FILE_BYTES = 8192
         private const val APPS_DIR = "apps"
         private const val USER_FILE = "user.md"
-        private const val LEGACY_USER_PREFS_FILE = "user_prefs.md"
         private const val DEVICE_FILE = "device.md"
         private val SAFE_PACKAGE_PATTERN = Regex("^[a-zA-Z0-9_.]+$")
-        private val LEGACY_KIND_PREFIX = Regex("""^\[(?:workflow|fact|preference|pitfall|verification|override|app_skill_override)]\s*""")
-        private val ENTRY_PATTERN = Regex("""^- \[(.+?)]\s+(.+)$""")
         private val TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
     }
 
@@ -31,13 +33,60 @@ class MemoryStore(
         val scope: MemoryScope,
         val file: File,
         val title: String,
-        val intro: String? = null,
+        val intro: String?,
         val sections: List<MemorySection>
     )
 
     private val writtenThisSession = AtomicBoolean(false)
 
     fun hasWrittenThisSession(): Boolean = writtenThisSession.get()
+
+    @Synchronized
+    fun read(scope: MemoryScope, packageName: String? = null): String? {
+        val spec = buildSpec(scope, packageName) ?: return null
+        if (!spec.file.exists()) return null
+        return try {
+            spec.file.readText()
+        } catch (e: IOException) {
+            Log.w(TAG, "Memory read failed: ${spec.file.name}", e)
+            null
+        }
+    }
+
+    @Synchronized
+    fun write(scope: MemoryScope, packageName: String? = null, content: String): SaveResult {
+        val spec = buildSpec(scope, packageName) ?: return SaveResult.InvalidScope
+        val bytes = content.toByteArray(Charsets.UTF_8)
+        if (bytes.size > maxFileBytes) return SaveResult.TooLarge
+        return try {
+            atomicWrite(spec.file, bytes)
+            writtenThisSession.set(true)
+            SaveResult.Success
+        } catch (e: IOException) {
+            Log.w(TAG, "Memory write failed: ${spec.file.name}", e)
+            SaveResult.IoError(e.message ?: "unknown")
+        }
+    }
+
+    @Synchronized
+    fun delete(scope: MemoryScope, packageName: String? = null): Boolean {
+        val spec = buildSpec(scope, packageName) ?: return false
+        if (!spec.file.exists()) return true
+        return spec.file.delete()
+    }
+
+    @Synchronized
+    fun listAppPackages(): List<String> {
+        val appsDir = File(memoryDir, APPS_DIR)
+        if (!appsDir.isDirectory) return emptyList()
+        return appsDir.listFiles { f -> f.isFile && f.name.endsWith(".md") }
+            ?.mapNotNull { file ->
+                val name = file.nameWithoutExtension
+                if (SAFE_PACKAGE_PATTERN.matches(name)) name else null
+            }
+            ?.sorted()
+            .orEmpty()
+    }
 
     @Synchronized
     fun append(
@@ -50,23 +99,38 @@ class MemoryStore(
             Log.w(TAG, "Rejected invalid memory section $section for scope $scope")
             return false
         }
-        try {
-            val spec = buildSpec(scope, packageName) ?: return false
-            val normalizedContent = normalizeContent(content).take(maxContentLength)
-            if (normalizedContent.isEmpty()) {
-                Log.w(TAG, "Rejected empty memory content for $scope/$section")
-                return false
-            }
-            val sections = loadSections(spec)
-            sections.getValue(section).add(formatEntry(normalizedContent))
-            if (writeCanonicalDocument(spec, sections)) {
-                writtenThisSession.set(true)
-                return true
-            }
+        val spec = buildSpec(scope, packageName) ?: return false
+        val sanitized = sanitizeContent(content)
+        if (sanitized.isEmpty()) {
+            Log.w(TAG, "Rejected empty memory content for $scope/$section")
             return false
+        }
+        val entry = formatEntry(sanitized)
+        val newContent =
+            if (!spec.file.exists()) {
+                buildSkeleton(spec, section, entry)
+            } else {
+                val existing =
+                    try {
+                        spec.file.readText()
+                    } catch (e: IOException) {
+                        Log.w(TAG, "Memory read failed during append: ${spec.file.name}", e)
+                        return false
+                    }
+                insertEntry(existing, section, entry)
+            }
+        val bytes = newContent.toByteArray(Charsets.UTF_8)
+        if (bytes.size > maxFileBytes) {
+            Log.w(TAG, "memory append rejected: file would exceed 8 KB ($scope/$section)")
+            return false
+        }
+        return try {
+            atomicWrite(spec.file, bytes)
+            writtenThisSession.set(true)
+            true
         } catch (e: IOException) {
-            Log.w(TAG, "Memory write failed for $scope/$section", e)
-            return false
+            Log.w(TAG, "Memory write failed: ${spec.file.name}", e)
+            false
         }
     }
 
@@ -94,15 +158,6 @@ class MemoryStore(
     fun appendAppOperationalNote(packageName: String, content: String): Boolean =
         append(MemoryScope.APP, MemorySection.OPERATIONAL_NOTES, content, packageName)
 
-    @Synchronized
-    fun readUserMemory(): String? = readDocument(buildSpec(MemoryScope.USER))
-
-    @Synchronized
-    fun readDeviceMemory(): String? = readDocument(buildSpec(MemoryScope.DEVICE))
-
-    @Synchronized
-    fun readAppMemory(packageName: String): String? = readDocument(buildSpec(MemoryScope.APP, packageName))
-
     private fun validatePackageName(packageName: String): String? {
         val trimmed = packageName.trim()
         if (!SAFE_PACKAGE_PATTERN.matches(trimmed)) {
@@ -119,6 +174,7 @@ class MemoryStore(
                     scope = scope,
                     file = File(memoryDir, USER_FILE),
                     title = "# User Memory",
+                    intro = null,
                     sections = MemorySchema.sectionsFor(scope)
                 )
             MemoryScope.DEVICE ->
@@ -126,6 +182,7 @@ class MemoryStore(
                     scope = scope,
                     file = File(memoryDir, DEVICE_FILE),
                     title = "# Device Memory",
+                    intro = null,
                     sections = MemorySchema.sectionsFor(scope)
                 )
             MemoryScope.APP -> {
@@ -141,162 +198,82 @@ class MemoryStore(
         }
     }
 
-    private fun readDocument(spec: DocumentSpec?): String? {
-        if (spec == null) return null
-        try {
-            val legacyUserPrefsFile =
-                if (spec.scope == MemoryScope.USER) File(memoryDir, LEGACY_USER_PREFS_FILE) else null
-            if (!spec.file.exists() && legacyUserPrefsFile?.exists() == true) {
-                migrateLegacyUserPrefs(spec, legacyUserPrefsFile)
-            }
-            if (!spec.file.exists()) return null
-
-            val sections = loadSections(spec)
-            if (sections.values.all { it.isEmpty() }) return null
-            val canonical = buildCanonicalDocument(spec, sections)
-            if (!sameContent(spec.file, canonical)) {
-                writeCanonicalDocument(spec, sections)
-            }
-            return canonical.trim()
-        } catch (e: IOException) {
-            Log.w(TAG, "Memory read failed: ${spec.file.name}", e)
-            return null
-        }
+    private fun sanitizeContent(content: String): String {
+        // 1) Fold whitespace newlines/tabs to single space (do this BEFORE stripping
+        //    control chars — otherwise tokens glue together).
+        var s = content.replace(Regex("[\\r\\n\\t]"), " ")
+        // 2) Strip remaining Unicode Cc control characters.
+        s = s.filterNot { it.category == CharCategory.CONTROL }
+        // 3) Collapse runs of whitespace; trim outer.
+        s = s.replace(Regex("\\s+"), " ").trim()
+        // 4) Truncate to maxContentLength (characters).
+        return s.take(maxContentLength)
     }
-
-    private fun loadSections(spec: DocumentSpec): LinkedHashMap<MemorySection, MutableList<String>> {
-        val sections =
-            linkedMapOf<MemorySection, MutableList<String>>().apply {
-                spec.sections.forEach { put(it, mutableListOf()) }
-            }
-        if (!spec.file.exists()) return sections
-
-        val lines = spec.file.readLines()
-        var currentSection: MemorySection? = null
-        var sawKnownHeading = false
-
-        for (line in lines) {
-            val trimmed = line.trim()
-            val matchedSection = spec.sections.firstOrNull { trimmed == "## ${it.heading}" }
-            if (matchedSection != null) {
-                currentSection = matchedSection
-                sawKnownHeading = true
-                continue
-            }
-            if (!trimmed.startsWith("- [")) continue
-
-            if (sawKnownHeading) {
-                currentSection?.let { sections.getValue(it).add(normalizeExistingEntry(trimmed)) }
-            } else {
-                val (section, entry) = migrateLegacyEntry(spec.scope, trimmed)
-                sections.getValue(section).add(entry)
-            }
-        }
-        return sections
-    }
-
-    private fun migrateLegacyUserPrefs(spec: DocumentSpec, legacyFile: File) {
-        val sections =
-            linkedMapOf<MemorySection, MutableList<String>>().apply {
-                spec.sections.forEach { put(it, mutableListOf()) }
-            }
-        legacyFile.readLines()
-            .map { it.trim() }
-            .filter { it.startsWith("- [") }
-            .map { migrateLegacyEntry(MemoryScope.USER, it) }
-            .forEach { (section, entry) -> sections.getValue(section).add(entry) }
-        if (sections.values.all { it.isEmpty() }) return
-        if (writeCanonicalDocument(spec, sections)) {
-            legacyFile.delete()
-        }
-    }
-
-    private fun migrateLegacyEntry(scope: MemoryScope, entry: String): Pair<MemorySection, String> {
-        val match = ENTRY_PATTERN.matchEntire(entry) ?: return defaultLegacySection(scope) to entry.trim()
-        val timestamp = match.groupValues[1]
-        val body = match.groupValues[2].trim()
-        val rawTag = LEGACY_KIND_PREFIX.find(body)?.value?.trim()
-        val normalizedBody = normalizeContent(body)
-        val section =
-            when (scope) {
-                MemoryScope.USER ->
-                    if (rawTag == "[fact]") MemorySection.FACTS else MemorySection.PREFERENCES
-                MemoryScope.DEVICE ->
-                    when (rawTag) {
-                        "[pitfall]" -> MemorySection.PITFALLS
-                        "[verification]" -> MemorySection.VERIFICATION
-                        else -> MemorySection.FACTS
-                    }
-                MemoryScope.APP ->
-                    when (rawTag) {
-                        "[preference]" -> MemorySection.PREFERENCES
-                        "[override]", "[app_skill_override]" -> MemorySection.APP_SKILL_OVERRIDES
-                        else -> MemorySection.OPERATIONAL_NOTES
-                    }
-            }
-        return section to "- [$timestamp] $normalizedBody"
-    }
-
-    private fun defaultLegacySection(scope: MemoryScope): MemorySection =
-        when (scope) {
-            MemoryScope.USER -> MemorySection.PREFERENCES
-            MemoryScope.DEVICE -> MemorySection.FACTS
-            MemoryScope.APP -> MemorySection.OPERATIONAL_NOTES
-        }
-
-    private fun normalizeExistingEntry(entry: String): String {
-        val match = ENTRY_PATTERN.matchEntire(entry.trim()) ?: return entry.trim()
-        val timestamp = match.groupValues[1]
-        val body = normalizeContent(match.groupValues[2])
-        return "- [$timestamp] $body"
-    }
-
-    private fun normalizeContent(content: String): String =
-        content.trim()
-            .removePrefix("- ")
-            .replace(LEGACY_KIND_PREFIX, "")
-            .replace(Regex("\\s+"), " ")
-            .trim()
 
     private fun formatEntry(content: String): String =
         "- [${ZonedDateTime.now().format(TIMESTAMP_FORMATTER)}] $content"
 
-    private fun buildCanonicalDocument(
-        spec: DocumentSpec,
-        sections: LinkedHashMap<MemorySection, MutableList<String>>
-    ): String =
+    private fun buildSkeleton(spec: DocumentSpec, target: MemorySection, entry: String): String =
         buildString {
             appendLine(spec.title)
             spec.intro?.let {
                 appendLine()
                 appendLine(it)
             }
-            for (section in spec.sections) {
+            for (s in spec.sections) {
                 appendLine()
-                appendLine("## ${section.heading}")
-                sections.getValue(section).forEach { appendLine(it) }
+                appendLine("## ${s.heading}")
+                if (s == target) appendLine(entry)
             }
         }.trimEnd() + "\n"
 
-    private fun writeCanonicalDocument(
-        spec: DocumentSpec,
-        sections: LinkedHashMap<MemorySection, MutableList<String>>
-    ): Boolean {
-        try {
-            spec.file.parentFile?.mkdirs()
-            val content = buildCanonicalDocument(spec, sections)
-            val tmpFile = File(spec.file.parentFile, "${spec.file.name}.tmp")
-            tmpFile.writeText(content)
-            if (!tmpFile.renameTo(spec.file)) {
-                throw IOException("Failed to replace ${spec.file.name}")
-            }
-            return true
-        } catch (e: IOException) {
-            Log.w(TAG, "Memory write failed: ${spec.file.name}", e)
-            return false
+    private fun insertEntry(existing: String, section: MemorySection, entry: String): String {
+        val heading = "## ${section.heading}"
+        val trailingNewline = existing.endsWith("\n")
+        val lines = existing.split("\n").toMutableList()
+        if (trailingNewline && lines.lastOrNull() == "") {
+            lines.removeAt(lines.size - 1)
         }
+        val headingIndices = lines.mapIndexedNotNull { i, line ->
+            if (line.trim() == heading) i else null
+        }
+        if (headingIndices.isEmpty()) {
+            // Rule 5: heading missing → append "\n## heading\nentry\n" at EOF.
+            val sb = StringBuilder(existing)
+            if (!existing.endsWith("\n")) sb.append('\n')
+            sb.append('\n').append(heading).append('\n').append(entry).append('\n')
+            return sb.toString()
+        }
+        if (headingIndices.size > 1) {
+            Log.w(TAG, "Duplicate heading '$heading' — inserting under last occurrence")
+        }
+        // Rule 4/6: under (last) heading, insert before the next "## " line, or at EOF.
+        val anchor = headingIndices.last()
+        var nextHeading = lines.size
+        for (i in (anchor + 1) until lines.size) {
+            if (lines[i].trimStart().startsWith("## ")) {
+                nextHeading = i
+                break
+            }
+        }
+        // Skip back over blank lines that separate sections so the new bullet
+        // sits next to the existing ones, not after the gap.
+        var insertAt = nextHeading
+        while (insertAt > anchor + 1 && lines[insertAt - 1].isBlank()) {
+            insertAt--
+        }
+        lines.add(insertAt, entry)
+        val joined = lines.joinToString("\n")
+        return if (trailingNewline) "$joined\n" else joined
     }
 
-    private fun sameContent(file: File, expected: String): Boolean =
-        file.readText().trimEnd() == expected.trimEnd()
+    private fun atomicWrite(target: File, bytes: ByteArray) {
+        target.parentFile?.mkdirs()
+        val tmpFile = File(target.parentFile, "${target.name}.tmp")
+        tmpFile.writeBytes(bytes)
+        if (!tmpFile.renameTo(target)) {
+            tmpFile.delete()
+            throw IOException("Failed to replace ${target.name}")
+        }
+    }
 }
