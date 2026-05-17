@@ -15,6 +15,7 @@ import io.mockk.mockkConstructor
 import io.mockk.unmockkConstructor
 import java.io.ByteArrayInputStream
 import java.io.File
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Test
 
@@ -67,9 +68,10 @@ class ModelCatalogRepositoryTest {
 
     @Test
     fun `resetForTest clears the singleton instance`() {
-        // mockkConstructor so the holder's lazy build of AppSettingsStore in `get()` doesn't
-        // touch real SharedPreferences (mock Context can't satisfy it otherwise).
+        // mockkConstructor so the holder's lazy build doesn't touch real
+        // SharedPreferences (AppSettingsStore) or filesDir (ModelDiscoveryCache).
         mockkConstructor(AppSettingsStore::class)
+        mockkConstructor(ModelDiscoveryCache::class)
         try {
             val seedBytes = seedAssetFile.readBytes()
             val ctxA = contextReturningAsset(seedBytes)
@@ -85,6 +87,7 @@ class ModelCatalogRepositoryTest {
             assertThat(second).isNotSameInstanceAs(first)
         } finally {
             unmockkConstructor(AppSettingsStore::class)
+            unmockkConstructor(ModelDiscoveryCache::class)
         }
     }
 
@@ -190,6 +193,130 @@ class ModelCatalogRepositoryTest {
         assertThat(entry!!.baseUrl).isEqualTo("https://api.example.com/v1")
     }
 
+    // ── Discovery integration ────────────────────────────────────────────
+
+    @Test
+    fun `refresh writes cache, emits new catalog containing discovered entries`() = runTest {
+        val cache = ModelDiscoveryCache(context = realContextForCache())
+        val openRouterBase = LLMProvider.OPENROUTER.defaultBaseUrl!!
+        val store = fakeSettingsStore(otherBaseUrl = "", otherModelId = "")
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = cache,
+            discoverFn = { provider, base, _ ->
+                assertThat(provider).isEqualTo(LLMProvider.OPENROUTER)
+                assertThat(base).isEqualTo(openRouterBase)
+                listOf(
+                    DiscoveredModel(
+                        entry = ModelEntry(
+                            name = "openrouter:anthropic/claude-opus-4.7",
+                            displayName = "Claude Opus 4.7",
+                            provider = LLMProvider.OPENROUTER,
+                            api = ApiType.CHAT,
+                            modelId = "anthropic/claude-opus-4.7",
+                            contextWindow = 200_000,
+                            baseUrl = openRouterBase,
+                        ),
+                        created = 1_700_000_000L,
+                    )
+                )
+            },
+            clock = { 9_999L },
+        )
+
+        repo.refresh(LLMProvider.OPENROUTER, "sk-fake")
+        val after = repo.catalog.value
+        assertThat(after.resolveOrNull("openrouter:anthropic/claude-opus-4.7")).isNotNull()
+        assertThat(repo.discoveryState.value.lastFetchedAt[LLMProvider.OPENROUTER]).isEqualTo(9_999L)
+        assertThat(repo.discoveryState.value.refreshing).isEmpty()
+    }
+
+    @Test
+    fun `refresh failure surfaces error in discoveryState and leaves cache untouched`() = runTest {
+        val cache = ModelDiscoveryCache(context = realContextForCache())
+        val store = fakeSettingsStore(otherBaseUrl = "", otherModelId = "")
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = cache,
+            discoverFn = { _, _, _ -> throw java.io.IOException("HTTP 503") },
+        )
+
+        repo.refresh(LLMProvider.OPENROUTER, "sk-fake")
+
+        val state = repo.discoveryState.value
+        assertThat(state.lastError[LLMProvider.OPENROUTER]).contains("503")
+        assertThat(state.refreshing).isEmpty()
+        // Cache is empty — no successful refresh happened.
+        assertThat(cache.readAll()).isEmpty()
+    }
+
+    @Test
+    fun `OTHER refresh rejected when baseUrl missing or invalid`() = runTest {
+        val cache = ModelDiscoveryCache(context = realContextForCache())
+        val store = fakeSettingsStore(otherBaseUrl = "", otherModelId = "")
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = cache,
+            discoverFn = { _, _, _ -> error("should not be called") },
+        )
+
+        repo.refresh(LLMProvider.OTHER, "sk-fake")
+
+        assertThat(repo.discoveryState.value.lastError[LLMProvider.OTHER]).isNotNull()
+    }
+
+    @Test
+    fun `discovered entries scoped to current effective OTHER baseUrl`() = runTest {
+        val cache = ModelDiscoveryCache(context = realContextForCache())
+        val urlA = "https://a.example.com/v1"
+        val urlB = "https://b.example.com/v1"
+        var otherUrl = urlA
+        val store = mockk<AppSettingsStore>(relaxed = true)
+        every { store.load() } answers { defaultSettings(otherBaseUrl = otherUrl, otherModelId = "vendor/manual") }
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = cache,
+            discoverFn = { provider, base, _ ->
+                listOf(
+                    DiscoveredModel(
+                        entry = ModelEntry(
+                            name = "${provider.name.lowercase()}:vendor/from-$base",
+                            displayName = "From $base",
+                            provider = provider,
+                            api = ApiType.CHAT,
+                            modelId = "vendor/from-$base",
+                            contextWindow = 128_000,
+                            baseUrl = base,
+                        ),
+                        created = 0L,
+                    )
+                )
+            },
+        )
+
+        repo.refresh(LLMProvider.OTHER, "sk-fake")
+        // After refresh against A, the catalog shows the A entry.
+        assertThat(repo.catalog.value.names()).contains("other:vendor/from-$urlA")
+
+        // User flips baseUrl to B (without refresh). Catalog must hide A entries.
+        otherUrl = urlB
+        repo.invalidate()
+        val names = repo.catalog.value.names()
+        assertThat(names).doesNotContain("other:vendor/from-$urlA")
+    }
+
+    private fun realContextForCache(): Context {
+        // Use a real filesDir for cache so write/read round-trips work.
+        val tmp = java.nio.file.Files.createTempDirectory("repo-test-cache").toFile()
+        val ctx = mockk<Context>(relaxed = true)
+        every { ctx.filesDir } returns tmp
+        return ctx
+    }
+
     // ── Fixtures ──
 
     private fun seedBytes(): ByteArray = seedAssetFile.readBytes()
@@ -244,6 +371,9 @@ class ModelCatalogRepositoryTest {
         every { context.assets } returns assets
         every { context.applicationContext } returns context
         every { context.getSharedPreferences(any(), any()) } returns prefs
+        // Real filesDir so ModelDiscoveryCache constructor can build its File path.
+        every { context.filesDir } returns
+            java.nio.file.Files.createTempDirectory("repo-test-ctx").toFile()
         return context
     }
 }

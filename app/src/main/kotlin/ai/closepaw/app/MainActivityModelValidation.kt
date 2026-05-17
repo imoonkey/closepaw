@@ -22,6 +22,13 @@ data class MissingCredentialTarget(
  * `otherModelId` are blank, the synth entry is not yet in the catalog and
  * `modelCatalog.resolveOrNull` returns null. Without the short-circuit the banner would
  * say "Unknown model: other-custom" instead of the actionable "Other needs base URL".
+ *
+ * Also short-circuits discovered OTHER entries (`selectedModel.startsWith("other:")`)
+ * that have fallen out of the catalog — typically because the user changed
+ * `otherBaseUrl` after a previous refresh. In that case the cache still has the entry
+ * but the visible-name scope hides it (see [ModelCatalogRepository]). The banner sends
+ * the user to the Other tab with a "Refresh or select a model for this endpoint" hint
+ * instead of the generic "Unknown model" wall.
  */
 internal fun findMissingCloudKeys(
     settingsState: AppSettingsState,
@@ -34,6 +41,16 @@ internal fun findMissingCloudKeys(
 
     if (modelName == ModelCatalogRepository.OTHER_CUSTOM_NAME) {
         return findOtherMissing(settingsState, authStore)
+    }
+
+    if (modelName.startsWith(DISCOVERED_OTHER_PREFIX) &&
+        modelCatalog.resolveOrNull(modelName) == null) {
+        return listOf(
+            MissingCredentialTarget(
+                LLMProvider.OTHER,
+                "Refresh or select a model for this endpoint",
+            )
+        )
     }
 
     val entry = modelCatalog.resolveOrNull(modelName)
@@ -51,6 +68,8 @@ internal fun findMissingCloudKeys(
     }
     return listOf(MissingCredentialTarget(provider, "${entry.displayName}: $label"))
 }
+
+private const val DISCOVERED_OTHER_PREFIX = "other:"
 
 private fun findOtherMissing(
     settingsState: AppSettingsState,

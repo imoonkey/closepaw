@@ -11,17 +11,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
 /**
- * In-process discovery cache.
- *
- * PR1 stub — always empty. PR2 will persist discovered entries to
- * `filesDir/model_discovery_cache.json` and key them by
- * `"{provider.name}:{normalizedBaseUrl}"`.
- */
-class ModelDiscoveryCache(@Suppress("UNUSED_PARAMETER") context: Context) {
-    fun snapshot(): List<ModelEntry> = emptyList()
-}
-
-/**
  * Process-wide observable model catalog.
  *
  * Single source of truth for the merged set of [ModelEntry]s the rest of the
@@ -30,7 +19,8 @@ class ModelDiscoveryCache(@Suppress("UNUSED_PARAMETER") context: Context) {
  *  - the JSON seed in `assets/llm_models.json`;
  *  - a synthesized `other-custom` [ModelEntry] when both `otherBaseUrl` and
  *    `otherModelId` are non-blank in [AppSettingsStore];
- *  - discovered entries from [ModelDiscoveryCache] (PR2 stub today).
+ *  - discovered entries from [ModelDiscoveryCache], scoped by current
+ *    effective baseUrl per provider.
  *
  * Created once per process via [ModelCatalogRepositoryHolder] so the UI layer
  * (Compose recomposition via [StateFlow]) and the session layer
@@ -40,10 +30,21 @@ class ModelDiscoveryCache(@Suppress("UNUSED_PARAMETER") context: Context) {
 class ModelCatalogRepository(
     private val context: Context,
     private val settingsStore: AppSettingsStore,
-    @Suppress("unused") private val discoveryCache: ModelDiscoveryCache,
+    private val discoveryCache: ModelDiscoveryCache,
+    private val discoverFn: suspend (LLMProvider, String, String) -> List<DiscoveredModel> =
+        ModelDiscovery::discover,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val _catalog: MutableStateFlow<ModelCatalog> = MutableStateFlow(load())
     val catalog: StateFlow<ModelCatalog> = _catalog.asStateFlow()
+
+    private val _discoveryState: MutableStateFlow<DiscoveryState> =
+        MutableStateFlow(initialDiscoveryState())
+    /**
+     * Per-provider discovery status — `lastFetchedAt` lets the settings UI
+     * render a "Last refreshed: X ago" stamp without re-reading the cache.
+     */
+    val discoveryState: StateFlow<DiscoveryState> = _discoveryState.asStateFlow()
 
     /**
      * Recompute the merged catalog from seed + settings + discovery cache and
@@ -51,12 +52,96 @@ class ModelCatalogRepository(
      */
     fun invalidate() {
         _catalog.value = load()
+        _discoveryState.value = _discoveryState.value.copy(
+            lastFetchedAt = readLastFetchedAt(),
+        )
+    }
+
+    /**
+     * Fetch fresh entries from `{baseUrl}/models` for [provider] using [key],
+     * persist them to the cache, and republish [catalog]. Errors are
+     * surfaced via [discoveryState]; the existing cache is preserved on
+     * failure.
+     *
+     * For [LLMProvider.OPENROUTER] the URL comes from the seed default; for
+     * [LLMProvider.OTHER] from the validated `otherBaseUrl` setting. Other
+     * providers are rejected because their `/models` payloads are either too
+     * thin (OpenAI) or unavailable (LOCAL_LFM, OPENAI_CODEX).
+     */
+    suspend fun refresh(provider: LLMProvider, key: String) {
+        require(provider == LLMProvider.OPENROUTER || provider == LLMProvider.OTHER) {
+            "Refresh only supported for OPENROUTER and OTHER (got $provider)"
+        }
+        val baseUrl = effectiveBaseUrlFor(provider)
+            ?: run {
+                _discoveryState.value = _discoveryState.value.withError(
+                    provider,
+                    "Configure a base URL before refreshing.",
+                )
+                return
+            }
+        _discoveryState.value = _discoveryState.value.withRefreshing(provider, true)
+        try {
+            val discovered = discoverFn(provider, baseUrl, key)
+            val cacheKey = ModelDiscoveryCache.cacheKey(provider, baseUrl)
+            val now = clock()
+            discoveryCache.write(cacheKey, now, discovered)
+            _catalog.value = load()
+            _discoveryState.value = _discoveryState.value
+                .withRefreshing(provider, false)
+                .withSuccess(provider, now)
+        } catch (e: Exception) {
+            Log.w(TAG, "refresh($provider) failed", e)
+            _discoveryState.value = _discoveryState.value
+                .withRefreshing(provider, false)
+                .withError(provider, e.message ?: "Refresh failed")
+        }
+    }
+
+    /**
+     * Resolve the effective base URL for a discovery-capable provider, or
+     * null if the configuration is incomplete (e.g. OTHER's `otherBaseUrl`
+     * is blank or invalid).
+     */
+    fun effectiveBaseUrlFor(provider: LLMProvider): String? = when (provider) {
+        LLMProvider.OPENROUTER -> provider.defaultBaseUrl
+        LLMProvider.OTHER -> OtherBaseUrlValidator.validate(settingsStore.load().otherBaseUrl).getOrNull()
+        else -> null
     }
 
     private fun load(): ModelCatalog {
         val seed = ModelCatalog.fromJson(readSeedJsonOrFallback())
-        val synth = synthOtherEntry()
-        return if (synth != null) seed.withExtraEntries(listOf(synth)) else seed
+        val extras = buildList {
+            synthOtherEntry()?.let { add(it) }
+            addAll(discoveredEntriesScopedByCurrentBaseUrl())
+        }
+        return if (extras.isEmpty()) seed else seed.withExtraEntries(extras)
+    }
+
+    /**
+     * Return discovered entries whose cache-key baseUrl matches the
+     * currently effective baseUrl for that provider. Prevents the credential
+     * leak failure mode where the user changes `otherBaseUrl` from A to B and
+     * an old-A cached entry remains selectable — the agent would then send
+     * the current key to the stale URL.
+     */
+    private fun discoveredEntriesScopedByCurrentBaseUrl(): List<ModelEntry> {
+        val openRouterBase = effectiveBaseUrlFor(LLMProvider.OPENROUTER)
+        val otherBase = effectiveBaseUrlFor(LLMProvider.OTHER)
+        val all = discoveryCache.readAll()
+        return all.entries.flatMap { (key, bucket) ->
+            val sep = key.indexOf(':')
+            if (sep <= 0) return@flatMap emptyList()
+            val provider = runCatching { LLMProvider.valueOf(key.substring(0, sep)) }
+                .getOrNull() ?: return@flatMap emptyList()
+            val expectedBase = when (provider) {
+                LLMProvider.OPENROUTER -> openRouterBase
+                LLMProvider.OTHER -> otherBase
+                else -> null
+            } ?: return@flatMap emptyList()
+            val expectedKey = ModelDiscoveryCache.cacheKey(provider, expectedBase)
+            if (expectedKey != key) emptyList() else bucket.toDiscovered(provider).map { it.entry }
+        }
     }
 
     private fun synthOtherEntry(): ModelEntry? {
@@ -102,6 +187,52 @@ class ModelCatalogRepository(
             Log.w(TAG, "Failed to parse $ASSET_NAME; using fallback", e)
             FALLBACK_CATALOG_JSON
         }
+    }
+
+    private fun initialDiscoveryState(): DiscoveryState {
+        val openRouterAt = readLastFetchedAtFor(LLMProvider.OPENROUTER)
+        val otherAt = readLastFetchedAtFor(LLMProvider.OTHER)
+        return DiscoveryState(
+            lastFetchedAt = mapOf(
+                LLMProvider.OPENROUTER to openRouterAt,
+                LLMProvider.OTHER to otherAt,
+            ).filterValues { it != null }
+                .mapValues { (_, v) -> v!! },
+        )
+    }
+
+    private fun readLastFetchedAt(): Map<LLMProvider, Long> = mapOf(
+        LLMProvider.OPENROUTER to readLastFetchedAtFor(LLMProvider.OPENROUTER),
+        LLMProvider.OTHER to readLastFetchedAtFor(LLMProvider.OTHER),
+    ).filterValues { it != null }.mapValues { (_, v) -> v!! }
+
+    private fun readLastFetchedAtFor(provider: LLMProvider): Long? {
+        val base = effectiveBaseUrlFor(provider) ?: return null
+        return discoveryCache.read(ModelDiscoveryCache.cacheKey(provider, base))?.fetchedAt
+    }
+
+    /**
+     * UI-facing discovery state. `refreshing` is the set of providers with an
+     * in-flight refresh; `lastFetchedAt` is the timestamp from the most
+     * recent successful refresh; `lastError` is the most recent error
+     * message per provider (cleared on successful refresh).
+     */
+    data class DiscoveryState(
+        val refreshing: Set<LLMProvider> = emptySet(),
+        val lastFetchedAt: Map<LLMProvider, Long> = emptyMap(),
+        val lastError: Map<LLMProvider, String> = emptyMap(),
+    ) {
+        fun withRefreshing(provider: LLMProvider, value: Boolean): DiscoveryState =
+            copy(refreshing = if (value) refreshing + provider else refreshing - provider)
+
+        fun withSuccess(provider: LLMProvider, at: Long): DiscoveryState = copy(
+            lastFetchedAt = lastFetchedAt + (provider to at),
+            lastError = lastError - provider,
+        )
+
+        fun withError(provider: LLMProvider, message: String): DiscoveryState = copy(
+            lastError = lastError + (provider to message),
+        )
     }
 
     companion object {

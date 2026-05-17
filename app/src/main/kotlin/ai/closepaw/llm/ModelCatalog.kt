@@ -39,6 +39,8 @@ enum class ApiType {
  * @property contextWindow Maximum input+output token capacity of the model. Always > 0. When the
  * JSON omits `context_window`, the fallback is 8_000 for [AuthMode.Local] providers and 128_000
  * for everything else.
+ * @property created Unix-seconds creation timestamp from upstream `/models`. `0L` for seed
+ * entries that don't carry one — picker sort treats 0 as oldest.
  */
 data class ModelEntry(
         val name: String,
@@ -49,7 +51,8 @@ data class ModelEntry(
         val contextWindow: Int,
         val baseUrl: String? = null,
         val apiKeyEnv: String? = null,
-        val supportsVision: Boolean = true
+        val supportsVision: Boolean = true,
+        val created: Long = 0L,
 ) {
     /** Effective API key env var (entry override or provider default). */
     val effectiveApiKeyEnv: String

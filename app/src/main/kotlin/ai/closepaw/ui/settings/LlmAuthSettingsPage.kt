@@ -38,9 +38,12 @@ import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ModelCatalogRepository
+import ai.closepaw.llm.ModelCatalogRepositoryHolder
 import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.LLMBackendType
+import ai.closepaw.BuildConfig
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -430,11 +433,34 @@ private fun ApiKeyTabContent(
     }
 
     SettingsSection(title = "Cloud Model") {
-        CloudModelDropdown(
-            selectedModel = selectedModel,
-            modelOptions = modelOptions,
-            onModelChange = onModelChange
-        )
+        if (selectedProvider == LLMProvider.OPENROUTER || selectedProvider == LLMProvider.OTHER) {
+            SearchableGroupedModelPicker(
+                entries = modelCatalog.modelsFor(selectedProvider),
+                selectedName = selectedModel,
+                onSelect = onModelChange,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            val pickerContext = LocalContext.current
+            val repo = remember(pickerContext) { ModelCatalogRepositoryHolder.get(pickerContext) }
+            val discoveryState by repo.discoveryState.collectAsStateWithLifecycle()
+            val refreshScope = rememberCoroutineScope()
+            RefreshModelsRow(
+                provider = selectedProvider,
+                apiKey = apiKeyText,
+                otherBaseUrl = otherBaseUrlText,
+                discoveryState = discoveryState,
+                allowDebugHttp = BuildConfig.DEBUG,
+                onRefresh = {
+                    refreshScope.launch { repo.refresh(selectedProvider, apiKeyText) }
+                },
+            )
+        } else {
+            CloudModelDropdown(
+                selectedModel = selectedModel,
+                modelOptions = modelOptions,
+                onModelChange = onModelChange
+            )
+        }
     }
     Spacer(modifier = Modifier.height(20.dp))
 

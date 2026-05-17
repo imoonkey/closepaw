@@ -142,4 +142,46 @@ class MainActivityModelValidationTest {
         )
         assertThat(missing).isEmpty()
     }
+
+    @Test
+    fun `discovered other prefix not in catalog deep-links to Other tab`() {
+        // Simulates: user refreshed OTHER against URL A, picked an entry, then
+        // changed otherBaseUrl. Scoping hides the entry; selectedModel still
+        // points at it. Without the short-circuit the user gets "Unknown
+        // model" instead of the actionable refresh hint.
+        val store = mockk<AuthStore>(relaxed = true)
+        every { store.has(LLMProvider.OTHER) } returns true
+        val missing = findMissingCloudKeys(
+            settings(mainModel = "other:vendor/from-old-url"),
+            catalog,
+            store,
+        )
+        assertThat(missing).hasSize(1)
+        assertThat(missing[0].provider).isEqualTo(LLMProvider.OTHER)
+        assertThat(missing[0].message).isEqualTo("Refresh or select a model for this endpoint")
+    }
+
+    @Test
+    fun `discovered other prefix present in catalog falls through to credential check`() {
+        val catalogWithDiscovered = ModelCatalog.fromJson(
+            """
+            {
+              "other:vendor/x": {
+                "display_name":"Vendor X","provider":"OTHER","api":"chat",
+                "model_id":"vendor/x","base_url":"https://example.invalid/v1"
+              }
+            }
+            """.trimIndent()
+        )
+        // No key present → standard "API key required" message, not the
+        // refresh-hint banner.
+        val missing = findMissingCloudKeys(
+            settings(mainModel = "other:vendor/x"),
+            catalogWithDiscovered,
+            emptyAuthStore(),
+        )
+        assertThat(missing).hasSize(1)
+        assertThat(missing[0].provider).isEqualTo(LLMProvider.OTHER)
+        assertThat(missing[0].message).contains("API key required")
+    }
 }

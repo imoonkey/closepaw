@@ -89,6 +89,20 @@ Catalog-driven model resolution from `assets/llm_models.json`.
 
 **ModelCatalog**: `resolve(name)`, `resolveOrNull(name)`, `all()`, `names()`, `withBaseUrlOverrides(overrides)`. Thread-safe after construction.
 
+### ModelCatalogRepository + dynamic discovery
+
+> See: `llm/ModelCatalogRepository.kt`, `llm/ModelDiscovery.kt`, `llm/ModelDiscoveryCache.kt`, `ui/settings/ModelPicker.kt`, `ui/settings/LlmAuthDiscoveryUi.kt`
+
+App-singleton (`ModelCatalogRepositoryHolder`) exposing `StateFlow<ModelCatalog>` so Compose recomposes when the merged catalog changes. Merge order:
+
+1. Seed entries from `assets/llm_models.json`.
+2. Synthesized `other-custom` row (when `otherBaseUrl` + `otherModelId` both valid).
+3. Discovered entries from `ModelDiscoveryCache`, scoped by current effective baseUrl per provider — stale cache entries for the OLD `otherBaseUrl` are hidden so the user can't accidentally send a fresh key to the wrong endpoint.
+
+`suspend fun refresh(provider, key)` (OPENROUTER + OTHER only) calls `ModelDiscovery.discover(provider, baseUrl, key)` — a single-file GET `{baseUrl}/models` reader with tolerant field priority (`display_name` | `name` | `id`; `context_length` | `context_size` | `top_provider.context_length`), mandatory tool-calling filter (drops entries that declare `supported_parameters` without `"tools"`), structured non-chat filter with id-substring fallback, and `supportsVision` defaulting to false unless upstream modality declares `"image"`. Discovered names are namespaced `"{provider.name.lowercase()}:{modelId}"` so they cannot collide with seed entries; modelIds are rejected if they contain whitespace or start with `:` or `/`. Cache file `filesDir/model_discovery_cache.json` is slim — compact field names, defaults omitted, baseUrl folded onto the bucket — so a ~440KB OpenRouter response collapses to ~30KB on disk. `discoveryState: StateFlow<DiscoveryState>` surfaces refresh status, last-fetched timestamp, and last error per provider for the settings UI.
+
+The Other / OpenRouter cloud-model picker (`SearchableGroupedModelPicker`) uses pure `ModelPicker.buildState` logic: search box flattens groups while filtering; default view groups by id prefix (`anthropic` / `openai` / `google` pinned, others alphabetical, vendorless ids go in `(other)`); within group sort by `created` desc; the selected row's group auto-expands and the list scrolls to it on open. `RefreshButtonGate` decides Enabled/Disabled per provider so the disabled tooltip names the missing piece (OPENROUTER needs key; OTHER needs key + valid URL).
+
 ---
 
 ## LLMClientFactory

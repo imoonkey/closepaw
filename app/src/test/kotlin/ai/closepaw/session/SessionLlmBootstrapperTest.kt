@@ -168,6 +168,8 @@ class SessionLlmBootstrapperTest {
                 )
             }
             every { context.assets } returns assets
+            every { context.filesDir } returns
+                java.nio.file.Files.createTempDirectory("session-test").toFile()
             val realRepo = ModelCatalogRepository(
                 context = context,
                 settingsStore = store,
