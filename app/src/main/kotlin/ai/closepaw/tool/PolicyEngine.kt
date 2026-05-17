@@ -68,10 +68,10 @@ class PolicyEngine(
         if (isEscape(tool, params)) return PolicyDecision.Allow
 
         // 3. Effective tier of BLOCKED denies — even AUTO_APPROVE cannot bypass at this layer.
-        //    Bundled-BLOCKED is the default starting point, not a wall: the App Access screen
-        //    can downgrade it (BLOCKED→NORMAL/CAUTIOUS) behind a confirm dialog, so an
-        //    overridden app reaches this step with its post-override tier. Still applies to
-        //    EITHER current or destination ("stricter wins" rule for open_app).
+        //    Bundled-BLOCKED is the absolute floor: AppClassifier refuses any non-BLOCKED
+        //    override at write time and pins classify() to BLOCKED at read time, so a stale
+        //    override entry cannot reach this step. Still applies to EITHER current or
+        //    destination ("stricter wins" rule for open_app).
         if (effectiveTier == AppTier.BLOCKED) {
             return PolicyDecision.Deny("Blocked: financial/auth app ($packageName)")
         }
@@ -89,8 +89,10 @@ class PolicyEngine(
             return PolicyDecision.Allow
         }
 
-        // 6. Apply approval mode using the effective tier. A user NORMAL override produces
-        //    NORMAL here, which SMART auto-approves but ALWAYS_ASK still asks for.
+        // 6. Apply approval mode using the effective tier. A user NORMAL override on a
+        //    bundled-CAUTIOUS app produces NORMAL here, which SMART auto-approves but
+        //    ALWAYS_ASK still asks for. (NORMAL overrides on bundled-BLOCKED are impossible —
+        //    refused at write time and pinned by classify().)
         return when (currentMode) {
             ApprovalMode.ALWAYS_ASK -> PolicyDecision.AskUser(
                 reason = "User requested approval for all actions",
