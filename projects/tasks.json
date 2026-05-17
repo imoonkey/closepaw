@@ -444,5 +444,566 @@
     "note": "Optional Phase 2. Start only after the manager boundary is stable and human review confirms the service wrapper is still worth it.",
     "created": "2026-05-15T10:39:27Z",
     "updated": "2026-05-15T10:39:27Z"
+  },
+  "tool-settings-unify": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Unify Tool Settings cards (Termux + browser_script)",
+    "description": "Extract a shared ToolSettingsCard + ToolStatusUi so the Termux Shell and browser_script settings rows render identically (same shape, status convention, typography, accessibility semantics). Collapse the duplicate browser_script entry in Permissions & Advanced into a single canonical entry under Agent Behavior → Tools. Delete the dead ShizukuNeedsPermission variant.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "acceptCriteria": [
+      "projects/active/tool_settings_unify/design_claude.md exists",
+      "All tool-settings-* child tasks are terminal"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings",
+      "refactor"
+    ],
+    "estimate": "l",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:23:26Z",
+    "updated": "2026-05-17T11:23:26Z"
+  },
+  "app-security": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "App Security Settings sub-page",
+    "description": "Add a per-app security policy sub-page to Settings: list every installed app, show its effective tier (Always / Ask / Reject), and let the user change it. Collapse the persistent allow-list into a unified user-override map layered on bundled tiers, with bundled-BLOCKED as the safety floor. Labels and semantics match the capsule approval prompt vocabulary (Always / Session / Reject — Session is transient and stays only on the capsule). See design doc for the canonical PolicyEngine.check ordering, the app-scoped AppClassifierHolder, and the Mutex-serialized setOverride contract.",
+    "design": "projects/active/app_security_settings/design_claude.md",
+    "acceptCriteria": [
+      "all subtasks done",
+      "user can open Settings → App Security and see every launchable app with its tier",
+      "tier changes persist across app restart",
+      "bundled-BLOCKED apps cannot be downgraded from the UI",
+      "capsule 'Always' approvals and Settings edits go through the same single writer (classifier.setOverride)"
+    ],
+    "worktree": "app-security",
+    "estimate": "l",
+    "created": "2026-05-17T11:23:28Z",
+    "updated": "2026-05-17T11:23:28Z"
+  },
+  "app-security-store-overrides": {
+    "parent": "app-security",
+    "depends": [],
+    "state": "ready",
+    "title": "AppSettingsStore: user app overrides",
+    "description": "Replace KEY_USER_ALLOWED_PACKAGES with KEY_USER_APP_OVERRIDES (JSON object {pkg: tier_string}). Add loadUserAppOverrides() / saveUserAppOverrides(map). Unknown tier strings dropped, not crashed. No migration code — pre-release.",
+    "design": "projects/active/app_security_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
+      "app/src/test/kotlin/ai/closepaw/app/AppSettingsStoreTest.kt"
+    ],
+    "acceptCriteria": [
+      "AppSettingsStore.loadUserAppOverrides() returns Map<String, AppTier> from KEY_USER_APP_OVERRIDES JSON",
+      "AppSettingsStore.saveUserAppOverrides(map) writes the same JSON shape",
+      "loadPersistentAllowList / savePersistentAllowList / KEY_USER_ALLOWED_PACKAGES removed",
+      "Unknown tier strings in stored JSON are dropped silently (no crash)",
+      "./gradlew test passes (new unit tests for round-trip + unknown-tier handling)"
+    ],
+    "worktree": "app-security",
+    "estimate": "s",
+    "created": "2026-05-17T11:23:35Z",
+    "updated": "2026-05-17T11:23:35Z"
+  },
+  "tool-settings-card": {
+    "parent": "tool-settings-unify",
+    "depends": [],
+    "state": "ready",
+    "title": "Extract ToolSettingsCard composable",
+    "description": "Create package-internal ToolSettingsCard composable with ToolStatusUi(label, subtitle, tone, showSpinner) and ToolStatusTone(Positive|Neutral|Warning). Display-only — actions come from caller via onRowClick + onRowClickLabel. Row Surface is clickable iff onRowClick != null AND sets semantics{role=Role.Button; onClick(label=onRowClickLabel!!){...}}. Shape = MaterialTheme.shapes.medium. Warning tone uses onSurface (NOT tertiary; see SettingsWidgets.kt:232-234 contrast note).",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt"
+    ],
+    "acceptCriteria": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt exists",
+      "grep -q \"internal data class ToolStatusUi\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt",
+      "grep -q \"internal enum class ToolStatusTone\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt",
+      "grep -q \"role = Role.Button\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt",
+      "grep -q \"shapes.medium\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt",
+      "./gradlew :app:assembleDebug exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "s",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:23:42Z",
+    "updated": "2026-05-17T11:23:42Z"
+  },
+  "tool-settings-mappers": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-card"
+    ],
+    "state": "ready",
+    "title": "Extract status mappers",
+    "description": "Hoist pure mapping functions termuxStatusUi(state, permissionDisposition, enabledPref) and browserScriptStatusUi(enabledPref, gatePending, gateError, probeResult) out of the row composables into separate files. No Compose dependency. Browser mapper returns ToolStatusUi plus an optional RowAction so caller can wire onRowClick. This makes the mapping deterministic and JVM-unit-testable.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/TermuxStatusMapper.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/BrowserScriptStatusMapper.kt"
+    ],
+    "acceptCriteria": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/TermuxStatusMapper.kt exists",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/BrowserScriptStatusMapper.kt exists",
+      "grep -q \"fun termuxStatusUi\" app/src/main/kotlin/ai/closepaw/ui/settings/TermuxStatusMapper.kt",
+      "grep -q \"fun browserScriptStatusUi\" app/src/main/kotlin/ai/closepaw/ui/settings/BrowserScriptStatusMapper.kt",
+      "! grep -q \"androidx.compose\" app/src/main/kotlin/ai/closepaw/ui/settings/TermuxStatusMapper.kt",
+      "! grep -q \"androidx.compose\" app/src/main/kotlin/ai/closepaw/ui/settings/BrowserScriptStatusMapper.kt",
+      "./gradlew :app:assembleDebug exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings",
+      "refactor"
+    ],
+    "estimate": "s",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:23:42Z",
+    "updated": "2026-05-17T11:23:42Z"
+  },
+  "app-security-classifier-overrides": {
+    "parent": "app-security",
+    "depends": [
+      "app-security-store-overrides"
+    ],
+    "state": "ready",
+    "title": "AppClassifier overrides + PolicyEngine refactor",
+    "description": "Make AppClassifier the single writer for user overrides: expose userOverrides: StateFlow<Map<String, AppTier>>, add setOverride(pkg, tier): SetOverrideResult using updateAndGet for in-memory CAS plus Mutex.withLock around the full update+persist sequence (prevents on-disk skew). Bundled-BLOCKED is the safety floor — setOverride refuses non-BLOCKED overrides at write time. Selecting the chip that matches the bundled tier auto-removes the override entry. Introduce AppClassifierHolder (mirrors AuthStoreHolder / ModelCatalogRepositoryHolder) so the same instance is shared across MainActivity, settings UI, capsule, AgentSession.create:71, AgentSession.reload:150, and SessionServices.create (which becomes non-nullable on appClassifier). PolicyEngine drops the persistent allow-list code path; the new check() ordering is the 6-step canonical sequence: (1) non-screen-changing → Allow, (2) escape → Allow, (3) effective tier = min(currentTier, destTier) == BLOCKED → Deny, (4) BrowserScript → its own gate, (5) mode != ALWAYS_ASK && isSessionAllowed(subject) → Allow, (6) mode dispatch on effective tier. session allow-list (allowPackageForSession) stays on PolicyEngine. ApprovalScope.ALWAYS becomes scope.launch(Dispatchers.IO) { classifier.setOverride(pkg, NORMAL) }. Also fix MainActivity.hasLegacyUsageEvidence() (line ~932) to read loadUserAppOverrides() instead of removed loadPersistentAllowList().",
+    "design": "projects/active/app_security_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/tool/AppClassifier.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/AppClassifierHolder.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/AppTier.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionToolingBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/test/kotlin/ai/closepaw/tool/AppClassifierOverrideTest.kt",
+      "app/src/test/kotlin/ai/closepaw/tool/PolicyEngineTest.kt"
+    ],
+    "acceptCriteria": [
+      "AppClassifier.userOverrides is StateFlow<Map<String, AppTier>> backed by immutable maps",
+      "setOverride is suspend, uses Mutex.withLock around updateAndGet + persistence callback",
+      "setOverride returns RefusedBlocked for non-BLOCKED tier on bundled-BLOCKED package (no emission, no persist)",
+      "setOverride auto-removes the entry when tier matches bundled default",
+      "AppClassifierHolder.get(context) returns the single shared instance",
+      "SessionServices.create takes non-nullable appClassifier; nullable fallback removed",
+      "AgentSession.create and AgentSession.reload call AppClassifierHolder.get(...) (no local AppClassifier.fromAssets)",
+      "PolicyEngine.check follows the 6-step canonical ordering; session allow-list (allowPackageForSession) retained",
+      "PolicyEngine no longer references persistentAllowedPackages / allowPackagePersistent / isUserAllowed / onPersistentAllowListChanged / initialPersistentAllowList",
+      "ApprovalScope.ALWAYS in AgentSession dispatches via classifier.setOverride (Dispatchers.IO)",
+      "MainActivity.hasLegacyUsageEvidence() reads loadUserAppOverrides()",
+      "./gradlew test passes including: bundled-BLOCKED write-time refusal, remove-on-match, concurrent setOverride preserves final persisted snapshot (same pkg + different pkgs), open_app to bundled-BLOCKED dest → Deny, open_app to CAUTIOUS dest under SMART → AskUser, user-NORMAL on chrome under ALWAYS_ASK → AskUser, browser_script under SMART → AskUser, session-allowed pkg under SMART → Allow, session-allowed pkg under ALWAYS_ASK → AskUser",
+      "./gradlew assembleDebug passes"
+    ],
+    "worktree": "app-security",
+    "estimate": "l",
+    "created": "2026-05-17T11:23:54Z",
+    "updated": "2026-05-17T11:23:54Z"
+  },
+  "tool-settings-mapper-tests": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-mappers"
+    ],
+    "state": "ready",
+    "title": "Unit-test status mappers",
+    "description": "Every row of both mapping tables in the design doc gets a passing JVM test (label / tone / spinner / row-action presence). Add TermuxStatusMapperTest and BrowserScriptStatusMapperTest under app/src/test/kotlin/ai/closepaw/ui/settings/. These are pure unit tests; no Compose runtime, no instrumentation.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/test/kotlin/ai/closepaw/ui/settings/TermuxStatusMapperTest.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/BrowserScriptStatusMapperTest.kt"
+    ],
+    "acceptCriteria": [
+      "app/src/test/kotlin/ai/closepaw/ui/settings/TermuxStatusMapperTest.kt exists",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/BrowserScriptStatusMapperTest.kt exists",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.ui.settings.TermuxStatusMapperTest\" exits 0",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.ui.settings.BrowserScriptStatusMapperTest\" exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings",
+      "test"
+    ],
+    "estimate": "s",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:01Z",
+    "updated": "2026-05-17T11:24:01Z"
+  },
+  "tool-settings-termux-row": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-mappers"
+    ],
+    "state": "ready",
+    "title": "Migrate Termux row to ToolSettingsCard",
+    "description": "Rewrite TermuxShellSettingsRow in ToolsSection.kt to use ToolSettingsCard + termuxStatusUi(). Status labels MUST remain exactly Ready / Needs Setup / Setting up… / Not Installed / Disabled (so existing SettingsTermuxRowTest passes). Preserve existing tap-action state machine (open F-Droid, launchTermux, permissionRowAction, restart). Remove the right-aligned Setting changes apply on the next session. footer.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q \"ToolSettingsCard\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "grep -q \"termuxStatusUi\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "! grep -q \"Setting changes apply on the next session\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.SettingsTermuxRowTest exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "m",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:01Z",
+    "updated": "2026-05-17T11:24:01Z"
+  },
+  "tool-settings-browser-row": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-mappers"
+    ],
+    "state": "ready",
+    "title": "Migrate browser_script row to ToolSettingsCard",
+    "description": "Rewrite BrowserScriptToolRow in ToolsSection.kt to use ToolSettingsCard + browserScriptStatusUi(). Title becomes Browser Script (Title Case; tool ID browser_script stays in code/policy/traces). Gate-error subtitle is BrowserScriptToggleError.message() verbatim. Row tap on gate-error calls gate.clearError(); gate.setEnabled(true). BrowserCdpStatusRow status line gone (card subsumes it). chrome://flags Button, FlagUrlInlineHelp, Re-check button live in the expanded slot (NOT row tap — keep explicit Button for discoverability and a11y). CDP probe lifecycle LaunchedEffect(refreshTick) preserved.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q \"Browser Script\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "grep -q \"browserScriptStatusUi\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "grep -q \"clearError\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "./gradlew :app:assembleDebug exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "m",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:01Z",
+    "updated": "2026-05-17T11:24:01Z"
+  },
+  "app-security-list-with-icons": {
+    "parent": "app-security",
+    "depends": [],
+    "state": "ready",
+    "title": "AppRow: installed apps with on-demand icons",
+    "description": "Reuse platform/AppManager.getInstalledApps(...) — do not duplicate the PackageManager scan. Add ui/settings/AppRow.kt with data class AppRow(val info: AppInfo, val iconLoader: suspend () -> ImageBitmap?) and a helper loadInstalledAppRows(context): List<AppRow> that attaches a per-row on-demand icon loader (called from a LazyColumn produceState so a 200-app list does not pin 200 drawables in memory). Do NOT add Drawable to platform/AppInfo.",
+    "design": "projects/active/app_security_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppRow.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/AppRowTest.kt"
+    ],
+    "acceptCriteria": [
+      "ui/settings/AppRow.kt exposes AppRow + loadInstalledAppRows(context)",
+      "platform/AppManager.kt and platform/AppInfo unchanged (no Drawable in shared model)",
+      "Icon loading is on-demand (per-row suspend lambda), not eager for the full list",
+      "./gradlew test passes"
+    ],
+    "worktree": "app-security",
+    "estimate": "s",
+    "created": "2026-05-17T11:24:03Z",
+    "updated": "2026-05-17T11:24:03Z"
+  },
+  "app-security-page": {
+    "parent": "app-security",
+    "depends": [
+      "app-security-classifier-overrides",
+      "app-security-list-with-icons"
+    ],
+    "state": "ready",
+    "title": "AppSecuritySettingsPage + Settings entry",
+    "description": "Build the page: scrolling list of AppRows, search box, six filter chips (All / Always / Ask / Reject / Custom / Restricted). Custom = has user override. Restricted = bundled-BLOCKED. Each row has a trailing segmented selector (Always / Ask / Reject) that calls classifier.setOverride directly. Bundled-BLOCKED rows render Reject-only with a lock badge — no disabled chips. Page observes classifier.userOverrides via collectAsState; never reads .value from a composable. Add APP_SECURITY to SettingsPage enum and a branch in SettingsSheet. Add a Security section row on SettingsHomePage with subtitle 'N apps customized · M restricted' (N from collectAsState, M from bundled count read once).",
+    "design": "projects/active/app_security_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppSecuritySettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt"
+    ],
+    "acceptCriteria": [
+      "SettingsPage.APP_SECURITY exists and SettingsSheet renders AppSecuritySettingsPage for it",
+      "Page lists all launchable apps via loadInstalledAppRows",
+      "Search filters by name and package",
+      "Six filter chips (All/Always/Ask/Reject/Custom/Restricted) work with their documented semantics",
+      "Row segmented selector dispatches to classifier.setOverride and recomposes via collectAsState",
+      "Bundled-BLOCKED rows render Reject-only with lock badge (no Always/Ask chips rendered)",
+      "SettingsHomePage Security section shows 'App Security' row with subtitle observing userOverrides",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "worktree": "app-security",
+    "estimate": "m",
+    "created": "2026-05-17T11:24:15Z",
+    "updated": "2026-05-17T11:24:15Z"
+  },
+  "app-security-wire-mainactivity": {
+    "parent": "app-security",
+    "depends": [
+      "app-security-page"
+    ],
+    "state": "ready",
+    "title": "Wire classifier into MainActivity / SettingsSheet",
+    "description": "Forward AppClassifierHolder.get(applicationContext) into SettingsSheet from MainActivity / MainActivityContent so the UI, capsule, and active session share the exact same StateFlow. Capsule 'Always' approvals and Settings edits must produce identical recomposition events. Deep-link enum NOT extended (out of scope).",
+    "design": "projects/active/app_security_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityContent.kt"
+    ],
+    "acceptCriteria": [
+      "SettingsSheet constructed with AppClassifierHolder.get(applicationContext)",
+      "Capsule and Settings observe the same StateFlow instance (verified by triggering ApprovalScope.ALWAYS from capsule and seeing the Settings page row update without reopening)",
+      "SettingsDeepLink enum NOT extended",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "worktree": "app-security",
+    "estimate": "s",
+    "created": "2026-05-17T11:24:24Z",
+    "updated": "2026-05-17T11:24:24Z"
+  },
+  "app-security-verify": {
+    "parent": "app-security",
+    "depends": [
+      "app-security-wire-mainactivity"
+    ],
+    "state": "ready",
+    "title": "Verify: build + lint + test clean",
+    "description": "Final stack verification before review iteration. No code changes besides fixing what verify surfaces.",
+    "acceptCriteria": [
+      "./gradlew clean assembleDebug exits 0",
+      "./gradlew lint produces no new errors",
+      "./gradlew test exits 0"
+    ],
+    "worktree": "app-security",
+    "estimate": "xs",
+    "created": "2026-05-17T11:24:30Z",
+    "updated": "2026-05-17T11:24:30Z"
+  },
+  "tool-settings-drop-duplicate": {
+    "parent": "tool-settings-unify",
+    "depends": [],
+    "state": "ready",
+    "title": "Drop duplicate browser_script entry + dead error variant",
+    "description": "Delete BrowserAutomationToggle composable and the Experimental section in PermissionsAdvancedSettingsPage. Remove browserScriptEnabled / onBrowserScriptEnabledChange from PermissionsAdvancedSettingsPage signature and from the SettingsSheet call site (lines 173-174). The rest of the page (accessibility, overlay, platform mode, debug, trace/data) stays. Remove the unreachable BrowserScriptToggleError.ShizukuNeedsPermission variant and its message() arm. Update BrowserScriptToggleGate.kt top-of-file comment to reflect single UI surface (Agent Behavior → Tools). Refresh stale comments in BrowserScriptToggleGateTest.kt (~line 13).",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/BrowserScriptToggleGate.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/BrowserScriptToggleGateTest.kt"
+    ],
+    "acceptCriteria": [
+      "! grep -rq \"BrowserAutomationToggle\" app/src",
+      "! grep -rq \"ShizukuNeedsPermission\" app/src",
+      "! grep -q \"browserScriptEnabled\" app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.ui.settings.BrowserScriptToggleGateTest\" exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings",
+      "cleanup"
+    ],
+    "estimate": "s",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:32Z",
+    "updated": "2026-05-17T11:24:32Z"
+  },
+  "tool-settings-test-helpers": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-termux-row",
+      "tool-settings-browser-row",
+      "tool-settings-drop-duplicate"
+    ],
+    "state": "ready",
+    "title": "Fix stale androidTest markers and helpers",
+    "description": "SettingsNavTest.kt currently asserts on Max Turns (lines 37, 73-84) as the Agent Behavior sub-page marker, but Max Turns no longer exists. Replace with Tools or Termux Shell which are stable post-refactor. QaSettingsHelpers.kt:112 and any other helper referencing the deleted Experimental toggle is updated. Tests must still pass on device.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/androidTest/kotlin/ai/closepaw/qa/SettingsNavTest.kt",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/QaSettingsHelpers.kt"
+    ],
+    "acceptCriteria": [
+      "! grep -q \"Max Turns\" app/src/androidTest/kotlin/ai/closepaw/qa/SettingsNavTest.kt",
+      "./gradlew :app:assembleDebugAndroidTest exits 0",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.SettingsNavTest exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings",
+      "test"
+    ],
+    "estimate": "s",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:32Z",
+    "updated": "2026-05-17T11:24:32Z"
+  },
+  "tool-settings-docs": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-drop-duplicate"
+    ],
+    "state": "ready",
+    "title": "Update docs that reference the old location",
+    "description": "doc/dev/development.md:155, doc/main/app/settings.md:150, doc/main/infra/browser.md:153 still reference Permissions & Advanced → Experimental → Browser automation. Update them to Agent Behavior → Tools → Browser Script.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "doc/dev/development.md",
+      "doc/main/app/settings.md",
+      "doc/main/infra/browser.md"
+    ],
+    "acceptCriteria": [
+      "! grep -rqi \"Browser automation\" doc/",
+      "! grep -rqE \"Experimental.*browser_script\" doc/",
+      "grep -rqi \"Browser Script\" doc/main/app/settings.md"
+    ],
+    "priority": "normal",
+    "tags": [
+      "docs"
+    ],
+    "estimate": "xs",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:32Z",
+    "updated": "2026-05-17T11:24:32Z"
+  },
+  "tool-settings-verify": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-card",
+      "tool-settings-mappers",
+      "tool-settings-mapper-tests",
+      "tool-settings-termux-row",
+      "tool-settings-browser-row",
+      "tool-settings-drop-duplicate",
+      "tool-settings-test-helpers",
+      "tool-settings-docs"
+    ],
+    "state": "ready",
+    "title": "Verify: build, lint, JVM tests, on-device tests",
+    "description": "Full check: ./gradlew clean assembleDebug lint test green. JVM tests green including new mapper tests and BrowserScriptToggleGateTest. On-device: SettingsTermuxRowTest, SettingsNavTest, SettingsPermissionsTest all green. (Manual TalkBack + visual parity check is deferred to the device QA task.)",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [],
+    "acceptCriteria": [
+      "./gradlew clean assembleDebug lint test exits 0",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "verify"
+    ],
+    "estimate": "s",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:32Z",
+    "updated": "2026-05-17T11:24:32Z"
+  },
+  "tool-settings-codex-review": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-verify"
+    ],
+    "state": "ready",
+    "title": "Codex code review + fix iteration",
+    "description": "Hand the landed diff to codex via multmux for an independent review. Iterate: collect codex findings, fix the reasonable ones, re-review. Stop when codex’s remaining findings are implementation-level minutiae (naming, exact wording, lint) — fix those without another review round. Same iteration discipline as the design phase.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "Codex review thread captured (multmux session log or pasted notes) showing final round had no design/correctness issues",
+      "All review-driven fixes committed",
+      "./gradlew clean assembleDebug lint test exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "review"
+    ],
+    "estimate": "m",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:32Z",
+    "updated": "2026-05-17T11:24:32Z"
+  },
+  "tool-settings-qa-device": {
+    "parent": "tool-settings-unify",
+    "depends": [
+      "tool-settings-codex-review"
+    ],
+    "state": "ready",
+    "title": "On-device UX QA via /ux-visual-debug + fix iteration",
+    "description": "Drive the Settings sheet on a real device via ADB using /ux-visual-debug. Walk both rows through every state: Termux (NotInstalled, NeedsSetup variants reachable on this device, SetupInProgress, Ready→restart, Disabled) and browser_script (Disabled, gate-error subtitle text, Probing, Bound, NotBound expanded slot with chrome://flags Button + URL helper + Re-check, Unknown). Capture uiautomator dumps + screenshots into projects/active/tool_settings_unify/qa/ for each state. Visual parity check between the two cards (compare shape, padding, status label typography, switch placement). Verify clickable Surface emits Button semantics via uiautomator. Iterate: fix any regression found, re-run, until clean.",
+    "design": "projects/active/tool_settings_unify/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "projects/active/tool_settings_unify/qa/ directory contains screenshots + uiautomator dumps covering every Termux state and every browser_script state listed in the design mapping tables",
+      "projects/active/tool_settings_unify/qa/qa_log.md summarizes each state walk-through, parity comparison, and any regressions fixed",
+      "uiautomator dumps for tap-actionable rows contain class=\"android.widget.Button\" or clickable=\"true\" with content-desc set (verifiable via grep on the dump XML)",
+      "./gradlew clean assembleDebug lint test exits 0",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "qa",
+      "ux-visual-debug"
+    ],
+    "estimate": "m",
+    "worktree": "tool-settings",
+    "created": "2026-05-17T11:24:32Z",
+    "updated": "2026-05-17T11:26:05Z"
+  },
+  "app-security-codex-review-iter": {
+    "parent": "app-security",
+    "depends": [
+      "app-security-verify"
+    ],
+    "state": "ready",
+    "title": "Codex code review + fix iteration",
+    "description": "Run codex (via multmux) on the implementation diff. Apply fixes for any High or Medium finding. Re-review. Iterate until codex returns APPROVED or only flags implementation-level nits (which are fixed in-place without another review round). Mirrors the design-review loop that produced the design doc.",
+    "acceptCriteria": [
+      "codex final verdict is APPROVED",
+      "all High/Medium findings from each round have been addressed in commits or explicitly rejected with rationale in the task note",
+      "./gradlew test + assembleDebug + lint still clean after final fixes"
+    ],
+    "worktree": "app-security",
+    "estimate": "m",
+    "created": "2026-05-17T11:24:37Z",
+    "updated": "2026-05-17T11:24:37Z"
+  },
+  "app-security-qa-real-device": {
+    "parent": "app-security",
+    "depends": [
+      "app-security-codex-review-iter"
+    ],
+    "state": "ready",
+    "title": "Real-device QA + fix iteration",
+    "description": "Install on a real Android device via adb. Validate every flow end-to-end with ux-visual-debug: (a) open Settings → App Security, scan list, search, all six filter chips; (b) toggle Always/Ask/Reject on a normal app, confirm persistence across app restart, confirm capsule policy reflects the change; (c) confirm bundled-BLOCKED apps render Reject-only and cannot be downgraded; (d) trigger capsule ApprovalScope.ALWAYS on a fresh app, confirm Settings row updates live; (e) edit-then-back-out cycles do not corrupt state. Fix any bug found, re-run the failing flow. Iterate until all flows pass — fully autonomous, no human checkpoint.",
+    "acceptCriteria": [
+      "All five validation flows pass on a real device",
+      "uiautomator dumps / screenshots captured for evidence under projects/active/app_security_settings/qa/",
+      "No app crash, no SharedPreferences corruption, no race-induced flicker observed across 10+ rapid toggles"
+    ],
+    "worktree": "app-security",
+    "estimate": "m",
+    "requireHumanReview": false,
+    "created": "2026-05-17T11:24:45Z",
+    "updated": "2026-05-17T11:25:56Z"
   }
 }
