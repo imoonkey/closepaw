@@ -294,3 +294,54 @@ This matches `VoiceInputControllerTest.noMatch_silently_restores_baseText_when_n
 3. **Onboarding bypass:** flipped `shared_prefs/onboarding_prefs.xml` (`onboarding_completed=true`) via `run-as` because the emulator's pixel-launcher rendering of onboarding step 3 was the first thing rendered after fresh-install; this is a QA-only workaround identical to the OnePlus run.
 4. **Accessibility service enabled** via `settings put secure enabled_accessibility_services ai.closepaw/ai.closepaw.app.AgentService`. On this emulator (unlike OxygenOS) the value sticks and the service binds.
 5. **Agent task did not start during E/F attempts** — see the F section. `MainActivity` reaches `Goal set from intent: …` but no `AgentSession` events follow. Worth a separate dig; not in scope for voice-input QA.
+
+---
+
+# Post-fix verification (2026-05-17)
+
+Two device-QA findings were fixed and verified with unit tests on this branch.
+
+## Fix 1 — Overlay capsule mic with permission-already-granted (scenario F regression seed)
+
+**Bug.** Tapping the mic in the overlay capsule when `RECORD_AUDIO` was already granted unconditionally called `requestOverlayPermission()`, which yanked `MainActivity` to the foreground via `AgentService.requestVoicePermissionViaMainActivity()`. `MainActivity` then saw `disposition == Granted` and cleared the pending flag — never starting recognition. Net UX: the user got pulled out of whatever app they were in for no visible reason.
+
+**Fix.** Added `fun isPermissionGranted(): Boolean` to `VoiceMicDeps` (`CapsuleInputBar.kt`). Overlay impl (`CapsuleOverlayHost.kt`) checks `ContextCompat.checkSelfPermission(appCtx, RECORD_AUDIO)`; in-app impl (`ChatScreen.kt`) does the same against the activity context (defense in depth — that path also has `activity != null` so it normally takes the gate branch). `onMicTap`'s overlay branch now reads:
+
+```kotlin
+} else {
+    if (v.isPermissionGranted()) {
+        voiceController?.start(baseText = inputText)
+    } else {
+        v.requestOverlayPermission()
+    }
+}
+```
+
+The MAIN_APP branch (`act != null && gate != null`) is untouched.
+
+**Tests.** Added `overlay_path_with_permission_granted_starts_controller_directly` to `CapsuleVoiceInputTest` — taps mic with `permissionGranted=true, activity=null` and asserts `overlayRequestCount == 0` AND `factory.created.size == 1`. The pre-existing `overlay_path_when_activity_is_null` test was updated to explicitly set `permissionGranted = false` (its semantic intent) so it continues to assert the permission-request route.
+
+**On-device verification.** Attempted on `emulator-5556` with the agent driving Settings. The capsule overlay reliably appears (`CapsuleOverlayHost: Capsule overlay shown` logged within ~10 s of `debug-run.sh` launch), but uiautomator `dump` does not capture the overlay window (`TYPE_ACCESSIBILITY_OVERLAY`), and pixel-coordinate taps onto the mic icon repeatedly missed across multiple anchor positions (the capsule re-anchors top↔bottom across mode transitions: Hidden→Running→TakeoverPending). Captured screenshots `F_fixed_before_tap.png` (Hidden-mode top capsule) and `F_fixed_after_tap.png` (TakeoverPending bottom capsule) but no logcat evidence of a registered mic tap. The unit test above + the unchanged JVM-side controller flow are the ground truth for this fix on this branch.
+
+## Fix 2 — Controller-level promotion to `Unavailable` on hard error before any callback (scenario I follow-up)
+
+**Bug.** On devices where `SpeechRecognizer.isRecognitionAvailable(ctx)` returns true (some `RecognitionService` is registered) but `voice_recognition_service` is unset or AppOps blocks binding (OnePlus Pad case), `factory.create()` succeeds, then `start()` fires `ERROR_SERVER_DISCONNECTED|ERROR_CLIENT|…` immediately. `handleError` mapped those to `ServiceDied|Unknown|Busy` → `VoiceState.Idle` + "Voice unavailable" toast. The mic icon stayed visible, every tap toasted, no path to `Unavailable` (where the icon hides).
+
+**Fix.** `VoiceInputController` now tracks a per-session `sessionGotAnyCallback` flag — flipped true on the first `onPartial` or `onFinal`, reset at the top of `start()`. In `handleError`, the `Busy | ServiceDied | Unknown` arm now promotes to terminal `VoiceState.Unavailable` (mic icon hides, one toast) when the session never saw a callback. After at least one partial/final, the same errors stay transient (toast + `Idle`, e.g. network drop mid-session). `start()` also short-circuits if already `Unavailable` so subsequent taps don't try to bind the recognizer again.
+
+**Tests.** Added 3 JVM tests in `VoiceInputControllerTest`:
+- `serviceDied_at_session_start_with_no_callbacks_transitions_to_Unavailable` — covers the core regression + asserts subsequent `start()` is a no-op (no new `factory.created` entry).
+- `unknown_at_session_start_with_no_callbacks_transitions_to_Unavailable` — same shape for `VoiceError.Unknown`.
+- `serviceDied_after_partial_stays_in_Idle_with_toast` — guards against over-aggressive promotion when there's already evidence the recognizer works.
+
+All three transitions issue exactly one toast (`"Voice unavailable"`), so the OnePlus complaint of "infinite toasts" goes away regardless of which arm fires.
+
+## JVM test sweep
+
+```
+./gradlew :app:testDebugUnitTest --tests "ai.closepaw.ui.capsule.voice.VoiceInputControllerTest"
+…
+tests="12" skipped="0" failures="0" errors="0"
+```
+
+12/12 pass (was 9 — 3 added). `./gradlew :app:assembleDebug` and `:app:lintDebug` both green; no new lint warnings on the four modified files (the two pre-existing warnings on `ChatScreen.kt:96` (`ModifierParameter`) and `CapsuleOverlayHost.kt:303` (`ObsoleteSdkInt`) are unrelated to this change).
