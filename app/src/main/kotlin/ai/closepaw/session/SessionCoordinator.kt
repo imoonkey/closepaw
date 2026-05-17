@@ -7,6 +7,9 @@ import ai.closepaw.protocol.SessionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 
@@ -35,6 +38,18 @@ class SessionCoordinator(private val scope: CoroutineScope) {
 
     var currentSession: AgentSession? = null
         private set
+
+    private val _currentSessionState = MutableStateFlow<SessionState?>(null)
+
+    /**
+     * State of the currently-owned session, or `null` when no session exists.
+     *
+     * Emits [SessionState.Created] eagerly at the start of [createAndSubmit]
+     * — before the suspending `create` block runs — so the "creation in
+     * progress" window is observable as a locked state. Callers that gate
+     * memory edits (see `MemoryEditGate`) rely on this invariant.
+     */
+    val currentSessionState: StateFlow<SessionState?> = _currentSessionState.asStateFlow()
 
     var selectedSessionForReload: SessionInfo? = null
 
@@ -101,8 +116,13 @@ class SessionCoordinator(private val scope: CoroutineScope) {
     ): CreateResult {
         if (!mutex.tryLock()) return CreateResult.LockBusy
         try {
+            // Lock the memory-edit gate before the suspending create block runs.
+            // Without this, an `append` racing with creation could fire while
+            // currentSessionState is still null.
+            _currentSessionState.value = SessionState.Created
             val session = create()
             if (session == null) {
+                _currentSessionState.value = null
                 pendingInputs.clear()
                 return CreateResult.Aborted
             }
@@ -154,6 +174,7 @@ class SessionCoordinator(private val scope: CoroutineScope) {
         currentSession = null
         pendingInputs.clear()
         lastDeadSessionFileName = null
+        _currentSessionState.value = null
     }
 
     /**
@@ -193,12 +214,14 @@ class SessionCoordinator(private val scope: CoroutineScope) {
         stateObserverJob = null
         currentSession = null
         pendingInputs.clear()
+        _currentSessionState.value = null
     }
 
     private fun observeSessionState(session: AgentSession) {
         stateObserverJob?.cancel()
         stateObserverJob = scope.launch {
             session.state.collect { state ->
+                _currentSessionState.value = state
                 if (state == SessionState.Idle || state == SessionState.Created) {
                     drainPending()
                 }

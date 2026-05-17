@@ -533,4 +533,137 @@ class SessionCoordinatorTest {
         coVerify(exactly = 1) { session.submit(Op.UserInput("q1")) }
         coVerify(exactly = 1) { session.submit(Op.UserInput("q2")) }
     }
+
+    // --- currentSessionState: source of truth for MemoryEditGate ---
+
+    @Test
+    fun `currentSessionState starts as null`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+
+        assertThat(coordinator.currentSessionState.value).isNull()
+    }
+
+    @Test
+    fun `createAndSubmit emits Created before invoking suspending create block`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Idle)
+        val session = fakeSession(state)
+        val gate = CompletableDeferred<Unit>()
+
+        scope.launch {
+            coordinator.createAndSubmit("first") {
+                gate.await()
+                session
+            }
+        }
+        runCurrent() // enters createAndSubmit; parks on gate inside create lambda
+        advanceUntilIdle()
+
+        // No AgentSession yet, but the state must already report Created so
+        // that MemoryEditGate locks during the creation window.
+        assertThat(coordinator.currentSession).isNull()
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Created)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(coordinator.currentSession).isEqualTo(session)
+        // After create returns and observer starts collecting, state mirrors the session.
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Idle)
+    }
+
+    @Test
+    fun `aborted createAndSubmit resets currentSessionState to null`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+
+        coordinator.createAndSubmit("rejected") { null }
+        advanceUntilIdle()
+
+        assertThat(coordinator.currentSessionState.value).isNull()
+    }
+
+    @Test
+    fun `currentSessionState mirrors session state transitions`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Created)
+        val session = fakeSession(state)
+        coordinator.attachSession(session)
+        advanceUntilIdle()
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Created)
+
+        for (s in listOf(
+            SessionState.Running,
+            SessionState.Idle,
+            SessionState.TakeoverPending,
+            SessionState.Paused,
+            SessionState.Shutdown,
+        )) {
+            state.value = s
+            advanceUntilIdle()
+            assertThat(coordinator.currentSessionState.value).isEqualTo(s)
+        }
+    }
+
+    @Test
+    fun `clearSession resets currentSessionState to null`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Idle)
+        val session = fakeSession(state)
+        coordinator.attachSession(session)
+        advanceUntilIdle()
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Idle)
+
+        coordinator.clearSession()
+        advanceUntilIdle()
+
+        assertThat(coordinator.currentSessionState.value).isNull()
+    }
+
+    @Test
+    fun `detachSession resets currentSessionState to null`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Running)
+        val session = fakeSession(state)
+        coordinator.attachSession(session)
+        advanceUntilIdle()
+
+        coordinator.detachSession()
+        advanceUntilIdle()
+
+        assertThat(coordinator.currentSessionState.value).isNull()
+    }
+
+    @Test
+    fun `SESSION_DEAD teardown resets currentSessionState to null`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Shutdown)
+        val session = mockk<AgentSession>(relaxed = true)
+        every { session.state } returns state
+        val services = mockk<SessionServices>(relaxed = true)
+        every { session.getServices() } returns services
+        every { services.recordingService.getCurrentFileName() } returns "dead.json"
+        coEvery { session.submit(any()) } returns Unit
+
+        coordinator.attachSession(session)
+        advanceUntilIdle()
+
+        coordinator.submit("lost")
+        advanceUntilIdle()
+
+        assertThat(coordinator.currentSessionState.value).isNull()
+    }
 }
