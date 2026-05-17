@@ -3,6 +3,7 @@ package ai.closepaw.tool
 import com.google.common.truth.Truth.assertThat
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.ApprovalMode
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Test
 
@@ -243,6 +244,125 @@ class PolicyEngineTest {
             "open_app", clickParams(), "com.android.settings",
             destinationPackage = "com.bank"
         )
+        assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
+    }
+
+    // --- User override interactions (canonical step ordering) ---
+
+    @Test
+    fun `user NORMAL override on cautious app under ALWAYS_ASK still asks - mode wins`() = runBlocking {
+        // Use a package not in bundled tiers (defaults to CAUTIOUS) so the NORMAL override is
+        // actually Accepted rather than auto-removed by the "matches bundled default" rule.
+        val classifier = AppClassifier(emptyMap())
+        val result = classifier.setOverride("com.unknown.app", AppTier.NORMAL)
+        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
+        assertThat(classifier.userOverrides.value).containsKey("com.unknown.app")
+        val engine = PolicyEngine(ApprovalMode.ALWAYS_ASK, classifier)
+
+        val decision = engine.check("open_app", JSONObject(), "com.unknown.app")
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `browser_script under SMART asks even with NORMAL override on cautious app`() = runBlocking {
+        // Bundled-CAUTIOUS (absent from map) + user NORMAL override → override is Accepted, but
+        // the browser_script rule must still fire (NORMAL override does NOT bypass step 4).
+        val classifier = AppClassifier(emptyMap())
+        val result = classifier.setOverride("com.android.chrome", AppTier.NORMAL)
+        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
+        assertThat(classifier.userOverrides.value).containsKey("com.android.chrome")
+        val engine = PolicyEngine(ApprovalMode.SMART, classifier)
+
+        val decision = engine.check("browser_script", JSONObject(), "com.android.chrome")
+
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `session-allowed package allowed under SMART`() {
+        val engine = engineWith()
+        engine.allowPackageForSession("com.unknown.app")
+
+        val decision = engine.check("mobile_action", clickParams(), "com.unknown.app")
+
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
+    @Test
+    fun `session-allowed package still asks under ALWAYS_ASK`() {
+        val engine = engineWith(mode = ApprovalMode.ALWAYS_ASK)
+        engine.allowPackageForSession("com.unknown.app")
+
+        val decision = engine.check("mobile_action", clickParams(), "com.unknown.app")
+
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `open_app to bundled BLOCKED destination from NORMAL current is denied under SMART`() {
+        val engine = engineWith(
+            tiers = mapOf(
+                "com.android.settings" to AppTier.NORMAL,
+                "com.bank" to AppTier.BLOCKED
+            )
+        )
+        val decision = engine.check(
+            "open_app", JSONObject(), "com.android.settings",
+            destinationPackage = "com.bank"
+        )
+        assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
+    }
+
+    @Test
+    fun `open_app to CAUTIOUS destination under SMART asks user`() {
+        val engine = engineWith(
+            tiers = mapOf("com.android.settings" to AppTier.NORMAL)
+        )
+        val decision = engine.check(
+            "open_app", JSONObject(), "com.android.settings",
+            destinationPackage = "com.unknown"
+        )
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `user NORMAL override on bundled BLOCKED is allowed under SMART`() = runBlocking {
+        // Confirmed downgrade flow: user opts into a sensitive app via the App Access
+        // confirm dialog, which calls setOverride(BLOCKED→NORMAL). The override fully
+        // takes effect: classify returns NORMAL and SMART-mode actions become Allow.
+        val classifier = AppClassifier(mapOf("com.bank" to AppTier.BLOCKED))
+        val result = classifier.setOverride("com.bank", AppTier.NORMAL)
+        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
+        assertThat(classifier.classify("com.bank")).isEqualTo(AppTier.NORMAL)
+        val engine = PolicyEngine(ApprovalMode.SMART, classifier)
+
+        val decision = engine.check("mobile_action", clickParams(), "com.bank")
+
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
+    @Test
+    fun `open_app from overridden bundled BLOCKED current to un-overridden BLOCKED destination is denied under SMART`() = runBlocking {
+        // Destination strictness still applies after the override: a user who downgraded
+        // their banking app to Allow should NOT thereby be able to open_app into a
+        // different bundled-BLOCKED destination they have not overridden. The "stricter
+        // wins" rule (min of current/dest effective tiers) still fires in step 3.
+        val classifier = AppClassifier(
+            mapOf(
+                "com.bank.a" to AppTier.BLOCKED,
+                "com.bank.b" to AppTier.BLOCKED,
+            )
+        )
+        classifier.setOverride("com.bank.a", AppTier.NORMAL)
+        assertThat(classifier.classify("com.bank.a")).isEqualTo(AppTier.NORMAL)
+        assertThat(classifier.classify("com.bank.b")).isEqualTo(AppTier.BLOCKED)
+        val engine = PolicyEngine(ApprovalMode.SMART, classifier)
+
+        val decision = engine.check(
+            "open_app", JSONObject(), "com.bank.a",
+            destinationPackage = "com.bank.b"
+        )
+
         assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
     }
 

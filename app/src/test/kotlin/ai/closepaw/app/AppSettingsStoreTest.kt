@@ -2,10 +2,13 @@ package ai.closepaw.app
 
 import android.content.Context
 import android.content.SharedPreferences
+import ai.closepaw.protocol.AppTier
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll
+import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -104,6 +107,58 @@ class AppSettingsStoreTest {
         assertThat(reloaded.otherModelId).isEqualTo("vendor/model-x")
         // updateOtherBaseUrl + updateOtherModelId must each notify the catalog.
         assertThat(invalidated).isEqualTo(2)
+    }
+
+    @Test
+    fun `user app overrides default to empty`() {
+        assertThat(AppSettingsStore(context).loadUserAppOverrides()).isEmpty()
+    }
+
+    @Test
+    fun `user app overrides round-trip through store`() = runBlocking {
+        val store = AppSettingsStore(context)
+        val overrides = mapOf(
+            "com.spotify.music" to AppTier.NORMAL,
+            "com.evil.app" to AppTier.BLOCKED,
+            "com.unknown.app" to AppTier.CAUTIOUS,
+        )
+
+        store.saveUserAppOverrides(overrides)
+
+        assertThat(AppSettingsStore(context).loadUserAppOverrides()).isEqualTo(overrides)
+    }
+
+    @Test
+    fun `saving empty overrides clears the stored value`() = runBlocking {
+        val store = AppSettingsStore(context)
+        store.saveUserAppOverrides(mapOf("com.spotify.music" to AppTier.NORMAL))
+        store.saveUserAppOverrides(emptyMap())
+
+        assertThat(AppSettingsStore(context).loadUserAppOverrides()).isEmpty()
+    }
+
+    @Test
+    fun `unknown tier strings are dropped silently`() {
+        val raw = JSONObject().apply {
+            put("com.good.app", "NORMAL")
+            put("com.weird.app", "PURPLE")
+            put("com.blocked.app", "BLOCKED")
+        }.toString()
+        backing["user_app_overrides"] = raw
+
+        val loaded = AppSettingsStore(context).loadUserAppOverrides()
+
+        assertThat(loaded).containsExactly(
+            "com.good.app", AppTier.NORMAL,
+            "com.blocked.app", AppTier.BLOCKED,
+        )
+    }
+
+    @Test
+    fun `malformed JSON falls back to empty map`() {
+        backing["user_app_overrides"] = "not a json object"
+
+        assertThat(AppSettingsStore(context).loadUserAppOverrides()).isEmpty()
     }
 
     private fun fakePrefs(backing: MutableMap<String, Any?>): SharedPreferences {

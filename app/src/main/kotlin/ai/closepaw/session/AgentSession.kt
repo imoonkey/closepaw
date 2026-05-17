@@ -13,11 +13,12 @@ import ai.closepaw.platform.AndroidPlatform
 import ai.closepaw.platform.OverlayTouchGate
 import ai.closepaw.platform.PlatformFactory
 import ai.closepaw.protocol.*
-import ai.closepaw.tool.AppClassifier
+import ai.closepaw.tool.AppClassifierHolder
 import ai.closepaw.trace.TraceRecorderFactory
 import ai.closepaw.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -68,7 +69,7 @@ private constructor(
         ): AgentSession {
             val sessionId = SessionId.generate()
             val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
-            val appClassifier = AppClassifier.fromAssets(service.assets)
+            val appClassifier = AppClassifierHolder.get(service.applicationContext)
             val platform: AndroidPlatform =
                     PlatformFactory.create(
                             config = config,
@@ -147,7 +148,7 @@ private constructor(
             val config = snapshot.config.toSessionConfig()
             val sessionId = SessionId(snapshot.sessionId)
             val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
-            val appClassifier = AppClassifier.fromAssets(service.assets)
+            val appClassifier = AppClassifierHolder.get(service.applicationContext)
             val platform: AndroidPlatform =
                     PlatformFactory.create(
                             config = config,
@@ -678,7 +679,14 @@ private constructor(
         if (op.decision == ApprovalDecision.APPROVED) {
             when (op.scope) {
                 ApprovalScope.SESSION -> services.policyEngine.allowPackageForSession(op.packageName)
-                ApprovalScope.ALWAYS -> services.policyEngine.allowPackagePersistent(op.packageName)
+                ApprovalScope.ALWAYS -> {
+                    // Persistent "Always" — single writer is the classifier. Same code path
+                    // as the settings UI tap; IO-launched because the persistence callback
+                    // touches SharedPreferences.
+                    scope.launch(Dispatchers.IO) {
+                        services.appClassifier.setOverride(op.packageName, AppTier.NORMAL)
+                    }
+                }
             }
         }
 

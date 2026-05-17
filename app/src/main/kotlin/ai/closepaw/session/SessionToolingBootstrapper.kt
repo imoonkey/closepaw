@@ -40,8 +40,6 @@ internal object SessionToolingBootstrapper {
     fun create(
         approvalMode: ApprovalMode,
         appClassifier: AppClassifier,
-        initialPersistentAllowList: Set<String> = emptySet(),
-        onPersistentAllowListChanged: ((Set<String>) -> Unit)? = null,
         agentSkillManager: AgentSkillManager? = null,
         agentRoleDef: AgentRoleDef = DefaultRoleDef,
         delegatableRoleDefs: List<AgentRoleDef> = emptyList(),
@@ -51,9 +49,7 @@ internal object SessionToolingBootstrapper {
     ): SessionToolingBootstrap {
         val policyEngine = PolicyEngine(
             initialApprovalMode = approvalMode,
-            appClassifier = appClassifier,
-            initialPersistentAllowList = initialPersistentAllowList,
-            onPersistentAllowListChanged = onPersistentAllowListChanged
+            appClassifier = appClassifier
         )
         val sessionState = AgentSessionState()
         val allowedToolNames = resolveAllowedToolNames(

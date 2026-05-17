@@ -130,7 +130,7 @@ class SessionServices internal constructor(
                 context: Context,
                 scope: CoroutineScope,
                 traceRecorder: TraceRecorder,
-                appClassifier: AppClassifier? = null
+                appClassifier: AppClassifier
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices...")
 
@@ -147,12 +147,10 @@ class SessionServices internal constructor(
             val llmClient: LLMClient = llmBootstrap.llmClient
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
-            val classifier = appClassifier ?: AppClassifier.fromAssets(context.assets)
             val skillsDir = java.io.File(context.filesDir, "skills")
             installBundledAgentSkills(context, skillsDir)
             val agentSkillManager = AgentSkillManager(skillsDir)
             val settingsStore = AppSettingsStore(context)
-            val persistentAllowList = settingsStore.loadPersistentAllowList()
             val termuxManager = TermuxBridgeManager.get(context)
             val termuxSnapshot = captureTermuxSnapshot(
                     bridge = TermuxBridgeManagerSessionBridge(termuxManager),
@@ -170,9 +168,7 @@ class SessionServices internal constructor(
                     else config.copy(excludedTools = effectiveExcludedTools)
             val tooling = SessionToolingBootstrapper.create(
                 approvalMode = effectiveConfig.approvalMode,
-                appClassifier = classifier,
-                initialPersistentAllowList = persistentAllowList,
-                onPersistentAllowListChanged = { packages -> settingsStore.savePersistentAllowList(packages) },
+                appClassifier = appClassifier,
                 agentSkillManager = agentSkillManager,
                 agentRoleDef = AgentDefRegistry.main,
                 delegatableRoleDefs = AgentDefRegistry.delegatableRoles(),
@@ -204,7 +200,7 @@ class SessionServices internal constructor(
             val memoryDir = java.io.File(context.filesDir ?: java.io.File("/tmp"), "memory")
             val memoryStore = MemoryStore(memoryDir)
             val memoryRecaller = MemoryRecaller(memoryStore)
-            toolRegistry.register(RememberExperienceTool(memoryStore, classifier))
+            toolRegistry.register(RememberExperienceTool(memoryStore, appClassifier))
 
             Log.i(TAG, "SessionServices created successfully")
 
@@ -214,7 +210,7 @@ class SessionServices internal constructor(
                     historyManager = historyManager,
                     sessionState = sessionState,
                     policyEngine = policyEngine,
-                    appClassifier = classifier,
+                    appClassifier = appClassifier,
                     platform = platform,
                     config = effectiveConfig,
                     llmClient = llmClient,

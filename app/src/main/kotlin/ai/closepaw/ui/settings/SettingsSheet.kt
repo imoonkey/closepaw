@@ -20,11 +20,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.tool.AppClassifier
+import ai.closepaw.tool.AppClassifierHolder
 import ai.closepaw.ui.theme.ClosePawMotion
 
 enum class SettingsPage {
@@ -32,6 +35,7 @@ enum class SettingsPage {
     LLM_AUTH,
     AGENT_BEHAVIOR,
     PERMISSIONS_ADVANCED,
+    APP_ACCESS,
     OPEN_SOURCE_LICENSES,
 }
 
@@ -73,6 +77,7 @@ fun SettingsSheet(
     otherModelId: String = "",
     onOtherBaseUrlChange: (String) -> Unit = {},
     onOtherModelIdChange: (String) -> Unit = {},
+    appClassifier: AppClassifier = AppClassifierHolder.get(LocalContext.current.applicationContext),
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
     val reducedMotion = ClosePawMotion.reducedMotion()
@@ -125,6 +130,7 @@ fun SettingsSheet(
                     isOverlayEnabled = isOverlayEnabled,
                     debugMode = debugMode,
                     effectivePlatformMode = effectivePlatformMode,
+                    appClassifier = appClassifier,
                     onNavigate = { settingsPage = it },
                     onDismiss = onDismiss
                 )
@@ -174,6 +180,11 @@ fun SettingsSheet(
                     onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss
+                )
+                SettingsPage.APP_ACCESS -> AppAccessSettingsPage(
+                    appClassifier = appClassifier,
+                    onBack = { settingsPage = SettingsPage.HOME },
+                    onClose = onDismiss,
                 )
                 SettingsPage.OPEN_SOURCE_LICENSES -> OpenSourceLicensesPage(
                     onBack = { settingsPage = SettingsPage.HOME },

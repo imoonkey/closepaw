@@ -15,6 +15,7 @@ import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionLlmConfig
 import ai.closepaw.test.FakeAndroidPlatform
+import ai.closepaw.tool.AppClassifier
 import ai.closepaw.trace.NoopTraceRecorder
 import io.mockk.every
 import io.mockk.mockk
@@ -60,7 +61,8 @@ class SessionServicesProviderRoutingTest {
                             kotlinx.coroutines.CoroutineScope(
                                     kotlinx.coroutines.Dispatchers.Unconfined
                             ),
-                    traceRecorder = NoopTraceRecorder
+                    traceRecorder = NoopTraceRecorder,
+                    appClassifier = AppClassifier(emptyMap())
             )
 
     assertThat(services.llmClient).isInstanceOf(ChatCompletionClient::class.java)
@@ -91,7 +93,8 @@ class SessionServicesProviderRoutingTest {
                               kotlinx.coroutines.CoroutineScope(
                                       kotlinx.coroutines.Dispatchers.Unconfined
                               ),
-                      traceRecorder = NoopTraceRecorder
+                      traceRecorder = NoopTraceRecorder,
+                      appClassifier = AppClassifier(emptyMap())
               )
             }
     assertThat(error.provider).isEqualTo(LLMProvider.OTHER)

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
@@ -14,19 +16,28 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ai.closepaw.BuildConfig
 import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.platform.AppManager
+import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMasthead
 import ai.closepaw.ui.theme.SectionHeader
 import ai.closepaw.ui.theme.closePaw
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun SettingsHomePage(
@@ -40,6 +51,7 @@ internal fun SettingsHomePage(
     isOverlayEnabled: Boolean,
     debugMode: Boolean,
     effectivePlatformMode: PlatformMode?,
+    appClassifier: AppClassifier,
     onNavigate: (SettingsPage) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -67,6 +79,7 @@ internal fun SettingsHomePage(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -84,11 +97,16 @@ internal fun SettingsHomePage(
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }
             )
 
-            SectionHeader("System")
+            SectionHeader("Access")
             SettingsNavigationRow(
                 title = "Permissions & Advanced",
                 subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode, effectivePlatformMode),
                 onClick = { onNavigate(SettingsPage.PERMISSIONS_ADVANCED) }
+            )
+            SettingsNavigationRow(
+                title = "App Access",
+                subtitle = appAccessSubtitle(appClassifier),
+                onClick = { onNavigate(SettingsPage.APP_ACCESS) }
             )
 
             SectionHeader("About")
@@ -160,4 +178,28 @@ private fun permissionsSubtitle(
         null -> ""
     }
     return "$permSummary · Debug ${if (debugMode) "on" else "off"}$modeChip"
+}
+
+/**
+ * Subtitle for the App Access entry on the Settings home page.
+ *
+ * `N` (apps customized) tracks the live `userOverrides` map via `collectAsState`.
+ * `M` (restricted) is the count of bundled-BLOCKED packages among the currently
+ * installed apps. The set of installed apps is effectively constant for the
+ * lifetime of the sheet, so we scan once via `produceState` and cache the count;
+ * if the scan hasn't finished yet, render the count as `…` rather than block.
+ */
+@Composable
+private fun appAccessSubtitle(classifier: AppClassifier): String {
+    val context = LocalContext.current
+    val overrides by classifier.userOverrides.collectAsState()
+    val restrictedCount by produceState<Int?>(initialValue = null, context, classifier) {
+        value = withContext(Dispatchers.IO) {
+            AppManager.getInstalledApps(context.packageManager).count { info ->
+                classifier.bundledTier(info.packageName) == AppTier.BLOCKED
+            }
+        }
+    }
+    val restrictedLabel = restrictedCount?.toString() ?: "…"
+    return "${overrides.size} apps customized · $restrictedLabel restricted"
 }

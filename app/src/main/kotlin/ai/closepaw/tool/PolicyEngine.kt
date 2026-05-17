@@ -10,23 +10,26 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * PolicyEngine — Decides whether tool calls should be allowed, denied, or require approval.
  *
- * Decision logic is based on AppTier (where), not action type (what).
- * BLOCKED apps are denied even in AUTO_APPROVE mode.
+ * Persistent per-package policy lives on [AppClassifier] as user overrides; the engine reads
+ * the *effective* tier and applies the canonical check order below. Only the session-scoped
+ * allow-list (transient, never persisted) stays here.
+ *
+ * Canonical ordering (see design doc):
+ *  1. Non-screen-changing tool                     → Allow
+ *  2. Escape (back/home)                            → Allow
+ *  3. effective tier == BLOCKED                     → Deny       (preserves "stricter wins" for open_app)
+ *  4. tool == browser_script                        → browser script matrix (NORMAL override does NOT bypass)
+ *  5. mode != ALWAYS_ASK && session-allowed         → Allow      (session allow-list, gated by ALWAYS_ASK)
+ *  6. ApprovalMode dispatch on the effective tier
  */
 class PolicyEngine(
     initialApprovalMode: ApprovalMode = ApprovalMode.SMART,
-    val appClassifier: AppClassifier,
-    initialPersistentAllowList: Set<String> = emptySet(),
-    private val onPersistentAllowListChanged: ((Set<String>) -> Unit)? = null
+    val appClassifier: AppClassifier
 ) {
     private val approvalMode = AtomicReference(initialApprovalMode)
 
     /** Session-scoped allow-list — cleared on reset(). */
     private val sessionAllowedPackages: MutableSet<String> = ConcurrentHashMap.newKeySet()
-
-    /** Persistent allow-list — survives reset(), written to SharedPreferences via callback. */
-    private val persistentAllowedPackages: MutableSet<String> =
-        ConcurrentHashMap.newKeySet<String>().also { it.addAll(initialPersistentAllowList) }
 
     companion object {
         private const val TAG = "PolicyEngine"
@@ -51,50 +54,56 @@ class PolicyEngine(
         val currentMode = approvalMode.get()
         val currentTier = appClassifier.classify(packageName)
         val destTier = destinationPackage?.let { appClassifier.classify(it) }
-        val approvalSubjectPackage = destinationPackage ?: packageName
         // Effective tier = stricter of the two (lower ordinal = stricter)
-        val tier = if (destTier != null) minOf(currentTier, destTier) else currentTier
-        Log.d(TAG, "Policy check: tool=$toolName, pkg=$packageName, dest=$destinationPackage, tier=$tier, mode=$currentMode")
+        val effectiveTier = if (destTier != null) minOf(currentTier, destTier) else currentTier
+        val approvalSubject = destinationPackage ?: packageName
+        Log.d(TAG, "Policy check: tool=$toolName, pkg=$packageName, dest=$destinationPackage, tier=$effectiveTier, mode=$currentMode")
 
         val tool = ToolName.from(toolName)
 
-        // Non-screen-changing tools → always allow
+        // 1. Non-screen-changing tools → always allow.
         if (!tool.isScreenChanging) return PolicyDecision.Allow
 
-        // Escape actions (back/home) → always allow (agent must not be trapped)
-        if (isEscape(toolName, params)) return PolicyDecision.Allow
+        // 2. Escape actions (back/home) → always allow (agent must not be trapped).
+        if (isEscape(tool, params)) return PolicyDecision.Allow
 
-        // BLOCKED is absolute floor — even AUTO_APPROVE cannot bypass
-        if (tier == AppTier.BLOCKED) {
+        // 3. Effective tier of BLOCKED denies — even AUTO_APPROVE cannot bypass at this layer.
+        //    Bundled-BLOCKED is the default starting point, not a wall: the App Access screen
+        //    can downgrade it (BLOCKED→NORMAL/CAUTIOUS) behind a confirm dialog, so an
+        //    overridden app reaches this step with its post-override tier. Still applies to
+        //    EITHER current or destination ("stricter wins" rule for open_app).
+        if (effectiveTier == AppTier.BLOCKED) {
             return PolicyDecision.Deny("Blocked: financial/auth app ($packageName)")
         }
 
-        // browser_script mutates the user's real Chrome profile through CDP. Chrome is a NORMAL
-        // app, but the browser runtime needs its own SMART-mode approval rule and must not be
-        // bypassed by the general user allow-list.
+        // 4. browser_script mutates the user's real Chrome profile through CDP. Chrome is a NORMAL
+        //    app, but the browser runtime needs its own SMART-mode approval rule and must not be
+        //    bypassed by a NORMAL user override or the session allow-list.
         if (tool == ToolName.BrowserScript) {
-            return browserScriptDecision(currentMode, tier)
+            return browserScriptDecision(currentMode, effectiveTier)
         }
 
-        // User-granted allow-list — but NOT in ALWAYS_ASK mode
-        if (currentMode != ApprovalMode.ALWAYS_ASK && isUserAllowed(approvalSubjectPackage)) {
+        // 5. Session allow-list — capsule "Session" button writes here. Gated by ALWAYS_ASK so
+        //    the user's "ask me everything" pref always wins over a prior session approval.
+        if (currentMode != ApprovalMode.ALWAYS_ASK && isSessionAllowed(approvalSubject)) {
             return PolicyDecision.Allow
         }
 
-        // Apply approval mode
+        // 6. Apply approval mode using the effective tier. A user NORMAL override produces
+        //    NORMAL here, which SMART auto-approves but ALWAYS_ASK still asks for.
         return when (currentMode) {
             ApprovalMode.ALWAYS_ASK -> PolicyDecision.AskUser(
                 reason = "User requested approval for all actions",
-                appTier = tier
+                appTier = effectiveTier
             )
             ApprovalMode.AUTO_APPROVE -> PolicyDecision.Allow
-            ApprovalMode.SMART -> when (tier) {
+            ApprovalMode.SMART -> when (effectiveTier) {
                 AppTier.CAUTIOUS -> PolicyDecision.AskUser(
                     reason = "Unknown app — action requires approval",
-                    appTier = tier
+                    appTier = effectiveTier
                 )
                 AppTier.NORMAL -> PolicyDecision.Allow
-                AppTier.BLOCKED -> PolicyDecision.Deny("unreachable")  // handled above
+                AppTier.BLOCKED -> PolicyDecision.Deny("unreachable")  // handled in step 3
             }
         }
     }
@@ -109,10 +118,9 @@ class PolicyEngine(
     fun reset() {
         approvalMode.set(ApprovalMode.SMART)
         sessionAllowedPackages.clear()
-        // persistent list NOT cleared on reset — survives across sessions
     }
 
-    // ===== Allow-list mutations =====
+    // ===== Session allow-list =====
 
     fun allowPackageForSession(packageName: String) {
         if (!isValidPackageName(packageName)) {
@@ -123,28 +131,13 @@ class PolicyEngine(
         Log.d(TAG, "Session allow-list: +$packageName")
     }
 
-    fun allowPackagePersistent(packageName: String) {
-        if (!isValidPackageName(packageName)) {
-            Log.w(TAG, "Ignoring invalid package for persistent allow-list: $packageName")
-            return
-        }
-        persistentAllowedPackages.add(packageName)
-        sessionAllowedPackages.add(packageName) // also effective this session
-        onPersistentAllowListChanged?.invoke(persistentAllowedPackages.toSet())
-        Log.d(TAG, "Persistent allow-list: +$packageName")
-    }
-
     private fun isValidPackageName(name: String): Boolean =
         name.isNotBlank() && '.' in name
 
-    private fun isUserAllowed(packageName: String?): Boolean =
-        packageName != null && (
-            packageName in sessionAllowedPackages ||
-            packageName in persistentAllowedPackages
-        )
+    private fun isSessionAllowed(packageName: String?): Boolean =
+        packageName != null && packageName in sessionAllowedPackages
 
-    private fun isEscape(toolName: String, params: JSONObject): Boolean {
-        val tool = ToolName.from(toolName)
+    private fun isEscape(tool: ToolName, params: JSONObject): Boolean {
         // system_button(button="back"|"home")
         if (tool == ToolName.SystemButton) {
             val button = params.optString("button", "").lowercase()

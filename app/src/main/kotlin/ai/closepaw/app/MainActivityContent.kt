@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.capsule.CapsuleBinding
 import ai.closepaw.ui.capsule.InertCapsuleBinding
 import ai.closepaw.ui.capsule.voice.VoicePermissionDisposition
@@ -76,6 +77,7 @@ internal fun MainActivityContent(
     onSignOut: () -> Unit = {},
     initialSettingsDeepLink: SettingsDeepLink? = null,
     effectivePlatformModeFlow: StateFlow<PlatformMode?> = MutableStateFlow(null),
+    appClassifier: AppClassifier,
 ) {
     ClosePawTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
@@ -187,6 +189,7 @@ internal fun MainActivityContent(
                     otherModelId = settingsState.otherModelId,
                     onOtherBaseUrlChange = settingsState::updateOtherBaseUrl,
                     onOtherModelIdChange = settingsState::updateOtherModelId,
+                    appClassifier = appClassifier,
                 )
             }
         }

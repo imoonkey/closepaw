@@ -30,6 +30,7 @@ import ai.closepaw.protocol.Todo
 import ai.closepaw.protocol.TodoStatus
 import ai.closepaw.test.FakeAndroidPlatform
 import ai.closepaw.tool.AppClassifier
+import ai.closepaw.tool.AppClassifierHolder
 import ai.closepaw.tool.PolicyEngine
 import ai.closepaw.tool.ToolRegistry
 import ai.closepaw.tool.ToolRouter
@@ -356,8 +357,8 @@ class SessionCheckpointReloadAndListenersTest {
         mockkObject(TraceRecorderFactory)
         every { TraceRecorderFactory.create(any(), any(), any()) } returns NoopTraceRecorder
 
-        mockkObject(AppClassifier.Companion)
-        every { AppClassifier.fromAssets(any()) } returns AppClassifier(emptyMap())
+        mockkObject(AppClassifierHolder)
+        every { AppClassifierHolder.get(any()) } returns AppClassifier(emptyMap())
 
         mockkObject(PlatformFactory)
         every {
