@@ -23,14 +23,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -81,10 +79,6 @@ internal fun AppAccessSettingsPage(
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(AppFilter.All) }
 
-    // Pending downgrade of a bundled-BLOCKED app awaiting user confirmation.
-    // BLOCKED writes (the safe direction) bypass this dialog.
-    var pendingConfirm by remember { mutableStateOf<PendingConfirm?>(null) }
-
     val commitTier: (String, AppTier) -> Unit = { pkg, tier ->
         coroutineScope.launch(Dispatchers.IO) {
             appClassifier.setOverride(pkg, tier)
@@ -115,71 +109,11 @@ internal fun AppAccessSettingsPage(
                 AppList(
                     rows = filtered,
                     classifier = appClassifier,
-                    onPickTier = { pkg, appLabel, tier, isBundledBlocked ->
-                        if (isBundledBlocked && tier != AppTier.BLOCKED) {
-                            pendingConfirm = PendingConfirm(pkg, appLabel, tier)
-                        } else {
-                            commitTier(pkg, tier)
-                        }
-                    },
+                    onPickTier = { pkg, tier -> commitTier(pkg, tier) },
                 )
             }
         }
     }
-
-    pendingConfirm?.let { pending ->
-        SensitiveAppConfirmDialog(
-            appLabel = pending.appLabel,
-            tier = pending.tier,
-            onConfirm = {
-                commitTier(pending.pkg, pending.tier)
-                pendingConfirm = null
-            },
-            onDismiss = { pendingConfirm = null },
-        )
-    }
-}
-
-private data class PendingConfirm(
-    val pkg: String,
-    val appLabel: String,
-    val tier: AppTier,
-)
-
-@Composable
-private fun SensitiveAppConfirmDialog(
-    appLabel: String,
-    tier: AppTier,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val (titleText, bodyText, confirmLabel) = when (tier) {
-        AppTier.NORMAL -> Triple(
-            "Allow agent to access $appLabel?",
-            "This app is marked sensitive. The agent will be able to read its " +
-                "screen and tap inside it.",
-            "Allow",
-        )
-        AppTier.CAUTIOUS -> Triple(
-            "Change $appLabel to Ask?",
-            "This app is marked sensitive. You will be prompted each time the " +
-                "agent wants to access it.",
-            "Confirm",
-        )
-        // BLOCKED writes bypass this dialog entirely (see onPickTier in AppList).
-        AppTier.BLOCKED -> Triple("", "", "Confirm")
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(titleText) },
-        text = { Text(bodyText) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(confirmLabel) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
 }
 
 @Composable
@@ -288,7 +222,7 @@ private fun LoadingState() {
 private fun AppList(
     rows: List<AppRow>,
     classifier: AppClassifier,
-    onPickTier: (pkg: String, appLabel: String, tier: AppTier, isBundledBlocked: Boolean) -> Unit,
+    onPickTier: (pkg: String, tier: AppTier) -> Unit,
 ) {
     val listState = rememberLazyListState()
     LazyColumn(
@@ -314,9 +248,7 @@ private fun AppList(
                     row = row,
                     effectiveTier = classifier.classify(pkg),
                     isBundledBlocked = isBundledBlocked,
-                    onPickTier = { tier ->
-                        onPickTier(pkg, row.info.label, tier, isBundledBlocked)
-                    },
+                    onPickTier = { tier -> onPickTier(pkg, tier) },
                 )
             }
         }
@@ -372,7 +304,7 @@ private fun AppRowItem(
                     )
                     if (isBundledBlocked) {
                         Text(
-                            text = "Sensitive — confirm before changing",
+                            text = "Permanently restricted",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.tertiary,
                         )
@@ -380,7 +312,11 @@ private fun AppRowItem(
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            TierSegmentedSelector(selected = effectiveTier, onPick = onPickTier)
+            if (isBundledBlocked) {
+                RejectOnlyChip()
+            } else {
+                TierSegmentedSelector(selected = effectiveTier, onPick = onPickTier)
+            }
         }
     }
 }
@@ -438,6 +374,28 @@ private fun TierSegmentedSelector(
             onClick = { onPick(AppTier.BLOCKED) },
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+@Composable
+private fun RejectOnlyChip() {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = MaterialTheme.shapes.small,
+            tonalElevation = 2.dp,
+        ) {
+            Text(
+                text = "Reject",
+                modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        }
     }
 }
 

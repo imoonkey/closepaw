@@ -326,42 +326,16 @@ class PolicyEngineTest {
     }
 
     @Test
-    fun `user NORMAL override on bundled BLOCKED is allowed under SMART`() = runBlocking {
-        // Confirmed downgrade flow: user opts into a sensitive app via the App Access
-        // confirm dialog, which calls setOverride(BLOCKED→NORMAL). The override fully
-        // takes effect: classify returns NORMAL and SMART-mode actions become Allow.
+    fun `user NORMAL override on bundled BLOCKED is refused and SMART still denies`() = runBlocking {
+        // Bundled-BLOCKED is an absolute floor: setOverride refuses the write, classify()
+        // pins to BLOCKED, and SMART-mode actions on the package are denied.
         val classifier = AppClassifier(mapOf("com.bank" to AppTier.BLOCKED))
         val result = classifier.setOverride("com.bank", AppTier.NORMAL)
-        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
-        assertThat(classifier.classify("com.bank")).isEqualTo(AppTier.NORMAL)
+        assertThat(result).isEqualTo(SetOverrideResult.RefusedBlocked)
+        assertThat(classifier.classify("com.bank")).isEqualTo(AppTier.BLOCKED)
         val engine = PolicyEngine(ApprovalMode.SMART, classifier)
 
         val decision = engine.check("mobile_action", clickParams(), "com.bank")
-
-        assertThat(decision).isEqualTo(PolicyDecision.Allow)
-    }
-
-    @Test
-    fun `open_app from overridden bundled BLOCKED current to un-overridden BLOCKED destination is denied under SMART`() = runBlocking {
-        // Destination strictness still applies after the override: a user who downgraded
-        // their banking app to Allow should NOT thereby be able to open_app into a
-        // different bundled-BLOCKED destination they have not overridden. The "stricter
-        // wins" rule (min of current/dest effective tiers) still fires in step 3.
-        val classifier = AppClassifier(
-            mapOf(
-                "com.bank.a" to AppTier.BLOCKED,
-                "com.bank.b" to AppTier.BLOCKED,
-            )
-        )
-        classifier.setOverride("com.bank.a", AppTier.NORMAL)
-        assertThat(classifier.classify("com.bank.a")).isEqualTo(AppTier.NORMAL)
-        assertThat(classifier.classify("com.bank.b")).isEqualTo(AppTier.BLOCKED)
-        val engine = PolicyEngine(ApprovalMode.SMART, classifier)
-
-        val decision = engine.check(
-            "open_app", JSONObject(), "com.bank.a",
-            destinationPackage = "com.bank.b"
-        )
 
         assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
     }
