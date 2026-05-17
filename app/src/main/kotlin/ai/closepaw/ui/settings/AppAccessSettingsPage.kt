@@ -24,12 +24,14 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -87,6 +89,16 @@ internal fun AppAccessSettingsPage(
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(AppFilter.All) }
 
+    // Pending downgrade of a bundled-BLOCKED app awaiting user confirmation.
+    // BLOCKED writes (the safe direction) bypass this dialog.
+    var pendingConfirm by remember { mutableStateOf<PendingConfirm?>(null) }
+
+    val commitTier: (String, AppTier) -> Unit = { pkg, tier ->
+        coroutineScope.launch(Dispatchers.IO) {
+            appClassifier.setOverride(pkg, tier)
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         SettingsSubPageHeader(title = "App Access", onBack = onBack, onClose = onClose)
 
@@ -111,15 +123,58 @@ internal fun AppAccessSettingsPage(
                 AppList(
                     rows = filtered,
                     classifier = appClassifier,
-                    onPickTier = { pkg, tier ->
-                        coroutineScope.launch(Dispatchers.IO) {
-                            appClassifier.setOverride(pkg, tier)
+                    onPickTier = { pkg, appLabel, tier, isBundledBlocked ->
+                        if (isBundledBlocked && tier != AppTier.BLOCKED) {
+                            pendingConfirm = PendingConfirm(pkg, appLabel, tier)
+                        } else {
+                            commitTier(pkg, tier)
                         }
                     },
                 )
             }
         }
     }
+
+    pendingConfirm?.let { pending ->
+        SensitiveAppConfirmDialog(
+            appLabel = pending.appLabel,
+            onConfirm = {
+                commitTier(pending.pkg, pending.tier)
+                pendingConfirm = null
+            },
+            onDismiss = { pendingConfirm = null },
+        )
+    }
+}
+
+private data class PendingConfirm(
+    val pkg: String,
+    val appLabel: String,
+    val tier: AppTier,
+)
+
+@Composable
+private fun SensitiveAppConfirmDialog(
+    appLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Allow agent to access $appLabel?") },
+        text = {
+            Text(
+                "This app is marked sensitive. The agent will be able to read its " +
+                    "screen and tap inside it."
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("Allow") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable
@@ -230,7 +285,7 @@ private fun LoadingState() {
 private fun AppList(
     rows: List<AppRow>,
     classifier: AppClassifier,
-    onPickTier: (String, AppTier) -> Unit,
+    onPickTier: (pkg: String, appLabel: String, tier: AppTier, isBundledBlocked: Boolean) -> Unit,
 ) {
     val listState = rememberLazyListState()
     LazyColumn(
@@ -251,11 +306,14 @@ private fun AppList(
         } else {
             items(rows, key = { it.info.packageName }) { row ->
                 val pkg = row.info.packageName
+                val isBundledBlocked = classifier.bundledTier(pkg) == AppTier.BLOCKED
                 AppRowItem(
                     row = row,
                     effectiveTier = classifier.classify(pkg),
-                    isLockedBlocked = classifier.bundledTier(pkg) == AppTier.BLOCKED,
-                    onPickTier = { tier -> onPickTier(pkg, tier) },
+                    isBundledBlocked = isBundledBlocked,
+                    onPickTier = { tier ->
+                        onPickTier(pkg, row.info.label, tier, isBundledBlocked)
+                    },
                 )
             }
         }
@@ -266,7 +324,7 @@ private fun AppList(
 private fun AppRowItem(
     row: AppRow,
     effectiveTier: AppTier,
-    isLockedBlocked: Boolean,
+    isBundledBlocked: Boolean,
     onPickTier: (AppTier) -> Unit,
 ) {
     val icon by produceState<ImageBitmap?>(initialValue = null, row.info.packageName) {
@@ -292,11 +350,11 @@ private fun AppRowItem(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
                         )
-                        if (isLockedBlocked) {
+                        if (isBundledBlocked) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = Icons.Outlined.Lock,
-                                contentDescription = "Permanently restricted",
+                                contentDescription = "Sensitive app",
                                 modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.closePaw.inkFaint,
                             )
@@ -309,9 +367,9 @@ private fun AppRowItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (isLockedBlocked) {
+                    if (isBundledBlocked) {
                         Text(
-                            text = "Permanently restricted.",
+                            text = "Sensitive — confirm before changing.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.closePaw.inkFaint,
                         )
@@ -319,11 +377,7 @@ private fun AppRowItem(
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            if (isLockedBlocked) {
-                RejectOnlyChip()
-            } else {
-                TierSegmentedSelector(selected = effectiveTier, onPick = onPickTier)
-            }
+            TierSegmentedSelector(selected = effectiveTier, onPick = onPickTier)
         }
     }
 }
@@ -381,36 +435,6 @@ private fun TierSegmentedSelector(
             onClick = { onPick(AppTier.BLOCKED) },
             modifier = Modifier.weight(1f),
         )
-    }
-}
-
-@Composable
-private fun RejectOnlyChip() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = MaterialTheme.shapes.small,
-        tonalElevation = 2.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Lock,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Reject",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
     }
 }
 
