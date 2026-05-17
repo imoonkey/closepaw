@@ -80,7 +80,7 @@ Catalog-driven model resolution from `assets/llm_models.json`.
 - `OPENAI_API` (mode=ApiKey, default key: `OPENAI_API_KEY`)
 - `OPENAI_CODEX` (mode=OAuth, target: `chatgpt.com/backend-api/codex/responses`)
 - `OPENROUTER` (mode=ApiKey, base: `openrouter.ai`)
-- `NOVITA` (mode=ApiKey, base: `api.novita.ai`)
+- `OTHER` (mode=ApiKey, user-supplied base URL via `AppSettingsState.otherBaseUrl`; no hardcoded default)
 - `LOCAL_LFM` (mode=Local, on-device LFMLLMClient)
 
 `provider.mode: AuthMode` accessor drives the UI's three-tab grouping (OAuth / API Key / Local). The split between `OPENAI_API` and `OPENAI_CODEX` is what lets the factory route purely on provider — no `__AUTH_METHOD_OPENAI` signal key, no `isOAuth` sniff.
@@ -95,7 +95,7 @@ Catalog-driven model resolution from `assets/llm_models.json`.
 
 > See: `llm/LLMClientFactory.kt`
 
-Creates `LLMClient` instances from model names. Constructor takes the catalog, an `AuthStore` (single credential source), and a base-URL override map. Cached as `ConcurrentHashMap<modelName, Entry(generation, client)>` — atomic `compute()` for lookup+rebuild guarantees that a credential rotation never returns a stale client (factory consults `authStore.generation(provider)` and rebuilds when it changes). Routes purely on `entry.provider`: `OPENAI_API`/`OPENROUTER`/`NOVITA` → `OpenAIResponseClient`/`OpenAIChatClient` with `authStore.requireApiKey(provider)`; `OPENAI_CODEX` → `CodexResponseClient` with `headerSupplier = { authStore.codexHeaders() }`; `LOCAL_LFM` → `LFMLLMClient`. `requireApiKey` throws typed `MissingCredential` / `WrongCredentialType` errors that runtime surfaces as a startup-failure banner deep-link.
+Creates `LLMClient` instances from model names. Constructor takes the catalog, an `AuthStore` (single credential source), and a base-URL override map. Cached as `ConcurrentHashMap<modelName, Entry(generation, client)>` — atomic `compute()` for lookup+rebuild guarantees that a credential rotation never returns a stale client (factory consults `authStore.generation(provider)` and rebuilds when it changes). Routes purely on `entry.provider`: `OPENAI_API`/`OPENROUTER`/`OTHER` → `OpenAIResponseClient`/`OpenAIChatClient` with `authStore.requireApiKey(provider)` (OTHER additionally hard-requires non-blank `entry.baseUrl` and throws `MissingCredential(OTHER)` otherwise, so a malformed synth entry can't leak the user's key to api.openai.com); `OPENAI_CODEX` → `CodexResponseClient` with `headerSupplier = { authStore.codexHeaders() }`; `LOCAL_LFM` → `LFMLLMClient`. `requireApiKey` throws typed `MissingCredential` / `WrongCredentialType` errors that runtime surfaces as a startup-failure banner deep-link.
 
 ## Session Bootstrap
 

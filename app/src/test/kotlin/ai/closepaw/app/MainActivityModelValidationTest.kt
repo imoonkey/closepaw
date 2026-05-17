@@ -25,10 +25,14 @@ class MainActivityModelValidationTest {
     private fun settings(
         backend: LLMBackendType = LLMBackendType.OPENAI,
         mainModel: String = "gpt-5.2",
+        otherBaseUrl: String = "",
+        otherModelId: String = "",
     ): AppSettingsState {
         val s = mockk<AppSettingsState>(relaxed = true)
         every { s.llmBackend } returns backend
         every { s.selectedModel } returns mainModel
+        every { s.otherBaseUrl } returns otherBaseUrl
+        every { s.otherModelId } returns otherModelId
         return s
     }
 
@@ -85,6 +89,57 @@ class MainActivityModelValidationTest {
         val store = mockk<AuthStore>(relaxed = true)
         every { store.has(LLMProvider.OPENAI_API) } returns true
         val missing = findMissingCloudKeys(settings(), catalog, store)
+        assertThat(missing).isEmpty()
+    }
+
+    @Test
+    fun `other-custom short-circuits and flags every blank field`() {
+        val missing = findMissingCloudKeys(
+            settings(mainModel = "other-custom"),
+            catalog,
+            emptyAuthStore(),
+        )
+        assertThat(missing.map { it.provider }).containsExactly(
+            LLMProvider.OTHER,
+            LLMProvider.OTHER,
+            LLMProvider.OTHER,
+        )
+        val messages = missing.map { it.message }
+        assertThat(messages.any { it.contains("API key required") }).isTrue()
+        assertThat(messages.any { it.contains("base URL required") }).isTrue()
+        assertThat(messages.any { it.contains("custom model id required") }).isTrue()
+    }
+
+    @Test
+    fun `other-custom flags invalid base URL`() {
+        val store = mockk<AuthStore>(relaxed = true)
+        every { store.has(LLMProvider.OTHER) } returns true
+        val missing = findMissingCloudKeys(
+            settings(
+                mainModel = "other-custom",
+                otherBaseUrl = "not a url",
+                otherModelId = "vendor/model",
+            ),
+            catalog,
+            store,
+        )
+        assertThat(missing).hasSize(1)
+        assertThat(missing[0].message).contains("base URL invalid")
+    }
+
+    @Test
+    fun `other-custom passes when key + url + modelId all present and valid`() {
+        val store = mockk<AuthStore>(relaxed = true)
+        every { store.has(LLMProvider.OTHER) } returns true
+        val missing = findMissingCloudKeys(
+            settings(
+                mainModel = "other-custom",
+                otherBaseUrl = "https://api.example.com/v1",
+                otherModelId = "vendor/model",
+            ),
+            catalog,
+            store,
+        )
         assertThat(missing).isEmpty()
     }
 }

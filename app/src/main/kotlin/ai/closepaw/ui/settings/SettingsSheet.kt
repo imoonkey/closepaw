@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import ai.closepaw.llm.AuthMode
+import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
@@ -67,6 +68,11 @@ fun SettingsSheet(
     modifier: Modifier = Modifier,
     initialPage: SettingsPage = SettingsPage.HOME,
     initialAuthTab: AuthMode? = null,
+    initialProvider: LLMProvider? = null,
+    otherBaseUrl: String = "",
+    otherModelId: String = "",
+    onOtherBaseUrlChange: (String) -> Unit = {},
+    onOtherModelIdChange: (String) -> Unit = {},
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
     val reducedMotion = ClosePawMotion.reducedMotion()
@@ -138,6 +144,11 @@ fun SettingsSheet(
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss,
                     initialAuthTab = initialAuthTab,
+                    initialProvider = initialProvider,
+                    otherBaseUrl = otherBaseUrl,
+                    otherModelId = otherModelId,
+                    onOtherBaseUrlChange = onOtherBaseUrlChange,
+                    onOtherModelIdChange = onOtherModelIdChange,
                 )
                 SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
                     perceptionMode = perceptionMode,

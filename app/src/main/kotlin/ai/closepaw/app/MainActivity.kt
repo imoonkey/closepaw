@@ -87,6 +87,9 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_EXCLUDED_TOOLS = "excluded_tools"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
         const val EXTRA_OPENAI_BASE_URL = "openai_base_url"
+        const val EXTRA_OTHER_API_KEY = "other_api_key"
+        const val EXTRA_OTHER_BASE_URL = "other_base_url"
+        const val EXTRA_OTHER_MODEL_ID = "other_model_id"
         const val EXTRA_EVAL_TURN_BUDGET = "eval_turn_budget"
     }
 
@@ -365,7 +368,8 @@ class MainActivity : ComponentActivity() {
                 currentPendingExcludedTools = pendingExcludedTools,
                 currentPendingApprovalMode = pendingApprovalMode,
                 currentPendingEvalTurnBudget = pendingEvalTurnBudget,
-                log = { message -> Log.d(TAG, message) }
+                log = { message -> Log.d(TAG, message) },
+                invalidateCatalog = { modelCatalogRepo.invalidate() },
             )
             pendingTraceEnabled = applyResult.pendingTraceEnabled
             pendingTraceRunId = applyResult.pendingTraceRunId
@@ -541,6 +545,7 @@ class MainActivity : ComponentActivity() {
                         ai.closepaw.ui.chat.SettingsDeepLink(
                             page = ai.closepaw.ui.chat.SettingsPage.LLM_AUTH,
                             authTab = provider?.mode,
+                            provider = provider,
                         )
                     }
                     else -> null
@@ -758,6 +763,7 @@ class MainActivity : ComponentActivity() {
         pendingSettingsDeepLink = ai.closepaw.ui.chat.SettingsDeepLink(
             page = ai.closepaw.ui.chat.SettingsPage.LLM_AUTH,
             authTab = missing.first().provider.mode,
+            provider = missing.first().provider,
         )
         showSettings = true
         return false

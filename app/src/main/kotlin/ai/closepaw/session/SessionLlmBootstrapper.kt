@@ -82,6 +82,17 @@ internal object SessionLlmBootstrapper {
             authStore: AuthStore?
     ) {
         if (authStore == null) return
+        if (config.mainModel == ModelCatalogRepository.OTHER_CUSTOM_NAME) {
+            // Short-circuit BEFORE catalog.resolve: when otherBaseUrl or otherModelId is
+            // blank the synth entry isn't in the catalog, so catalog.resolve would throw
+            // "unknown model". Surface a clean MissingCredential(OTHER) instead so the
+            // banner deep-links to the OTHER tab.
+            if (catalog.resolveOrNull(config.mainModel) == null ||
+                !authStore.has(LLMProvider.OTHER)) {
+                throw MissingCredential(LLMProvider.OTHER)
+            }
+            return
+        }
         val provider = catalog.resolve(config.mainModel).provider
         if (provider == LLMProvider.LOCAL_LFM) return
         if (!authStore.has(provider)) {

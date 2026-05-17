@@ -120,6 +120,23 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `reportStartupFailure preserves provider field on SettingsDeepLink`() = runTest {
+        val session = fakeSession()
+        val vm = ChatViewModel(sessionProvider = { session })
+        val deepLink = SettingsDeepLink(
+            page = SettingsPage.LLM_AUTH,
+            authTab = ai.closepaw.llm.AuthMode.ApiKey,
+            provider = ai.closepaw.llm.LLMProvider.OTHER,
+        )
+
+        vm.reportStartupFailure("Open Settings", "needs other config", deepLink)
+
+        assertThat(vm.startupErrorDeepLink.value).isEqualTo(deepLink)
+        assertThat(vm.startupErrorDeepLink.value?.provider)
+            .isEqualTo(ai.closepaw.llm.LLMProvider.OTHER)
+    }
+
+    @Test
     fun `teardown cancels event collection job`() = runTest {
         val events =
             MutableSharedFlow<ai.closepaw.protocol.AgentEvent>(

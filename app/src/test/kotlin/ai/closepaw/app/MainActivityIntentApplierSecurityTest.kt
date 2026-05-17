@@ -29,6 +29,9 @@ class MainActivityIntentApplierSecurityTest {
             apiKey = "injected-key",
             openRouterApiKey = "injected-or-key",
             openaiBaseUrl = "https://evil.example.com",
+            otherApiKey = "injected-other-key",
+            otherBaseUrl = "https://evil.example.com/v1",
+            otherModelId = "injected/model",
             backendType = null,
             perceptionMode = null,
             platformMode = null,
@@ -75,6 +78,9 @@ class MainActivityIntentApplierSecurityTest {
             apiKey = "injected-key",
             openRouterApiKey = null,
             openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = null,
+            otherModelId = null,
             backendType = null,
             perceptionMode = null,
             platformMode = null,
@@ -118,6 +124,9 @@ class MainActivityIntentApplierSecurityTest {
             apiKey = "debug-key",
             openRouterApiKey = null,
             openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = null,
+            otherModelId = null,
             backendType = null,
             perceptionMode = null,
             platformMode = null,
@@ -238,11 +247,91 @@ class MainActivityIntentApplierSecurityTest {
             assertThat(settingsState.browserScriptEnabled).isFalse()
         }
 
+    // ── OTHER provider trio ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `debug build round-trips OTHER trio and invokes invalidateCatalog`() = runBlocking<Unit> {
+        val payload = MainActivityIntentPayload(
+            apiKey = null,
+            openRouterApiKey = null,
+            openaiBaseUrl = null,
+            otherApiKey = "other-key",
+            otherBaseUrl = "https://api.example.com/v1",
+            otherModelId = "vendor/model",
+            backendType = null,
+            perceptionMode = null,
+            platformMode = null,
+            mainModel = null,
+            approvalMode = null,
+            browserScriptEnabled = null,
+            goalText = null,
+            freshSession = false,
+            debugMode = null,
+            traceEnabled = null,
+            traceRunId = null,
+            excludedTools = emptySet(),
+            evalTurnBudget = null,
+        )
+        var invalidateCount = 0
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
+            log = {},
+            invalidateCatalog = { invalidateCount++ },
+        )
+
+        val cred = runBlocking { authStore.get(LLMProvider.OTHER) }
+        assertThat(cred).isEqualTo(AuthCredential.ApiKey("other-key"))
+        assertThat(settingsState.otherBaseUrl).isEqualTo("https://api.example.com/v1")
+        assertThat(settingsState.otherModelId).isEqualTo("vendor/model")
+        // invalidate is called once at the end of the apply path — that's enough for
+        // catalog.value to reflect the new trio on the next read; nothing in the contract
+        // requires once-per-field. (Settings updates also fire onOtherSettingsChanged,
+        // which would invalidate the production repo via the AppSettingsState factory; the
+        // test passes a bare AppSettingsState so only the applier's invalidate hook fires.)
+        assertThat(invalidateCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `debug build skips invalidateCatalog when no OTHER fields present`() = runBlocking<Unit> {
+        val payload = browserScriptPayload(enabled = false)
+        var invalidateCount = 0
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
+            log = {},
+            invalidateCatalog = { invalidateCount++ },
+        )
+
+        assertThat(invalidateCount).isEqualTo(0)
+    }
+
     private fun browserScriptPayload(enabled: Boolean): MainActivityIntentPayload =
         MainActivityIntentPayload(
             apiKey = null,
             openRouterApiKey = null,
             openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = null,
+            otherModelId = null,
             backendType = null,
             perceptionMode = null,
             platformMode = null,

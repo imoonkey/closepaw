@@ -44,6 +44,7 @@ internal suspend fun applyIntentPayloadToSettings(
     currentPendingEvalTurnBudget: Int?,
     log: (String) -> Unit,
     browserScriptGate: suspend () -> BrowserScriptToggleError? = { gateBrowserScriptEnable() },
+    invalidateCatalog: () -> Unit = {},
 ): MainActivityIntentApplyResult {
     if (!isDebugBuild) {
         return MainActivityIntentApplyResult(
@@ -56,6 +57,7 @@ internal suspend fun applyIntentPayloadToSettings(
     }
 
     // Credential writes are I/O-bound; batch on Dispatchers.IO off the caller's thread.
+    var otherChanged = false
     withContext(Dispatchers.IO) {
         payload.apiKey?.let { key ->
             authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey(key))
@@ -65,11 +67,31 @@ internal suspend fun applyIntentPayloadToSettings(
             authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey(key))
             log("OPENROUTER key set from intent via AuthStore")
         }
+        payload.otherApiKey?.let { key ->
+            authStore.set(LLMProvider.OTHER, AuthCredential.ApiKey(key))
+            otherChanged = true
+            log("OTHER key set from intent via AuthStore")
+        }
     }
     payload.openaiBaseUrl?.let { url ->
         settingsState.updateOpenaiBaseUrl(url)
         log("OpenAI base URL override set from intent: $url")
     }
+    payload.otherBaseUrl?.let { url ->
+        settingsState.updateOtherBaseUrl(url)
+        otherChanged = true
+        log("OTHER base URL set from intent: $url")
+    }
+    payload.otherModelId?.let { modelId ->
+        settingsState.updateOtherModelId(modelId)
+        otherChanged = true
+        log("OTHER model id set from intent: $modelId")
+    }
+    // Make absolutely sure the catalog reflects OTHER writes. The settings updates already
+    // call `onOtherSettingsChanged()` (which invalidates the repo), but the OTHER api key
+    // write goes through AuthStore directly — invalidate here so any synth entry that
+    // depended on the new key/url/modelId trio is fresh in `catalog.value`.
+    if (otherChanged) invalidateCatalog()
     payload.backendType?.let {
         modelLoadingStatusHolder.updateBackend(it)
         log("LLM backend set from intent: $it")

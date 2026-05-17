@@ -10,6 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -35,6 +37,8 @@ import ai.closepaw.llm.ApiType
 import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.llm.ModelCatalogRepository
+import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.LLMBackendType
 import kotlinx.coroutines.CoroutineScope
@@ -95,7 +99,7 @@ private val LlmAuthTab.defaultProvider: LLMProvider
     }
 
 /** Providers available in the API Key tab sub-selector. */
-private val API_KEY_PROVIDERS = listOf(LLMProvider.OPENAI_API, LLMProvider.OPENROUTER)
+private val API_KEY_PROVIDERS = listOf(LLMProvider.OPENAI_API, LLMProvider.OPENROUTER, LLMProvider.OTHER)
 
 @Composable
 internal fun LlmAuthSettingsPage(
@@ -114,6 +118,11 @@ internal fun LlmAuthSettingsPage(
     onBack: () -> Unit,
     onClose: () -> Unit,
     initialAuthTab: AuthMode? = null,
+    initialProvider: LLMProvider? = null,
+    otherBaseUrl: String = "",
+    otherModelId: String = "",
+    onOtherBaseUrlChange: (String) -> Unit = {},
+    onOtherModelIdChange: (String) -> Unit = {},
 ) {
     // Initial tab: explicit caller request wins; else derive from selected model's provider mode.
     // When the Local tab is hidden, any LOCAL landing target falls back to API_KEY.
@@ -140,6 +149,8 @@ internal fun LlmAuthSettingsPage(
     // so the final keystroke wins even if an earlier write reached AuthStore.
     val pendingApiKeyPersist = remember { arrayOf<Job?>(null) }
     val apiKeyPersistMutex = remember { Mutex() }
+    val pendingOtherBaseUrlPersist = remember { arrayOf<Job?>(null) }
+    val pendingOtherModelIdPersist = remember { arrayOf<Job?>(null) }
 
     // Commit wrappers — called on real user actions inside tab content, NOT on tab tap.
     fun commitSignIn(action: () -> Unit) {
@@ -202,6 +213,9 @@ internal fun LlmAuthSettingsPage(
                     onModelChange = { commitApiKey { onModelChange(it) } },
                     modelCatalog = modelCatalog,
                     authStore = authStore,
+                    initialProvider = initialProvider,
+                    otherBaseUrl = otherBaseUrl,
+                    otherModelId = otherModelId,
                     onApiKeyPersist = { provider, key ->
                         commitApiKey { }
                         launchDebouncedApiKeyPersist(
@@ -212,7 +226,17 @@ internal fun LlmAuthSettingsPage(
                             provider = provider,
                             key = key,
                         )
-                    }
+                    },
+                    onOtherBaseUrlPersist = { url ->
+                        launchDebouncedPersist(scope, pendingOtherBaseUrlPersist) {
+                            onOtherBaseUrlChange(url)
+                        }
+                    },
+                    onOtherModelIdPersist = { modelId ->
+                        launchDebouncedPersist(scope, pendingOtherModelIdPersist) {
+                            onOtherModelIdChange(modelId)
+                        }
+                    },
                 )
                 LlmAuthTab.LOCAL -> LocalTabContent(
                     selectedLocalModel = selectedLocalModel,
@@ -270,6 +294,27 @@ internal fun launchDebouncedApiKeyPersist(
     }
 }
 
+/**
+ * Debounce + single-flight launcher for non-AuthStore persistence (OTHER base URL,
+ * custom model id). Writes hit a SharedPreferences-backed store; they're cheap and
+ * already coalesce, so the per-keystroke cancel-the-pending-write pattern is enough
+ * — no mutex needed. The persist action runs on the caller's scope dispatcher
+ * (Main.immediate from `rememberCoroutineScope()`), which is required for the
+ * downstream Compose `mutableStateOf` writes inside [AppSettingsState].
+ */
+internal fun launchDebouncedPersist(
+    scope: CoroutineScope,
+    pending: Array<Job?>,
+    debounceMs: Long = API_KEY_PERSIST_DEBOUNCE_MS,
+    action: suspend () -> Unit,
+) {
+    pending[0]?.cancel()
+    pending[0] = scope.launch {
+        delay(debounceMs)
+        action()
+    }
+}
+
 @Composable
 private fun SignInTabContent(
     selectedModel: String,
@@ -310,10 +355,19 @@ private fun ApiKeyTabContent(
     modelCatalog: ModelCatalog,
     authStore: AuthStore,
     onApiKeyPersist: (LLMProvider, String) -> Unit,
+    onOtherBaseUrlPersist: (String) -> Unit,
+    onOtherModelIdPersist: (String) -> Unit,
+    otherBaseUrl: String,
+    otherModelId: String,
+    initialProvider: LLMProvider? = null,
 ) {
     // Canonical provider rule — re-derives whenever the external model changes.
+    // Explicit deep-link target wins on first composition.
     val derivedProvider = resolveProviderForTab(LlmAuthTab.API_KEY, selectedModel, modelCatalog)
-    var selectedProvider by rememberSaveable(derivedProvider) { mutableStateOf(derivedProvider) }
+    var selectedProvider by rememberSaveable(derivedProvider, initialProvider) {
+        val start = initialProvider?.takeIf { it in API_KEY_PROVIDERS } ?: derivedProvider
+        mutableStateOf(start)
+    }
 
     val modelOptions = catalogModelOptions(modelCatalog.modelsFor(selectedProvider))
 
@@ -324,6 +378,12 @@ private fun ApiKeyTabContent(
         val cred = authStore.get(selectedProvider)
         apiKeyText = (cred as? AuthCredential.ApiKey)?.key.orEmpty()
     }
+
+    // OTHER-specific text: editable in-place; debounced through onOtherBaseUrlPersist
+    // and onOtherModelIdPersist, which write to AppSettingsStore and invalidate the
+    // ModelCatalogRepository (so `modelCatalog` recomposes with the synth entry).
+    var otherBaseUrlText by remember(otherBaseUrl) { mutableStateOf(otherBaseUrl) }
+    var otherModelIdText by remember(otherModelId) { mutableStateOf(otherModelId) }
 
     // Provider sub-selector — local view state only, no settings writes on click.
     SettingsSection(title = "Provider") {
@@ -344,6 +404,30 @@ private fun ApiKeyTabContent(
     }
 
     Spacer(modifier = Modifier.height(20.dp))
+
+    if (selectedProvider == LLMProvider.OTHER) {
+        SettingsSection(title = "Base URL") {
+            OtherBaseUrlField(
+                value = otherBaseUrlText,
+                onValueChange = { value ->
+                    otherBaseUrlText = value
+                    onOtherBaseUrlPersist(value)
+                },
+            )
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+
+        SettingsSection(title = "Custom Model Id") {
+            OtherModelIdField(
+                value = otherModelIdText,
+                onValueChange = { value ->
+                    otherModelIdText = value
+                    onOtherModelIdPersist(value)
+                },
+            )
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+    }
 
     SettingsSection(title = "Cloud Model") {
         CloudModelDropdown(
@@ -372,6 +456,29 @@ private fun ApiKeyTabContent(
                 }
             )
         }
+    }
+
+    // Auto-flip rule: when the user is in the OTHER sub-tab and all three fields
+    // validate, flip selectedModel to "other-custom". Gated on the catalog actually
+    // containing the synth entry — the per-field debounces have already flushed by
+    // then because the repo only synthesizes after the AppSettingsStore writes return
+    // and invalidate the catalog. Without this guard `selectedModel` could point at a
+    // not-yet-present catalog row for one debounce window.
+    LaunchedEffect(
+        selectedProvider,
+        otherBaseUrlText,
+        otherModelIdText,
+        apiKeyText,
+        modelCatalog,
+        selectedModel,
+    ) {
+        if (selectedProvider != LLMProvider.OTHER) return@LaunchedEffect
+        if (apiKeyText.isBlank()) return@LaunchedEffect
+        if (otherBaseUrlText.isBlank() || otherModelIdText.isBlank()) return@LaunchedEffect
+        if (OtherBaseUrlValidator.validate(otherBaseUrlText).isFailure) return@LaunchedEffect
+        if (modelCatalog.resolveOrNull(ModelCatalogRepository.OTHER_CUSTOM_NAME) == null) return@LaunchedEffect
+        if (selectedModel == ModelCatalogRepository.OTHER_CUSTOM_NAME) return@LaunchedEffect
+        onModelChange(ModelCatalogRepository.OTHER_CUSTOM_NAME)
     }
 }
 
@@ -423,4 +530,46 @@ private fun canonicalizeMainModel(
         val preferred = validModels.firstOrNull()
         if (preferred != null) onModelChange(preferred.name)
     }
+}
+
+@Composable
+private fun OtherBaseUrlField(value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Base URL") },
+        placeholder = {
+            Text(
+                "https://api.example.com/v1",
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            )
+        },
+        singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
+    )
+}
+
+@Composable
+private fun OtherModelIdField(value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Custom Model Id") },
+        placeholder = {
+            Text(
+                "vendor/model-id",
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            )
+        },
+        singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
+    )
 }

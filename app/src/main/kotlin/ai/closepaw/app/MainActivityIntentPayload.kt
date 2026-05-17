@@ -9,6 +9,9 @@ data class MainActivityIntentPayload(
         val apiKey: String?,
         val openRouterApiKey: String?,
         val openaiBaseUrl: String?,
+        val otherApiKey: String?,
+        val otherBaseUrl: String?,
+        val otherModelId: String?,
         val backendType: LLMBackendType?,
         val perceptionMode: String?,
         val platformMode: PlatformMode?,
@@ -35,6 +38,21 @@ data class MainActivityIntentPayload(
 
             val openaiBaseUrl =
                     intent.getStringExtra(MainActivity.EXTRA_OPENAI_BASE_URL)?.takeIf {
+                        it.isNotBlank()
+                    }
+
+            val otherApiKey =
+                    intent.getStringExtra(MainActivity.EXTRA_OTHER_API_KEY)?.takeIf {
+                        it.isNotBlank()
+                    }
+
+            val otherBaseUrl =
+                    intent.getStringExtra(MainActivity.EXTRA_OTHER_BASE_URL)?.takeIf {
+                        it.isNotBlank()
+                    }
+
+            val otherModelId =
+                    intent.getStringExtra(MainActivity.EXTRA_OTHER_MODEL_ID)?.takeIf {
                         it.isNotBlank()
                     }
 
@@ -123,6 +141,9 @@ data class MainActivityIntentPayload(
                     apiKey = apiKey,
                     openRouterApiKey = openRouterApiKey,
                     openaiBaseUrl = openaiBaseUrl,
+                    otherApiKey = otherApiKey,
+                    otherBaseUrl = otherBaseUrl,
+                    otherModelId = otherModelId,
                     backendType = backendType,
                     perceptionMode = perceptionMode,
                     platformMode = platformMode,

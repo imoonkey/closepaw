@@ -151,6 +151,11 @@ internal fun MainActivityContent(
                         DeepLinkPage.HOME, null -> SettingsPage.HOME
                     },
                     initialAuthTab = pendingDeepLink?.authTab,
+                    initialProvider = pendingDeepLink?.provider,
+                    otherBaseUrl = settingsState.otherBaseUrl,
+                    otherModelId = settingsState.otherModelId,
+                    onOtherBaseUrlChange = settingsState::updateOtherBaseUrl,
+                    onOtherModelIdChange = settingsState::updateOtherModelId,
                 )
             }
         }
