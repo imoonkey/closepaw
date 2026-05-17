@@ -170,8 +170,6 @@ fun SettingsSheet(
                     onDebugModeChange = onDebugModeChange,
                     traceEnabled = traceEnabled,
                     onTraceEnabledChange = onTraceEnabledChange,
-                    browserScriptEnabled = browserScriptEnabled,
-                    onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss
                 )

@@ -23,11 +23,10 @@ import kotlinx.coroutines.withContext
  * unavailable would leave the user with an LLM-visible tool that always errors and a
  * permanently-✗ status row with no actionable feedback.
  *
- * Both surfaces that flip the pref — the AgentBehavior **Tools** section and the
- * Permissions & Advanced **Experimental** section — MUST go through [gateBrowserScriptEnable]
- * (or the Compose-friendly [rememberBrowserScriptToggleGate]). Direct calls to
- * `AppSettingsState.updateBrowserScriptEnabled(true)` are a back-door now that both surfaces
- * share state.
+ * The single UI surface that flips the pref — the Agent Behavior **Tools** section — MUST go
+ * through [gateBrowserScriptEnable] (or the Compose-friendly [rememberBrowserScriptToggleGate]).
+ * Direct calls to `AppSettingsState.updateBrowserScriptEnabled(true)` are a back-door that
+ * skips the gate.
  *
  * When the binder is alive but permission is missing, the gate now requests Shizuku permission
  * inline (Shizuku service shows its own system dialog) and waits for the result before
@@ -40,8 +39,6 @@ import kotlinx.coroutines.withContext
 /** Categorized failures from the gated enable flow. */
 internal sealed interface BrowserScriptToggleError {
     data object ShizukuUnavailable : BrowserScriptToggleError
-    /** Permission missing and we did not (or could not) auto-trigger the consent dialog. */
-    data object ShizukuNeedsPermission : BrowserScriptToggleError
     /** User explicitly tapped Deny on the Shizuku consent dialog this turn. */
     data object ShizukuPermissionDenied : BrowserScriptToggleError
     data object WriteFailed : BrowserScriptToggleError
@@ -50,8 +47,6 @@ internal sealed interface BrowserScriptToggleError {
 internal fun BrowserScriptToggleError.message(): String = when (this) {
     BrowserScriptToggleError.ShizukuUnavailable ->
         "Shizuku is not running. Start Shizuku first, then enable browser_script."
-    BrowserScriptToggleError.ShizukuNeedsPermission ->
-        "Tap to grant Shizuku permission."
     BrowserScriptToggleError.ShizukuPermissionDenied ->
         "Permission denied. Tap to retry, or re-grant in Shizuku Manager."
     BrowserScriptToggleError.WriteFailed ->

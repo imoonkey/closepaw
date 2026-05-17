@@ -11,9 +11,9 @@ import kotlinx.coroutines.yield
 import org.junit.Test
 
 /**
- * Coverage for the shared `browser_script` enable gate. Both the Tools toggle and the
- * Permissions Experimental toggle must call this helper, so every branch matters: a regression
- * here re-opens the back-door where one toggle persists ON without the gating the other does.
+ * Coverage for the `browser_script` enable gate. The Agent Behavior → Tools toggle is the
+ * single UI surface that flips the pref, and every gate branch matters: a regression here
+ * re-opens the back-door where the toggle persists ON without the gating contract holding.
  *
  * The gate now requests Shizuku permission inline when binder is alive but consent is missing
  * (recovers from the post-`adb install -r` UID-mismatch trap). The new tests pin the inline
