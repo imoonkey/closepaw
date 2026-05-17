@@ -129,6 +129,7 @@ fun SettingsSheet(
                     isAccessibilityEnabled = isAccessibilityEnabled,
                     isOverlayEnabled = isOverlayEnabled,
                     debugMode = debugMode,
+                    platformMode = platformMode,
                     effectivePlatformMode = effectivePlatformMode,
                     appClassifier = appClassifier,
                     onNavigate = { settingsPage = it },
