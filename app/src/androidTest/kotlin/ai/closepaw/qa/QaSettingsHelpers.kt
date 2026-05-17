@@ -118,9 +118,6 @@ internal fun TestPermissionsPage(
             onDebugModeChange = {},
             traceEnabled = traceEnabled,
             onTraceEnabledChange = onTraceEnabledChange,
-            platformMode = PlatformMode.ACCESSIBILITY,
-            effectivePlatformMode = null,
-            onPlatformModeChange = {},
             onBack = {},
             onClose = {},
         )

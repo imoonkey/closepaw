@@ -2,17 +2,17 @@ package ai.closepaw.qa
 
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
-import ai.closepaw.ui.settings.DisplayModeSection
+import ai.closepaw.tool.AppClassifier
+import ai.closepaw.ui.settings.DisplaySection
 import ai.closepaw.ui.settings.SettingsHomePage
-import ai.closepaw.ui.settings.ShizukuStatus
 import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.assertIsNotSelected
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -25,114 +25,94 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Covers spm-qa-coverage:
- *  (a) selector toggle invokes onPlatformModeChange with correct PlatformMode
- *  (b) Virtual Display option is a no-op when ShizukuStatus is Unavailable
- *  (c) selector selection reflects persisted intent, not live effective mode
- *  (d) Home subtitle reflects effectivePlatformMode (chip present/absent)
+ * Covers spm-qa-coverage for the refactored Display Mode toggle:
+ *  (a) toggling the switch OFF invokes onPlatformModeChange(ACCESSIBILITY) unconditionally
+ *  (b) switch checked state strictly mirrors persistedMode, never effectiveMode
+ *  (c) Home page's Agent Behavior subtitle reflects effectivePlatformMode chip
+ *
+ * Note on Shizuku-gated paths: the OFF→ON gate (ShizukuUnavailable / NeedsPermission) is
+ * exercised by VirtualDisplayToggleGate JVM tests; the Compose layer here can't inject
+ * ShizukuStatus into DisplaySection without restructuring it, so we don't reproduce that
+ * coverage from the UI side.
  */
 @RunWith(AndroidJUnit4::class)
 class DisplayModeSettingsTest {
 
     @get:Rule val compose = createComposeRule()
 
-    // (a) Toggling selector calls onPlatformModeChange with the tapped mode.
-    @Test fun selector_toggle_invokes_callback_with_target_mode() {
+    // (a) Toggle OFF is unconditional — fires onPlatformModeChange(ACCESSIBILITY) with no gate.
+    @Test fun switch_toggle_off_invokes_callback_with_accessibility() {
         var lastMode: PlatformMode? = null
         compose.setContent {
-            var mode by remember { mutableStateOf(PlatformMode.ACCESSIBILITY) }
+            var mode by remember { mutableStateOf(PlatformMode.VIRTUAL_DISPLAY) }
             ClosePawTheme {
-                DisplayModeSection(
+                DisplaySection(
                     persistedMode = mode,
-                    effectiveMode = null,
-                    status = ShizukuStatus.Ready,
-                    onModeChange = {
+                    effectiveMode = PlatformMode.VIRTUAL_DISPLAY,
+                    onPlatformModeChange = {
                         lastMode = it
                         mode = it
                     },
-                    onLearnMore = {},
-                    onGrant = {},
                 )
             }
         }
 
-        // Tap Virtual Display when Shizuku Ready → callback fires with VIRTUAL_DISPLAY.
-        compose.onNodeWithText("Virtual Display").performClick()
-        assertEquals(PlatformMode.VIRTUAL_DISPLAY, lastMode)
-
-        // Tap back to Accessibility → callback fires with ACCESSIBILITY.
-        compose.onNodeWithText("Accessibility").performClick()
+        // Switch starts ON because persistedMode == VIRTUAL_DISPLAY.
+        compose.onNodeWithTag("display-mode-switch").assertIsOn()
+        compose.onNodeWithTag("display-mode-switch").performClick()
         assertEquals(PlatformMode.ACCESSIBILITY, lastMode)
+        compose.onNodeWithTag("display-mode-switch").assertIsOff()
     }
 
-    // (b) Virtual Display option must NOT invoke callback when status is Unavailable.
-    @Test fun virtual_display_option_is_noop_when_shizuku_unavailable() {
-        var callbackCount = 0
+    // (b) Switch checked state mirrors persistedMode even when effectiveMode differs —
+    //     the previous radio invariant ("only one selected") becomes "switch reflects persisted".
+    @Test fun switch_state_mirrors_persisted_mode_not_effective_mode() {
         compose.setContent {
             ClosePawTheme {
-                DisplayModeSection(
+                DisplaySection(
                     persistedMode = PlatformMode.ACCESSIBILITY,
-                    effectiveMode = null,
-                    status = ShizukuStatus.Unavailable,
-                    onModeChange = { callbackCount++ },
-                    onLearnMore = {},
-                    onGrant = {},
+                    effectiveMode = PlatformMode.VIRTUAL_DISPLAY,
+                    onPlatformModeChange = {},
                 )
             }
         }
 
-        compose.onNodeWithText("Virtual Display").performClick()
-        assertEquals(0, callbackCount)
-
-        // Sanity: the unavailable-status row is rendered, confirming the section is shown.
-        compose.onNodeWithText("Shizuku not running").assertExists()
+        // Persisted ACCESSIBILITY → switch OFF, despite live session being on VIRTUAL_DISPLAY.
+        // Mapper row 5: subtitle calls out the lingering session.
+        compose.onNodeWithTag("display-mode-switch").assertIsOff()
+        compose.onNodeWithText(
+            "Current session is still on a virtual display",
+            substring = true,
+        ).assertExists()
     }
 
-    @Test fun selector_selection_reflects_persisted_mode_not_effective_mode() {
-        compose.setContent {
-            var mode by remember { mutableStateOf(PlatformMode.ACCESSIBILITY) }
-            ClosePawTheme {
-                DisplayModeSection(
-                    persistedMode = mode,
-                    effectiveMode = PlatformMode.ACCESSIBILITY,
-                    status = ShizukuStatus.Ready,
-                    onModeChange = { mode = it },
-                    onLearnMore = {},
-                    onGrant = {},
-                )
-            }
-        }
-
-        compose.onNodeWithTag("display-mode-virtual-display").performClick()
-
-        compose.onNodeWithTag("display-mode-virtual-display").assertIsSelected()
-        compose.onNodeWithTag("display-mode-accessibility").assertIsNotSelected()
-        compose.onNodeWithText("Current session: Accessibility").assertExists()
-    }
-
-    // (d) Home subtitle includes ' · VD' / ' · A11y' chip from effectivePlatformMode,
-    //     and omits it when null.
+    // (c) Home Agent Behavior subtitle pulls a "VD" chip from effectivePlatformMode.
+    //     The old combined "Setup required · Debug off · VD" string is gone — that subtitle
+    //     was split: permissions row keeps the "· Debug" half, agent-behavior row owns "· VD".
     @Test fun home_subtitle_reflects_effective_platform_mode() {
         var current: PlatformMode? by mutableStateOf<PlatformMode?>(null)
-        compose.setContent { HomeUnderTest(effectivePlatformMode = current) }
+        compose.setContent {
+            HomeUnderTest(
+                persistedPlatformMode = PlatformMode.ACCESSIBILITY,
+                effectivePlatformMode = current,
+            )
+        }
 
-        // null → no chip; subtitle ends with "Debug off".
-        compose.onNodeWithText("Setup required · Debug off", substring = true).assertExists()
+        // null effective → perception-only subtitle "Transcript", no VD chip on screen.
+        compose.onNodeWithText("Transcript").assertExists()
         compose.onAllNodesWithText("VD", substring = true).assertCountEquals(0)
-        compose.onAllNodesWithText("A11y", substring = true).assertCountEquals(0)
 
-        // VIRTUAL_DISPLAY → chip ' · VD' appended.
+        // effective=VIRTUAL_DISPLAY, persisted=ACCESSIBILITY → chip "VD (this session)".
         current = PlatformMode.VIRTUAL_DISPLAY
-        compose.onNodeWithText("Setup required · Debug off · VD", substring = true).assertExists()
-
-        // ACCESSIBILITY → chip ' · A11y' appended.
-        current = PlatformMode.ACCESSIBILITY
-        compose.onNodeWithText("Setup required · Debug off · A11y", substring = true).assertExists()
+        compose.onNodeWithText("Transcript · VD (this session)", substring = true).assertExists()
     }
 }
 
 @androidx.compose.runtime.Composable
-private fun HomeUnderTest(effectivePlatformMode: PlatformMode?) {
+private fun HomeUnderTest(
+    persistedPlatformMode: PlatformMode,
+    effectivePlatformMode: PlatformMode?,
+) {
     ClosePawTheme {
         SettingsHomePage(
             llmBackend = LLMBackendType.OPENAI,
@@ -144,7 +124,9 @@ private fun HomeUnderTest(effectivePlatformMode: PlatformMode?) {
             isAccessibilityEnabled = false,
             isOverlayEnabled = false,
             debugMode = false,
+            platformMode = persistedPlatformMode,
             effectivePlatformMode = effectivePlatformMode,
+            appClassifier = AppClassifier(appTiers = emptyMap()),
             onNavigate = {},
             onDismiss = {},
         )
