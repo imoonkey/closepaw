@@ -21,7 +21,6 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -61,8 +60,6 @@ internal fun PermissionsAdvancedSettingsPage(
     onDebugModeChange: (Boolean) -> Unit,
     traceEnabled: Boolean,
     onTraceEnabledChange: (Boolean) -> Unit,
-    browserScriptEnabled: Boolean,
-    onBrowserScriptEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -137,13 +134,6 @@ internal fun PermissionsAdvancedSettingsPage(
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
-            SettingsSection(title = "Experimental") {
-                BrowserAutomationToggle(
-                    enabled = browserScriptEnabled,
-                    onEnabledChange = onBrowserScriptEnabledChange
-                )
-            }
-            Spacer(modifier = Modifier.height(20.dp))
             DataStorageSection(
                 traceEnabled = traceEnabled,
                 onTraceEnabledChange = onTraceEnabledChange
@@ -157,72 +147,6 @@ internal fun PermissionsAdvancedSettingsPage(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-}
-
-@Composable
-private fun BrowserAutomationToggle(
-    enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit
-) {
-    val gate = rememberBrowserScriptToggleGate(onPersist = onEnabledChange)
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.BugReport,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Browser automation (experimental)",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = "Enable browser_script for Chrome CDP automation",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (gate.pending) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-                Switch(
-                    checked = enabled,
-                    enabled = !gate.pending,
-                    // Mirror ToolsSection: wipe stale error on every tap so the user gets a
-                    // fresh attempt after they've gone off and fixed the underlying issue
-                    // (e.g. granted Shizuku) and come back.
-                    onCheckedChange = { value ->
-                        gate.clearError()
-                        gate.setEnabled(value)
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                )
-            }
-            gate.error?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = it.message(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
         }
     }
 }

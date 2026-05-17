@@ -152,8 +152,8 @@ To run the on-device browser script host test directly:
     -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.browser.script.BrowserScriptRunnerInstrumentedTest
 ```
 
-To exercise real `browser_script` from the app, enable **Settings → Permissions & Advanced →
-Browser automation (experimental)**, keep Chrome installed and the DevTools socket reachable, and
+To exercise real `browser_script` from the app, enable **Settings → Agent Behavior → Tools →
+Browser Script**, keep Chrome installed and the DevTools socket reachable, and
 make sure at least one transport is available:
 
 - **`USER_SERVICE`** (preferred) — Shizuku running and authorized for ClosePaw.

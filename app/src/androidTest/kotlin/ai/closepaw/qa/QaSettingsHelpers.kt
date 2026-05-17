@@ -118,8 +118,6 @@ internal fun TestPermissionsPage(
             onDebugModeChange = {},
             traceEnabled = traceEnabled,
             onTraceEnabledChange = onTraceEnabledChange,
-            browserScriptEnabled = false,
-            onBrowserScriptEnabledChange = {},
             platformMode = PlatformMode.ACCESSIBILITY,
             effectivePlatformMode = null,
             onPlatformModeChange = {},

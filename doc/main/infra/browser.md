@@ -9,7 +9,7 @@ Design source of truth: [projects/active/browser/cn/design_codex.md](../../../pr
 
 ## Overview
 
-`browser_script` is the single agent-facing entry point for browser automation. The tool runs
+`browser_script` is the single agent-facing entry point for driving the user's Chrome via CDP. The tool runs
 JavaScript inside an app-owned hidden WebView, but the WebView is only the script host. The target
 browser is the user's real Android Chrome profile reached through Chrome DevTools Protocol (CDP)
 over a Shizuku- or wireless-ADB-mediated transport that terminates at Chrome's
@@ -151,8 +151,7 @@ the cap are rejected synchronously without writing partial files.
 ## Settings And Policy
 
 `browserScriptEnabled` is persisted in `AppSettingsStore` as `browser_script_enabled`, defaults
-to `false`, and is exposed in Settings under **Permissions & Advanced → Experimental → Browser
-automation (experimental)**.
+to `false`, and is exposed in Settings under **Agent Behavior → Tools → Browser Script**.
 
 `ToolName.BrowserScript` is screen-changing because CDP can mutate Chrome tabs, profile state,
 dialogs, navigation, and page content even when Chrome is not foreground. `PolicyEngine` applies

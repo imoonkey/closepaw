@@ -14,25 +14,18 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -42,10 +35,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -64,9 +55,9 @@ private const val TERMUX_PACKAGE = "com.termux"
  * Row order: termux_shell first, then browser_script. SettingsTermuxRowTest indexes
  * Switches by document order (`isToggleable()[0]` = Termux), so keep Termux first.
  *
- * Toggle ON path for browser_script is gated by the shared [gateBrowserScriptEnable]
- * helper — see `BrowserScriptToggleGate.kt` for why both this surface AND Permissions &
- * Advanced go through the same gate.
+ * Agent Behavior → Tools is the single UI surface for the `browser_script` toggle (the old
+ * Permissions & Advanced → Experimental duplicate was removed). The toggle still routes
+ * through [gateBrowserScriptEnable] — see `BrowserScriptToggleGate.kt`.
  */
 @Composable
 internal fun ToolsSection(
@@ -134,6 +125,12 @@ private fun TermuxShellSettingsRow() {
 
     val displayedStatus = if (termuxShellEnabled) bridgeStatus else TermuxBridgeStatus.Disabled
     val permissionDisposition = permissionGate?.disposition()
+    val statusUi = termuxStatusUi(
+        state = bridgeStatus,
+        permissionDisposition = permissionDisposition,
+        enabledPref = termuxShellEnabled,
+    )
+
     val rowAction: (() -> Unit)? =
         when (displayedStatus) {
             TermuxBridgeStatus.NotInstalled -> {
@@ -163,125 +160,39 @@ private fun TermuxShellSettingsRow() {
             TermuxBridgeStatus.Disabled -> null
         }
 
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = rowAction != null) { rowAction?.invoke() },
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.medium
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Termux Shell",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = displayedStatus.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = displayedStatus.subtitleFor(permissionDisposition),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+    val rowClickLabel = when (displayedStatus) {
+        TermuxBridgeStatus.NotInstalled -> "Install Termux"
+        is TermuxBridgeStatus.NeedsSetup -> "Fix Termux setup"
+        TermuxBridgeStatus.Ready -> "Restart Termux bridge"
+        else -> null
+    }
 
-                if (displayedStatus == TermuxBridgeStatus.SetupInProgress) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+    ToolSettingsCard(
+        title = "Termux Shell",
+        status = statusUi,
+        switchChecked = termuxShellEnabled,
+        onSwitchChange = { enabled ->
+            scope.launch {
+                settingsStore.setTermuxShellEnabled(enabled)
+                if (enabled) {
+                    // Proactively request the dangerous permission so the user sees the system
+                    // dialog the first time they enable the toggle, instead of having to enable →
+                    // see "RUN_COMMAND missing" → tap the row → see the dialog. Skipped silently
+                    // when the gate is null (preview / unit-test ContextWrapper) or when
+                    // permission is already granted.
+                    when (permissionGate?.disposition()) {
+                        RunCommandPermissionDisposition.Request ->
+                            permissionGate.requestPermission()
+                        RunCommandPermissionDisposition.OpenAppSettings ->
+                            permissionGate.openAppSettings()
+                        RunCommandPermissionDisposition.Granted, null -> Unit
+                    }
                 }
-
-                Switch(
-                    checked = termuxShellEnabled,
-                    onCheckedChange = { enabled ->
-                        scope.launch {
-                            settingsStore.setTermuxShellEnabled(enabled)
-                            if (enabled) {
-                                // Proactively request the dangerous permission so the user sees
-                                // the system dialog the first time they enable the toggle, instead
-                                // of having to enable → see "RUN_COMMAND missing" → tap the row →
-                                // see the dialog. Skipped silently when the gate is null (preview /
-                                // unit-test ContextWrapper) or when permission is already granted.
-                                when (permissionGate?.disposition()) {
-                                    RunCommandPermissionDisposition.Request ->
-                                        permissionGate.requestPermission()
-                                    RunCommandPermissionDisposition.OpenAppSettings ->
-                                        permissionGate.openAppSettings()
-                                    RunCommandPermissionDisposition.Granted, null -> Unit
-                                }
-                            }
-                        }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                )
             }
-
-            Text(
-                text = "Setting changes apply on the next session.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp)
-            )
-        }
-    }
-}
-
-private val TermuxBridgeStatus.label: String
-    get() =
-        when (this) {
-            TermuxBridgeStatus.NotInstalled -> "Not Installed"
-            is TermuxBridgeStatus.NeedsSetup -> "Needs Setup"
-            TermuxBridgeStatus.SetupInProgress -> "Setting up…"
-            TermuxBridgeStatus.Ready -> "Ready"
-            TermuxBridgeStatus.Disabled -> "Disabled"
-        }
-
-private val TermuxBridgeStatus.subtitle: String
-    get() =
-        when (this) {
-            TermuxBridgeStatus.NotInstalled -> "Install Termux from F-Droid"
-            is TermuxBridgeStatus.NeedsSetup -> reason.toDisplayText()
-            TermuxBridgeStatus.SetupInProgress -> "This may take a minute"
-            TermuxBridgeStatus.Ready -> "Termux bridge running — tap to restart"
-            TermuxBridgeStatus.Disabled -> "Toggle to enable"
-        }
-
-/**
- * Subtitle that may vary with the runtime permission disposition. PERMISSION_MISSING is the
- * only reason whose copy depends on disposition: the row text changes between "tap to grant"
- * (system dialog still available) and "tap to open App Settings" (user picked Don't ask again
- * and only the system Settings app can flip the grant back on).
- */
-private fun TermuxBridgeStatus.subtitleFor(
-    permissionDisposition: RunCommandPermissionDisposition?,
-): String {
-    if (this is TermuxBridgeStatus.NeedsSetup &&
-        reason == NeedsSetupReason.PERMISSION_MISSING
-    ) {
-        return when (permissionDisposition) {
-            RunCommandPermissionDisposition.OpenAppSettings ->
-                "Permission permanently denied. Tap to open App Settings → Permissions."
-            RunCommandPermissionDisposition.Request,
-            RunCommandPermissionDisposition.Granted,
-            null -> "Tap to grant RUN_COMMAND permission to Termux."
-        }
-    }
-    return subtitle
+        },
+        onRowClick = rowAction,
+        onRowClickLabel = rowClickLabel,
+    )
 }
 
 /**
@@ -306,23 +217,6 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
-
-private fun NeedsSetupReason.toDisplayText(): String =
-    when (this) {
-        NeedsSetupReason.PERMISSION_MISSING -> "Tap to grant RUN_COMMAND permission to Termux."
-        NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING ->
-            "Allow external apps is disabled in Termux. Enable it, then tap setup."
-        NeedsSetupReason.TERMUX_NOT_RUNNING ->
-            "Termux is not running. Tap to open Termux, then return here."
-        NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE ->
-            "This Termux build cannot accept external commands. Install Termux from F-Droid (the Google Play build is incompatible)."
-        NeedsSetupReason.PACKAGES_MISSING -> "Missing packages — tap to install python/git/ripgrep"
-        NeedsSetupReason.BRIDGE_OUTDATED -> "Bridge daemon out of date — tap to update"
-        NeedsSetupReason.HEALTH_TIMEOUT -> "Bridge unreachable — tap to retry setup"
-        NeedsSetupReason.TERMUX_TIMEOUT -> "Termux command timed out — open Termux once and retry"
-        NeedsSetupReason.PORT_IN_USE -> "Port 18422 in use by another process"
-        NeedsSetupReason.UNKNOWN -> "Setup error — tap to retry"
-    }
 
 private fun android.content.Context.openTermuxInstallPage() {
     try {
@@ -350,165 +244,127 @@ private fun BrowserScriptToolRow(
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
 ) {
-    val gate = rememberBrowserScriptToggleGate(onPersist = onEnabledChange)
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "browser_script",
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        text = "Drive Chrome via DevTools (CDP)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (gate.pending) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-                Switch(
-                    checked = enabled,
-                    enabled = !gate.pending,
-                    // Always wipe a stale inline error on tap. setEnabled() also clears its own
-                    // error on the happy paths, but the explicit call here covers the early-bail
-                    // (pending) branch and makes the contract obvious to future readers.
-                    onCheckedChange = { value ->
-                        gate.clearError()
-                        gate.setEnabled(value)
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
-            }
-
-            gate.error?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = it.message(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
-            if (enabled && gate.error == null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                BrowserCdpStatusRow()
-            }
-        }
-    }
-}
-
-private sealed interface CdpStatusUi {
-    data object Probing : CdpStatusUi
-    data object Bound : CdpStatusUi
-    data object NotBound : CdpStatusUi
-    data object Unknown : CdpStatusUi
-}
-
-@Composable
-private fun BrowserCdpStatusRow() {
     val context = LocalContext.current
     val appContext = context.applicationContext
     val scope = rememberCoroutineScope()
+    val gate = rememberBrowserScriptToggleGate(onPersist = onEnabledChange)
     val shellRunner = remember { ShizukuShellRunner() }
     val probe = remember(shellRunner) { ChromeCdpProbe(shellRunner = shellRunner) }
     val deepLink = remember(appContext, shellRunner) {
         ChromeFlagDeepLink(context = appContext, shellRunner = shellRunner)
     }
-    var status by remember { mutableStateOf<CdpStatusUi>(CdpStatusUi.Probing) }
+    var probeState by remember {
+        mutableStateOf<BrowserScriptProbeState>(BrowserScriptProbeState.Probing)
+    }
     var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(refreshTick) {
-        status = CdpStatusUi.Probing
-        status = when (probe.probe()) {
-            ChromeCdpProbe.Result.Bound -> CdpStatusUi.Bound
-            ChromeCdpProbe.Result.NotBound -> CdpStatusUi.NotBound
-            ChromeCdpProbe.Result.Unknown -> CdpStatusUi.Unknown
+    // Only probe when the tool is actually live — enabled, gate done, no error. Probing
+    // pre-gate would cache a stale Unknown/NotBound that survives a successful Shizuku setup
+    // (the probe wouldn't re-run until refreshTick changes), leaving the row showing wrong
+    // status until the user manually taps Re-check. When probeActive flips false we also
+    // reset to Probing so a stale Bound/NotBound from a prior session doesn't leak into the
+    // mapper after a disable/re-enable cycle.
+    val probeActive = enabled && !gate.pending && gate.error == null
+    LaunchedEffect(probeActive, refreshTick) {
+        if (!probeActive) {
+            probeState = BrowserScriptProbeState.Probing
+            return@LaunchedEffect
+        }
+        probeState = BrowserScriptProbeState.Probing
+        probeState = when (probe.probe()) {
+            ChromeCdpProbe.Result.Bound -> BrowserScriptProbeState.Bound
+            ChromeCdpProbe.Result.NotBound -> BrowserScriptProbeState.NotBound
+            ChromeCdpProbe.Result.Unknown -> BrowserScriptProbeState.Unknown
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        when (val s = status) {
-            CdpStatusUi.Probing -> StatusLine(
-                label = "Checking Chrome devtools socket…",
-                showSpinner = true,
-            )
-            CdpStatusUi.Bound -> StatusLine(label = "✓ Active")
-            CdpStatusUi.NotBound, CdpStatusUi.Unknown -> {
-                // Honest status text. The previous "Could not check status (Shizuku?)" copy
-                // implied Shizuku was missing, but on a real nubia P0110 we observed it firing
-                // even when Shizuku was granted and active — the probe simply couldn't get a
-                // definitive answer. Tell the user that, and surface the manual-paste path
-                // below so they can recover without re-tapping Re-check forever.
-                StatusLine(
-                    label = if (s is CdpStatusUi.NotBound) {
-                        "✗ Chrome devtools socket not exposed"
-                    } else {
-                        "? Cannot probe socket on this device"
-                    },
-                )
-                Text(
-                    text = if (s is CdpStatusUi.NotBound) {
-                        "Open Chrome's flags page, enable " +
-                                "“Enable command line on non-rooted devices”, " +
-                                "then restart Chrome."
-                    } else {
-                        "If you've already enabled the flag and restarted Chrome, " +
-                                "the agent will still try to connect when needed — the probe " +
-                                "just couldn't read the system file on this device."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(
-                    onClick = { scope.launch { deepLink.open() } },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    Text(text = "Open chrome://flags →", style = MaterialTheme.typography.labelLarge)
-                }
-                // Inline manual-paste recovery. Always rendered alongside the CTA so the user
-                // sees the URL even when ACTION_VIEW or `am start` "succeed" but Chrome
-                // silently drops the navigation (real, observed on nubia P0110). The Toast in
-                // ChromeFlagDeepLink is transient and frequently obscured by Chrome opening
-                // on top — this surface is durable.
-                FlagUrlInlineHelp(
-                    onCopy = {
-                        val ok = deepLink.copyFlagUrlToClipboard()
-                        Toast.makeText(
-                            context,
-                            if (ok) "URL copied to clipboard" else "Copy failed — try again",
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    },
-                )
-                OutlinedButton(
-                    onClick = { refreshTick++ },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Text(text = "Re-check", style = MaterialTheme.typography.labelLarge)
-                }
+    val statusResult = browserScriptStatusUi(
+        enabledPref = enabled,
+        gatePending = gate.pending,
+        gateError = gate.error,
+        probeResult = probeState,
+    )
+
+    val rowAction: (() -> Unit)? = when (statusResult.rowAction) {
+        RowAction.ClearErrorAndRetry -> {
+            {
+                gate.clearError()
+                gate.setEnabled(true)
             }
         }
+        RowAction.None, null -> null
     }
+    val rowClickLabel = when (statusResult.rowAction) {
+        RowAction.ClearErrorAndRetry -> "Retry Shizuku setup"
+        RowAction.None, null -> null
+    }
+
+    // Expanded help only when the tool is on, no gate error, and the probe failed/was inconclusive.
+    // NotBound gets the explicit chrome://flags Button; Unknown skips it (Chrome may already be
+    // configured — there's nothing to fix) and just shows the manual-paste URL + Re-check.
+    val showExpandedHelp = enabled && gate.error == null &&
+        (probeState is BrowserScriptProbeState.NotBound ||
+                probeState is BrowserScriptProbeState.Unknown)
+
+    ToolSettingsCard(
+        title = "Browser Script",
+        status = statusResult.status,
+        switchChecked = enabled,
+        switchEnabled = !gate.pending,
+        // Always wipe a stale inline error on tap. setEnabled() also clears its own error on the
+        // happy paths, but the explicit call here covers the early-bail (pending) branch and
+        // makes the contract obvious to future readers.
+        onSwitchChange = { value ->
+            gate.clearError()
+            gate.setEnabled(value)
+        },
+        onRowClick = rowAction,
+        onRowClickLabel = rowClickLabel,
+        expanded = if (showExpandedHelp) {
+            {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (probeState is BrowserScriptProbeState.NotBound) {
+                        Button(
+                            onClick = { scope.launch { deepLink.open() } },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
+                        ) {
+                            Text(
+                                text = "Open chrome://flags →",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                    // Inline manual-paste recovery. Always rendered alongside the CTA so the user
+                    // sees the URL even when ACTION_VIEW or `am start` "succeed" but Chrome
+                    // silently drops the navigation (real, observed on nubia P0110). The Toast in
+                    // ChromeFlagDeepLink is transient and frequently obscured by Chrome opening
+                    // on top — this surface is durable.
+                    FlagUrlInlineHelp(
+                        onCopy = {
+                            val ok = deepLink.copyFlagUrlToClipboard()
+                            Toast.makeText(
+                                context,
+                                if (ok) "URL copied to clipboard" else "Copy failed — try again",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        },
+                    )
+                    OutlinedButton(
+                        onClick = { refreshTick++ },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(text = "Re-check", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+        } else null,
+    )
 }
 
 /**
@@ -544,23 +400,5 @@ private fun FlagUrlInlineHelp(onCopy: () -> Unit) {
                 Text(text = "Copy URL", style = MaterialTheme.typography.labelLarge)
             }
         }
-    }
-}
-
-@Composable
-private fun StatusLine(label: String, showSpinner: Boolean = false) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (showSpinner) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(14.dp),
-                strokeWidth = 2.dp,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
     }
 }
