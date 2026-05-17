@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -399,7 +400,11 @@ private fun ApiKeyTabContent(
                     shape = SegmentedButtonDefaults.itemShape(
                         index = index,
                         count = API_KEY_PROVIDERS.size
-                    )
+                    ),
+                    // Drop the default leading-checkmark slot: "OpenRouter" truncates
+                    // when the icon eats into the (already weight-distributed) cell.
+                    // The pill background + label weight already signal selection.
+                    icon = {},
                 ) {
                     Text(provider.displayLabel)
                 }
@@ -615,6 +620,7 @@ private fun OtherBaseUrlField(value: String, onValueChange: (String) -> Unit) {
             )
         },
         singleLine = true,
+        shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
@@ -636,6 +642,7 @@ private fun OtherModelIdField(value: String, onValueChange: (String) -> Unit) {
             )
         },
         singleLine = true,
+        shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
