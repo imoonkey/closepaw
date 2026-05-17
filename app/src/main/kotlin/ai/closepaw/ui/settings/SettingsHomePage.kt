@@ -183,23 +183,31 @@ private fun permissionsSubtitle(
 /**
  * Subtitle for the App Access entry on the Settings home page.
  *
- * `N` (apps customized) tracks the live `userOverrides` map via `collectAsState`.
- * `M` (restricted) is the count of bundled-BLOCKED packages among the currently
- * installed apps. The set of installed apps is effectively constant for the
- * lifetime of the sheet, so we scan once via `produceState` and cache the count;
- * if the scan hasn't finished yet, render the count as `…` rather than block.
+ * Counts installed apps per effective tier (allow / ask / reject). The installed
+ * app set is effectively constant, but tier classification depends on the live
+ * `userOverrides` map, so we re-scan when overrides change. While the IO scan
+ * is in flight, render `…` rather than block.
  */
 @Composable
 private fun appAccessSubtitle(classifier: AppClassifier): String {
     val context = LocalContext.current
     val overrides by classifier.userOverrides.collectAsState()
-    val restrictedCount by produceState<Int?>(initialValue = null, context, classifier) {
+    val counts by produceState<Triple<Int, Int, Int>?>(
+        initialValue = null, context, classifier, overrides,
+    ) {
         value = withContext(Dispatchers.IO) {
-            AppManager.getInstalledApps(context.packageManager).count { info ->
-                classifier.bundledTier(info.packageName) == AppTier.BLOCKED
+            var allow = 0
+            var ask = 0
+            var reject = 0
+            AppManager.getInstalledApps(context.packageManager).forEach { info ->
+                when (classifier.classify(info.packageName)) {
+                    AppTier.NORMAL -> allow++
+                    AppTier.CAUTIOUS -> ask++
+                    AppTier.BLOCKED -> reject++
+                }
             }
+            Triple(allow, ask, reject)
         }
     }
-    val restrictedLabel = restrictedCount?.toString() ?: "…"
-    return "${overrides.size} apps customized · $restrictedLabel restricted"
+    return counts?.let { (a, k, r) -> "$a Allow · $k Ask · $r Reject" } ?: "…"
 }
