@@ -1,6 +1,7 @@
 package ai.closepaw.app
 
 import android.content.Context
+import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.AVAILABLE_LOCAL_MODELS
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 data class AppSettings(
         val selectedModel: String,
@@ -37,7 +39,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_LLM_BACKEND = "llm_backend"
         private const val KEY_LOCAL_MODEL_ID = "local_model_id"
         private const val KEY_PLATFORM_MODE = "platform_mode"
-        private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
+        private const val KEY_USER_APP_OVERRIDES = "user_app_overrides"
         private const val KEY_TRACE_ENABLED = "trace_enabled"
         private const val KEY_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
         private const val KEY_TERMUX_SHELL_ENABLED = "termux_shell_enabled"
@@ -201,12 +203,31 @@ class AppSettingsStore(private val context: Context) {
         prefs().edit().putString(KEY_LOCAL_MODEL_ID, model.id).apply()
     }
 
-    // ===== Persistent allow-list =====
+    // ===== User app overrides =====
 
-    fun loadPersistentAllowList(): Set<String> =
-        prefs().getStringSet(KEY_USER_ALLOWED_PACKAGES, emptySet()) ?: emptySet()
+    fun loadUserAppOverrides(): Map<String, AppTier> {
+        val raw = prefs().getString(KEY_USER_APP_OVERRIDES, null) ?: return emptyMap()
+        return try {
+            val obj = JSONObject(raw)
+            buildMap {
+                for (key in obj.keys()) {
+                    val tier = AppTier.fromString(obj.optString(key))
+                    if (tier != null) put(key, tier)
+                }
+            }
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
 
-    fun savePersistentAllowList(packages: Set<String>) {
-        prefs().edit().putStringSet(KEY_USER_ALLOWED_PACKAGES, packages).apply()
+    fun saveUserAppOverrides(overrides: Map<String, AppTier>) {
+        val editor = prefs().edit()
+        if (overrides.isEmpty()) {
+            editor.remove(KEY_USER_APP_OVERRIDES).apply()
+            return
+        }
+        val obj = JSONObject()
+        for ((pkg, tier) in overrides) obj.put(pkg, tier.name)
+        editor.putString(KEY_USER_APP_OVERRIDES, obj.toString()).apply()
     }
 }
