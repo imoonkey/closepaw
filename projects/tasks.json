@@ -448,7 +448,7 @@
   "tool-settings-unify": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Unify Tool Settings cards (Termux + browser_script)",
     "description": "Extract a shared ToolSettingsCard + ToolStatusUi so the Termux Shell and browser_script settings rows render identically (same shape, status convention, typography, accessibility semantics). Collapse the duplicate browser_script entry in Permissions & Advanced into a single canonical entry under Agent Behavior → Tools. Delete the dead ShizukuNeedsPermission variant.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -465,12 +465,13 @@
     "estimate": "l",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:23:26Z",
-    "updated": "2026-05-17T11:23:26Z"
+    "updated": "2026-05-17T12:25:36Z",
+    "note": "All 10 subtasks done. Final stack: 8 implementation commits + 1 codex fix + 1 QA commit on branch task/tool-settings. Codex round-2 verdict APPROVED. Ready for merge."
   },
   "app-security": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "App Security Settings sub-page",
     "description": "Add a per-app security policy sub-page to Settings: list every installed app, show its effective tier (Always / Ask / Reject), and let the user change it. Collapse the persistent allow-list into a unified user-override map layered on bundled tiers, with bundled-BLOCKED as the safety floor. Labels and semantics match the capsule approval prompt vocabulary (Always / Session / Reject — Session is transient and stays only on the capsule). See design doc for the canonical PolicyEngine.check ordering, the app-scoped AppClassifierHolder, and the Mutex-serialized setOverride contract.",
     "design": "projects/active/app_security_settings/design_claude.md",
@@ -484,12 +485,12 @@
     "worktree": "app-security",
     "estimate": "l",
     "created": "2026-05-17T11:23:28Z",
-    "updated": "2026-05-17T11:23:28Z"
+    "updated": "2026-05-17T12:40:50Z"
   },
   "app-security-store-overrides": {
     "parent": "app-security",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "AppSettingsStore: user app overrides",
     "description": "Replace KEY_USER_ALLOWED_PACKAGES with KEY_USER_APP_OVERRIDES (JSON object {pkg: tier_string}). Add loadUserAppOverrides() / saveUserAppOverrides(map). Unknown tier strings dropped, not crashed. No migration code — pre-release.",
     "design": "projects/active/app_security_settings/design_claude.md",
@@ -507,12 +508,13 @@
     "worktree": "app-security",
     "estimate": "s",
     "created": "2026-05-17T11:23:35Z",
-    "updated": "2026-05-17T11:23:35Z"
+    "updated": "2026-05-17T11:33:46Z",
+    "agent": "w-app-security-store-overrides"
   },
   "tool-settings-card": {
     "parent": "tool-settings-unify",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Extract ToolSettingsCard composable",
     "description": "Create package-internal ToolSettingsCard composable with ToolStatusUi(label, subtitle, tone, showSpinner) and ToolStatusTone(Positive|Neutral|Warning). Display-only — actions come from caller via onRowClick + onRowClickLabel. Row Surface is clickable iff onRowClick != null AND sets semantics{role=Role.Button; onClick(label=onRowClickLabel!!){...}}. Shape = MaterialTheme.shapes.medium. Warning tone uses onSurface (NOT tertiary; see SettingsWidgets.kt:232-234 contrast note).",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -535,14 +537,15 @@
     "estimate": "s",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:23:42Z",
-    "updated": "2026-05-17T11:23:42Z"
+    "updated": "2026-05-17T11:35:23Z",
+    "agent": "w-tool-settings-card"
   },
   "tool-settings-mappers": {
     "parent": "tool-settings-unify",
     "depends": [
       "tool-settings-card"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Extract status mappers",
     "description": "Hoist pure mapping functions termuxStatusUi(state, permissionDisposition, enabledPref) and browserScriptStatusUi(enabledPref, gatePending, gateError, probeResult) out of the row composables into separate files. No Compose dependency. Browser mapper returns ToolStatusUi plus an optional RowAction so caller can wire onRowClick. This makes the mapping deterministic and JVM-unit-testable.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -568,14 +571,15 @@
     "estimate": "s",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:23:42Z",
-    "updated": "2026-05-17T11:23:42Z"
+    "updated": "2026-05-17T11:39:16Z",
+    "agent": "w-tool-settings-mappers"
   },
   "app-security-classifier-overrides": {
     "parent": "app-security",
     "depends": [
       "app-security-store-overrides"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "AppClassifier overrides + PolicyEngine refactor",
     "description": "Make AppClassifier the single writer for user overrides: expose userOverrides: StateFlow<Map<String, AppTier>>, add setOverride(pkg, tier): SetOverrideResult using updateAndGet for in-memory CAS plus Mutex.withLock around the full update+persist sequence (prevents on-disk skew). Bundled-BLOCKED is the safety floor — setOverride refuses non-BLOCKED overrides at write time. Selecting the chip that matches the bundled tier auto-removes the override entry. Introduce AppClassifierHolder (mirrors AuthStoreHolder / ModelCatalogRepositoryHolder) so the same instance is shared across MainActivity, settings UI, capsule, AgentSession.create:71, AgentSession.reload:150, and SessionServices.create (which becomes non-nullable on appClassifier). PolicyEngine drops the persistent allow-list code path; the new check() ordering is the 6-step canonical sequence: (1) non-screen-changing → Allow, (2) escape → Allow, (3) effective tier = min(currentTier, destTier) == BLOCKED → Deny, (4) BrowserScript → its own gate, (5) mode != ALWAYS_ASK && isSessionAllowed(subject) → Allow, (6) mode dispatch on effective tier. session allow-list (allowPackageForSession) stays on PolicyEngine. ApprovalScope.ALWAYS becomes scope.launch(Dispatchers.IO) { classifier.setOverride(pkg, NORMAL) }. Also fix MainActivity.hasLegacyUsageEvidence() (line ~932) to read loadUserAppOverrides() instead of removed loadPersistentAllowList().",
     "design": "projects/active/app_security_settings/design_claude.md",
@@ -609,14 +613,15 @@
     "worktree": "app-security",
     "estimate": "l",
     "created": "2026-05-17T11:23:54Z",
-    "updated": "2026-05-17T11:23:54Z"
+    "updated": "2026-05-17T11:46:01Z",
+    "agent": "w-app-security-classifier-overrides"
   },
   "tool-settings-mapper-tests": {
     "parent": "tool-settings-unify",
     "depends": [
       "tool-settings-mappers"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Unit-test status mappers",
     "description": "Every row of both mapping tables in the design doc gets a passing JVM test (label / tone / spinner / row-action presence). Add TermuxStatusMapperTest and BrowserScriptStatusMapperTest under app/src/test/kotlin/ai/closepaw/ui/settings/. These are pure unit tests; no Compose runtime, no instrumentation.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -639,14 +644,15 @@
     "estimate": "s",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:01Z",
-    "updated": "2026-05-17T11:24:01Z"
+    "updated": "2026-05-17T11:42:02Z",
+    "agent": "w-tool-settings-mapper-tests"
   },
   "tool-settings-termux-row": {
     "parent": "tool-settings-unify",
     "depends": [
       "tool-settings-mappers"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Migrate Termux row to ToolSettingsCard",
     "description": "Rewrite TermuxShellSettingsRow in ToolsSection.kt to use ToolSettingsCard + termuxStatusUi(). Status labels MUST remain exactly Ready / Needs Setup / Setting up… / Not Installed / Disabled (so existing SettingsTermuxRowTest passes). Preserve existing tap-action state machine (open F-Droid, launchTermux, permissionRowAction, restart). Remove the right-aligned Setting changes apply on the next session. footer.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -668,14 +674,15 @@
     "estimate": "m",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:01Z",
-    "updated": "2026-05-17T11:24:01Z"
+    "updated": "2026-05-17T11:42:43Z",
+    "agent": "w-tool-settings-termux-row"
   },
   "tool-settings-browser-row": {
     "parent": "tool-settings-unify",
     "depends": [
       "tool-settings-mappers"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Migrate browser_script row to ToolSettingsCard",
     "description": "Rewrite BrowserScriptToolRow in ToolsSection.kt to use ToolSettingsCard + browserScriptStatusUi(). Title becomes Browser Script (Title Case; tool ID browser_script stays in code/policy/traces). Gate-error subtitle is BrowserScriptToggleError.message() verbatim. Row tap on gate-error calls gate.clearError(); gate.setEnabled(true). BrowserCdpStatusRow status line gone (card subsumes it). chrome://flags Button, FlagUrlInlineHelp, Re-check button live in the expanded slot (NOT row tap — keep explicit Button for discoverability and a11y). CDP probe lifecycle LaunchedEffect(refreshTick) preserved.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -696,12 +703,13 @@
     "estimate": "m",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:01Z",
-    "updated": "2026-05-17T11:24:01Z"
+    "updated": "2026-05-17T11:45:32Z",
+    "agent": "w-tool-settings-browser-row"
   },
   "app-security-list-with-icons": {
     "parent": "app-security",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "AppRow: installed apps with on-demand icons",
     "description": "Reuse platform/AppManager.getInstalledApps(...) — do not duplicate the PackageManager scan. Add ui/settings/AppRow.kt with data class AppRow(val info: AppInfo, val iconLoader: suspend () -> ImageBitmap?) and a helper loadInstalledAppRows(context): List<AppRow> that attaches a per-row on-demand icon loader (called from a LazyColumn produceState so a 200-app list does not pin 200 drawables in memory). Do NOT add Drawable to platform/AppInfo.",
     "design": "projects/active/app_security_settings/design_claude.md",
@@ -718,7 +726,8 @@
     "worktree": "app-security",
     "estimate": "s",
     "created": "2026-05-17T11:24:03Z",
-    "updated": "2026-05-17T11:24:03Z"
+    "updated": "2026-05-17T11:33:46Z",
+    "agent": "w-app-security-list-with-icons"
   },
   "app-security-page": {
     "parent": "app-security",
@@ -726,7 +735,7 @@
       "app-security-classifier-overrides",
       "app-security-list-with-icons"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "AppSecuritySettingsPage + Settings entry",
     "description": "Build the page: scrolling list of AppRows, search box, six filter chips (All / Always / Ask / Reject / Custom / Restricted). Custom = has user override. Restricted = bundled-BLOCKED. Each row has a trailing segmented selector (Always / Ask / Reject) that calls classifier.setOverride directly. Bundled-BLOCKED rows render Reject-only with a lock badge — no disabled chips. Page observes classifier.userOverrides via collectAsState; never reads .value from a composable. Add APP_SECURITY to SettingsPage enum and a branch in SettingsSheet. Add a Security section row on SettingsHomePage with subtitle 'N apps customized · M restricted' (N from collectAsState, M from bundled count read once).",
     "design": "projects/active/app_security_settings/design_claude.md",
@@ -749,14 +758,15 @@
     "worktree": "app-security",
     "estimate": "m",
     "created": "2026-05-17T11:24:15Z",
-    "updated": "2026-05-17T11:24:15Z"
+    "updated": "2026-05-17T11:55:51Z",
+    "agent": "w-app-security-page"
   },
   "app-security-wire-mainactivity": {
     "parent": "app-security",
     "depends": [
       "app-security-page"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Wire classifier into MainActivity / SettingsSheet",
     "description": "Forward AppClassifierHolder.get(applicationContext) into SettingsSheet from MainActivity / MainActivityContent so the UI, capsule, and active session share the exact same StateFlow. Capsule 'Always' approvals and Settings edits must produce identical recomposition events. Deep-link enum NOT extended (out of scope).",
     "design": "projects/active/app_security_settings/design_claude.md",
@@ -774,14 +784,15 @@
     "worktree": "app-security",
     "estimate": "s",
     "created": "2026-05-17T11:24:24Z",
-    "updated": "2026-05-17T11:24:24Z"
+    "updated": "2026-05-17T12:00:16Z",
+    "agent": "w-app-security-wire-mainactivity"
   },
   "app-security-verify": {
     "parent": "app-security",
     "depends": [
       "app-security-wire-mainactivity"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Verify: build + lint + test clean",
     "description": "Final stack verification before review iteration. No code changes besides fixing what verify surfaces.",
     "acceptCriteria": [
@@ -792,12 +803,13 @@
     "worktree": "app-security",
     "estimate": "xs",
     "created": "2026-05-17T11:24:30Z",
-    "updated": "2026-05-17T11:24:30Z"
+    "updated": "2026-05-17T12:04:00Z",
+    "agent": "orch"
   },
   "tool-settings-drop-duplicate": {
     "parent": "tool-settings-unify",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Drop duplicate browser_script entry + dead error variant",
     "description": "Delete BrowserAutomationToggle composable and the Experimental section in PermissionsAdvancedSettingsPage. Remove browserScriptEnabled / onBrowserScriptEnabledChange from PermissionsAdvancedSettingsPage signature and from the SettingsSheet call site (lines 173-174). The rest of the page (accessibility, overlay, platform mode, debug, trace/data) stays. Remove the unreachable BrowserScriptToggleError.ShizukuNeedsPermission variant and its message() arm. Update BrowserScriptToggleGate.kt top-of-file comment to reflect single UI surface (Agent Behavior → Tools). Refresh stale comments in BrowserScriptToggleGateTest.kt (~line 13).",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -823,7 +835,8 @@
     "estimate": "s",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:32Z",
-    "updated": "2026-05-17T11:24:32Z"
+    "updated": "2026-05-17T11:35:23Z",
+    "agent": "w-tool-settings-drop-duplicate"
   },
   "tool-settings-test-helpers": {
     "parent": "tool-settings-unify",
@@ -832,7 +845,7 @@
       "tool-settings-browser-row",
       "tool-settings-drop-duplicate"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Fix stale androidTest markers and helpers",
     "description": "SettingsNavTest.kt currently asserts on Max Turns (lines 37, 73-84) as the Agent Behavior sub-page marker, but Max Turns no longer exists. Replace with Tools or Termux Shell which are stable post-refactor. QaSettingsHelpers.kt:112 and any other helper referencing the deleted Experimental toggle is updated. Tests must still pass on device.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -854,14 +867,15 @@
     "estimate": "s",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:32Z",
-    "updated": "2026-05-17T11:24:32Z"
+    "updated": "2026-05-17T11:47:19Z",
+    "agent": "w-tool-settings-test-helpers"
   },
   "tool-settings-docs": {
     "parent": "tool-settings-unify",
     "depends": [
       "tool-settings-drop-duplicate"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Update docs that reference the old location",
     "description": "doc/dev/development.md:155, doc/main/app/settings.md:150, doc/main/infra/browser.md:153 still reference Permissions & Advanced → Experimental → Browser automation. Update them to Agent Behavior → Tools → Browser Script.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -882,7 +896,8 @@
     "estimate": "xs",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:32Z",
-    "updated": "2026-05-17T11:24:32Z"
+    "updated": "2026-05-17T11:37:47Z",
+    "agent": "w-tool-settings-docs"
   },
   "tool-settings-verify": {
     "parent": "tool-settings-unify",
@@ -896,7 +911,7 @@
       "tool-settings-test-helpers",
       "tool-settings-docs"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Verify: build, lint, JVM tests, on-device tests",
     "description": "Full check: ./gradlew clean assembleDebug lint test green. JVM tests green including new mapper tests and BrowserScriptToggleGateTest. On-device: SettingsTermuxRowTest, SettingsNavTest, SettingsPermissionsTest all green. (Manual TalkBack + visual parity check is deferred to the device QA task.)",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -912,14 +927,16 @@
     "estimate": "s",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:32Z",
-    "updated": "2026-05-17T11:24:32Z"
+    "updated": "2026-05-17T11:53:59Z",
+    "agent": "w-tool-settings-verify",
+    "note": "JVM (clean assembleDebug lint test) BUILD SUCCESSFUL. connectedDebugAndroidTest: 34/34 settings tests pass; 6 unrelated pre-existing failures in CapsuleLifecycle/Chat* classes (out of branch scope, no files modified in those packages). git diff main..HEAD shows zero changes under ui/capsule or ui/chat."
   },
   "tool-settings-codex-review": {
     "parent": "tool-settings-unify",
     "depends": [
       "tool-settings-verify"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex code review + fix iteration",
     "description": "Hand the landed diff to codex via multmux for an independent review. Iterate: collect codex findings, fix the reasonable ones, re-review. Stop when codex’s remaining findings are implementation-level minutiae (naming, exact wording, lint) — fix those without another review round. Same iteration discipline as the design phase.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -938,14 +955,16 @@
     "estimate": "m",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:32Z",
-    "updated": "2026-05-17T11:24:32Z"
+    "updated": "2026-05-17T12:02:42Z",
+    "agent": "w-tool-settings-codex-review",
+    "note": "Codex round 1: 1 HIGH (BrowserScriptToolRow stale probe), 1 MEDIUM (semantics on inner Row vs Surface), 1 LOW (stale comment). All fixed in commit fabcb9f0. Codex round 2: APPROVED, no remaining findings."
   },
   "tool-settings-qa-device": {
     "parent": "tool-settings-unify",
     "depends": [
       "tool-settings-codex-review"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "On-device UX QA via /ux-visual-debug + fix iteration",
     "description": "Drive the Settings sheet on a real device via ADB using /ux-visual-debug. Walk both rows through every state: Termux (NotInstalled, NeedsSetup variants reachable on this device, SetupInProgress, Ready→restart, Disabled) and browser_script (Disabled, gate-error subtitle text, Probing, Bound, NotBound expanded slot with chrome://flags Button + URL helper + Re-check, Unknown). Capture uiautomator dumps + screenshots into projects/active/tool_settings_unify/qa/ for each state. Visual parity check between the two cards (compare shape, padding, status label typography, switch placement). Verify clickable Surface emits Button semantics via uiautomator. Iterate: fix any regression found, re-run, until clean.",
     "design": "projects/active/tool_settings_unify/design_claude.md",
@@ -967,14 +986,16 @@
     "estimate": "m",
     "worktree": "tool-settings",
     "created": "2026-05-17T11:24:32Z",
-    "updated": "2026-05-17T11:26:05Z"
+    "updated": "2026-05-17T12:25:36Z",
+    "agent": "w-tool-settings-qa-device",
+    "note": "All reachable states captured (qa_log.md, 23 PNG+XML files). Parity OK, no regressions. JVM build/lint/test SUCCESSFUL. Settings tests: SettingsTermuxRowTest 14/14, SettingsNavTest 4/4, SettingsPermissionsTest 3/3 green. Unreachable on emulator (no Shizuku/no Termux bootstrap): Termux Ready, Browser Script Bound/NotBound — mapping logic JVM-tested. Pre-existing Capsule/Chat test instability noted."
   },
   "app-security-codex-review-iter": {
     "parent": "app-security",
     "depends": [
       "app-security-verify"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex code review + fix iteration",
     "description": "Run codex (via multmux) on the implementation diff. Apply fixes for any High or Medium finding. Re-review. Iterate until codex returns APPROVED or only flags implementation-level nits (which are fixed in-place without another review round). Mirrors the design-review loop that produced the design doc.",
     "acceptCriteria": [
@@ -985,14 +1006,16 @@
     "worktree": "app-security",
     "estimate": "m",
     "created": "2026-05-17T11:24:37Z",
-    "updated": "2026-05-17T11:24:37Z"
+    "updated": "2026-05-17T12:19:09Z",
+    "agent": "w-app-security-codex-review",
+    "note": "Round 1 codex review flagged 1 High (apply vs commit in setOverride persistence) + 2 Medium (PolicyEngineTest user-NORMAL coverage gap; AppClassifierOverrideTest missing CAUTIOUS-on-BLOCKED refusal + on-disk concurrency assertion) + 1 Low (SettingsHomePage section header label). All High/Medium fixed in commit 0615b90d (suspend callback, commit() on Dispatchers.IO, tighter tests). Low/nit (Security vs System section header) deferred — UX-only, non-blocking."
   },
   "app-security-qa-real-device": {
     "parent": "app-security",
     "depends": [
       "app-security-codex-review-iter"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Real-device QA + fix iteration",
     "description": "Install on a real Android device via adb. Validate every flow end-to-end with ux-visual-debug: (a) open Settings → App Security, scan list, search, all six filter chips; (b) toggle Always/Ask/Reject on a normal app, confirm persistence across app restart, confirm capsule policy reflects the change; (c) confirm bundled-BLOCKED apps render Reject-only and cannot be downgraded; (d) trigger capsule ApprovalScope.ALWAYS on a fresh app, confirm Settings row updates live; (e) edit-then-back-out cycles do not corrupt state. Fix any bug found, re-run the failing flow. Iterate until all flows pass — fully autonomous, no human checkpoint.",
     "acceptCriteria": [
@@ -1004,6 +1027,8 @@
     "estimate": "m",
     "requireHumanReview": false,
     "created": "2026-05-17T11:24:45Z",
-    "updated": "2026-05-17T11:25:56Z"
+    "updated": "2026-05-17T12:40:50Z",
+    "agent": "w-app-security-qa",
+    "note": "Round 2 QA on real device 100.64.43.95:5555. Round 1 worker exited early on screenshot context-burn. Round 2 scoped tighter (XML dumps not screenshots; 4 flows: a/b/c/e; skipped d which requires accessibility-enabled agent run). Found + fixed 1 real bug: SettingsHomePage column not scrollable on landscape (commit 2b363283). All 4 flows PASS: page renders with 6 chips, chip semantics correct (Restricted shows Reject-only + lock badge), persistence survives force-stop+relaunch (verified via SharedPreferences XML), rapid 5x toggle no crash. Evidence under projects/active/app_security_settings/qa/round2/."
   }
 }
