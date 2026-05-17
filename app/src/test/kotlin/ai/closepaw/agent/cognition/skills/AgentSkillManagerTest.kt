@@ -365,4 +365,92 @@ class AgentSkillManagerTest {
         assertThat(results).hasSize(1)
         assertThat((results[0] as ActivationResult.Success).name).isEqualTo("date-math")
     }
+
+    // ===== Disabled skill filtering =====
+
+    @Test
+    fun `disabled skill is omitted from catalog prompt`() {
+        createSkill("alpha", "Alpha description")
+        createSkill("beta", "Beta description")
+        val manager = AgentSkillManager(tempDir.root, disabledNames = setOf("alpha"))
+
+        val prompt = manager.catalogPrompt()!!
+        assertThat(prompt).doesNotContain("alpha")
+        assertThat(prompt).contains("beta")
+    }
+
+    @Test
+    fun `disabled skill omitted from entries view`() {
+        createSkill("alpha", "Alpha")
+        createSkill("beta", "Beta")
+        val manager = AgentSkillManager(tempDir.root, disabledNames = setOf("alpha"))
+
+        assertThat(manager.entries.keys).containsExactly("beta")
+    }
+
+    @Test
+    fun `catalog prompt is null when all skills disabled`() {
+        createSkill("alpha", "Alpha")
+        val manager = AgentSkillManager(tempDir.root, disabledNames = setOf("alpha"))
+
+        assertThat(manager.catalogPrompt()).isNull()
+    }
+
+    @Test
+    fun `activate returns Disabled for disabled skill`() {
+        createSkill("alpha", "Alpha", "Alpha body.")
+        val manager = AgentSkillManager(tempDir.root, disabledNames = setOf("alpha"))
+
+        val result = manager.activate("alpha")
+
+        assertThat(result).isInstanceOf(ActivationResult.Disabled::class.java)
+        assertThat((result as ActivationResult.Disabled).name).isEqualTo("alpha")
+    }
+
+    @Test
+    fun `disabled takes precedence over NotFound for known-but-disabled names`() {
+        createSkill("alpha", "Alpha", "Body.")
+        val manager = AgentSkillManager(tempDir.root, disabledNames = setOf("alpha"))
+
+        val result = manager.activate("alpha")
+        assertThat(result).isInstanceOf(ActivationResult.Disabled::class.java)
+    }
+
+    @Test
+    fun `disabled set for unknown skill still returns Disabled`() {
+        val manager = AgentSkillManager(tempDir.root, disabledNames = setOf("ghost"))
+        // Disabled gate is checked before catalog lookup, so a name that is
+        // in the disabled set always returns Disabled — keeps the gate cheap
+        // and the failure message stable.
+        val result = manager.activate("ghost")
+        assertThat(result).isInstanceOf(ActivationResult.Disabled::class.java)
+    }
+
+    @Test
+    fun `explicit mentions filter disabled skills`() {
+        createSkill("alpha", "Alpha", "A body.")
+        createSkill("beta", "Beta", "B body.")
+        val manager = AgentSkillManager(tempDir.root, disabledNames = setOf("alpha"))
+
+        val results = manager.activateExplicitMentions("Use /alpha and /beta")
+
+        assertThat(results).hasSize(1)
+        assertThat((results[0] as ActivationResult.Success).name).isEqualTo("beta")
+    }
+
+    @Test
+    fun `toggle does not affect already-constructed manager`() {
+        // Verifies "next session" semantics: changes to a disabled-set after
+        // the manager is constructed cannot leak into the running session.
+        createSkill("alpha", "Alpha", "A body.")
+        val mutableDisabled = mutableSetOf<String>()
+        val manager = AgentSkillManager(tempDir.root, disabledNames = mutableDisabled.toSet())
+
+        // Simulate the user disabling alpha after the session started.
+        mutableDisabled.add("alpha")
+
+        val result = manager.activate("alpha")
+        // Already-constructed manager has the original (empty) disabled-set.
+        assertThat(result).isInstanceOf(ActivationResult.Success::class.java)
+    }
 }

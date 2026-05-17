@@ -149,8 +149,11 @@ class SessionServices internal constructor(
 
             val skillsDir = java.io.File(context.filesDir, "skills")
             installBundledAgentSkills(context, skillsDir)
-            val agentSkillManager = AgentSkillManager(skillsDir)
             val settingsStore = AppSettingsStore(context)
+            // Snapshot once at session start — KISS "next session" semantics: toggling a
+            // skill in Settings does not mutate this manager mid-session.
+            val disabledAgentSkills = settingsStore.disabledAgentSkills.value
+            val agentSkillManager = AgentSkillManager(skillsDir, disabledAgentSkills)
             val termuxManager = TermuxBridgeManager.get(context)
             val termuxSnapshot = captureTermuxSnapshot(
                     bridge = TermuxBridgeManagerSessionBridge(termuxManager),
