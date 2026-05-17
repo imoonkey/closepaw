@@ -325,5 +325,21 @@ class PolicyEngineTest {
         assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
     }
 
+    @Test
+    fun `user NORMAL override on bundled BLOCKED is allowed under SMART`() = runBlocking {
+        // Confirmed downgrade flow: user opts into a sensitive app via the App Access
+        // confirm dialog, which calls setOverride(BLOCKED→NORMAL). The override fully
+        // takes effect: classify returns NORMAL and SMART-mode actions become Allow.
+        val classifier = AppClassifier(mapOf("com.bank" to AppTier.BLOCKED))
+        val result = classifier.setOverride("com.bank", AppTier.NORMAL)
+        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
+        assertThat(classifier.classify("com.bank")).isEqualTo(AppTier.NORMAL)
+        val engine = PolicyEngine(ApprovalMode.SMART, classifier)
+
+        val decision = engine.check("mobile_action", clickParams(), "com.bank")
+
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
     private fun clickParams() = JSONObject().put("action", "click").put("index", 5)
 }
