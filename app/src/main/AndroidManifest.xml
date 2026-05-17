@@ -7,6 +7,7 @@
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <!-- Shizuku permission for virtual display operations -->
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Package visibility: Allow querying launchable apps and Termux RUN_COMMAND (Android 11+) -->
     <queries>
@@ -17,6 +18,9 @@
         </intent>
         <intent>
             <action android:name="com.termux.RUN_COMMAND" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 
