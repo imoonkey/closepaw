@@ -154,9 +154,9 @@ private fun agentBehaviorSubtitle(
     perceptionMode: String
 ): String {
     return when (perceptionMode) {
-        "hybrid" -> "Hybrid"
-        "screenshot_only" -> "Screenshot"
-        else -> "Accessibility"
+        "hybrid" -> "Transcript + Image"
+        "screenshot_only" -> "Image"
+        else -> "Transcript"
     }
 }
 

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -21,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -330,10 +334,30 @@ internal fun PerceptionModeSelector(
     selectedMode: String,
     onModeChange: (String) -> Unit
 ) {
-    val modes = listOf(
-        "accessibility_only" to "Accessibility Only",
-        "hybrid" to "Hybrid (A11y + Screenshot)",
-        "screenshot_only" to "Screenshot Only"
+    data class PerceptionOption(
+        val value: String,
+        val label: String,
+        val subtitle: String,
+        val recommended: Boolean = false,
+    )
+
+    val options = listOf(
+        PerceptionOption(
+            value = "accessibility_only",
+            label = "Screen Transcript",
+            subtitle = "Reads on-screen text and structure. Fastest, lowest cost, and works for most apps.",
+            recommended = true,
+        ),
+        PerceptionOption(
+            value = "screenshot_only",
+            label = "Screen Image",
+            subtitle = "Looks at screenshots only. Slower and higher cost; use for maps, canvas, games, or apps that hide their structure.",
+        ),
+        PerceptionOption(
+            value = "hybrid",
+            label = "Transcript + Image",
+            subtitle = "Combines both. Most reliable for tricky apps; slowest and highest cost.",
+        ),
     )
 
     Surface(
@@ -341,11 +365,11 @@ internal fun PerceptionModeSelector(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.Image,
                     contentDescription = null,
@@ -359,46 +383,67 @@ internal fun PerceptionModeSelector(
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        text = "How the agent perceives the screen",
+                        text = "How the agent sees the screen",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                modes.forEach { (value, label) ->
-                    val isSelected = selectedMode == value
-                    Surface(
-                        onClick = { onModeChange(value) },
-                        modifier = Modifier.weight(1f),
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surface
-                        },
-                        shape = MaterialTheme.shapes.small,
-                        tonalElevation = if (isSelected) 2.dp else 0.dp
+            Column(modifier = Modifier.selectableGroup()) {
+                options.forEach { option ->
+                    val isSelected = selectedMode == option.value
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = isSelected,
+                                onClick = { onModeChange(option.value) },
+                                role = Role.RadioButton,
+                            )
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Text(
-                            text = label,
-                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isSelected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                            textAlign = TextAlign.Center
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = null,
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = option.label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (option.recommended) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                RecommendedChip()
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = option.subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RecommendedChip() {
+    Surface(
+        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Text(
+            text = "Recommended",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
     }
 }
