@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -57,18 +56,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Six filter modes for the App Access list. The four state filters compare against
- * the effective tier; `Custom` selects rows with an explicit user override; `Restricted`
- * selects bundled-BLOCKED rows.
- */
 private enum class AppFilter(val label: String) {
     All("All"),
     Allow("Allow"),
     Ask("Ask"),
     Reject("Reject"),
-    Custom("Custom"),
-    Restricted("Restricted"),
 }
 
 @Composable
@@ -118,7 +110,7 @@ internal fun AppAccessSettingsPage(
             rows == null -> LoadingState()
             else -> {
                 val filtered = remember(rows, overrides, query, filter) {
-                    filterRows(rows, overrides, appClassifier, query.trim(), filter)
+                    filterRows(rows, appClassifier, query.trim(), filter)
                 }
                 AppList(
                     rows = filtered,
@@ -233,18 +225,16 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
 
 @Composable
 private fun FilterChipsRow(selected: AppFilter, onSelect: (AppFilter) -> Unit) {
-    // Content-sized chips in a LazyRow so labels never truncate. The primary four
-    // (All / Allow / Ask / Reject) fit on a typical phone width; Custom / Restricted
-    // scroll into view on narrow screens.
-    LazyRow(
+    Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        items(AppFilter.entries.toList(), key = { it.name }) { f ->
+        AppFilter.entries.forEach { f ->
             FilterChip(
                 label = f.label,
                 selected = selected == f,
                 onClick = { onSelect(f) },
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -382,9 +372,9 @@ private fun AppRowItem(
                     )
                     if (isBundledBlocked) {
                         Text(
-                            text = "Sensitive — confirm before changing.",
+                            text = "Sensitive — confirm before changing",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.closePaw.inkFaint,
+                            color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
                 }
@@ -483,7 +473,6 @@ private fun SegmentChip(
 
 private fun filterRows(
     rows: List<AppRow>,
-    overrides: Map<String, AppTier>,
     classifier: AppClassifier,
     query: String,
     filter: AppFilter,
@@ -496,14 +485,11 @@ private fun filterRows(
         if (!matchesQuery) return@filter false
 
         val pkg = row.info.packageName
-        val bundled = classifier.bundledTier(pkg)
         when (filter) {
             AppFilter.All -> true
             AppFilter.Allow -> classifier.classify(pkg) == AppTier.NORMAL
             AppFilter.Ask -> classifier.classify(pkg) == AppTier.CAUTIOUS
             AppFilter.Reject -> classifier.classify(pkg) == AppTier.BLOCKED
-            AppFilter.Custom -> overrides.containsKey(pkg)
-            AppFilter.Restricted -> bundled == AppTier.BLOCKED
         }
     }
 }
