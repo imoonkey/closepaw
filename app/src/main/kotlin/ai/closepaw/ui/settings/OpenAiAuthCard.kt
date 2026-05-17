@@ -13,9 +13,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -68,7 +68,7 @@ private fun SignedOutContent(onStartOAuth: () -> Unit) {
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     Spacer(modifier = Modifier.height(12.dp))
-    FilledTonalButton(
+    Button(
         onClick = onStartOAuth,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -123,7 +123,7 @@ private fun SignedInContent(email: String?, onSignOut: () -> Unit) {
                 .background(MaterialTheme.colorScheme.secondary)
         )
         Text(
-            text = "Signed in",
+            text = "Signed in with OpenAI",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.secondary
         )
@@ -155,7 +155,7 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
         color = MaterialTheme.colorScheme.error
     )
     Spacer(modifier = Modifier.height(12.dp))
-    FilledTonalButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+    Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
         Text("Try Again")
     }
 }
