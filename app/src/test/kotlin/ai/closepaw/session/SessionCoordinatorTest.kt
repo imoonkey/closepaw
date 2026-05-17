@@ -370,7 +370,8 @@ class SessionCoordinatorTest {
         assertThat(coordinator.currentSession).isNull()
         coVerify(exactly = 0) { session.submit(Op.Shutdown) }
 
-        // Even if state would have triggered drain, observer is gone.
+        // pendingInputs were cleared in detachSession, so a later state
+        // transition cannot cause the dropped input to be drained.
         state.value = SessionState.Idle
         advanceUntilIdle()
         coVerify(exactly = 0) { session.submit(Op.UserInput("dropped-on-detach")) }
@@ -630,7 +631,7 @@ class SessionCoordinatorTest {
     }
 
     @Test
-    fun `detachSession resets currentSessionState to null`() = runTest {
+    fun `detachSession keeps currentSessionState tracking the detached session until Shutdown`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val scope = TestScope(dispatcher)
         val coordinator = SessionCoordinator(scope)
@@ -642,7 +643,18 @@ class SessionCoordinatorTest {
         coordinator.detachSession()
         advanceUntilIdle()
 
-        assertThat(coordinator.currentSessionState.value).isNull()
+        // Detached session may still write memory — gate must stay locked.
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Running)
+
+        // State transitions on the detached session still flow through.
+        state.value = SessionState.Idle
+        advanceUntilIdle()
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Idle)
+
+        // Only Shutdown of the detached session unlocks the gate.
+        state.value = SessionState.Shutdown
+        advanceUntilIdle()
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Shutdown)
     }
 
     @Test
@@ -665,5 +677,50 @@ class SessionCoordinatorTest {
         advanceUntilIdle()
 
         assertThat(coordinator.currentSessionState.value).isNull()
+    }
+
+    // --- Round-2 fixes: exception path, detach tracking, attach snapshot ---
+
+    @Test
+    fun `createAndSubmit resets currentSessionState to null when create throws`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+
+        var caught: Throwable? = null
+        try {
+            coordinator.createAndSubmit("x") { throw IllegalStateException("boom") }
+        } catch (t: Throwable) {
+            caught = t
+        }
+        advanceUntilIdle()
+
+        // Gate was locked when Created emitted, then unlocked after the throw.
+        assertThat(caught).isInstanceOf(IllegalStateException::class.java)
+        assertThat(coordinator.currentSession).isNull()
+        assertThat(coordinator.currentSessionState.value).isNull()
+
+        // Mutex was released — a fresh creation can proceed.
+        val state = MutableStateFlow<SessionState>(SessionState.Idle)
+        val session = fakeSession(state)
+        val result = coordinator.createAndSubmit("retry") { session }
+        advanceUntilIdle()
+        assertThat(result).isEqualTo(CreateResult.Success)
+    }
+
+    @Test
+    fun `attachSession synchronously snapshots session state so the flow is not stale`() {
+        // No runTest — assert the snapshot WITHOUT advancing the dispatcher.
+        // The launched collector cannot have run yet; only the synchronous
+        // snapshot inside attachSession can have populated the flow.
+        val dispatcher = StandardTestDispatcher()
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Running)
+        val session = fakeSession(state)
+
+        coordinator.attachSession(session)
+
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Running)
     }
 }
