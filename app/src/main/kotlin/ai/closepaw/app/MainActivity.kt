@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
         pendingGoalForConfirmation = savedInstanceState?.getString(KEY_PENDING_GOAL_CONFIRMATION)
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
-        modelLoadingStatusHolder = ModelLoadingStatusHolder(settingsState)
+        modelLoadingStatusHolder = ModelLoadingStatusHolder(applicationContext, lifecycleScope, settingsState)
 
         // Onboarding: migrate + check completion
         onboardingStore = OnboardingStore(applicationContext)

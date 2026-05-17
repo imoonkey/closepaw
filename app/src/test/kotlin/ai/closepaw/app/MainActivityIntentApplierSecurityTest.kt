@@ -8,6 +8,8 @@ import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.ui.settings.BrowserScriptToggleError
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
@@ -17,7 +19,8 @@ import org.junit.Test
 class MainActivityIntentApplierSecurityTest {
 
     private val settingsState = AppSettingsState(mockk(relaxed = true))
-    private val modelLoadingStatusHolder = ModelLoadingStatusHolder(settingsState)
+    private val modelLoadingStatusHolder =
+        ModelLoadingStatusHolder(mockk(relaxed = true), CoroutineScope(Dispatchers.Unconfined), settingsState)
     private val authStore = AuthStore(mockk(relaxed = true), prefsProvider = { FakeSharedPreferences() })
 
     @Test

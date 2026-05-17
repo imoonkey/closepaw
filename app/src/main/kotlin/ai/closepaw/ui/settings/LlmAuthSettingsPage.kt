@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -47,6 +48,20 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
 enum class LlmAuthTab { SIGN_IN, API_KEY, LOCAL }
+
+/**
+ * Surface the Local tab in LLM & Authentication settings.
+ *
+ * Off because LFM 1.2B Q4 on a phone CPU takes 1-3 min to emit the first tool
+ * call with the current 12-tool agent schema — it works, but it's unusable.
+ * Flip to true to re-expose once we have a smaller agent-capable model or a
+ * chat-only path. The rest of the local stack (LFMLLMClient, auto-download,
+ * LocalTabContent) stays wired so flipping this is a one-line change.
+ */
+private const val LOCAL_TAB_ENABLED = false
+
+private val VISIBLE_TABS: List<LlmAuthTab> =
+    LlmAuthTab.entries.filter { LOCAL_TAB_ENABLED || it != LlmAuthTab.LOCAL }
 
 private val LlmAuthTab.label: String
     get() = when (this) {
@@ -98,16 +113,16 @@ internal fun LlmAuthSettingsPage(
     initialAuthTab: AuthMode? = null,
 ) {
     // Initial tab: explicit caller request wins; else derive from selected model's provider mode.
+    // When the Local tab is hidden, any LOCAL landing target falls back to API_KEY.
     val modelMode = modelCatalog.resolveOrNull(selectedModel)?.provider?.mode
     var selectedTab by rememberSaveable(initialAuthTab, modelMode, llmBackend) {
-        mutableStateOf(
-            when {
-                initialAuthTab != null -> initialAuthTab.toTab()
-                modelMode == AuthMode.OAuth -> LlmAuthTab.SIGN_IN
-                llmBackend == LLMBackendType.LOCAL -> LlmAuthTab.LOCAL
-                else -> LlmAuthTab.API_KEY
-            }
-        )
+        val raw = when {
+            initialAuthTab != null -> initialAuthTab.toTab()
+            modelMode == AuthMode.OAuth -> LlmAuthTab.SIGN_IN
+            llmBackend == LLMBackendType.LOCAL -> LlmAuthTab.LOCAL
+            else -> LlmAuthTab.API_KEY
+        }
+        mutableStateOf(if (raw == LlmAuthTab.LOCAL && !LOCAL_TAB_ENABLED) LlmAuthTab.API_KEY else raw)
     }
 
     val context = LocalContext.current
@@ -146,23 +161,12 @@ internal fun LlmAuthSettingsPage(
     Column(modifier = Modifier.fillMaxWidth()) {
         SettingsSubPageHeader(title = "LLM & Authentication", onBack = onBack, onClose = onClose)
 
-        TabRow(selectedTabIndex = selectedTab.ordinal) {
-            LlmAuthTab.entries.forEach { tab ->
-                // Local backend isn't wired through this page yet; show the tab
-                // as visibly disabled (no Claw underline, dimmed label) until
-                // it is, so users don't tap a no-op affordance.
-                val isEnabled = tab != LlmAuthTab.LOCAL
+        TabRow(selectedTabIndex = VISIBLE_TABS.indexOf(selectedTab).coerceAtLeast(0)) {
+            VISIBLE_TABS.forEach { tab ->
                 Tab(
                     selected = selectedTab == tab,
-                    onClick = { if (isEnabled) selectedTab = tab },
-                    enabled = isEnabled,
-                    text = {
-                        Text(
-                            text = tab.label,
-                            color = if (isEnabled) androidx.compose.ui.graphics.Color.Unspecified
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                    }
+                    onClick = { selectedTab = tab },
+                    text = { Text(tab.label) }
                 )
             }
         }
@@ -370,6 +374,20 @@ private fun LocalTabContent(
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus
 ) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.errorContainer,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Text(
+            text = "Experimental: local models are slow and underpowered, " +
+                "and will not reliably drive the agent. Use a cloud model for real work.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.padding(12.dp)
+        )
+    }
+    Spacer(modifier = Modifier.height(16.dp))
     SettingsSection(title = "Local Model") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             LocalModelDropdown(
