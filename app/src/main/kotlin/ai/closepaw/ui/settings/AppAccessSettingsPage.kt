@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -164,16 +165,18 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
 
 @Composable
 private fun FilterChipsRow(selected: AppFilter, onSelect: (AppFilter) -> Unit) {
-    Row(
+    // Content-sized chips in a LazyRow so labels never truncate. The primary four
+    // (All / Allow / Ask / Reject) fit on a typical phone width; Custom / Restricted
+    // scroll into view on narrow screens.
+    LazyRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        AppFilter.entries.forEach { f ->
+        items(AppFilter.entries.toList(), key = { it.name }) { f ->
             FilterChip(
                 label = f.label,
                 selected = selected == f,
                 onClick = { onSelect(f) },
-                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -196,7 +199,7 @@ private fun FilterChip(
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp),
             style = MaterialTheme.typography.labelSmall,
             color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
             else MaterialTheme.colorScheme.onSurface,
