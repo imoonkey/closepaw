@@ -256,9 +256,10 @@ class ModelCatalogTest {
           },
           "novita-model": {
             "display_name": "Novita Model",
-            "provider": "NOVITA",
+            "provider": "OTHER",
             "api": "chat",
-            "model_id": "novita/model-1"
+            "model_id": "novita/model-1",
+            "base_url": "https://example.invalid/v1"
           }
         }
     """.trimIndent()
@@ -283,9 +284,9 @@ class ModelCatalogTest {
     }
 
     @Test
-    fun `modelsFor NOVITA returns only Novita models`() {
+    fun `modelsFor OTHER returns only OTHER models`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
-        val models = catalog.modelsFor(LLMProvider.NOVITA)
+        val models = catalog.modelsFor(LLMProvider.OTHER)
 
         assertEquals(1, models.size)
         assertEquals("novita-model", models[0].name)
@@ -332,7 +333,7 @@ class ModelCatalogTest {
     @Test
     fun `preferredModelFor returns null when no models match`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
-        val preferred = catalog.preferredModelFor(LLMProvider.NOVITA, ApiType.RESPONSE)
+        val preferred = catalog.preferredModelFor(LLMProvider.OTHER, ApiType.RESPONSE)
 
         assertNull(preferred)
     }

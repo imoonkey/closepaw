@@ -19,7 +19,7 @@ internal fun testModelCatalog(): ModelCatalog = ModelCatalog.fromJson(
       "gpt-5.2": {"display_name": "GPT-5.2", "provider":"OPENAI_API", "api": "response", "model_id": "gpt-5.2"},
       "gpt-5.2-chat": {"display_name": "GPT-5.2 (Chat API)", "provider":"OPENAI_API", "api": "chat", "model_id": "gpt-5.2"},
       "glm-5": {"display_name": "GLM-5", "provider": "OPENROUTER", "api": "chat", "model_id": "z-ai/glm-5"},
-      "autoglm": {"display_name": "AutoGLM", "provider": "NOVITA", "api": "chat", "model_id": "zai-org/autoglm"}
+      "autoglm": {"display_name": "AutoGLM", "provider": "OTHER", "api": "chat", "model_id": "zai-org/autoglm", "base_url": "https://example.invalid/v1"}
     }
     """.trimIndent()
 )

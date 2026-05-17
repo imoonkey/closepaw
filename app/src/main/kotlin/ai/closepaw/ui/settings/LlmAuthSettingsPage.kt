@@ -95,7 +95,7 @@ private val LlmAuthTab.defaultProvider: LLMProvider
     }
 
 /** Providers available in the API Key tab sub-selector. */
-private val API_KEY_PROVIDERS = listOf(LLMProvider.OPENAI_API, LLMProvider.OPENROUTER, LLMProvider.NOVITA)
+private val API_KEY_PROVIDERS = listOf(LLMProvider.OPENAI_API, LLMProvider.OPENROUTER)
 
 @Composable
 internal fun LlmAuthSettingsPage(
@@ -359,7 +359,7 @@ private fun ApiKeyTabContent(
         val label = when (selectedProvider) {
             LLMProvider.OPENAI_API -> "OpenAI Key"
             LLMProvider.OPENROUTER -> "OpenRouter Key"
-            LLMProvider.NOVITA -> "Novita Key"
+            LLMProvider.OTHER -> "API Key"
             LLMProvider.OPENAI_CODEX, LLMProvider.LOCAL_LFM -> null
         }
         if (label != null) {

@@ -21,7 +21,9 @@ data class AppSettings(
         val traceEnabled: Boolean,
         val browserScriptEnabled: Boolean,
         val termuxShellEnabled: Boolean,
-        val openaiBaseUrl: String
+        val openaiBaseUrl: String,
+        val otherBaseUrl: String,
+        val otherModelId: String,
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -40,6 +42,8 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
         private const val KEY_TERMUX_SHELL_ENABLED = "termux_shell_enabled"
         private const val KEY_OPENAI_BASE_URL = "openai_base_url"
+        private const val KEY_OTHER_BASE_URL = "other_base_url"
+        private const val KEY_OTHER_MODEL_ID = "other_model_id"
 
         const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_DEBUG_MODE = false
@@ -100,6 +104,8 @@ class AppSettingsStore(private val context: Context) {
                 DEFAULT_TERMUX_SHELL_ENABLED
         )
         val openaiBaseUrl = prefs.getString(KEY_OPENAI_BASE_URL, "") ?: ""
+        val otherBaseUrl = prefs.getString(KEY_OTHER_BASE_URL, "") ?: ""
+        val otherModelId = prefs.getString(KEY_OTHER_MODEL_ID, "") ?: ""
 
         return AppSettings(
                 selectedModel = selectedModel,
@@ -111,7 +117,9 @@ class AppSettingsStore(private val context: Context) {
                 traceEnabled = traceEnabled,
                 browserScriptEnabled = browserScriptEnabled,
                 termuxShellEnabled = termuxShellEnabled,
-                openaiBaseUrl = openaiBaseUrl
+                openaiBaseUrl = openaiBaseUrl,
+                otherBaseUrl = otherBaseUrl,
+                otherModelId = otherModelId,
         )
     }
 
@@ -161,6 +169,22 @@ class AppSettingsStore(private val context: Context) {
             prefs().edit().remove(KEY_OPENAI_BASE_URL).apply()
         } else {
             prefs().edit().putString(KEY_OPENAI_BASE_URL, value).apply()
+        }
+    }
+
+    fun saveOtherBaseUrl(value: String) {
+        if (value.isBlank()) {
+            prefs().edit().remove(KEY_OTHER_BASE_URL).apply()
+        } else {
+            prefs().edit().putString(KEY_OTHER_BASE_URL, value).apply()
+        }
+    }
+
+    fun saveOtherModelId(value: String) {
+        if (value.isBlank()) {
+            prefs().edit().remove(KEY_OTHER_MODEL_ID).apply()
+        } else {
+            prefs().edit().putString(KEY_OTHER_MODEL_ID, value).apply()
         }
     }
 

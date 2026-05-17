@@ -25,10 +25,12 @@ class ModelDiscoveryCache(@Suppress("UNUSED_PARAMETER") context: Context) {
  * Process-wide observable model catalog.
  *
  * Single source of truth for the merged set of [ModelEntry]s the rest of the
- * stack (selector, factory, session bootstrap, validation) consumes. PR1 backs
- * the catalog only with the JSON seed in `assets/llm_models.json`; future PRs
- * overlay a synthesized OTHER entry from [AppSettingsStore] and discovered
- * entries from [ModelDiscoveryCache].
+ * stack (selector, factory, session bootstrap, validation) consumes. The
+ * catalog merges:
+ *  - the JSON seed in `assets/llm_models.json`;
+ *  - a synthesized `other-custom` [ModelEntry] when both `otherBaseUrl` and
+ *    `otherModelId` are non-blank in [AppSettingsStore];
+ *  - discovered entries from [ModelDiscoveryCache] (PR2 stub today).
  *
  * Created once per process via [ModelCatalogRepositoryHolder] so the UI layer
  * (Compose recomposition via [StateFlow]) and the session layer
@@ -37,7 +39,7 @@ class ModelDiscoveryCache(@Suppress("UNUSED_PARAMETER") context: Context) {
  */
 class ModelCatalogRepository(
     private val context: Context,
-    @Suppress("unused") private val settingsStore: AppSettingsStore,
+    private val settingsStore: AppSettingsStore,
     @Suppress("unused") private val discoveryCache: ModelDiscoveryCache,
 ) {
     private val _catalog: MutableStateFlow<ModelCatalog> = MutableStateFlow(load())
@@ -51,7 +53,29 @@ class ModelCatalogRepository(
         _catalog.value = load()
     }
 
-    private fun load(): ModelCatalog = ModelCatalog.fromJson(readSeedJsonOrFallback())
+    private fun load(): ModelCatalog {
+        val seed = ModelCatalog.fromJson(readSeedJsonOrFallback())
+        val synth = synthOtherEntry()
+        return if (synth != null) seed.withExtraEntries(listOf(synth)) else seed
+    }
+
+    private fun synthOtherEntry(): ModelEntry? {
+        val settings = settingsStore.load()
+        val baseUrl = settings.otherBaseUrl.trim()
+        val modelId = settings.otherModelId.trim()
+        if (baseUrl.isBlank() || modelId.isBlank()) return null
+        return ModelEntry(
+            name = OTHER_CUSTOM_NAME,
+            displayName = modelId,
+            provider = LLMProvider.OTHER,
+            api = ApiType.CHAT,
+            modelId = modelId,
+            contextWindow = 128_000,
+            baseUrl = baseUrl,
+            apiKeyEnv = null,
+            supportsVision = false,
+        )
+    }
 
     private fun readSeedJsonOrFallback(): String {
         val raw = try {
@@ -76,6 +100,10 @@ class ModelCatalogRepository(
         private const val TAG = "ModelCatalogRepo"
         private const val ASSET_NAME = "llm_models.json"
         private val seedProbeJson = Json { ignoreUnknownKeys = true }
+
+        /** Stable catalog key for the synthesized OTHER entry. */
+        const val OTHER_CUSTOM_NAME = "other-custom"
+
         private const val FALLBACK_CATALOG_JSON =
             """
             {

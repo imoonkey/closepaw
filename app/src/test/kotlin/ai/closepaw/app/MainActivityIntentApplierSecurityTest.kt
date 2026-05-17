@@ -28,7 +28,6 @@ class MainActivityIntentApplierSecurityTest {
         val payload = MainActivityIntentPayload(
             apiKey = "injected-key",
             openRouterApiKey = "injected-or-key",
-            novitaApiKey = "injected-novita",
             openaiBaseUrl = "https://evil.example.com",
             backendType = null,
             perceptionMode = null,
@@ -62,7 +61,7 @@ class MainActivityIntentApplierSecurityTest {
         // Nothing should change — all extras ignored
         assertThat(authStore.has(LLMProvider.OPENAI_API)).isFalse()
         assertThat(authStore.has(LLMProvider.OPENROUTER)).isFalse()
-        assertThat(authStore.has(LLMProvider.NOVITA)).isFalse()
+        assertThat(authStore.has(LLMProvider.OTHER)).isFalse()
         assertThat(result.pendingTraceEnabled).isNull()
         assertThat(result.pendingTraceRunId).isNull()
         assertThat(result.pendingExcludedTools).isEmpty()
@@ -75,7 +74,6 @@ class MainActivityIntentApplierSecurityTest {
         val payload = MainActivityIntentPayload(
             apiKey = "injected-key",
             openRouterApiKey = null,
-            novitaApiKey = null,
             openaiBaseUrl = null,
             backendType = null,
             perceptionMode = null,
@@ -119,7 +117,6 @@ class MainActivityIntentApplierSecurityTest {
         val payload = MainActivityIntentPayload(
             apiKey = "debug-key",
             openRouterApiKey = null,
-            novitaApiKey = null,
             openaiBaseUrl = null,
             backendType = null,
             perceptionMode = null,
@@ -245,7 +242,6 @@ class MainActivityIntentApplierSecurityTest {
         MainActivityIntentPayload(
             apiKey = null,
             openRouterApiKey = null,
-            novitaApiKey = null,
             openaiBaseUrl = null,
             backendType = null,
             perceptionMode = null,

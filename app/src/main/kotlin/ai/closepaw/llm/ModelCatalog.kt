@@ -128,6 +128,25 @@ class ModelCatalog private constructor(private val entries: Map<String, ModelEnt
         return ModelCatalog(LinkedHashMap(overridden))
     }
 
+    /**
+     * Return a new catalog with [extras] appended. Used by [ModelCatalogRepository]
+     * to overlay runtime-synthesized entries (the OTHER `other-custom` row in PR1;
+     * discovered entries in PR2) on top of the JSON seed.
+     *
+     * Later entries with the same [ModelEntry.name] replace earlier ones — the
+     * runtime overlay wins so the user can pin a custom URL/modelId for a seed
+     * key without editing assets.
+     */
+    fun withExtraEntries(extras: List<ModelEntry>): ModelCatalog {
+        if (extras.isEmpty()) return this
+        val merged = LinkedHashMap(entries)
+        for (extra in extras) {
+            require(extra.name.isNotBlank()) { "Extra ModelEntry name must not be blank" }
+            merged[extra.name] = extra
+        }
+        return ModelCatalog(merged)
+    }
+
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
 

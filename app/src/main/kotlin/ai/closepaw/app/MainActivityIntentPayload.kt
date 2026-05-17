@@ -8,7 +8,6 @@ import ai.closepaw.protocol.PlatformMode
 data class MainActivityIntentPayload(
         val apiKey: String?,
         val openRouterApiKey: String?,
-        val novitaApiKey: String?,
         val openaiBaseUrl: String?,
         val backendType: LLMBackendType?,
         val perceptionMode: String?,
@@ -31,11 +30,6 @@ data class MainActivityIntentPayload(
 
             val openRouterApiKey =
                     intent.getStringExtra(MainActivity.EXTRA_OPENROUTER_API_KEY)?.takeIf {
-                        it.isNotBlank()
-                    }
-
-            val novitaApiKey =
-                    intent.getStringExtra(MainActivity.EXTRA_NOVITA_API_KEY)?.takeIf {
                         it.isNotBlank()
                     }
 
@@ -128,7 +122,6 @@ data class MainActivityIntentPayload(
             return MainActivityIntentPayload(
                     apiKey = apiKey,
                     openRouterApiKey = openRouterApiKey,
-                    novitaApiKey = novitaApiKey,
                     openaiBaseUrl = openaiBaseUrl,
                     backendType = backendType,
                     perceptionMode = perceptionMode,

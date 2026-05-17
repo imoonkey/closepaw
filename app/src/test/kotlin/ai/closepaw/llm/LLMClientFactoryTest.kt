@@ -242,6 +242,68 @@ class LLMClientFactoryTest {
         assertEquals("https://openrouter.ai/api/v1", entry.effectiveBaseUrl)
     }
 
+    // ── OTHER provider ──────────────────────────────────────────────────
+
+    private val otherCatalogWithBaseUrl = ModelCatalog.fromJson(catalogJson).withExtraEntries(
+        listOf(
+            ModelEntry(
+                name = "other-custom",
+                displayName = "user/custom",
+                provider = LLMProvider.OTHER,
+                api = ApiType.CHAT,
+                modelId = "user/custom",
+                contextWindow = 128_000,
+                baseUrl = "https://other.example.invalid/v1",
+                apiKeyEnv = null,
+                supportsVision = false,
+            )
+        )
+    )
+
+    private val otherCatalogBlankBaseUrl = ModelCatalog.fromJson(catalogJson).withExtraEntries(
+        listOf(
+            ModelEntry(
+                name = "other-broken",
+                displayName = "user/custom",
+                provider = LLMProvider.OTHER,
+                api = ApiType.CHAT,
+                modelId = "user/custom",
+                contextWindow = 128_000,
+                baseUrl = null,
+                apiKeyEnv = null,
+                supportsVision = false,
+            )
+        )
+    )
+
+    @Test
+    fun `OTHER builds ChatCompletionClient against entry baseUrl`() = runBlocking {
+        val store = realStore()
+        store.set(LLMProvider.OTHER, AuthCredential.ApiKey("sk-other"))
+        val factory = LLMClientFactory(otherCatalogWithBaseUrl, store)
+
+        val client = factory.create("other-custom")
+        assertTrue(client is ChatCompletionClient)
+    }
+
+    @Test
+    fun `OTHER throws MissingCredential when entry baseUrl is blank`() = runBlocking {
+        val store = realStore()
+        store.set(LLMProvider.OTHER, AuthCredential.ApiKey("sk-other"))
+        val factory = LLMClientFactory(otherCatalogBlankBaseUrl, store)
+
+        val error = assertThrows(MissingCredential::class.java) { factory.create("other-broken") }
+        assertEquals(LLMProvider.OTHER, error.provider)
+    }
+
+    @Test
+    fun `OTHER throws MissingCredential when api key missing`() = runBlocking {
+        val factory = LLMClientFactory(otherCatalogWithBaseUrl, realStore())
+
+        val error = assertThrows(MissingCredential::class.java) { factory.create("other-custom") }
+        assertEquals(LLMProvider.OTHER, error.provider)
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun extractHeaderSupplier(client: CodexResponseClient): suspend () -> CodexHeaders {
         val f = CodexResponseClient::class.java.getDeclaredField("headerSupplier")

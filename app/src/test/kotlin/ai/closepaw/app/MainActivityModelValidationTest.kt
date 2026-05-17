@@ -17,7 +17,7 @@ class MainActivityModelValidationTest {
           "gpt-5.2": {"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"},
           "gpt-5.2-codex": {"display_name":"GPT-5.2 Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-5.2"},
           "glm-4.7": {"display_name":"GLM-4.7","provider":"OPENROUTER","api":"chat","model_id":"z-ai/glm-4.7"},
-          "autoglm-9b": {"display_name":"AutoGLM 9B","provider":"NOVITA","api":"chat","model_id":"zai-org/autoglm-phone-9b"}
+          "autoglm-9b": {"display_name":"AutoGLM 9B","provider":"OTHER","api":"chat","model_id":"zai-org/autoglm-phone-9b","base_url":"https://example.invalid/v1"}
         }
         """.trimIndent()
     )

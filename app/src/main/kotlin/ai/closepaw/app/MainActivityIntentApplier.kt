@@ -65,10 +65,6 @@ internal suspend fun applyIntentPayloadToSettings(
             authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey(key))
             log("OPENROUTER key set from intent via AuthStore")
         }
-        payload.novitaApiKey?.let { key ->
-            authStore.set(LLMProvider.NOVITA, AuthCredential.ApiKey(key))
-            log("NOVITA key set from intent via AuthStore")
-        }
     }
     payload.openaiBaseUrl?.let { url ->
         settingsState.updateOpenaiBaseUrl(url)

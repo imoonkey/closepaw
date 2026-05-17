@@ -77,7 +77,7 @@ class SessionServicesProviderRoutingTest {
     val config =
             SessionConfig(
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
-                    mainModel = "autoglm-phone-9b-multilingual"
+                    mainModel = "other-model"
             )
 
     val error =
@@ -94,7 +94,7 @@ class SessionServicesProviderRoutingTest {
                       traceRecorder = NoopTraceRecorder
               )
             }
-    assertThat(error.provider).isEqualTo(LLMProvider.NOVITA)
+    assertThat(error.provider).isEqualTo(LLMProvider.OTHER)
   }
 
   private fun contextWithCatalog(): Context {
@@ -122,9 +122,24 @@ class SessionServicesProviderRoutingTest {
    * `SessionServices.create` resolves models from CATALOG_JSON rather than the real seed.
    */
   private fun installFixtureCatalogRepo(context: Context) {
+    val settingsStore = mockk<ai.closepaw.app.AppSettingsStore>(relaxed = true)
+    every { settingsStore.load() } returns ai.closepaw.app.AppSettings(
+        selectedModel = ai.closepaw.app.AppSettingsStore.DEFAULT_MODEL,
+        debugMode = false,
+        perceptionMode = ai.closepaw.app.AppSettingsStore.DEFAULT_PERCEPTION_MODE,
+        llmBackend = ai.closepaw.app.AppSettingsStore.DEFAULT_LLM_BACKEND,
+        localModel = ai.closepaw.ui.settings.AVAILABLE_LOCAL_MODELS.first(),
+        platformMode = ai.closepaw.app.AppSettingsStore.DEFAULT_PLATFORM_MODE,
+        traceEnabled = false,
+        browserScriptEnabled = false,
+        termuxShellEnabled = false,
+        openaiBaseUrl = "",
+        otherBaseUrl = "",
+        otherModelId = "",
+    )
     val repo = ModelCatalogRepository(
         context = context,
-        settingsStore = mockk(relaxed = true),
+        settingsStore = settingsStore,
         discoveryCache = mockk(relaxed = true),
     )
     ModelCatalogRepositoryHolder.setForTest(repo)
@@ -146,11 +161,12 @@ class SessionServicesProviderRoutingTest {
             "api": "chat",
             "model_id": "z-ai/glm-4.7"
           },
-          "autoglm-phone-9b-multilingual": {
-            "display_name": "AutoGLM Phone 9B Multilingual",
-            "provider": "NOVITA",
+          "other-model": {
+            "display_name": "Custom Other Model",
+            "provider": "OTHER",
             "api": "chat",
-            "model_id": "zai-org/autoglm-phone-9b-multilingual"
+            "model_id": "user/custom",
+            "base_url": "https://example.invalid/v1"
           }
         }
         """.trimIndent()

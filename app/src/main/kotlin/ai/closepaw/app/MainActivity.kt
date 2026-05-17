@@ -86,7 +86,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_PLATFORM_MODE = "platform_mode"
         const val EXTRA_EXCLUDED_TOOLS = "excluded_tools"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
-        const val EXTRA_NOVITA_API_KEY = "novita_api_key"
         const val EXTRA_OPENAI_BASE_URL = "openai_base_url"
         const val EXTRA_EVAL_TURN_BUDGET = "eval_turn_budget"
     }
@@ -131,7 +130,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         intentPayloadConsumed = savedInstanceState?.getBoolean(KEY_INTENT_PAYLOAD_CONSUMED, false) ?: false
         pendingGoalForConfirmation = savedInstanceState?.getString(KEY_PENDING_GOAL_CONFIRMATION)
-        settingsState = AppSettingsState(AppSettingsStore(applicationContext))
+        settingsState = AppSettingsState.create(applicationContext)
         settingsState.load()
         modelCatalogRepo = ModelCatalogRepositoryHolder.get(applicationContext)
         modelLoadingStatusHolder = ModelLoadingStatusHolder(applicationContext, lifecycleScope, settingsState)
@@ -901,7 +900,6 @@ class MainActivity : ComponentActivity() {
             LLMProvider.OPENAI_API,
             LLMProvider.OPENAI_CODEX,
             LLMProvider.OPENROUTER,
-            LLMProvider.NOVITA,
         )
         if (providers.any { authStore.has(it) }) return true
         if (settings.selectedModel != AppSettingsStore.DEFAULT_MODEL) return true

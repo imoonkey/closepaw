@@ -3,7 +3,11 @@ package ai.closepaw.llm
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.AssetManager
+import ai.closepaw.app.AppSettings
 import ai.closepaw.app.AppSettingsStore
+import ai.closepaw.protocol.LLMBackendType
+import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.settings.AVAILABLE_LOCAL_MODELS
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
@@ -28,7 +32,7 @@ class ModelCatalogRepositoryTest {
         val seedBytes = seedAssetFile.readBytes()
         val repo = ModelCatalogRepository(
             context = contextReturningAsset(seedBytes),
-            settingsStore = mockk(relaxed = true),
+            settingsStore = fakeSettingsStore(otherBaseUrl = "", otherModelId = ""),
             discoveryCache = mockk(relaxed = true),
         )
 
@@ -47,7 +51,7 @@ class ModelCatalogRepositoryTest {
         val context = contextReturningSequentialAssets(first.toByteArray(), second.toByteArray())
         val repo = ModelCatalogRepository(
             context = context,
-            settingsStore = mockk(relaxed = true),
+            settingsStore = fakeSettingsStore(otherBaseUrl = "", otherModelId = ""),
             discoveryCache = mockk(relaxed = true),
         )
 
@@ -82,6 +86,107 @@ class ModelCatalogRepositoryTest {
         } finally {
             unmockkConstructor(AppSettingsStore::class)
         }
+    }
+
+    // ── Synthesized OTHER entry ──────────────────────────────────────────
+
+    @Test
+    fun `synthesizes other-custom when both otherBaseUrl + otherModelId are non-blank`() {
+        val store = fakeSettingsStore(otherBaseUrl = "https://api.example.com/v1", otherModelId = "vendor/model")
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = mockk(relaxed = true),
+        )
+
+        val entry = repo.catalog.value.resolveOrNull("other-custom")
+        assertThat(entry).isNotNull()
+        assertThat(entry!!.provider).isEqualTo(LLMProvider.OTHER)
+        assertThat(entry.api).isEqualTo(ApiType.CHAT)
+        assertThat(entry.modelId).isEqualTo("vendor/model")
+        assertThat(entry.baseUrl).isEqualTo("https://api.example.com/v1")
+        assertThat(entry.supportsVision).isFalse()
+        assertThat(entry.displayName).isEqualTo("vendor/model")
+    }
+
+    @Test
+    fun `no other-custom entry when otherBaseUrl is blank`() {
+        val store = fakeSettingsStore(otherBaseUrl = "", otherModelId = "vendor/model")
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = mockk(relaxed = true),
+        )
+
+        assertThat(repo.catalog.value.resolveOrNull("other-custom")).isNull()
+    }
+
+    @Test
+    fun `no other-custom entry when otherModelId is blank`() {
+        val store = fakeSettingsStore(otherBaseUrl = "https://api.example.com/v1", otherModelId = "")
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = mockk(relaxed = true),
+        )
+
+        assertThat(repo.catalog.value.resolveOrNull("other-custom")).isNull()
+    }
+
+    @Test
+    fun `invalidate re-reads settings and adds other-custom on next read`() {
+        val seed = seedBytes()
+        var baseUrl = ""
+        var modelId = ""
+        val store = mockk<AppSettingsStore>(relaxed = true)
+        every { store.load() } answers { defaultSettings(otherBaseUrl = baseUrl, otherModelId = modelId) }
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seed),
+            settingsStore = store,
+            discoveryCache = mockk(relaxed = true),
+        )
+
+        assertThat(repo.catalog.value.resolveOrNull("other-custom")).isNull()
+
+        baseUrl = "https://api.example.com/v1"
+        modelId = "vendor/model"
+        repo.invalidate()
+
+        val entry = repo.catalog.value.resolveOrNull("other-custom")
+        assertThat(entry).isNotNull()
+        assertThat(entry!!.baseUrl).isEqualTo("https://api.example.com/v1")
+        assertThat(entry.modelId).isEqualTo("vendor/model")
+    }
+
+    // ── Fixtures ──
+
+    private fun seedBytes(): ByteArray = seedAssetFile.readBytes()
+
+    private fun defaultSettings(
+        otherBaseUrl: String = "",
+        otherModelId: String = "",
+    ): AppSettings = AppSettings(
+        selectedModel = AppSettingsStore.DEFAULT_MODEL,
+        debugMode = AppSettingsStore.DEFAULT_DEBUG_MODE,
+        perceptionMode = AppSettingsStore.DEFAULT_PERCEPTION_MODE,
+        llmBackend = AppSettingsStore.DEFAULT_LLM_BACKEND,
+        localModel = AVAILABLE_LOCAL_MODELS.first(),
+        platformMode = AppSettingsStore.DEFAULT_PLATFORM_MODE,
+        traceEnabled = AppSettingsStore.DEFAULT_TRACE_ENABLED,
+        browserScriptEnabled = AppSettingsStore.DEFAULT_BROWSER_SCRIPT_ENABLED,
+        termuxShellEnabled = AppSettingsStore.DEFAULT_TERMUX_SHELL_ENABLED,
+        openaiBaseUrl = "",
+        otherBaseUrl = otherBaseUrl,
+        otherModelId = otherModelId,
+    )
+
+    private fun fakeSettingsStore(
+        otherBaseUrl: String,
+        otherModelId: String,
+    ): AppSettingsStore {
+        val store = mockk<AppSettingsStore>(relaxed = true)
+        every { store.load() } returns defaultSettings(otherBaseUrl, otherModelId)
+        return store
     }
 
     // ── Fixtures ──
