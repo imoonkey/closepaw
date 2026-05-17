@@ -58,7 +58,7 @@ Subtract `eval/config/cannot_handle_group.txt`. Write the selected tasks to `eva
 **Pre-flight: sync & rebuild** (MANDATORY if Step 1 made any changes):
 ```bash
 git push
-ssh qiguo@desktop 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
+ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && git pull && ./gradlew assembleDebug'
 ```
 Skip only if this round had no code/prompt/skill changes (e.g., round 0 with no fix step). Running eval on stale code wastes an entire round.
 
@@ -74,7 +74,7 @@ Monitor for stalls. If a task hangs (no output for several minutes), check acces
 **Post-run: pull results to local** (MANDATORY for `--remote` runs):
 ```bash
 # Pull eval results from remote to local
-rsync -avz qiguo@desktop:~/androidagent/eval/results/ eval/results/
+rsync -avz qiguo@desktop:~/ld-workspace/android-agent-workspace/androidagent/eval/results/ eval/results/
 ```
 All analysis in Step 4 reads from local `eval/results/`. If you skip this pull, Step 4 will either fail or analyze stale data.
 

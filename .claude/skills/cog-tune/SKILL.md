@@ -1,6 +1,6 @@
 ---
 name: cog-tune
-description: Analyze Android Agent cognition using debug-run traces/replay artifacts and eval results, then propose and implement improvements to prompts, tool definitions, context packing (todo/scratchpad/history), and multi-agent coordination. Use when a debug run feels wrong, when eval metrics regress, when tuning context engineering for generalizable gains, or when reviewing LLM input/output and tool usage; produce both a report and code/doc changes.
+description: Analyze ClosePaw agent cognition using debug-run traces/replay artifacts and eval results, then propose and implement improvements to prompts, tool definitions, context packing (todo/scratchpad/history), and multi-agent coordination. Use when a debug run feels wrong, when eval metrics regress, when tuning context engineering for generalizable gains, or when reviewing LLM input/output and tool usage; produce both a report and code/doc changes.
 ---
 
 # Cog Tune

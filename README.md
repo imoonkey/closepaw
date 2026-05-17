@@ -1,10 +1,10 @@
-# Android Agent
+# ClosePaw
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Min SDK](https://img.shields.io/badge/minSdk-31-green.svg)]()
 [![Target SDK](https://img.shields.io/badge/targetSdk-36-green.svg)]()
 
-AI-powered Android automation — give natural language instructions, the agent operates your phone via the accessibility service.
+ClosePaw is an AI-powered Android agent — give natural language instructions, ClosePaw operates your phone via the accessibility service.
 
 <!--
   TODO(publish-readme-screenshots): drop in a hero demo GIF (a real task end-to-end)
@@ -32,8 +32,8 @@ AI-powered Android automation — give natural language instructions, the agent 
 ### Build & Install
 
 ```bash
-git clone https://github.com/imoonkey/androidagent.git
-cd androidagent
+git clone https://github.com/imoonkey/closepaw.git
+cd closepaw
 ./gradlew assembleDebug
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```

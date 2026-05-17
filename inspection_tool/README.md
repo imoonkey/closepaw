@@ -1,4 +1,4 @@
-# Android Agent Replay Viewer
+# ClosePaw Replay Viewer
 
 This folder contains the step-centric replay viewer (v2) and a FastAPI server to browse traces.
 

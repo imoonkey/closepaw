@@ -10,9 +10,9 @@
    ```bash
    ssh qiguo@desktop 'echo ok'
    git push
-   ssh qiguo@desktop 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
-   ssh qiguo@desktop 'source ~/.android-agent-env && emulator -list-avds'
-   ssh qiguo@desktop 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
+   ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && git pull && ./gradlew assembleDebug'
+   ssh qiguo@desktop 'source ~/.closepaw-env && emulator -list-avds'
+   ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && ./scripts/remote/proxy_tunnel.sh status'
    python3 scripts/token_counts.py
    ```
 
@@ -47,9 +47,9 @@ Track token counts each round. Keep prompts generalizable.
    ```bash
    ssh qiguo@desktop 'echo ok'
    git push
-   ssh qiguo@desktop 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
-   ssh qiguo@desktop 'source ~/.android-agent-env && emulator -list-avds'
-   ssh qiguo@desktop 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
+   ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && git pull && ./gradlew assembleDebug'
+   ssh qiguo@desktop 'source ~/.closepaw-env && emulator -list-avds'
+   ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && ./scripts/remote/proxy_tunnel.sh status'
    python3 scripts/token_counts.py
    ```
 

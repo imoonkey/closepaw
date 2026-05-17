@@ -1,6 +1,6 @@
 # State Machine Reference
 
-Authoritative reference for every finite-state machine (FSM) inside the Android Agent harness. Each document below is derived from source-of-truth Kotlin code (paths cited inline). Use these docs when reasoning about lifecycle, retries, queueing, or onboarding flow.
+Authoritative reference for every finite-state machine (FSM) inside the ClosePaw agent harness. Each document below is derived from source-of-truth Kotlin code (paths cited inline). Use these docs when reasoning about lifecycle, retries, queueing, or onboarding flow.
 
 ## Index
 

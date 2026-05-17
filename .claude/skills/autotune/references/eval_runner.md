@@ -38,7 +38,7 @@ Before running, sync code to the remote:
 git push
 
 # 2. Pull and rebuild on remote
-ssh qiguo@desktop 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
+ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && git pull && ./gradlew assembleDebug'
 ```
 
 A stale checkout is a silent failure mode — eval runs but produces wrong results.
@@ -46,15 +46,15 @@ A stale checkout is a silent failure mode — eval runs but produces wrong resul
 For `gpt-*` models, ensure the SSH proxy tunnel is up (OpenRouter models don't need it):
 
 ```bash
-ssh qiguo@desktop 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
+ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && ./scripts/remote/proxy_tunnel.sh status'
 # If not running:
-ssh qiguo@desktop 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh start'
+ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && ./scripts/remote/proxy_tunnel.sh start'
 ```
 
 Run eval:
 
 ```bash
-ssh qiguo@desktop 'cd ~/androidagent && eval/.venv/bin/python eval/aw_bridge/runner.py \
+ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && eval/.venv/bin/python eval/aw_bridge/runner.py \
   --config eval/config/remote.yaml \
   --tasks-file eval/config/autotune_round_N.txt'
 ```
@@ -62,7 +62,7 @@ ssh qiguo@desktop 'cd ~/androidagent && eval/.venv/bin/python eval/aw_bridge/run
 For long runs, use tmux to survive SSH disconnects:
 
 ```bash
-ssh qiguo@desktop 'cd ~/androidagent && ./scripts/remote/eval_tmux.sh \
+ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && ./scripts/remote/eval_tmux.sh \
   --tasks-file eval/config/autotune_round_N.txt'
 # Reattach: ssh qiguo@desktop 'tmux attach -t eval'
 ```
@@ -72,7 +72,7 @@ ssh qiguo@desktop 'cd ~/androidagent && ./scripts/remote/eval_tmux.sh \
 Sync code first (same as `--remote` above), then:
 
 ```bash
-ssh qiguo@desktop 'cd ~/androidagent && ./scripts/eval_parallel.sh \
+ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && ./scripts/eval_parallel.sh \
   --headless --config eval/config/remote.yaml \
   --tasks-file eval/config/autotune_round_N.txt'
 ```
@@ -84,7 +84,7 @@ Same parallel preconditions as local, plus `--headless` adds `-no-window -no-aud
 After any `--remote` run completes (or incrementally as tasks finish), pull results to local:
 
 ```bash
-rsync -avz qiguo@desktop:~/androidagent/eval/results/ eval/results/
+rsync -avz qiguo@desktop:~/ld-workspace/android-agent-workspace/androidagent/eval/results/ eval/results/
 ```
 
 All Step 4 analysis reads from local `eval/results/`. Skipping this means analysis fails or uses stale data.
@@ -95,5 +95,5 @@ All Step 4 analysis reads from local `eval/results/`. Skipping this means analys
 |---------|-----|
 | Tunnel dropped | `ssh qiguo@desktop './scripts/remote/proxy_tunnel.sh start'` |
 | Emulator hung | `adb -s emulator-5554 emu kill`, then re-run |
-| Stale checkout | `ssh qiguo@desktop 'cd ~/androidagent && git pull && ./gradlew assembleDebug'` |
+| Stale checkout | `ssh qiguo@desktop 'cd ~/ld-workspace/android-agent-workspace/androidagent && git pull && ./gradlew assembleDebug'` |
 | Second emulator won't start | Check `emulator -list-avds` shows `AndroidWorldAvd2` |

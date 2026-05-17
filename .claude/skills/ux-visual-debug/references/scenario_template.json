@@ -1,5 +1,5 @@
 {
-  "name": "android-agent-ux-template",
+  "name": "closepaw-ux-template",
   "package": "ai.closepaw",
   "steps": [
     {
@@ -18,7 +18,7 @@
     {
       "name": "Assert app shell visible",
       "action": "assert_text",
-      "text": "Android Agent",
+      "text": "ClosePaw",
       "continue_on_fail": true
     },
     {

@@ -296,7 +296,7 @@
 - **Signing pipeline shippable.** `app/build.gradle.kts` now declares `signingConfigs.create("release")` reading `KEYSTORE_PATH` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` env vars (graceful `null` fallback so IDE syncs and debug builds don't break). `gradle.properties` hoists `VERSION_NAME=0.1.0` / `VERSION_CODE=1` and bumps daemon heap from `-Xmx2048m` to `-Xmx4096m` (R8 OOMs at 2 GB). New `scripts/release-build.sh` wrapper sources `~/.android-agent-env` then exports the signing env from `~/secrets/closepaw/release.keystore` + `~/secrets/closepaw/release.keystore.password` (mode 600 files mirrored desktop ↔ laptop via Tailscale `scp`).
 - **R8 unblocked.** Three independent issues fixed in one commit (9a524d15): (a) snakeyaml 2.2 (direct dep — `SkillFrontmatterParser` for Agent Skills frontmatter) calls `java.beans.*` which Android lacks → added `-dontwarn java.beans.**` + `-keep org.yaml.snakeyaml.**`; (b) `bcprov-jdk18on:1.84` ships `META-INF/versions/25/*.class` (Java 25 multi-release bytecode) that Kotlin 2.3.0's `produceReleaseComposeMapping` ASM can't parse → that whole optional pipeline (`produce/merge/reportReleaseComposeMappingErrors`) disabled in `afterEvaluate`. Compose mapping is debug-only stack-trace metadata; APK functionality unaffected; (c) the heap bump above.
 - **Repo-root open-source files.** `README.md` (product intro, Quick Start, build, architecture pointer, Apache 2.0 badge, with TODOs for `publish-privacy-policy` and `publish-contributing-deferred`) and `SECURITY.md` (3-line policy pointing at GitHub Private Vulnerability Reporting) at repo root. `doc/main/README.md` remains the developer-facing nav.
-- **GitHub release workflow.** `.github/workflows/release.yml` fires on `v*` tag push: `setup-java 17` → `setup-gradle` → decode `KEYSTORE_BASE64` → `./gradlew :app:assembleRelease` with signing env → `gh release create` with `--generate-notes` and the APK. GitHub Secrets configured on `imoonkey/androidagent`: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD` (`KEY_ALIAS=closepaw` is hardcoded in workflow; `KEY_PASSWORD` reuses the store password). Untriggered — no `v*` tag, no GitHub Release.
+- **GitHub release workflow.** `.github/workflows/release.yml` fires on `v*` tag push: `setup-java 17` → `setup-gradle` → decode `KEYSTORE_BASE64` → `./gradlew :app:assembleRelease` with signing env → `gh release create` with `--generate-notes` and the APK. GitHub Secrets configured on `imoonkey/closepaw`: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD` (`KEY_ALIAS=closepaw` is hardcoded in workflow; `KEY_PASSWORD` reuses the store password). Untriggered — no `v*` tag, no GitHub Release.
 
 **Why:**
 - Path A of `projects/active/1_publish/` is "open-source release ready" — the 4 wave-2 leaves complete it. After wave 2, `git tag v0.1.0 && git push origin v0.1.0` is the single trigger to ship.
@@ -313,7 +313,7 @@
 - `./scripts/release-build.sh :app:assembleRelease` → BUILD SUCCESSFUL, 140 MB APK
 - `apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk` → APK Signature Scheme v2, cert SHA-256 `841375c95ea8f43034ed27d6c1f5bfaca861aa51471e60dc3029479c3a0cc3fd`
 - Adb-installed on emulator, `MainActivity` launches, no R8 FATAL in logcat
-- `gh secret list --repo imoonkey/androidagent` → `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD` present; `gh release list` empty; no `v*` tags
+- `gh secret list --repo imoonkey/closepaw` → `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD` present; `gh release list` empty; no `v*` tags
 - `sha256sum ~/secrets/closepaw/release.keystore` matches on desktop and laptop
 
 **Commit:** `48974455..99951bfa` (wave 2 work + tasks-graph chores; baseline 75e70466)
@@ -321,7 +321,7 @@
 **Next:**
 - Triggering first release is a separate decision: `git tag v0.1.0 && git push origin v0.1.0`. Workflow is dormant until then.
 - Path B (Play Store): `publish-privacy-policy`, `publish-play-console-account`, `publish-store-assets`, `publish-a11y-declaration` (high-risk; Play accessibility review), `publish-data-safety`, `publish-internal-testing`. Several tasks need user-driven actions (account, demo video, console forms).
-- Deferred: `publish-ci-templates` (until first external PR), `publish-contributing-deferred` (until first external contributor), GitHub Private Vulnerability Reporting (until repo flips public — `gh api -X PUT /repos/imoonkey/androidagent/private-vulnerability-reporting`).
+- Deferred: `publish-ci-templates` (until first external PR), `publish-contributing-deferred` (until first external contributor), GitHub Private Vulnerability Reporting (until repo flips public — `gh api -X PUT /repos/imoonkey/closepaw/private-vulnerability-reporting`).
 
 **Blockers:** None for path A. Path B has the standing high-risk gate at `publish-a11y-declaration` (Google may reject AI-driven accessibility automation).
 

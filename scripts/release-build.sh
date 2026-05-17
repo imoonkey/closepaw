@@ -9,9 +9,9 @@ set -euo pipefail
 # Pull JAVA_HOME / ANDROID_HOME from the repo's standard env file when present.
 # Interactive shells already source this from ~/.bashrc; non-interactive ones
 # (e.g. CI, agent runs) do not.
-if [[ -f "$HOME/.android-agent-env" ]]; then
+if [[ -f "$HOME/.closepaw-env" ]]; then
   # shellcheck disable=SC1091
-  source "$HOME/.android-agent-env"
+  source "$HOME/.closepaw-env"
 fi
 
 SECRETS="$HOME/secrets/closepaw"

@@ -29,7 +29,7 @@ All day-to-day work uses the **debug** APK. The **release** APK is only for ship
 `./gradlew assembleRelease` direct doesn't sign — `signingConfigs.create("release")` reads keystore env vars (`KEYSTORE_PATH/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD`) and gracefully falls back to `null` when they're absent (so IDE syncs don't break). The wrapper script does the env setup:
 
 - Keystore + password live at `~/secrets/closepaw/release.keystore` and `~/secrets/closepaw/release.keystore.password` (mode 600), outside the repo by design. Mirrored desktop ↔ laptop via Tailscale `scp` — both machines can sign independently.
-- `scripts/release-build.sh` sources `~/.android-agent-env` (for `JAVA_HOME` / `ANDROID_HOME` in non-interactive shells), exports the signing env from those two files, then `exec ./gradlew "$@"`.
+- `scripts/release-build.sh` sources `~/.closepaw-env` (for `JAVA_HOME` / `ANDROID_HOME` in non-interactive shells), exports the signing env from those two files, then `exec ./gradlew "$@"`.
 - New maintainer onboarding: ask the existing maintainer for the keystore + password files (or generate a fresh keystore for personal/dev work — see `projects/active/1_publish/2_release_build_claude.md`). `.gitignore` covers `*.keystore` `*.jks` `*.password`, but the canonical location is outside the repo to enforce the boundary.
 - CI publishes via `.github/workflows/release.yml` (fires on `v*` tag push; reads `KEYSTORE_BASE64` + `KEYSTORE_PASSWORD` from GitHub Secrets).
 
