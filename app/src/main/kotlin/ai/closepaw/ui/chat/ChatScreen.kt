@@ -43,14 +43,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ai.closepaw.app.AgentService
 import ai.closepaw.history.model.SessionInfo
 import ai.closepaw.ui.capsule.CapsuleBinding
 import ai.closepaw.ui.capsule.NavAction
 import ai.closepaw.ui.capsule.surface.SmartCapsuleSurface
+import ai.closepaw.ui.capsule.surface.VoiceMicDeps
 import ai.closepaw.ui.capsule.surface.smartCapsuleHostPadding
+import ai.closepaw.ui.capsule.voice.AndroidRecognizerFactory
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.ui.chat.components.ChatHeader
 import ai.closepaw.ui.chat.components.EmptyState
@@ -102,6 +106,20 @@ fun ChatScreen(
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    val ctx = LocalContext.current
+    val voiceDeps = remember(ctx) {
+        val activity = ctx as? android.app.Activity
+        object : VoiceMicDeps {
+            override val factory = AndroidRecognizerFactory(ctx.applicationContext)
+            override val activity: android.app.Activity? = activity
+            override fun requestOverlayPermission() {
+                // MAIN_APP path uses the in-process activity launcher; the overlay route is unused
+                // here. Fallback safely to the AgentService bridge so misuse is non-fatal.
+                AgentService.instance?.requestVoicePermissionViaMainActivity()
+            }
+        }
+    }
     
     // Load sessions when drawer opens
     LaunchedEffect(drawerState.isOpen) {
@@ -201,6 +219,7 @@ fun ChatScreen(
                         onStartupErrorClick = {
                             onOpenSettings(viewModel.startupErrorDeepLink.value)
                         },
+                        voice = voiceDeps,
                     )
                 }
             }
