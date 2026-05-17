@@ -14,19 +14,28 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ai.closepaw.BuildConfig
 import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.platform.AppManager
+import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMasthead
 import ai.closepaw.ui.theme.SectionHeader
 import ai.closepaw.ui.theme.closePaw
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun SettingsHomePage(
@@ -40,6 +49,7 @@ internal fun SettingsHomePage(
     isOverlayEnabled: Boolean,
     debugMode: Boolean,
     effectivePlatformMode: PlatformMode?,
+    appClassifier: AppClassifier,
     onNavigate: (SettingsPage) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -89,6 +99,11 @@ internal fun SettingsHomePage(
                 title = "Permissions & Advanced",
                 subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode, effectivePlatformMode),
                 onClick = { onNavigate(SettingsPage.PERMISSIONS_ADVANCED) }
+            )
+            SettingsNavigationRow(
+                title = "App Security",
+                subtitle = appSecuritySubtitle(appClassifier),
+                onClick = { onNavigate(SettingsPage.APP_SECURITY) }
             )
 
             SectionHeader("About")
@@ -160,4 +175,28 @@ private fun permissionsSubtitle(
         null -> ""
     }
     return "$permSummary · Debug ${if (debugMode) "on" else "off"}$modeChip"
+}
+
+/**
+ * Subtitle for the App Security entry on the Settings home page.
+ *
+ * `N` (apps customized) tracks the live `userOverrides` map via `collectAsState`.
+ * `M` (restricted) is the count of bundled-BLOCKED packages among the currently
+ * installed apps. The set of installed apps is effectively constant for the
+ * lifetime of the sheet, so we scan once via `produceState` and cache the count;
+ * if the scan hasn't finished yet, render the count as `…` rather than block.
+ */
+@Composable
+private fun appSecuritySubtitle(classifier: AppClassifier): String {
+    val context = LocalContext.current
+    val overrides by classifier.userOverrides.collectAsState()
+    val restrictedCount by produceState<Int?>(initialValue = null, context, classifier) {
+        value = withContext(Dispatchers.IO) {
+            AppManager.getInstalledApps(context.packageManager).count { info ->
+                classifier.bundledTier(info.packageName) == AppTier.BLOCKED
+            }
+        }
+    }
+    val restrictedLabel = restrictedCount?.toString() ?: "…"
+    return "${overrides.size} apps customized · $restrictedLabel restricted"
 }
