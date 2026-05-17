@@ -67,8 +67,11 @@ class PolicyEngine(
         // 2. Escape actions (back/home) → always allow (agent must not be trapped).
         if (isEscape(tool, params)) return PolicyDecision.Allow
 
-        // 3. BLOCKED is absolute floor — even AUTO_APPROVE cannot bypass. Covers bundled-BLOCKED
-        //    on EITHER current or destination (preserves the "stricter wins" rule for open_app).
+        // 3. Effective tier of BLOCKED denies — even AUTO_APPROVE cannot bypass at this layer.
+        //    Bundled-BLOCKED is the default starting point, not a wall: the App Access screen
+        //    can downgrade it (BLOCKED→NORMAL/CAUTIOUS) behind a confirm dialog, so an
+        //    overridden app reaches this step with its post-override tier. Still applies to
+        //    EITHER current or destination ("stricter wins" rule for open_app).
         if (effectiveTier == AppTier.BLOCKED) {
             return PolicyDecision.Deny("Blocked: financial/auth app ($packageName)")
         }

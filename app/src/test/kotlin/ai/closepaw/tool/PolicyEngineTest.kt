@@ -341,5 +341,30 @@ class PolicyEngineTest {
         assertThat(decision).isEqualTo(PolicyDecision.Allow)
     }
 
+    @Test
+    fun `open_app from overridden bundled BLOCKED current to un-overridden BLOCKED destination is denied under SMART`() = runBlocking {
+        // Destination strictness still applies after the override: a user who downgraded
+        // their banking app to Allow should NOT thereby be able to open_app into a
+        // different bundled-BLOCKED destination they have not overridden. The "stricter
+        // wins" rule (min of current/dest effective tiers) still fires in step 3.
+        val classifier = AppClassifier(
+            mapOf(
+                "com.bank.a" to AppTier.BLOCKED,
+                "com.bank.b" to AppTier.BLOCKED,
+            )
+        )
+        classifier.setOverride("com.bank.a", AppTier.NORMAL)
+        assertThat(classifier.classify("com.bank.a")).isEqualTo(AppTier.NORMAL)
+        assertThat(classifier.classify("com.bank.b")).isEqualTo(AppTier.BLOCKED)
+        val engine = PolicyEngine(ApprovalMode.SMART, classifier)
+
+        val decision = engine.check(
+            "open_app", JSONObject(), "com.bank.a",
+            destinationPackage = "com.bank.b"
+        )
+
+        assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
+    }
+
     private fun clickParams() = JSONObject().put("action", "click").put("index", 5)
 }

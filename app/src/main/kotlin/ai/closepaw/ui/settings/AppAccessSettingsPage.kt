@@ -138,6 +138,7 @@ internal fun AppAccessSettingsPage(
     pendingConfirm?.let { pending ->
         SensitiveAppConfirmDialog(
             appLabel = pending.appLabel,
+            tier = pending.tier,
             onConfirm = {
                 commitTier(pending.pkg, pending.tier)
                 pendingConfirm = null
@@ -156,20 +157,32 @@ private data class PendingConfirm(
 @Composable
 private fun SensitiveAppConfirmDialog(
     appLabel: String,
+    tier: AppTier,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val (titleText, bodyText, confirmLabel) = when (tier) {
+        AppTier.NORMAL -> Triple(
+            "Allow agent to access $appLabel?",
+            "This app is marked sensitive. The agent will be able to read its " +
+                "screen and tap inside it.",
+            "Allow",
+        )
+        AppTier.CAUTIOUS -> Triple(
+            "Change $appLabel to Ask?",
+            "This app is marked sensitive. You will be prompted each time the " +
+                "agent wants to access it.",
+            "Confirm",
+        )
+        // BLOCKED writes bypass this dialog entirely (see onPickTier in AppList).
+        AppTier.BLOCKED -> Triple("", "", "Confirm")
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Allow agent to access $appLabel?") },
-        text = {
-            Text(
-                "This app is marked sensitive. The agent will be able to read its " +
-                    "screen and tap inside it."
-            )
-        },
+        title = { Text(titleText) },
+        text = { Text(bodyText) },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text("Allow") }
+            TextButton(onClick = onConfirm) { Text(confirmLabel) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
