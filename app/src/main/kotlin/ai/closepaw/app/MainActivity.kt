@@ -928,9 +928,9 @@ class MainActivity : ComponentActivity() {
         if (providers.any { authStore.has(it) }) return true
         if (settings.selectedModel != AppSettingsStore.DEFAULT_MODEL) return true
         if (settings.llmBackend != AppSettingsStore.DEFAULT_LLM_BACKEND) return true
-        // Allow-list entries
-        val allowList = AppSettingsStore(applicationContext).loadPersistentAllowList()
-        if (allowList.isNotEmpty()) return true
+        // User app overrides (persistent per-app policy)
+        val overrides = AppSettingsStore(applicationContext).loadUserAppOverrides()
+        if (overrides.isNotEmpty()) return true
         // Session directory has files
         val sessionsDir = java.io.File(applicationContext.filesDir, "sessions")
         if (sessionsDir.exists() && (sessionsDir.listFiles()?.isNotEmpty() == true)) return true

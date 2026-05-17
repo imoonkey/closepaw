@@ -3,6 +3,7 @@ package ai.closepaw.tool
 import com.google.common.truth.Truth.assertThat
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.ApprovalMode
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Test
 
@@ -244,6 +245,79 @@ class PolicyEngineTest {
             destinationPackage = "com.bank"
         )
         assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
+    }
+
+    // --- User override interactions (canonical step ordering) ---
+
+    @Test
+    fun `user NORMAL override on chrome under ALWAYS_ASK still asks - mode wins`() = runBlocking {
+        val classifier = AppClassifier(mapOf("com.android.chrome" to AppTier.NORMAL))
+        // Even though chrome is NORMAL, ALWAYS_ASK is absolute: any user override that downgrades
+        // to "auto-approve" must still ask. NORMAL is in fact the bundled default here, but a
+        // hypothetical CAUTIOUS→NORMAL override would behave the same.
+        classifier.setOverride("com.android.chrome", AppTier.NORMAL)
+        val engine = PolicyEngine(ApprovalMode.ALWAYS_ASK, classifier)
+
+        val decision = engine.check("open_app", JSONObject(), "com.android.chrome")
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `browser_script under SMART asks even with NORMAL override`() = runBlocking {
+        val classifier = AppClassifier(mapOf("com.android.chrome" to AppTier.NORMAL))
+        classifier.setOverride("com.android.chrome", AppTier.NORMAL)
+        val engine = PolicyEngine(ApprovalMode.SMART, classifier)
+
+        val decision = engine.check("browser_script", JSONObject(), "com.android.chrome")
+
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `session-allowed package allowed under SMART`() {
+        val engine = engineWith()
+        engine.allowPackageForSession("com.unknown.app")
+
+        val decision = engine.check("mobile_action", clickParams(), "com.unknown.app")
+
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
+    @Test
+    fun `session-allowed package still asks under ALWAYS_ASK`() {
+        val engine = engineWith(mode = ApprovalMode.ALWAYS_ASK)
+        engine.allowPackageForSession("com.unknown.app")
+
+        val decision = engine.check("mobile_action", clickParams(), "com.unknown.app")
+
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `open_app to bundled BLOCKED destination from NORMAL current is denied under SMART`() {
+        val engine = engineWith(
+            tiers = mapOf(
+                "com.android.settings" to AppTier.NORMAL,
+                "com.bank" to AppTier.BLOCKED
+            )
+        )
+        val decision = engine.check(
+            "open_app", JSONObject(), "com.android.settings",
+            destinationPackage = "com.bank"
+        )
+        assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
+    }
+
+    @Test
+    fun `open_app to CAUTIOUS destination under SMART asks user`() {
+        val engine = engineWith(
+            tiers = mapOf("com.android.settings" to AppTier.NORMAL)
+        )
+        val decision = engine.check(
+            "open_app", JSONObject(), "com.android.settings",
+            destinationPackage = "com.unknown"
+        )
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
     }
 
     private fun clickParams() = JSONObject().put("action", "click").put("index", 5)

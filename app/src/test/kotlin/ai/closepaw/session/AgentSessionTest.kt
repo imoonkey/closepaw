@@ -348,6 +348,7 @@ class AgentSessionTest {
                                 """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
                         )
                 val testLlm = SessionTestLLMClient(0L)
+                val sharedClassifier = AppClassifier(emptyMap())
                 val services =
                         SessionServices(
                                 toolRegistry = toolRegistry,
@@ -355,7 +356,7 @@ class AgentSessionTest {
                                 historyManager = HistoryManager(),
                                 sessionState = AgentSessionState(),
                                 policyEngine = spiedPolicyEngine,
-                                appClassifier = AppClassifier(emptyMap()),
+                                appClassifier = sharedClassifier,
                                 platform = platform,
                                 config = config,
                                 llmClient = testLlm,
@@ -384,7 +385,8 @@ class AgentSessionTest {
                 )
                 advanceUntilIdle()
 
-                verify(exactly = 0) { spiedPolicyEngine.allowPackagePersistent(any()) }
+                // Stale approval must not mutate the persistent override map or the session allow-list.
+                assertThat(sharedClassifier.userOverrides.value).isEmpty()
                 verify(exactly = 0) { spiedPolicyEngine.allowPackageForSession(any()) }
 
                 session.submit(Op.Shutdown)
