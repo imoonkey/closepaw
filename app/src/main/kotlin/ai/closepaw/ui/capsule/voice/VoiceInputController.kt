@@ -54,9 +54,16 @@ class VoiceInputController(
     private var recognizer: Recognizer? = null
     private var baseText: String = ""
 
+    // Tracks whether the current session has produced ANY successful signal (partial or final).
+    // A hard error before any signal means the recognizer is unusable on this hardware/config —
+    // we then promote the controller to terminal Unavailable so the mic icon hides (see
+    // [handleError]). Reset at the top of [start].
+    private var sessionGotAnyCallback: Boolean = false
+
     fun start(baseText: String) {
         if (disposed || state == VoiceState.Stopping) return
         if (state == VoiceState.Listening) return
+        if (state == VoiceState.Unavailable) return
         if (!factory.isAvailable()) {
             state = VoiceState.Unavailable
             return
@@ -64,6 +71,7 @@ class VoiceInputController(
         this.baseText = baseText
         lastPartial = ""
         partialAtStop = ""
+        sessionGotAnyCallback = false
         val r = factory.create() ?: run {
             state = VoiceState.Unavailable
             return
@@ -76,12 +84,14 @@ class VoiceInputController(
                 // During Stopping the partialAtStop snapshot is frozen — incoming partials are
                 // noise from audio captured before stop() and must not mutate visible text.
                 if (state == VoiceState.Stopping) return
+                sessionGotAnyCallback = true
                 lastPartial = text
                 onText(joinWithSpace(this@VoiceInputController.baseText, text))
             }
 
             override fun onFinal(text: String) {
                 if (myGen != generation || disposed) return
+                sessionGotAnyCallback = true
                 if (text.isNotEmpty()) {
                     onText(joinWithSpace(this@VoiceInputController.baseText, text))
                 } else if (state == VoiceState.Stopping && partialAtStop.isNotEmpty()) {
@@ -160,8 +170,18 @@ class VoiceInputController(
         }
         VoiceError.Busy, VoiceError.ServiceDied, VoiceError.Unknown -> {
             onText(baseText)
-            onToast("Voice unavailable")
-            VoiceState.Idle
+            // Hard error before we ever heard back from the recognizer: it's unusable on this
+            // device/config (e.g. registered RecognitionService but no default selected, or
+            // AppOps blocks binding). Promote to terminal Unavailable so the mic icon hides
+            // and the user stops seeing the toast on every tap. Once we've seen at least one
+            // partial/final, the same errors are treated as transient (network dropped etc.).
+            if (!sessionGotAnyCallback) {
+                onToast("Voice unavailable")
+                VoiceState.Unavailable
+            } else {
+                onToast("Voice unavailable")
+                VoiceState.Idle
+            }
         }
     }
 

@@ -182,6 +182,52 @@ class VoiceInputControllerTest {
         assertThat(c.state).isEqualTo(VoiceState.Unavailable)
         assertThat(factory.created).isEmpty()
     }
+
+    @Test
+    fun `serviceDied_at_session_start_with_no_callbacks_transitions_to_Unavailable`() {
+        val factory = FakeRecognizerFactory()
+        val (c, _, onToast) = newController(factory)
+
+        c.start("")
+        assertThat(c.state).isEqualTo(VoiceState.Listening)
+
+        factory.created.last().callbacks.onError(VoiceError.ServiceDied)
+        assertThat(c.state).isEqualTo(VoiceState.Unavailable)
+        assertThat(onToast.calls).containsExactly("Voice unavailable").inOrder()
+
+        // Subsequent start() must be a no-op — the recognizer is terminally unusable on this
+        // device, so we must not bind it again on every mic tap.
+        val createdBefore = factory.created.size
+        c.start("")
+        assertThat(c.state).isEqualTo(VoiceState.Unavailable)
+        assertThat(factory.created.size).isEqualTo(createdBefore)
+    }
+
+    @Test
+    fun `unknown_at_session_start_with_no_callbacks_transitions_to_Unavailable`() {
+        val factory = FakeRecognizerFactory()
+        val (c, _, onToast) = newController(factory)
+
+        c.start("")
+        factory.created.last().callbacks.onError(VoiceError.Unknown)
+
+        assertThat(c.state).isEqualTo(VoiceState.Unavailable)
+        assertThat(onToast.calls).containsExactly("Voice unavailable").inOrder()
+    }
+
+    @Test
+    fun `serviceDied_after_partial_stays_in_Idle_with_toast`() {
+        val factory = FakeRecognizerFactory()
+        val (c, _, onToast) = newController(factory)
+
+        c.start("")
+        val cb = factory.created.last().callbacks
+        cb.onPartial("hi")
+        cb.onError(VoiceError.ServiceDied)
+
+        assertThat(c.state).isEqualTo(VoiceState.Idle)
+        assertThat(onToast.calls).containsExactly("Voice unavailable").inOrder()
+    }
 }
 
 internal class FakeRecognizer : Recognizer {
