@@ -372,9 +372,19 @@ if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
     INTENT_EXTRAS="$INTENT_EXTRAS --es openrouter_api_key '$SAFE_OR_KEY'"
 fi
 
-if [[ -n "${NOVITA_API_KEY:-}" ]]; then
-    SAFE_NOVITA_KEY=$(escape_shell_arg "$NOVITA_API_KEY")
-    INTENT_EXTRAS="$INTENT_EXTRAS --es novita_api_key '$SAFE_NOVITA_KEY'"
+if [[ -n "${OTHER_API_KEY:-}" ]]; then
+    SAFE_OTHER_KEY=$(escape_shell_arg "$OTHER_API_KEY")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es other_api_key '$SAFE_OTHER_KEY'"
+fi
+
+if [[ -n "${OTHER_BASE_URL:-}" ]]; then
+    SAFE_OTHER_BASE_URL=$(escape_shell_arg "$OTHER_BASE_URL")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es other_base_url '$SAFE_OTHER_BASE_URL'"
+fi
+
+if [[ -n "${OTHER_MODEL_ID:-}" ]]; then
+    SAFE_OTHER_MODEL_ID=$(escape_shell_arg "$OTHER_MODEL_ID")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es other_model_id '$SAFE_OTHER_MODEL_ID'"
 fi
 
 if [[ -n "${OPENAI_BASE_URL:-}" ]]; then

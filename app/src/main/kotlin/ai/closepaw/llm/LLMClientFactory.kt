@@ -1,6 +1,7 @@
 package ai.closepaw.llm
 
 import ai.closepaw.auth.AuthStore
+import ai.closepaw.auth.MissingCredential
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.runBlocking
@@ -106,8 +107,18 @@ class LLMClientFactory(
                     )
             LLMProvider.OPENROUTER ->
                     ChatCompletionClient(store.requireApiKey(LLMProvider.OPENROUTER), baseUrl)
-            LLMProvider.NOVITA ->
-                    ChatCompletionClient(store.requireApiKey(LLMProvider.NOVITA), baseUrl)
+            LLMProvider.OTHER -> {
+                // Hard-require a non-blank baseUrl at this boundary. If anything upstream
+                // produced a malformed OTHER entry (synth missing settings, stale catalog),
+                // the OpenAI SDK would otherwise default to api.openai.com — leaking the
+                // user's OTHER key to OpenAI. Surface it as a missing-credential error so
+                // the UI deep-links to the OTHER tab instead of silently misrouting.
+                val otherBaseUrl = entry.baseUrl
+                if (otherBaseUrl.isNullOrBlank()) {
+                    throw MissingCredential(LLMProvider.OTHER)
+                }
+                ChatCompletionClient(store.requireApiKey(LLMProvider.OTHER), otherBaseUrl)
+            }
             LLMProvider.LOCAL_LFM ->
                     throw IllegalStateException(
                             "LLMClientFactory does not build LFMLLMClient; use LFMLLMClient(context) directly."

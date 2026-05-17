@@ -28,8 +28,10 @@ class MainActivityIntentApplierSecurityTest {
         val payload = MainActivityIntentPayload(
             apiKey = "injected-key",
             openRouterApiKey = "injected-or-key",
-            novitaApiKey = "injected-novita",
             openaiBaseUrl = "https://evil.example.com",
+            otherApiKey = "injected-other-key",
+            otherBaseUrl = "https://evil.example.com/v1",
+            otherModelId = "injected/model",
             backendType = null,
             perceptionMode = null,
             platformMode = null,
@@ -62,7 +64,7 @@ class MainActivityIntentApplierSecurityTest {
         // Nothing should change — all extras ignored
         assertThat(authStore.has(LLMProvider.OPENAI_API)).isFalse()
         assertThat(authStore.has(LLMProvider.OPENROUTER)).isFalse()
-        assertThat(authStore.has(LLMProvider.NOVITA)).isFalse()
+        assertThat(authStore.has(LLMProvider.OTHER)).isFalse()
         assertThat(result.pendingTraceEnabled).isNull()
         assertThat(result.pendingTraceRunId).isNull()
         assertThat(result.pendingExcludedTools).isEmpty()
@@ -75,8 +77,10 @@ class MainActivityIntentApplierSecurityTest {
         val payload = MainActivityIntentPayload(
             apiKey = "injected-key",
             openRouterApiKey = null,
-            novitaApiKey = null,
             openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = null,
+            otherModelId = null,
             backendType = null,
             perceptionMode = null,
             platformMode = null,
@@ -119,8 +123,10 @@ class MainActivityIntentApplierSecurityTest {
         val payload = MainActivityIntentPayload(
             apiKey = "debug-key",
             openRouterApiKey = null,
-            novitaApiKey = null,
             openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = null,
+            otherModelId = null,
             backendType = null,
             perceptionMode = null,
             platformMode = null,
@@ -241,12 +247,190 @@ class MainActivityIntentApplierSecurityTest {
             assertThat(settingsState.browserScriptEnabled).isFalse()
         }
 
+    // ── OTHER provider trio ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `debug build round-trips OTHER trio and invokes invalidateCatalog`() = runBlocking<Unit> {
+        val payload = MainActivityIntentPayload(
+            apiKey = null,
+            openRouterApiKey = null,
+            openaiBaseUrl = null,
+            otherApiKey = "other-key",
+            otherBaseUrl = "https://api.example.com/v1",
+            otherModelId = "vendor/model",
+            backendType = null,
+            perceptionMode = null,
+            platformMode = null,
+            mainModel = null,
+            approvalMode = null,
+            browserScriptEnabled = null,
+            goalText = null,
+            freshSession = false,
+            debugMode = null,
+            traceEnabled = null,
+            traceRunId = null,
+            excludedTools = emptySet(),
+            evalTurnBudget = null,
+        )
+        var invalidateCount = 0
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
+            log = {},
+            invalidateCatalog = { invalidateCount++ },
+        )
+
+        val cred = runBlocking { authStore.get(LLMProvider.OTHER) }
+        assertThat(cred).isEqualTo(AuthCredential.ApiKey("other-key"))
+        assertThat(settingsState.otherBaseUrl).isEqualTo("https://api.example.com/v1")
+        assertThat(settingsState.otherModelId).isEqualTo("vendor/model")
+        // invalidate is called once at the end of the apply path — that's enough for
+        // catalog.value to reflect the new trio on the next read; nothing in the contract
+        // requires once-per-field. (Settings updates also fire onOtherSettingsChanged,
+        // which would invalidate the production repo via the AppSettingsState factory; the
+        // test passes a bare AppSettingsState so only the applier's invalidate hook fires.)
+        assertThat(invalidateCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `debug build skips invalidateCatalog when no OTHER fields present`() = runBlocking<Unit> {
+        val payload = browserScriptPayload(enabled = false)
+        var invalidateCount = 0
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
+            log = {},
+            invalidateCatalog = { invalidateCount++ },
+        )
+
+        assertThat(invalidateCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `debug build skips invalid OTHER base URL and leaves settings untouched`() = runBlocking<Unit> {
+        // Regression for Sub 1c Codex HIGH #3: invalid base URL from intent must NOT be
+        // written to AppSettingsStore. Validating only at synth-time still leaves junk in
+        // persistent settings that a later UI render would surface to the user.
+        val payload = MainActivityIntentPayload(
+            apiKey = null,
+            openRouterApiKey = null,
+            openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = "not a url",
+            otherModelId = null,
+            backendType = null,
+            perceptionMode = null,
+            platformMode = null,
+            mainModel = null,
+            approvalMode = null,
+            browserScriptEnabled = null,
+            goalText = null,
+            freshSession = false,
+            debugMode = null,
+            traceEnabled = null,
+            traceRunId = null,
+            excludedTools = emptySet(),
+            evalTurnBudget = null,
+        )
+        var invalidateCount = 0
+        val logs = mutableListOf<String>()
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
+            log = { logs += it },
+            invalidateCatalog = { invalidateCount++ },
+        )
+
+        assertThat(settingsState.otherBaseUrl).isEmpty()
+        assertThat(invalidateCount).isEqualTo(0)
+        assertThat(logs.any { it.contains("OTHER base URL from intent rejected") }).isTrue()
+    }
+
+    @Test
+    fun `debug build skips invalid OTHER model id and leaves settings untouched`() = runBlocking<Unit> {
+        // Codex review MEDIUM #4: model id from intent must be validated with
+        // the same rules discovery + synth use. A whitespace-containing id
+        // would otherwise be persisted, then silently dropped by synth, with
+        // no clue to the user.
+        val payload = MainActivityIntentPayload(
+            apiKey = null,
+            openRouterApiKey = null,
+            openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = null,
+            otherModelId = "vendor model with space",
+            backendType = null,
+            perceptionMode = null,
+            platformMode = null,
+            mainModel = null,
+            approvalMode = null,
+            browserScriptEnabled = null,
+            goalText = null,
+            freshSession = false,
+            debugMode = null,
+            traceEnabled = null,
+            traceRunId = null,
+            excludedTools = emptySet(),
+            evalTurnBudget = null,
+        )
+        var invalidateCount = 0
+        val logs = mutableListOf<String>()
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
+            log = { logs += it },
+            invalidateCatalog = { invalidateCount++ },
+        )
+
+        assertThat(settingsState.otherModelId).isEmpty()
+        assertThat(invalidateCount).isEqualTo(0)
+        assertThat(logs.any { it.contains("OTHER model id from intent rejected") }).isTrue()
+    }
+
     private fun browserScriptPayload(enabled: Boolean): MainActivityIntentPayload =
         MainActivityIntentPayload(
             apiKey = null,
             openRouterApiKey = null,
-            novitaApiKey = null,
             openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = null,
+            otherModelId = null,
             backendType = null,
             perceptionMode = null,
             platformMode = null,

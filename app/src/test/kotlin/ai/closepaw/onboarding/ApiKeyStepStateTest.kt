@@ -332,12 +332,12 @@ class ApiKeyStepStateTest {
 
     @Test
     fun `validateApiKey returns TransientError when no model in catalog for provider`() = runTest {
-        // Build a catalog WITHOUT NOVITA, then drive the VM into selecting NOVITA. We do this
-        // by calling selectProvider through a fresh VM whose catalog has no NOVITA entry.
+        // Build a catalog WITHOUT OPENAI_API, then drive the VM into selecting OPENAI_API.
+        // The provider→entry lookup must surface a TransientError rather than crashing.
         catalog = ModelCatalog.fromJson("""{"or":{"display_name":"OR","provider":"OPENROUTER","api":"chat","model_id":"m","base_url":"${server.url("/v1")}"}}""")
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.NOVITA)
+        vm.selectProvider(OnboardingProvider.OPENAI_API)
         vm.onApiKeyChanged("sk-x")
 
         vm.validateApiKey(); drain(scope, this)

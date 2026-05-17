@@ -54,6 +54,58 @@ class AppSettingsStoreTest {
         assertThat(reloaded.browserScriptEnabled).isTrue()
     }
 
+    @Test
+    fun `otherBaseUrl + otherModelId default to empty`() {
+        val settings = AppSettingsStore(context).load()
+        assertThat(settings.otherBaseUrl).isEmpty()
+        assertThat(settings.otherModelId).isEmpty()
+    }
+
+    @Test
+    fun `otherBaseUrl persists + restores`() {
+        val store = AppSettingsStore(context)
+        store.saveOtherBaseUrl("https://api.example.com/v1")
+
+        assertThat(AppSettingsStore(context).load().otherBaseUrl).isEqualTo("https://api.example.com/v1")
+    }
+
+    @Test
+    fun `otherModelId persists + restores`() {
+        val store = AppSettingsStore(context)
+        store.saveOtherModelId("vendor/model-x")
+
+        assertThat(AppSettingsStore(context).load().otherModelId).isEqualTo("vendor/model-x")
+    }
+
+    @Test
+    fun `blank otherBaseUrl write clears stored value`() {
+        val store = AppSettingsStore(context)
+        store.saveOtherBaseUrl("https://api.example.com/v1")
+        store.saveOtherBaseUrl("")
+
+        assertThat(AppSettingsStore(context).load().otherBaseUrl).isEmpty()
+    }
+
+    @Test
+    fun `other settings round-trip through state`() {
+        var invalidated = 0
+        val state = AppSettingsState(
+            store = AppSettingsStore(context),
+            onOtherSettingsChanged = { invalidated++ },
+        )
+        state.load()
+        state.updateOtherBaseUrl("https://api.example.com/v1")
+        state.updateOtherModelId("vendor/model-x")
+
+        val reloaded = AppSettingsStore(context).load()
+        assertThat(state.otherBaseUrl).isEqualTo("https://api.example.com/v1")
+        assertThat(state.otherModelId).isEqualTo("vendor/model-x")
+        assertThat(reloaded.otherBaseUrl).isEqualTo("https://api.example.com/v1")
+        assertThat(reloaded.otherModelId).isEqualTo("vendor/model-x")
+        // updateOtherBaseUrl + updateOtherModelId must each notify the catalog.
+        assertThat(invalidated).isEqualTo(2)
+    }
+
     private fun fakePrefs(backing: MutableMap<String, Any?>): SharedPreferences {
         val editor = mockk<SharedPreferences.Editor>(relaxed = true)
         every { editor.putString(any(), any()) } answers {

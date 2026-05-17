@@ -43,11 +43,17 @@ enum class LLMProvider(
         defaultBaseUrl = "https://openrouter.ai/api/v1",
     ),
 
-    /** Novita — api.novita.ai. */
-    NOVITA(
+    /**
+     * User-configured OpenAI-compatible endpoint. Base URL and model id live in
+     * [ai.closepaw.app.AppSettingsState] (`otherBaseUrl`, `otherModelId`) and are
+     * surfaced as a synthesized `other-custom` catalog entry. No hardcoded URL — the
+     * factory hard-requires a non-blank `entry.baseUrl` to avoid leaking the user's
+     * key to the OpenAI SDK's default base URL.
+     */
+    OTHER(
         mode = AuthMode.ApiKey,
-        defaultApiKeyEnv = "NOVITA_API_KEY",
-        defaultBaseUrl = "https://api.novita.ai/openai/v1",
+        defaultApiKeyEnv = "OTHER_API_KEY",
+        defaultBaseUrl = null,
     ),
 
     /** On-device LFM runtime (Leap SDK). No network credential. */
@@ -64,6 +70,6 @@ val LLMProvider.displayLabel: String
         LLMProvider.OPENAI_API -> "OpenAI"
         LLMProvider.OPENAI_CODEX -> "OpenAI (ChatGPT sign-in)"
         LLMProvider.OPENROUTER -> "OpenRouter"
-        LLMProvider.NOVITA -> "Novita"
+        LLMProvider.OTHER -> "Other"
         LLMProvider.LOCAL_LFM -> "Local"
     }

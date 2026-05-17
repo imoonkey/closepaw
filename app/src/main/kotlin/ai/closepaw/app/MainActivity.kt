@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -34,6 +35,8 @@ import ai.closepaw.llm.LFMLLMClient
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.llm.ModelCatalogRepository
+import ai.closepaw.llm.ModelCatalogRepositoryHolder
 import ai.closepaw.onboarding.OnboardingDemoController
 import ai.closepaw.onboarding.OnboardingEffect
 import ai.closepaw.onboarding.OnboardingStore
@@ -83,14 +86,17 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_PLATFORM_MODE = "platform_mode"
         const val EXTRA_EXCLUDED_TOOLS = "excluded_tools"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
-        const val EXTRA_NOVITA_API_KEY = "novita_api_key"
         const val EXTRA_OPENAI_BASE_URL = "openai_base_url"
+        const val EXTRA_OTHER_API_KEY = "other_api_key"
+        const val EXTRA_OTHER_BASE_URL = "other_base_url"
+        const val EXTRA_OTHER_MODEL_ID = "other_model_id"
         const val EXTRA_EVAL_TURN_BUDGET = "eval_turn_budget"
     }
 
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val coordinator = SessionCoordinator(sessionScope)
     private lateinit var settingsState: AppSettingsState
+    private lateinit var modelCatalogRepo: ModelCatalogRepository
     private lateinit var modelLoadingStatusHolder: ModelLoadingStatusHolder
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
@@ -119,25 +125,17 @@ class MainActivity : ComponentActivity() {
         FORCE_FRESH
     }
 
-    private val modelCatalog: ModelCatalog by lazy {
-        try {
-            val json = assets.open("llm_models.json").bufferedReader().use { it.readText() }
-            ModelCatalog.fromJson(json)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to load model catalog for UI", e)
-            ModelCatalog.fromJson(
-                    """{"glm-5":{"display_name":"GLM-5","provider":"OPENROUTER","api":"chat","model_id":"z-ai/glm-5"}}"""
-            )
-        }
-    }
+    private val modelCatalog: ModelCatalog
+        get() = modelCatalogRepo.catalog.value
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         intentPayloadConsumed = savedInstanceState?.getBoolean(KEY_INTENT_PAYLOAD_CONSUMED, false) ?: false
         pendingGoalForConfirmation = savedInstanceState?.getString(KEY_PENDING_GOAL_CONFIRMATION)
-        settingsState = AppSettingsState(AppSettingsStore(applicationContext))
+        settingsState = AppSettingsState.create(applicationContext)
         settingsState.load()
+        modelCatalogRepo = ModelCatalogRepositoryHolder.get(applicationContext)
         modelLoadingStatusHolder = ModelLoadingStatusHolder(applicationContext, lifecycleScope, settingsState)
 
         // Onboarding: migrate + check completion
@@ -214,6 +212,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 var repairModel by remember { mutableStateOf(deriveRepairModel()) }
                 val lifecycleOwner = LocalLifecycleOwner.current
+                val catalogSnapshot by modelCatalogRepo.catalog.collectAsStateWithLifecycle()
                 DisposableEffect(lifecycleOwner) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
@@ -227,7 +226,7 @@ class MainActivity : ComponentActivity() {
                     viewModel = viewModel,
                     settingsState = settingsState,
                     modelLoadingStatusHolder = modelLoadingStatusHolder,
-                    modelCatalog = modelCatalog,
+                    modelCatalog = catalogSnapshot,
                     showSettings = showSettings,
                     onShowSettingsChange = {
                         showSettings = it
@@ -369,7 +368,8 @@ class MainActivity : ComponentActivity() {
                 currentPendingExcludedTools = pendingExcludedTools,
                 currentPendingApprovalMode = pendingApprovalMode,
                 currentPendingEvalTurnBudget = pendingEvalTurnBudget,
-                log = { message -> Log.d(TAG, message) }
+                log = { message -> Log.d(TAG, message) },
+                invalidateCatalog = { modelCatalogRepo.invalidate() },
             )
             pendingTraceEnabled = applyResult.pendingTraceEnabled
             pendingTraceRunId = applyResult.pendingTraceRunId
@@ -545,6 +545,7 @@ class MainActivity : ComponentActivity() {
                         ai.closepaw.ui.chat.SettingsDeepLink(
                             page = ai.closepaw.ui.chat.SettingsPage.LLM_AUTH,
                             authTab = provider?.mode,
+                            provider = provider,
                         )
                     }
                     else -> null
@@ -762,6 +763,7 @@ class MainActivity : ComponentActivity() {
         pendingSettingsDeepLink = ai.closepaw.ui.chat.SettingsDeepLink(
             page = ai.closepaw.ui.chat.SettingsPage.LLM_AUTH,
             authTab = missing.first().provider.mode,
+            provider = missing.first().provider,
         )
         showSettings = true
         return false
@@ -904,7 +906,6 @@ class MainActivity : ComponentActivity() {
             LLMProvider.OPENAI_API,
             LLMProvider.OPENAI_CODEX,
             LLMProvider.OPENROUTER,
-            LLMProvider.NOVITA,
         )
         if (providers.any { authStore.has(it) }) return true
         if (settings.selectedModel != AppSettingsStore.DEFAULT_MODEL) return true

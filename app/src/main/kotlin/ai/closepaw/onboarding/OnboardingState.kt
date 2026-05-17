@@ -11,14 +11,15 @@ enum class StepOutcome { Pending, Done, Skipped }
 /**
  * Cloud providers selectable during onboarding's API-key path.
  *
- * Aligned one-to-one with the ApiKey-mode entries of [LLMProvider]. OAuth (OPENAI_CODEX)
- * lives on its own tab and is not part of this picker. NOVITA is included for enum
- * alignment but hidden from UI by default (see [OnboardingProvider.visibleInUi]).
+ * Aligned one-to-one with the ApiKey-mode entries of [LLMProvider] that are
+ * appropriate for first-time setup. OAuth (OPENAI_CODEX) lives on its own tab
+ * and is not part of this picker. The advanced [LLMProvider.OTHER] slot is
+ * intentionally excluded — it's settings-only and requires the user to supply
+ * base URL + model id, not viable from a wizard.
  */
 enum class OnboardingProvider(val label: String, val llmProvider: LLMProvider) {
     OPENAI_API("OpenAI", LLMProvider.OPENAI_API),
-    OPENROUTER("OpenRouter", LLMProvider.OPENROUTER),
-    NOVITA("Novita", LLMProvider.NOVITA);
+    OPENROUTER("OpenRouter", LLMProvider.OPENROUTER);
 
     companion object {
         /** Providers rendered in the onboarding provider picker. */

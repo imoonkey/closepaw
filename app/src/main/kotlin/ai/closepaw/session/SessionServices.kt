@@ -18,6 +18,7 @@ import ai.closepaw.llm.LLMClient
 import ai.closepaw.llm.LLMClientFactory
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.llm.ModelCatalogRepositoryHolder
 import ai.closepaw.memory.MemoryRecaller
 import ai.closepaw.memory.MemoryStore
 import ai.closepaw.platform.AndroidPlatform
@@ -133,7 +134,14 @@ class SessionServices internal constructor(
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices...")
 
-            val llmBootstrap = SessionLlmBootstrapper.create(config, context, authStore, baseUrlOverrides)
+            val catalogRepository = ModelCatalogRepositoryHolder.get(context)
+            val llmBootstrap = SessionLlmBootstrapper.create(
+                    config = config,
+                    catalogRepository = catalogRepository,
+                    context = context,
+                    authStore = authStore,
+                    baseUrlOverrides = baseUrlOverrides
+            )
             val modelCatalog = llmBootstrap.modelCatalog
             val llmClientFactory = llmBootstrap.llmClientFactory
             val llmClient: LLMClient = llmBootstrap.llmClient

@@ -41,13 +41,6 @@
     "model_id": "qwen/qwen3-vl-235b-a22b-instruct",
     "context_window": 256000
   },
-  "autoglm-phone-9b-multilingual": {
-    "display_name": "AutoGLM Phone 9B Multilingual",
-    "provider": "NOVITA",
-    "api": "chat",
-    "model_id": "zai-org/autoglm-phone-9b-multilingual",
-    "context_window": 128000
-  },
   "qwen3.5": {
     "display_name": "Qwen 3.5",
     "provider": "OPENROUTER",

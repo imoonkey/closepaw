@@ -17,7 +17,7 @@ class MainActivityModelValidationTest {
           "gpt-5.2": {"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"},
           "gpt-5.2-codex": {"display_name":"GPT-5.2 Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-5.2"},
           "glm-4.7": {"display_name":"GLM-4.7","provider":"OPENROUTER","api":"chat","model_id":"z-ai/glm-4.7"},
-          "autoglm-9b": {"display_name":"AutoGLM 9B","provider":"NOVITA","api":"chat","model_id":"zai-org/autoglm-phone-9b"}
+          "autoglm-9b": {"display_name":"AutoGLM 9B","provider":"OTHER","api":"chat","model_id":"zai-org/autoglm-phone-9b","base_url":"https://example.invalid/v1"}
         }
         """.trimIndent()
     )
@@ -25,10 +25,14 @@ class MainActivityModelValidationTest {
     private fun settings(
         backend: LLMBackendType = LLMBackendType.OPENAI,
         mainModel: String = "gpt-5.2",
+        otherBaseUrl: String = "",
+        otherModelId: String = "",
     ): AppSettingsState {
         val s = mockk<AppSettingsState>(relaxed = true)
         every { s.llmBackend } returns backend
         every { s.selectedModel } returns mainModel
+        every { s.otherBaseUrl } returns otherBaseUrl
+        every { s.otherModelId } returns otherModelId
         return s
     }
 
@@ -86,5 +90,98 @@ class MainActivityModelValidationTest {
         every { store.has(LLMProvider.OPENAI_API) } returns true
         val missing = findMissingCloudKeys(settings(), catalog, store)
         assertThat(missing).isEmpty()
+    }
+
+    @Test
+    fun `other-custom short-circuits and flags every blank field`() {
+        val missing = findMissingCloudKeys(
+            settings(mainModel = "other-custom"),
+            catalog,
+            emptyAuthStore(),
+        )
+        assertThat(missing.map { it.provider }).containsExactly(
+            LLMProvider.OTHER,
+            LLMProvider.OTHER,
+            LLMProvider.OTHER,
+        )
+        val messages = missing.map { it.message }
+        assertThat(messages.any { it.contains("API key required") }).isTrue()
+        assertThat(messages.any { it.contains("base URL required") }).isTrue()
+        assertThat(messages.any { it.contains("custom model id required") }).isTrue()
+    }
+
+    @Test
+    fun `other-custom flags invalid base URL`() {
+        val store = mockk<AuthStore>(relaxed = true)
+        every { store.has(LLMProvider.OTHER) } returns true
+        val missing = findMissingCloudKeys(
+            settings(
+                mainModel = "other-custom",
+                otherBaseUrl = "not a url",
+                otherModelId = "vendor/model",
+            ),
+            catalog,
+            store,
+        )
+        assertThat(missing).hasSize(1)
+        assertThat(missing[0].message).contains("base URL invalid")
+    }
+
+    @Test
+    fun `other-custom passes when key + url + modelId all present and valid`() {
+        val store = mockk<AuthStore>(relaxed = true)
+        every { store.has(LLMProvider.OTHER) } returns true
+        val missing = findMissingCloudKeys(
+            settings(
+                mainModel = "other-custom",
+                otherBaseUrl = "https://api.example.com/v1",
+                otherModelId = "vendor/model",
+            ),
+            catalog,
+            store,
+        )
+        assertThat(missing).isEmpty()
+    }
+
+    @Test
+    fun `discovered other prefix not in catalog deep-links to Other tab`() {
+        // Simulates: user refreshed OTHER against URL A, picked an entry, then
+        // changed otherBaseUrl. Scoping hides the entry; selectedModel still
+        // points at it. Without the short-circuit the user gets "Unknown
+        // model" instead of the actionable refresh hint.
+        val store = mockk<AuthStore>(relaxed = true)
+        every { store.has(LLMProvider.OTHER) } returns true
+        val missing = findMissingCloudKeys(
+            settings(mainModel = "other:vendor/from-old-url"),
+            catalog,
+            store,
+        )
+        assertThat(missing).hasSize(1)
+        assertThat(missing[0].provider).isEqualTo(LLMProvider.OTHER)
+        assertThat(missing[0].message).isEqualTo("Refresh or select a model for this endpoint")
+    }
+
+    @Test
+    fun `discovered other prefix present in catalog falls through to credential check`() {
+        val catalogWithDiscovered = ModelCatalog.fromJson(
+            """
+            {
+              "other:vendor/x": {
+                "display_name":"Vendor X","provider":"OTHER","api":"chat",
+                "model_id":"vendor/x","base_url":"https://example.invalid/v1"
+              }
+            }
+            """.trimIndent()
+        )
+        // No key present → standard "API key required" message, not the
+        // refresh-hint banner.
+        val missing = findMissingCloudKeys(
+            settings(mainModel = "other:vendor/x"),
+            catalogWithDiscovered,
+            emptyAuthStore(),
+        )
+        assertThat(missing).hasSize(1)
+        assertThat(missing[0].provider).isEqualTo(LLMProvider.OTHER)
+        assertThat(missing[0].message).contains("API key required")
     }
 }

@@ -290,6 +290,36 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
 
         connect_mock.assert_called_once_with(("127.0.0.1", 18080), timeout=2.0)
 
+    def test_other_custom_requires_full_trio(self) -> None:
+        config = _runner_config()
+        config.bridge.llm_backend = "openai"
+        config.bridge.main_model = "other-custom"
+        # llm_models.json does NOT list other-custom — synth entry only.
+        workspace = self._workspace_with_catalog({})
+
+        # Missing all three.
+        with self.assertRaisesRegex(
+            RuntimeError, "OTHER_API_KEY.*OTHER_BASE_URL.*OTHER_MODEL_ID"
+        ):
+            _validate_required_api_key(config, {}, workspace_root=workspace)
+
+        # Missing base url + model id.
+        with self.assertRaisesRegex(RuntimeError, "OTHER_BASE_URL"):
+            _validate_required_api_key(
+                config, {"OTHER_API_KEY": "key"}, workspace_root=workspace
+            )
+
+        # All three present → passes.
+        _validate_required_api_key(
+            config,
+            {
+                "OTHER_API_KEY": "key",
+                "OTHER_BASE_URL": "https://example.com/v1",
+                "OTHER_MODEL_ID": "vendor/model",
+            },
+            workspace_root=workspace,
+        )
+
 
 class RunnerTaskPackageMapTest(unittest.TestCase):
     def test_includes_recipe_and_sms_requirements(self) -> None:

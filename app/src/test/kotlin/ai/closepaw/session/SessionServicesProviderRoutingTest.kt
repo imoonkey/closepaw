@@ -9,6 +9,8 @@ import ai.closepaw.auth.FakeSharedPreferences
 import ai.closepaw.auth.MissingCredential
 import ai.closepaw.llm.ChatCompletionClient
 import ai.closepaw.llm.LLMProvider
+import ai.closepaw.llm.ModelCatalogRepository
+import ai.closepaw.llm.ModelCatalogRepositoryHolder
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionLlmConfig
@@ -19,6 +21,7 @@ import io.mockk.mockk
 import java.io.ByteArrayInputStream
 import java.io.File
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -29,9 +32,15 @@ class SessionServicesProviderRoutingTest {
   @get:Rule
   val tempDir = TemporaryFolder()
 
+  @After
+  fun tearDown() {
+    ModelCatalogRepositoryHolder.resetForTest()
+  }
+
   @Test
   fun `openrouter model works without openai key`() {
     val context = contextWithCatalog()
+    installFixtureCatalogRepo(context)
     val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
       authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-or-test"))
@@ -60,6 +69,7 @@ class SessionServicesProviderRoutingTest {
   @Test
   fun `main model requires its provider credential`() {
     val context = contextWithCatalog()
+    installFixtureCatalogRepo(context)
     val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
       authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-openai-test"))
@@ -67,7 +77,7 @@ class SessionServicesProviderRoutingTest {
     val config =
             SessionConfig(
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
-                    mainModel = "autoglm-phone-9b-multilingual"
+                    mainModel = "other-model"
             )
 
     val error =
@@ -84,13 +94,14 @@ class SessionServicesProviderRoutingTest {
                       traceRecorder = NoopTraceRecorder
               )
             }
-    assertThat(error.provider).isEqualTo(LLMProvider.NOVITA)
+    assertThat(error.provider).isEqualTo(LLMProvider.OTHER)
   }
 
   private fun contextWithCatalog(): Context {
     val context = mockk<Context>(relaxed = true)
     val assets = mockk<AssetManager>()
     every { context.assets } returns assets
+    every { context.applicationContext } returns context
     every { context.filesDir } returns tempDir.newFolder("files")
     every { assets.list(any<String>()) } answers {
       val file = File("src/main/assets", firstArg<String>())
@@ -104,6 +115,34 @@ class SessionServicesProviderRoutingTest {
       }
     }
     return context
+  }
+
+  /**
+   * Install a fixture [ModelCatalogRepository] backed by [context]'s mocked assets so
+   * `SessionServices.create` resolves models from CATALOG_JSON rather than the real seed.
+   */
+  private fun installFixtureCatalogRepo(context: Context) {
+    val settingsStore = mockk<ai.closepaw.app.AppSettingsStore>(relaxed = true)
+    every { settingsStore.load() } returns ai.closepaw.app.AppSettings(
+        selectedModel = ai.closepaw.app.AppSettingsStore.DEFAULT_MODEL,
+        debugMode = false,
+        perceptionMode = ai.closepaw.app.AppSettingsStore.DEFAULT_PERCEPTION_MODE,
+        llmBackend = ai.closepaw.app.AppSettingsStore.DEFAULT_LLM_BACKEND,
+        localModel = ai.closepaw.ui.settings.AVAILABLE_LOCAL_MODELS.first(),
+        platformMode = ai.closepaw.app.AppSettingsStore.DEFAULT_PLATFORM_MODE,
+        traceEnabled = false,
+        browserScriptEnabled = false,
+        termuxShellEnabled = false,
+        openaiBaseUrl = "",
+        otherBaseUrl = "",
+        otherModelId = "",
+    )
+    val repo = ModelCatalogRepository(
+        context = context,
+        settingsStore = settingsStore,
+        discoveryCache = mockk(relaxed = true),
+    )
+    ModelCatalogRepositoryHolder.setForTest(repo)
   }
 
   companion object {
@@ -122,11 +161,12 @@ class SessionServicesProviderRoutingTest {
             "api": "chat",
             "model_id": "z-ai/glm-4.7"
           },
-          "autoglm-phone-9b-multilingual": {
-            "display_name": "AutoGLM Phone 9B Multilingual",
-            "provider": "NOVITA",
+          "other-model": {
+            "display_name": "Custom Other Model",
+            "provider": "OTHER",
             "api": "chat",
-            "model_id": "zai-org/autoglm-phone-9b-multilingual"
+            "model_id": "user/custom",
+            "base_url": "https://example.invalid/v1"
           }
         }
         """.trimIndent()

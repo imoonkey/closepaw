@@ -66,11 +66,18 @@ class RunnerConfig:
 _PROVIDER_REQUIRED_API_KEY = {
     "OPENAI": "OPENAI_API_KEY",
     "OPENROUTER": "OPENROUTER_API_KEY",
-    "NOVITA": "NOVITA_API_KEY",
+    "OTHER": "OTHER_API_KEY",
 }
 
-_API_KEY_NAMES = ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "NOVITA_API_KEY")
-_ENV_EXTRAS = ("OPENAI_BASE_URL",)
+_API_KEY_NAMES = ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "OTHER_API_KEY")
+_ENV_EXTRAS = ("OPENAI_BASE_URL", "OTHER_BASE_URL", "OTHER_MODEL_ID")
+# When `main_model == "other-custom"` (the synth catalog entry that the app builds
+# at runtime from AppSettingsState), llm_models.json doesn't list the model, so
+# preflight needs to require the full OTHER trio explicitly. Otherwise an
+# `other-custom` run would launch with no base URL or model id and fail at
+# session bootstrap with a useless "unknown model" error.
+_OTHER_CUSTOM_MODEL_NAME = "other-custom"
+_OTHER_REQUIRED_EXTRAS = ("OTHER_API_KEY", "OTHER_BASE_URL", "OTHER_MODEL_ID")
 _DEFAULT_CONFIG_PATH = Path("eval/config/default.yaml")
 
 
@@ -414,9 +421,9 @@ def _validate_required_api_key(
         if config.bridge.executor_model.strip():
             models.append(config.bridge.executor_model.strip())
         raise RuntimeError(
-            "Missing required API key(s) for selected model(s): "
+            "Missing required credential/config value(s) for selected model(s): "
             f"{', '.join(missing)}. Models={models}. "
-            "Add keys to .env or environment variables."
+            "Add them to .env or environment variables."
         )
     _validate_openai_base_url(api_keys, required_keys)
 
@@ -467,6 +474,11 @@ def _resolve_required_api_keys_for_models(config: RunnerConfig, workspace_root: 
 
     required: set[str] = set()
     for model_name in model_names:
+        if model_name == _OTHER_CUSTOM_MODEL_NAME:
+            # Synth entry — not in llm_models.json. Demand the full OTHER trio
+            # so the run won't launch without a usable user-supplied endpoint.
+            required.update(_OTHER_REQUIRED_EXTRAS)
+            continue
         entry = raw.get(model_name)
         if not isinstance(entry, dict):
             raise RuntimeError(f"Unknown model key '{model_name}' in {model_catalog_path}")

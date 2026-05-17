@@ -213,7 +213,7 @@ class NativeAgentBridge:
             _KEY_MAP = {
                 "OPENAI_API_KEY": "api_key",
                 "OPENROUTER_API_KEY": "openrouter_api_key",
-                "NOVITA_API_KEY": "novita_api_key",
+                "OTHER_API_KEY": "other_api_key",
             }
             for env_name, extra_name in _KEY_MAP.items():
                 val = self._config.api_keys.get(env_name)
@@ -227,6 +227,16 @@ class NativeAgentBridge:
                     "://127.0.0.1", "://10.0.2.2"
                 )
                 extras.extend(["--es", "openai_base_url", emulator_url])
+            # OTHER provider trio: api key already mapped above; forward url + model id.
+            other_base_url = self._config.api_keys.get("OTHER_BASE_URL")
+            if other_base_url:
+                emulator_other_url = other_base_url.replace(
+                    "://localhost", "://10.0.2.2"
+                ).replace("://127.0.0.1", "://10.0.2.2")
+                extras.extend(["--es", "other_base_url", emulator_other_url])
+            other_model_id = self._config.api_keys.get("OTHER_MODEL_ID")
+            if other_model_id:
+                extras.extend(["--es", "other_model_id", other_model_id])
 
         self._run_adb_shell(
             ["input", "keyevent", "KEYCODE_HOME"],

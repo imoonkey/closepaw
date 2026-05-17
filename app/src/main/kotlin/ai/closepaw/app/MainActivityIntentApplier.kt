@@ -3,6 +3,8 @@ package ai.closepaw.app
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
+import ai.closepaw.llm.ModelIdValidator
+import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.ui.settings.BrowserScriptToggleError
 import ai.closepaw.ui.settings.gateBrowserScriptEnable
@@ -44,6 +46,7 @@ internal suspend fun applyIntentPayloadToSettings(
     currentPendingEvalTurnBudget: Int?,
     log: (String) -> Unit,
     browserScriptGate: suspend () -> BrowserScriptToggleError? = { gateBrowserScriptEnable() },
+    invalidateCatalog: () -> Unit = {},
 ): MainActivityIntentApplyResult {
     if (!isDebugBuild) {
         return MainActivityIntentApplyResult(
@@ -56,6 +59,7 @@ internal suspend fun applyIntentPayloadToSettings(
     }
 
     // Credential writes are I/O-bound; batch on Dispatchers.IO off the caller's thread.
+    var otherChanged = false
     withContext(Dispatchers.IO) {
         payload.apiKey?.let { key ->
             authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey(key))
@@ -65,15 +69,49 @@ internal suspend fun applyIntentPayloadToSettings(
             authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey(key))
             log("OPENROUTER key set from intent via AuthStore")
         }
-        payload.novitaApiKey?.let { key ->
-            authStore.set(LLMProvider.NOVITA, AuthCredential.ApiKey(key))
-            log("NOVITA key set from intent via AuthStore")
+        payload.otherApiKey?.let { key ->
+            authStore.set(LLMProvider.OTHER, AuthCredential.ApiKey(key))
+            otherChanged = true
+            log("OTHER key set from intent via AuthStore")
         }
     }
     payload.openaiBaseUrl?.let { url ->
         settingsState.updateOpenaiBaseUrl(url)
         log("OpenAI base URL override set from intent: $url")
     }
+    payload.otherBaseUrl?.let { url ->
+        // Validate at the intent boundary so we never persist junk into settings.
+        // synthOtherEntry also re-validates, but rejecting here keeps both
+        // AppSettingsState.otherBaseUrl and the on-disk preference clean — so a
+        // later UI render doesn't show the user a bad value they didn't type.
+        val validation = OtherBaseUrlValidator.validate(url)
+        validation.onSuccess { normalized ->
+            settingsState.updateOtherBaseUrl(normalized)
+            otherChanged = true
+            log("OTHER base URL set from intent: $normalized")
+        }.onFailure { err ->
+            // Don't echo the rejected URL — it could contain a sensitive host.
+            log("OTHER base URL from intent rejected: ${err.message}")
+        }
+    }
+    payload.otherModelId?.let { modelId ->
+        // Validate at the intent boundary so a bad id (whitespace, leading
+        // ":" / "/") never reaches settings — discovery and the synth path
+        // would otherwise enforce the same rule and silently drop the entry.
+        ModelIdValidator.validate(modelId).onSuccess { trimmed ->
+            settingsState.updateOtherModelId(trimmed)
+            otherChanged = true
+            log("OTHER model id set from intent: $trimmed")
+        }.onFailure { err ->
+            // Don't echo the rejected id verbatim — keep the log non-secret.
+            log("OTHER model id from intent rejected: ${err.message}")
+        }
+    }
+    // Make absolutely sure the catalog reflects OTHER writes. The settings updates already
+    // call `onOtherSettingsChanged()` (which invalidates the repo), but the OTHER api key
+    // write goes through AuthStore directly — invalidate here so any synth entry that
+    // depended on the new key/url/modelId trio is fresh in `catalog.value`.
+    if (otherChanged) invalidateCatalog()
     payload.backendType?.let {
         modelLoadingStatusHolder.updateBackend(it)
         log("LLM backend set from intent: $it")

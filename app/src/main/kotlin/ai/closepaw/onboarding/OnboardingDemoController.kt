@@ -240,6 +240,6 @@ private fun LLMProvider.displayName(): String = when (this) {
     LLMProvider.OPENAI_API -> "OpenAI"
     LLMProvider.OPENAI_CODEX -> "OpenAI"
     LLMProvider.OPENROUTER -> "OpenRouter"
-    LLMProvider.NOVITA -> "Novita"
+    LLMProvider.OTHER -> "Other"
     LLMProvider.LOCAL_LFM -> "Local"
 }
