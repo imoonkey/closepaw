@@ -1383,5 +1383,294 @@
     "worktree": "display-perception",
     "created": "2026-05-17T23:10:18Z",
     "updated": "2026-05-17T23:10:18Z"
+  },
+  "memory-settings": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Memory & Skills in Settings",
+    "description": "View and edit MemoryStore files (user/device/per-app) from Settings; integrate per-app memory + app skill into the existing App Access page; add Agent Skill toggles to Agent Behavior → Tools. Delete MemoryStore canonicalizer + legacy migrations (memory files become WYSIWYG). Single-writer concurrency model: memory editor locks when any non-Shutdown session exists, via a dedicated MemoryEditGate observing SessionCoordinator.currentSessionState. Agent Skill toggles take effect on next session (no live filtering). See design doc + four-round codex review loop for trade-off rationale.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "acceptCriteria": [
+      "all subtasks done",
+      "Settings → Memory page reachable; User/Device memory editable and deletable",
+      "App Access rows for apps with memory or skill show chips + expand affordance; expansion renders skill viewer + bounded memory editor",
+      "Agent Behavior → Tools shows discovered Agent Skill toggles with info-icon viewer",
+      "Memory editor disables Save/Discard/Delete and shows banner while any non-Shutdown session exists",
+      "./gradlew assembleDebug lint test pass"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "l",
+    "created": "2026-05-17T23:29:08Z",
+    "updated": "2026-05-17T23:29:08Z"
+  },
+  "memory-settings-store-raw-refactor": {
+    "parent": "memory-settings",
+    "depends": [],
+    "state": "ready",
+    "title": "MemoryStore: delete canonicalizer, add raw API, explicit append rules",
+    "description": "Delete the read-time canonicalizer (loadSections + buildCanonicalDocument + legacy user_prefs.md migration + inline [kind]-prefix normalization). Add new raw API: read(scope, packageName?): String? (side-effect-free), write(scope, packageName?, content): SaveResult (atomic temp-file replace; 8192 UTF-8 bytes cap), delete(scope, packageName?), listAppPackages(): List<String>. Rewrite append(scope, section, content, packageName?) per the explicit insertion rules in the design (sanitation order: fold whitespace → strip control chars → collapse → trim → truncate 2000 chars; new file creates skeleton; missing heading appends new block at EOF; duplicate heading inserts under last; over-cap returns false + logs). append() keeps Boolean signature so RememberExperienceTool stays unchanged. Switch MemoryRecaller to read + takeIf isNotBlank + over-cap skip. Remove old readUserMemory / readDeviceMemory / readAppMemory; update call sites. writtenThisSession stays where it is (session-local — single-writer model means no holder/tracker extraction needed).",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/memory/**",
+      "app/src/test/kotlin/ai/closepaw/memory/**"
+    ],
+    "acceptCriteria": [
+      "MemoryStore.kt no longer contains loadSections or buildCanonicalDocument",
+      "new read/write/delete/listAppPackages methods exist with documented signatures",
+      "append returns Boolean (signature-compatible with RememberExperienceTool)",
+      "JVM tests cover: raw round-trip preserves free text + unknown headings; sanitation order ('foo\\nbar' → 'foo bar' not 'foobar'); append on new file / missing heading / duplicate heading / heading followed by free text; over-cap rejected; recall over-cap file skipped; recall blank file omitted",
+      "./gradlew :app:testDebugUnitTest --tests '*MemoryStore*' passes",
+      "./gradlew :app:testDebugUnitTest --tests '*MemoryRecaller*' passes"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "m",
+    "created": "2026-05-17T23:29:31Z",
+    "updated": "2026-05-17T23:29:31Z"
+  },
+  "memory-settings-edit-gate": {
+    "parent": "memory-settings",
+    "depends": [],
+    "state": "ready",
+    "title": "MemoryEditGate + SessionCoordinator.currentSessionState",
+    "description": "Extend SessionCoordinator with currentSessionState: StateFlow<SessionState?>. Critical: createAndSubmit (or equivalent creation entry point) must emit Created BEFORE invoking the suspending AgentSession.create block, otherwise the creation-in-progress window isn't locked. Aborted creation emits null. Add MemoryEditGate.memoryEditLocked: StateFlow<Boolean> = currentSessionState.map { it != null && it != SessionState.Shutdown }. Initial value true (safe default while flow is collecting). Locks for Created / Running / Idle / TakeoverPending / Paused; unlocks only when no session or Shutdown.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/MemoryEditGate.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionCoordinator.kt",
+      "app/src/test/kotlin/ai/closepaw/app/MemoryEditGate*",
+      "app/src/test/kotlin/ai/closepaw/session/SessionCoordinator*"
+    ],
+    "acceptCriteria": [
+      "MemoryEditGate.kt exists and exposes memoryEditLocked: StateFlow<Boolean>",
+      "SessionCoordinator.currentSessionState: StateFlow<SessionState?> exists",
+      "JVM tests: locked for Created/Running/Idle/TakeoverPending/Paused; unlocked only when null or Shutdown; transition Shutdown → Created flips lock back to true within next emission; creation suspending while no AgentSession exists yet → gate remains locked",
+      "./gradlew :app:testDebugUnitTest --tests '*MemoryEditGate*' passes"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "s",
+    "created": "2026-05-17T23:29:32Z",
+    "updated": "2026-05-17T23:29:32Z"
+  },
+  "memory-settings-file-editor": {
+    "parent": "memory-settings",
+    "depends": [
+      "memory-settings-store-raw-refactor",
+      "memory-settings-edit-gate"
+    ],
+    "state": "ready",
+    "title": "MemoryFileEditor (bounded + unbounded) with gate lock",
+    "description": "Reusable composable MemoryFileEditor(bounded: Boolean). Bounded variant uses heightIn(max=240.dp) + internal scroll + '↗ Open' affordance (disabled while editor is dirty — prevents double-buffer race with full-page editor). Unbounded fills available space. VIEW/EDIT toggle, Save/Discard/Delete (with confirm), oversize error, IO on Dispatchers.IO, save disabled while writing, failure keeps EDIT with inline error. Observes MemoryEditGate.memoryEditLocked: when true, Save/Discard/Delete/+Memory disabled and banner 'Session is open. Stop the session to edit memory.' is shown; typed buffer preserved. Action-time TOCTOU re-check: every save/delete handler re-reads memoryEditLocked.value inside the coroutine immediately before MemoryStore.write/delete; if locked, abort with toast 'Memory edit aborted — a session just started.'",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/MemoryFileEditor.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/MemoryFileEditorPage.kt",
+      "app/src/androidTest/kotlin/ai/closepaw/ui/settings/MemoryFileEditor*"
+    ],
+    "acceptCriteria": [
+      "MemoryFileEditor.kt + MemoryFileEditorPage.kt exist",
+      "Compose test: 8 KB content remains editable in bounded variant; tier selector remains visible above; IME doesn't hide Save/Discard",
+      "Gate test: simulate session start → buttons lock, banner appears, typed buffer preserved",
+      "Gate test: click Save while locked transition is in flight → write aborted, file unchanged",
+      "Bounded test: ↗ Open is disabled while editor is dirty"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "m",
+    "created": "2026-05-17T23:29:47Z",
+    "updated": "2026-05-17T23:29:47Z"
+  },
+  "memory-settings-memory-page": {
+    "parent": "memory-settings",
+    "depends": [
+      "memory-settings-file-editor"
+    ],
+    "state": "ready",
+    "title": "Settings → Memory page (User + Device only); IA reshuffle",
+    "description": "Add SettingsPage.MEMORY to SettingsSheet enum + dispatch. New MemorySettingsPage lists User + Device only (per-app moved to App Access). Tap → unbounded MemoryFileEditorPage. Top banner when session active. Reshuffle Settings home IA: merge 'Voice' header into 'Behavior'; move 'LLM & Authentication' row into Behavior section; add 'Memory' row to Behavior.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/MemorySettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt"
+    ],
+    "acceptCriteria": [
+      "SettingsPage.MEMORY enum exists and is dispatched in SettingsSheet",
+      "MemorySettingsPage shows two rows: User Memory, Device Memory (no per-app)",
+      "Compose test: Memory row visible under Behavior section; LLM row also under Behavior (no Voice header); tap Memory row opens MemoryFileEditorPage",
+      "Compose test: session-active banner visible when gate locked"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "s",
+    "created": "2026-05-17T23:29:52Z",
+    "updated": "2026-05-17T23:29:52Z"
+  },
+  "memory-settings-app-access-index": {
+    "parent": "memory-settings",
+    "depends": [
+      "memory-settings-store-raw-refactor"
+    ],
+    "state": "ready",
+    "title": "AppAccessContentIndex preload",
+    "description": "Page-scoped index of Map<package, AppContentSummary(hasMemory, hasSkill)>. Single IO pass on page mount: MemoryStore.listAppPackages() + AssetManager.list('app_skills') filtered to those whose SKILL.md parses cleanly. Incremental update(pkg, summary) API for save/delete callbacks — avoids re-scanning during scroll.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppAccessContentIndex.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/AppAccessContentIndex*"
+    ],
+    "acceptCriteria": [
+      "AppAccessContentIndex.kt exists with load() and update(pkg, summary) APIs",
+      "JVM tests cover: load with both memory and skill present; load skips skill dirs whose SKILL.md doesn't parse; update mutates only the named entry"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "s",
+    "created": "2026-05-17T23:29:52Z",
+    "updated": "2026-05-17T23:29:52Z"
+  },
+  "memory-settings-app-access-expansion": {
+    "parent": "memory-settings",
+    "depends": [
+      "memory-settings-file-editor",
+      "memory-settings-app-access-index"
+    ],
+    "state": "ready",
+    "title": "App Access per-app inline expansion (memory editor + skill viewer)",
+    "description": "AppRowItem gains trailing chevron when content exists (memory or skill) or '+ Memory' chip when neither exists. Summary chips ('Memory' / 'Skill') next to package label come from AppAccessContentIndex (no per-row IO). Expanded area renders read-only app skill viewer (if asset exists) above bounded MemoryFileEditor (if file exists; or after '+ Memory' creates an empty one). Tier selector unchanged. Blocked-app warning chip shown above editor when row pkg classified BLOCKED. Save/delete callbacks call index.update(...) for live chip refresh.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppAccessSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppRowExpansion.kt",
+      "app/src/androidTest/kotlin/ai/closepaw/ui/settings/AppAccessExpansion*"
+    ],
+    "acceptCriteria": [
+      "AppRowItem renders chevron OR '+ Memory' chip in trailing slot based on AppContentSummary",
+      "Expanded area renders skill viewer above bounded memory editor (when applicable)",
+      "Compose test: expand → edit → save → chip appears; collapse → re-expand preserves nothing-in-progress; '+ Memory' on empty row creates file and expands into EDIT",
+      "Compose test: BLOCKED app shows warning chip above editor"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "m",
+    "created": "2026-05-17T23:30:09Z",
+    "updated": "2026-05-17T23:30:09Z"
+  },
+  "memory-settings-skill-disable-core": {
+    "parent": "memory-settings",
+    "depends": [],
+    "state": "ready",
+    "title": "Agent Skill disable: store + manager filtering + activate tool gate",
+    "description": "Persist disabledAgentSkills: StateFlow<Set<String>> in AppSettingsStore + setSkillDisabled(name, Boolean). Rename AgentSkillCatalog.all() → allDiscovered() (pure discovery, no filtering). AgentSkillManager constructor takes disabledNames: Set<String> and filters in catalogPrompt() / activate() / activateExplicitMentions(). Add ActivationResult.Disabled(name) branch. ActivateSkillTool returns a clean failure for Disabled. SessionServices.create() snapshots AppSettingsStore.disabledAgentSkills.value once (KISS next-session semantics — running session not affected by mid-session toggle).",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/AgentSkillCatalog.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/cognition/skills/AgentSkillManager.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/ActivateSkillTool.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/test/kotlin/ai/closepaw/agent/cognition/skills/**",
+      "app/src/test/kotlin/ai/closepaw/tool/impl/ActivateSkillTool*"
+    ],
+    "acceptCriteria": [
+      "AppSettingsStore.disabledAgentSkills + setSkillDisabled implemented",
+      "AgentSkillCatalog.allDiscovered() exists; old all() removed (call sites updated)",
+      "AgentSkillManager filters in catalogPrompt/activate/activateExplicitMentions using injected disabledNames",
+      "ActivationResult.Disabled exists; ActivateSkillTool returns failure for it",
+      "JVM tests: catalog prompt omits disabled; activate returns Disabled; explicit /skill-name mentions filtered when disabled; toggle change does NOT affect an already-constructed manager (verifies next-session semantics)"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "m",
+    "created": "2026-05-17T23:30:16Z",
+    "updated": "2026-05-17T23:30:16Z"
+  },
+  "memory-settings-skill-toggle-ui": {
+    "parent": "memory-settings",
+    "depends": [
+      "memory-settings-skill-disable-core"
+    ],
+    "state": "ready",
+    "title": "Agent Skill toggle rows in Tools section + info icon viewer",
+    "description": "Extend ToolSettingsCard with optional trailingInfoIcon: (() -> Unit)? slot — renders Icons.Outlined.Info IconButton between title block and switch (null = unchanged behavior). New AgentSkillToggleRows: invoke BundledAgentSkillInstaller on Dispatchers.IO once before scanning (first-run safety, idempotent), then iterate AgentSkillCatalog.allDiscovered(). Per row: name = title, frontmatter description = subtitle, switch persists via AppSettingsStore.setSkillDisabled. When current toggle differs from session-start snapshot, subtitle includes 'Changes apply to next session'. Info icon → bottom sheet with read-only TextField of full SKILL.md body. Append AgentSkillToggleRows() inside ToolsSection after BrowserScriptToolRow.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentSkillToggleRows.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolsSection.kt",
+      "app/src/androidTest/kotlin/ai/closepaw/ui/settings/AgentSkillToggle*"
+    ],
+    "acceptCriteria": [
+      "ToolSettingsCard has optional trailingInfoIcon parameter (Info IconButton between title block and switch)",
+      "AgentSkillToggleRows renders one row per allDiscovered() skill; first-run with empty filesDir/skills still renders the section (installer ran)",
+      "Compose test: switch toggles AppSettingsStore.disabledAgentSkills; info icon opens viewer; switch click does NOT open viewer; click target separation reflected in a11y nodes",
+      "Verify BundledAgentSkillInstaller call uses Dispatchers.IO (not main thread)"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "m",
+    "created": "2026-05-17T23:30:16Z",
+    "updated": "2026-05-17T23:30:16Z"
+  },
+  "memory-settings-docs-update": {
+    "parent": "memory-settings",
+    "depends": [
+      "memory-settings-memory-page",
+      "memory-settings-app-access-expansion",
+      "memory-settings-skill-toggle-ui"
+    ],
+    "state": "ready",
+    "title": "Docs sync",
+    "description": "Update architecture docs: canonicalizer removed → memory files WYSIWYG; explicit append insertion rules with sanitation order; single-writer model (Settings editor locks via MemoryEditGate when session active); Settings → Memory page; App Access per-app expansion (bounded inline editor + ↗ Open escape); Agent Skill toggle next-session semantics; blocked-app warning copy.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "scope": [
+      "doc/main/agent/memory.md",
+      "doc/main/agent/agent_skills.md",
+      "doc/main/app/settings.md"
+    ],
+    "acceptCriteria": [
+      "doc/main/agent/memory.md reflects canonicalizer removal, raw read/write API, append insertion rules, edit gate lock semantics",
+      "doc/main/agent/agent_skills.md reflects allDiscovered(), disabled toggle, next-session activation timing",
+      "doc/main/app/settings.md reflects new Memory page row under Behavior section + App Access expansion + Agent Skill toggle rows",
+      "grep -q 'MemoryEditGate' doc/main/app/settings.md returns match",
+      "no broken cross-doc links (verified by manual scan)"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "s",
+    "created": "2026-05-17T23:30:28Z",
+    "updated": "2026-05-17T23:30:28Z"
+  },
+  "memory-settings-codex-review-iter": {
+    "parent": "memory-settings",
+    "depends": [
+      "memory-settings-docs-update"
+    ],
+    "state": "ready",
+    "title": "Codex code review + fix iteration",
+    "description": "Run codex (via multmux) on the implementation diff for the full memory-settings milestone. Apply fixes for any High or Medium finding. Re-review. Iterate until codex returns APPROVED or only flags implementation-level nits (which are fixed in-place without another review round). Mirrors the design-review loop that produced the design doc.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "acceptCriteria": [
+      "codex final verdict is APPROVED or 'LGTM, only nits remaining'",
+      "all High/Medium findings from each round have been addressed in commits or explicitly rejected with rationale in the task note",
+      "./gradlew test + assembleDebug + lint still clean after final fixes"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "m",
+    "created": "2026-05-17T23:30:34Z",
+    "updated": "2026-05-17T23:30:34Z"
+  },
+  "memory-settings-qa-real-device": {
+    "parent": "memory-settings",
+    "depends": [
+      "memory-settings-codex-review-iter"
+    ],
+    "state": "ready",
+    "title": "Real-device QA + fix iteration",
+    "description": "Install on a real Android device via adb. Validate every flow end-to-end with ux-visual-debug: (a) Settings → Memory → open User memory, edit, save, reopen — content persists; (b) repeat for Device memory; (c) Delete a memory file from the editor — file gone, list updates; (d) Start a chat session; open Settings → Memory while session is running — banner visible, Save/Discard/Delete disabled; (e) End session, banner clears, edits work again; (f) App Access — expand an app with bundled skill but no memory, verify skill viewer renders and + Memory chip is present; tap + Memory, save a bullet, chip flips to 'Memory'; (g) Agent Behavior → Tools — verify agent skill rows render with info icon; tap info → sheet shows SKILL.md body; toggle a skill off, start a new session, verify the disabled skill does not appear in the agent system prompt (verifiable via debug log). Fix any bug found, re-run the failing flow. Iterate until all flows pass — fully autonomous, no human checkpoint.",
+    "design": "projects/active/memory_skills_settings/design_claude.md",
+    "acceptCriteria": [
+      "All seven validation flows pass on a real device",
+      "uiautomator dumps / screenshots captured for evidence under projects/active/memory_skills_settings/qa/",
+      "Session-lock TOCTOU verified: open editor, start session, click Save — write aborted, file unchanged"
+    ],
+    "worktree": "memory-settings",
+    "estimate": "m",
+    "requireHumanReview": false,
+    "created": "2026-05-17T23:30:35Z",
+    "updated": "2026-05-17T23:30:35Z"
   }
 }
