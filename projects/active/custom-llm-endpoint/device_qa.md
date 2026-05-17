@@ -186,3 +186,61 @@ All under `projects/active/custom-llm-endpoint/qa_screenshots/`:
 - Cache reuse: `qa5_cache_reuse.png`
 - Deep-link intent: `qa6_deeplink_intent.png`, `qa6_deeplink_response.png`
 - Regression: `regression_openai.png`, `regression_openrouter.png`
+
+---
+
+## Real-device follow-up (Nubia P0110 / Android 16)
+
+**Device:** `100.64.43.95:5555` (Nubia P0110 / Android 16 / arm64-v8a / 1264×2800 @ 560dpi, reached via Tailscale)
+**Build:** `./gradlew assembleDebug` from this worktree (commit `073984b1`), installed via `adb install -r -d app/build/outputs/apk/debug/app-debug.apk` — same universal APK that runs on the emulator (no abiFilters in `app/build.gradle.kts`).
+**Date:** 2026-05-16
+**Tester:** Claude (driven via ADB + uiautomator dumps; in-line screenshot review hit a session-cumulative image-size cap, so later scenarios are evidenced by XML dumps + logcat with screenshots saved to disk as artifacts)
+
+### Summary
+
+| # | Scenario | Result | Diff vs emulator | Evidence |
+|---|---|---|---|---|
+| 1 | Happy path: OTHER configure → preflight → /models refresh → agent turn | **PASS** | None — flow identical. Catalog populated with OpenRouter groups; agent completed in 9.1s / 1 action via `other-custom`. | `real_qa1_*.png`, `real_03_app_after_setup.png` |
+| 2 | Invalid base URL (ftp + http://example.com) | **PASS** with **P2 finding** (stale `lastError`) | Validator fires correctly (`Base URL must use http or https (got 'ftp')`), Refresh stays disabled. But the gate `reason` line below Refresh is shadowed by a sticky `discoveryState.lastError` that **never clears** when the user types a different invalid URL or even a valid URL — only a successful refresh clears it. Not noticed on emulator because that flow went straight from invalid → valid → successful refresh. | `real_qa2a_ftp_with_key.png`, `real_qa2b_http_example.png` |
+| 3 | /models 404 (https://example.com) | **PASS** | None. Surfaced as `HTTP 404 from example.com: <!doctype html><html lang="en">…` (truncated body), matching emulator output. Same P3 polish nit applies. | `real_qa3_404_models.png` |
+| 4 | Network failure (airplane mode) | **SKIP — infrastructure** | Toggling airplane mode kills the Tailscale link this device is reached over, so ADB control vanishes. Not a code path; falls back to the emulator pass for coverage. | n/a |
+| 5 | Cache reuse across force-stop | **PASS** | None. After `am force-stop ai.closepaw` + launcher relaunch the Other tab restored Base URL = `https://openrouter.ai/api/v1`, Custom Model Id = `deepseek/deepseek-v4-flash:free`, and the OpenRouter discovery cache (essentialai, ibm-granite, inception, …) without a network call. | `real_qa5_cache_reuse.png` |
+| 6 | Deep-link intent via `scripts/debug-run.sh` | **PASS** | All three intent paths fired (`OTHER key set from intent via AuthStore`, `OTHER base URL set from intent: https://openrouter.ai/api/v1`, `OTHER model id set from intent: deepseek/deepseek-v4-flash:free`). `Loaded ModelCatalog with 218 models` — same number and shape as emulator (synth `other-custom` + 217 `other:*` entries from cached OpenRouter catalog). Agent task completed in 1 turn. Note `scripts/debug-run.sh` honours `ANDROID_SERIAL`; no script change needed. | `real_qa6_deeplink_intent.png`, `real_qa6_deeplink_response.png`, `debug-output/run_20260516_230544/` |
+
+No crashes, no regressions vs emulator on the OTHER-provider path.
+
+### Real-device-specific findings
+
+**OEM accessibility lockdown (Nubia / nubia UI on Android 16).** Setting `enabled_accessibility_services` via `adb shell settings put secure …` is unreliable on this build:
+- A single `settings put` typically **reverts to `null`** within a second of the next `am start` / `am force-stop` of the package (the OEM appears to scrub non-system accessibility entries when the target app launches).
+- A second `settings put` issued *after* the package is in the foreground sticks. Empirically, `scripts/setup.sh`'s sequence (build → install → grant overlay → put a11y settings → launch) succeeds because the put runs while the app is being launched, and the OEM scrub races against it favorably.
+- Every `am force-stop ai.closepaw` requires re-issuing the two `settings put` calls before the next launch. This affected QA5 and the QA6 setup; in both cases re-issuing the settings was sufficient — no manual user toggle was needed once the right ordering was used.
+- Practical takeaway: `scripts/setup.sh` works on this OEM today; don't expect bare `adb shell settings put` to be enough on its own across a force-stop/relaunch cycle.
+
+**Stale `discoveryState.lastError` (also P2).** In `LlmAuthDiscoveryUi.kt:251–266`, the displayed "below Refresh" message resolves `discoveryState.lastError[provider]` before the `RefreshButtonGate` reason. The error map is never cleared when the user changes Base URL — so once a refresh has failed (or a URL has been judged invalid by the gate's reason path) the message stays pinned to the *old* URL's failure mode even after the field text changes. Repro on real device: in QA2 the displayed message stayed `Base URL must use http or https (got 'ftp')` after typing `http://example.com` and after typing `https://openrouter.ai/api/v1`. Not a regression — likely present on emulator too, but easy to miss because the emulator flow never exercised an invalid→invalid→valid transition. Fix candidate: clear `lastError[provider]` whenever the persisted Base URL or API Key for that provider changes.
+
+### Anything else differs from emulator?
+
+- **Display scaling (1264×2800 @ 560dpi)** renders all of LLM & Authentication, Other tab, picker, capsule, and chat history at the same proportions as the emulator. No clipping, no overlap, no font-size regressions. Compose layout absorbed the higher density cleanly.
+- **Touch handling.** Edge swipes near `y ≥ 2500` trigger the system back gesture (Android 13's gesture-nav default), which silently closes screens during scrolling. Worked around by keeping scroll swipes in the safer mid-region (`y` 1100–2200). Affects nobody but ADB-driven testing.
+- **`uiautomator dump` truncation.** When the LLM page is in mid-edit, `uiautomator dump` consistently truncates at `y≈1537` and omits the Cloud Model picker, Refresh button, and API Key field nodes from the XML, even though they are visible in the screenshot. This is a uiautomator/Compose interaction quirk on this OEM build, not an app bug; it complicates ADB-driven testing but does not affect a real user.
+- **No new SELinux denials** beyond the existing `syseventsw` socket denials already present on the emulator (Nubia adds the same audit lines under a Qualcomm tag).
+
+### Coverage gaps on real device (not blockers)
+
+- QA4 (airplane mode) couldn't be exercised because of the Tailscale dependency; emulator pass stands.
+- Regression smoke (OPENAI_API / OPENROUTER / ANTHROPIC) not re-run on real device — emulator coverage was treated as authoritative per task brief.
+- VD platform mode (virtual display) not exercised.
+
+### Real-device screenshots
+
+All under `projects/active/custom-llm-endpoint/qa_screenshots/`:
+
+- Setup: `real_01_app_launch.png` (a11y-disabled first launch), `real_03_app_after_setup.png` (a11y enabled after setup.sh)
+- QA1: `real_qa1_02_key_entered.png`, `real_qa1_03_after_refresh.png`, `real_qa1_04_menu_model.png`, `real_qa1_05_sent.png`, `real_qa1_06_agent_done.png`
+- QA2: `real_qa2a_ftp_with_key.png` (ftp scheme), `real_qa2b_http_example.png` (http non-loopback — note both show the same stale `lastError`)
+- QA3: `real_qa3_404_models.png`
+- QA5: `real_qa5_cache_reuse.png`
+- QA6: `real_qa6_deeplink_intent.png` (run start screen), `real_qa6_deeplink_response.png` (post-completion)
+
+Linked trace artifacts for QA6: `debug-output/run_20260516_230544/` (agent.log, logcat_full.log, turn screenshots, replay-v2 trace).
