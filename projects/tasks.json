@@ -1,204 +1,4 @@
 {
-  "phase2-utility": {
-    "parent": null,
-    "depends": [],
-    "state": "blocked",
-    "title": "Phase 2: 真实实用性",
-    "description": "Prompt externalization + app skill discovery + eval regression CI。Agent 能在用户日常用的 30+ app 上工作。",
-    "acceptCriteria": [
-      "All child tasks done",
-      "30+ app skills generated via discovery system",
-      "Eval runs as CI gate on PRs"
-    ],
-    "note": "Pending human review",
-    "updated": "2026-04-08T03:10:00+08:00"
-  },
-  "prompt-externalization": {
-    "parent": "phase2-utility",
-    "depends": [],
-    "state": "blocked",
-    "title": "Prompt Externalization",
-    "description": "System prompt 从 StandaloneAgentDef.kt 等硬编码字符串 → assets/persona/<role>/system_prompt.md。新增 PersonaRepository（接口 + asset 实现）。App skill 迭代不再需要重新编译 APK。对应 OpenClaw roadmap P3 Phase 1。是 app skill discovery 的前置条件。",
-    "design": "doc/todo/prompt_externalization/note.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/agent/definition/**",
-      "app/src/main/assets/persona/**"
-    ],
-    "acceptCriteria": [
-      "System prompt loaded from assets/persona/standalone/system_prompt.md",
-      "PersonaRepository interface + AssetPersonaRepository implementation exist",
-      "AgentDef subclasses use PersonaRepository instead of inline strings",
-      "Changing asset file changes agent behavior without APK rebuild",
-      "./gradlew test passes"
-    ],
-    "note": "Pending human review — design not yet discussed"
-  },
-  "app-skill-discovery": {
-    "parent": "phase2-utility",
-    "depends": [
-      "prompt-externalization"
-    ],
-    "state": "blocked",
-    "title": "App Skill Discovery 系统",
-    "description": "建一个系统让 agent 自己探索 app 并提炼 SKILL.md（含 Safety section）。Discovery loop: 给定 target app → agent 启动 → 系统性探索 UI 路径 → 记录 a11y tree 特征、navigation pattern、pitfall → 生成 SKILL.md draft。英文市场 top 30 app 优先。需要 quality gate（跑 test task / 人工 review）。",
-    "design": "doc/todo/app_skill_discovery/note.md",
-    "scope": [
-      "app/src/main/assets/app_skills/**"
-    ],
-    "acceptCriteria": [
-      "Discovery system can generate SKILL.md for a given target app",
-      "Generated SKILL.md includes ## Safety section",
-      "At least 20 new app skills generated and reviewed",
-      "./gradlew assembleDebug passes"
-    ],
-    "requireHumanReview": true,
-    "note": "Pending human review — design not yet discussed"
-  },
-  "eval-regression-ci": {
-    "parent": "phase2-utility",
-    "depends": [],
-    "state": "blocked",
-    "title": "Eval 转 Regression CI",
-    "description": "AndroidWorld full set 作为 regression gate。PR 跑 eval，regression 才 fail。停止 autotune optimization loop（R58 是最后一轮主动优化）。保留 eval infra 不变。",
-    "design": "doc/todo/eval_regression_ci/note.md",
-    "scope": [
-      ".github/workflows/**",
-      "eval/**"
-    ],
-    "acceptCriteria": [
-      "CI workflow runs eval on PR",
-      "Eval regression detected and reported as CI failure",
-      "Eval pass/fail threshold configured based on R58 baseline"
-    ],
-    "note": "Pending human review — design not yet discussed"
-  },
-  "phase3-daily-assistant": {
-    "parent": null,
-    "depends": [
-      "phase2-utility"
-    ],
-    "state": "blocked",
-    "title": "Phase 3: 日常助手",
-    "description": "Scheduled tasks + notification handling + OpenAI OAuth。把 Android Agent 从一次性工具变成每天都用的 assistant。",
-    "acceptCriteria": [
-      "All child tasks done"
-    ],
-    "note": "Pending human review"
-  },
-  "scheduled-tasks": {
-    "parent": "phase3-daily-assistant",
-    "depends": [],
-    "state": "blocked",
-    "title": "Scheduled Tasks",
-    "description": "Cron 式定时任务执行。用户设定 schedule + natural language instruction。AlarmManager/WorkManager 触发 → 启动 agent session → 执行 → 记录结果。UI: 任务列表、创建/编辑/删除、执行历史。",
-    "design": "doc/todo/scheduled_tasks/note.md",
-    "acceptCriteria": [
-      "User can create a scheduled task with cron expression and instruction",
-      "Tasks execute on schedule via WorkManager/AlarmManager",
-      "Execution results recorded and viewable",
-      "Failed tasks show error and can be retried"
-    ],
-    "note": "Pending human review — design not yet discussed"
-  },
-  "notification-handling": {
-    "parent": "phase3-daily-assistant",
-    "depends": [],
-    "state": "blocked",
-    "title": "Notification Handling",
-    "description": "NotificationListenerService 监听 → 按用户定义的规则触发 agent 响应。规则引擎：app filter + keyword filter + sender filter → trigger action。用户 explicit opt-in 每条规则。",
-    "design": "doc/todo/notification_handling/note.md",
-    "acceptCriteria": [
-      "NotificationListenerService captures notifications",
-      "User can create filter rules (app, keyword, sender)",
-      "Matching notifications trigger agent task execution",
-      "Each rule requires explicit user opt-in"
-    ],
-    "note": "Pending human review — design not yet discussed"
-  },
-  "openai-oauth": {
-    "parent": "phase3-daily-assistant",
-    "depends": [],
-    "state": "done",
-    "title": "OpenAI OAuth Login",
-    "description": "参考 OpenClaw 实现：OpenAI Codex OAuth flow。用户用 OpenAI 账号登录 → 复用已有 subscription。和手动 API key 并存。降低新用户 onboarding friction。",
-    "design": "doc/todo/openai_oauth/note.md",
-    "acceptCriteria": [
-      "OAuth login flow implemented for OpenAI",
-      "User can authenticate via OpenAI account",
-      "Falls back to manual API key entry",
-      "Token refresh handled automatically"
-    ],
-    "note": "OAuth login + CodexResponseClient implemented. Settings integration is a separate task."
-  },
-  "sec-app-tiers-expansion": {
-    "parent": null,
-    "depends": [],
-    "state": "ready",
-    "title": "app_tiers.json 扩展到 100-1000 app",
-    "description": "将 app_tiers.json 从当前 61 个 app (36 blocked + 25 normal) 扩展到覆盖世界常用 100-1000 个 app。需要设计数据获取流程: 拉取 package name + app name + category (Google Play top charts, AppBrain 等) → 用 LLM 批量评估 tier。独立设计任务。",
-    "requireHumanReview": true,
-    "scope": [
-      "app/src/main/assets/security/app_tiers.json"
-    ],
-    "acceptCriteria": [
-      "app_tiers.json contains 100+ classified apps",
-      "Coverage includes top apps from major Play Store categories",
-      "Financial/payment/auth apps correctly classified as BLOCKED",
-      "Classification methodology documented"
-    ]
-  },
-  "ui-polish-investigate-capsule": {
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "resolution": "not-a-bug — capsule renders correctly. Original report was a screenshot-pipeline artifact: AccessibilityService.takeScreenshot() excludes TYPE_ACCESSIBILITY_OVERLAY windows by Android API contract, so debug-output/turn_*.png never shows the capsule even when fully visible on device. Verified via adb screencap (doc/todo/inv1_evidence/capsule_overlay_running.png) and applyVisibility logcat. See commit 266a9fdb.",
-    "worktree": "capsule-investigation",
-    "title": "Capsule overlay never rendered — diagnose runtime regression (INV-1)",
-    "description": "INVESTIGATION ONLY. Per polish_report.md INV-1, no capsule overlay was visible during basic-mode runs, VD-mode runs, or after directly launching VirtualDisplayViewerActivity. ULTRATHINK. Identify (a) root cause of CapsuleOverlayHost not drawing over other apps, (b) the eye-icon affordance entry path the user mentioned, (c) why VirtualDisplayViewerActivity launches as black screen. Produce diagnosis at doc/todo/ui-polish/capsule_investigation.md with file:line refs and a proposed fix plan. Do NOT change runtime behavior unless root cause is a trivial wiring fix (then make minimum change + document).",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/ui/capsule/**",
-      "app/src/main/kotlin/ai/closepaw/ui/overlay/**",
-      "app/src/main/kotlin/ai/closepaw/ui/viewer/**",
-      "doc/todo/ui-polish/capsule_investigation.md"
-    ],
-    "acceptCriteria": [
-      "doc/todo/ui-polish/capsule_investigation.md exists",
-      "Document identifies root cause with file:line evidence",
-      "Document explains the eye-icon affordance entry path (or notes it does not exist)",
-      "Document includes proposed fix plan with effort estimate"
-    ],
-    "created": "2026-04-20T17:30:00Z",
-    "updated": "2026-04-22T16:00:44Z",
-    "agent": "w-inv1-fix"
-  },
-  "markdown-rendering": {
-    "parent": null,
-    "depends": [],
-    "state": "blocked",
-    "title": "Markdown rendering for FinalAnswer + StreamingText",
-    "description": "Agent answers contain markdown (bold, italic, inline/fenced code, lists, links) but render today as plain Text(bodyLarge) with raw asterisks/backticks visible. Need a streaming-safe Compose renderer — Vercel-streamdown-equivalent — that handles incomplete tokens gracefully (no flicker as the closing ** arrives token by token). Library survey, integration shape, and D1/Bound-Edition typography alignment captured in the design note. No implementation in this task.",
-    "design": "projects/active/markdown-rendering/README.md",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentRow.kt",
-      "app/src/main/kotlin/ai/closepaw/ui/chat/components/StreamingText.kt",
-      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentTrace.kt",
-      "app/build.gradle.kts (new dependency)"
-    ],
-    "acceptCriteria": [
-      "Library decision documented (default candidate: mikepenz/multiplatform-markdown-renderer)",
-      "Streaming-safety strategy defined",
-      "D1 typography mapping decided (Geist body / mono code / optional Fraunces italic / Claw links)",
-      "Open questions in design note resolved or explicitly deferred",
-      "Build subtask split out with size estimate before implementation begins"
-    ],
-    "note": "Filed by ui-refresh-0422 review. Land Bound Edition first; markdown layers on top of the same FinalAnswer surface.",
-    "priority": "medium",
-    "estimate": "s",
-    "created": "2026-04-22T23:55:00Z",
-    "updated": "2026-04-23T00:38:29Z",
-    "blockReason": "human-review",
-    "requireHumanReview": true
-  },
   "publish-play-store": {
     "parent": null,
     "depends": [],
@@ -645,43 +445,16 @@
     "created": "2026-05-15T10:39:27Z",
     "updated": "2026-05-15T10:39:27Z"
   },
-  "fix-active-turn-survives-rotation": {
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "title": "Active agent turn survives MainActivity rotation/relaunch",
-    "description": "During post-rebase QA, the first delegation run was interrupted by a device orientation change. MainActivity relaunched while OpenAI streaming was in flight; the stream was closed, a returned delegate_task tool call was followed by JobCancellationException, and no ToolCallReceived/delegate_task execution occurred. Investigate session/lifecycle ownership so active agent turns are not canceled by Activity configuration changes or foreground relaunches, or explicitly handle the cancellation as a recoverable session error.",
-    "scope": [
-      "app/src/main/kotlin/ai/closepaw/app/MainActivity*.kt",
-      "app/src/main/kotlin/ai/closepaw/session/**",
-      "app/src/main/kotlin/ai/closepaw/llm/**",
-      "scripts/debug-run.sh"
-    ],
-    "acceptCriteria": [
-      "A debug-run remains active and either completes or emits a clear recoverable error if MainActivity rotates/relaunches during an LLM streaming call",
-      "Regression coverage or a documented manual repro exists for rotation/relaunch during an active turn",
-      "./gradlew --no-configuration-cache assembleDebug test passes"
-    ],
-    "priority": "normal",
-    "estimate": "m",
-    "tags": [
-      "qa-follow-up",
-      "lifecycle",
-      "streaming"
-    ],
-    "created": "2026-05-16T05:53:17Z",
-    "updated": "2026-05-16T06:19:28Z"
-  },
   "custom-endpoint-other-provider": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Milestone: NOVITA → OTHER (custom OpenAI-compatible endpoint)",
     "description": "Replace LLMProvider.NOVITA with a generic OTHER slot (user-supplied base_url + model id + api key) and introduce ModelCatalogRepository as the single observable source of truth. Split into 3 linear sub-tasks: foundation refactor (no behavior change) → OTHER provider plumbing (backend wiring) → UI + preflight + intent + eval glue (user-visible). PR2 (dynamic-models-discovery) depends on this milestone completing.",
     "design": "projects/active/custom-llm-endpoint/README.md",
     "scope": [],
     "acceptCriteria": [
-      "All 3 children done: custom-endpoint-foundation, custom-endpoint-plumbing, custom-endpoint-ui-glue"
+      "All children done: foundation, plumbing, ui-glue, dynamic-models-discovery, codex-review, device-qa"
     ],
     "tags": [
       "llm",
@@ -691,16 +464,17 @@
     ],
     "estimate": "l",
     "requireHumanReview": true,
-    "note": "Milestone state derived by rollup. Pre-PR1 polish: llm_models.json already shrunk (gpt-5.5 added; gpt-5.2-chat + gpt-5.4-chat removed; Novita entry removal moved to custom-endpoint-plumbing).",
+    "note": "Milestone complete. PR1 (foundation+plumbing+ui-glue) + PR2 (discovery) shipped on worktree custom-endpoint, branch task/custom-endpoint. 7 commits 8865760d..073984b1. Milestone codex review APPROVE (3 rounds). Device QA 6/6 + 2/3 regression PASS. Ready for PR/merge.",
     "created": "2026-05-17T00:17:13Z",
-    "updated": "2026-05-17T01:27:31Z"
+    "updated": "2026-05-17T04:47:14Z",
+    "worktree": "custom-endpoint"
   },
   "dynamic-models-discovery": {
-    "parent": null,
+    "parent": "custom-endpoint-other-provider",
     "depends": [
-      "custom-endpoint-other-provider"
+      "custom-endpoint-ui-glue"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Dynamic /models discovery (OpenRouter + Other) with namespaced cache",
     "description": "Replace hardcoded model list for OPENROUTER and OTHER with on-demand GET /models discovery + local cache + searchable grouped picker. Single ModelDiscovery.kt with field-priority reader (display_name|name|id; context_length|context_size|top_provider; CHAT-only API; supportsVision defaults false unless upstream modality declares image; sanitize+cap displayName at 80 chars; **mandatory tool-calling filter (drops ~26% of OpenRouter)**; filter non-chat by upstream model_type/endpoints/modality preferred, id substring fallback). Cache to filesDir/model_discovery_cache.json keyed by {provider.name}:{normalizedBaseUrl}; **slim before persist** (only ModelEntry fields, no pricing/description — ~440KB → ~30KB). Discovered entries are namespaced {provider.name.lowercase(Locale.ROOT)}:{modelId} so they cannot collide with seed entries; modelId rejected if it contains whitespace or starts with :/ . Catalog only surfaces discovered entries whose cache key baseUrl matches the current effective baseUrl for that provider (prevents sending current key to stale URL). Refresh button per provider in settings, disabled when prerequisites missing (key for OPENROUTER; key+url for OTHER), shows spinner+timestamp+error inline. **Picker UX: search box + group by id prefix (anthropic/openai/google pinned) + sort by created desc within group + auto-scroll+expand selected** — required because OpenRouter returns 263 tool-capable models. ModelCatalogRepository.refresh is suspend. OPENAI_API/OPENAI_CODEX/LOCAL_LFM keep curated JSON seed (upstream /models too thin; LiteLLM as third-party source considered + rejected for now).",
     "design": "projects/active/custom-llm-endpoint/README.md",
@@ -744,9 +518,11 @@
     ],
     "estimate": "l",
     "requireHumanReview": true,
-    "note": "PR2 of two — blocked on custom-endpoint-other-provider. Design v3 Codex-approved (projects/active/custom-llm-endpoint/README.md).",
+    "note": "Done at 7e0715a5 (worktree custom-endpoint). 1891 unit tests green, lint clean, debug APK builds. Per-task codex review skipped — milestone-level custom-endpoint-codex-review (next task) will sweep both ui-glue + discovery diffs. requireHumanReview bypassed per user directive 'work autonomously to completion'.",
     "created": "2026-05-17T00:17:25Z",
-    "updated": "2026-05-17T01:32:57Z"
+    "updated": "2026-05-17T03:28:16Z",
+    "worktree": "custom-endpoint",
+    "agent": "w-dynamic-models-discovery"
   },
   "voice-input": {
     "parent": null,
@@ -770,12 +546,14 @@
     ],
     "estimate": "m",
     "created": "2026-05-17T00:48:41Z",
-    "updated": "2026-05-17T00:48:41Z"
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input"
   },
   "voice-manifest": {
     "parent": "voice-input",
     "depends": [],
-    "state": "ready",
+    "state": "done",
+    "agent": "w-voice-manifest",
     "title": "Manifest entries for RECORD_AUDIO + RecognitionService visibility",
     "description": "Add RECORD_AUDIO permission. Inside the existing <queries> block (line 11), add an <intent> entry for android.speech.RecognitionService — required for SpeechRecognizer to resolve a recognition service on Android 11+. Do NOT add any new exported intent-filter; the overlay -> MainActivity permission route uses an internal extra, not a public action.",
     "design": "projects/active/voice_input/design_claude.md",
@@ -791,14 +569,17 @@
     ],
     "estimate": "xs",
     "created": "2026-05-17T00:48:54Z",
-    "updated": "2026-05-17T00:48:54Z"
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input",
+    "note": "Done at b929a93b on branch task/voice-input. 4 lines added to AndroidManifest.xml (RECORD_AUDIO + RecognitionService query). assembleDebug passes."
   },
   "voice-recognizer-adapter": {
     "parent": "voice-input",
     "depends": [
       "voice-manifest"
     ],
-    "state": "ready",
+    "state": "done",
+    "agent": "w-voice-recognizer-adapter",
     "title": "Recognizer interface + AndroidRecognizer impl",
     "description": "Define a JVM-clean Recognizer interface and the only file in the project that imports android.speech.*. Surface: interface Recognizer { start(languageTag, callbacks); stop(); cancel(); destroy() }, interface RecognizerCallbacks { onPartial(String); onFinal(String); onError(VoiceError) }, enum VoiceError { NoMatch, SpeechTimeout, Network, NetworkTimeout, LanguageUnavailable, InsufficientPermissions, Busy, ServiceDied, Unknown }, interface RecognizerFactory { isAvailable(): Boolean; create(): Recognizer? }. AndroidRecognizer wraps SpeechRecognizer, translates RecognitionListener Bundles + raw error ints into the pure callback shape. RecognizerFactory.isAvailable() is re-checkable so the controller can call it on every start() without importing android.speech.*.",
     "design": "projects/active/voice_input/design_claude.md",
@@ -814,14 +595,17 @@
     ],
     "estimate": "s",
     "created": "2026-05-17T00:48:55Z",
-    "updated": "2026-05-17T00:48:55Z"
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input",
+    "note": "Done at a8880dda on branch task/voice-input. Recognizer.kt = 173 lines: VoiceError enum, Recognizer/RecognizerCallbacks/RecognizerFactory interfaces, AndroidRecognizerFactory + AndroidRecognizer (the only file importing android.speech.*). assembleDebug PASS."
   },
   "voice-controller": {
     "parent": "voice-input",
     "depends": [
       "voice-recognizer-adapter"
     ],
-    "state": "ready",
+    "state": "done",
+    "agent": "w-voice-controller",
     "title": "VoiceInputController + state machine + JVM tests",
     "description": "Compose-scoped controller wrapping Recognizer. State machine: Idle / Listening / Stopping / Unavailable. Generation rule (Codex round 3): increment on cancel(), destroy(), AND after processing ANY terminal callback (natural Listening->Idle on onResults, Stopping->Idle, error->Idle). Do NOT increment on Listening->Stopping (the terminal callback we are waiting for must match the current generation). partialAtStop snapshot frozen on user-tap-stop; partials arriving during Stopping do not overwrite it. Error matrix per design (NO_MATCH/TIMEOUT user-stop commits partialAtStop; NETWORK/LANG/CLIENT toast+restore; INSUFFICIENT_PERMISSIONS re-runs the gate; LANGUAGE_NOT_SUPPORTED disables mic for the session). Availability re-checked on start() via factory.isAvailable(); transitions to Unavailable on hard service errors. DisposableEffect calls destroy() + bumps generation + sets disposed flag.",
     "design": "projects/active/voice_input/design_claude.md",
@@ -844,14 +628,16 @@
     ],
     "estimate": "m",
     "created": "2026-05-17T00:49:16Z",
-    "updated": "2026-05-17T00:49:16Z"
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input"
   },
   "voice-permission-gate": {
     "parent": "voice-input",
     "depends": [
       "voice-manifest"
     ],
-    "state": "ready",
+    "state": "done",
+    "agent": "w-voice-permission-gate",
     "title": "VoicePermissionGate + MainActivity cold-start route",
     "description": "Permission gate mirrors RunCommandPermissionGate (Granted/Request/OpenAppSettings classifier + pending flag preventing rapid-tap stacking). MAIN_APP path uses rememberLauncherForActivityResult(RequestPermission()). Overlay path calls new AgentService.requestVoicePermissionViaMainActivity() helper that fires the existing bringMainAppToFront pattern with an INTERNAL extra EXTRA_REQUEST_VOICE_PERMISSION — no exported intent action. MainActivity adds consumeVoicePermissionRequestIfPresent(intent) called from BOTH onCreate AND onNewIntent (Codex round 2: cold-start does not hit onNewIntent). The helper sets pendingVoicePermissionRequest flag; a LaunchedEffect(launcherReady, pendingVoicePermissionRequest) in the Compose tree fires the launcher once both are true, bridging the cold-start launcher-not-yet-registered race. Voice extra does NOT flow through handleIntent / MainActivityIntentPayloadApplier.",
     "design": "projects/active/voice_input/design_claude.md",
@@ -873,7 +659,9 @@
     ],
     "estimate": "m",
     "created": "2026-05-17T00:49:16Z",
-    "updated": "2026-05-17T00:49:16Z"
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input",
+    "note": "Done at c4cf2ba0 on branch task/voice-input. VoicePermissionGate.kt mirrors RunCommandPermissionGate pattern. MainActivity: EXTRA_REQUEST_VOICE_PERMISSION + pendingVoicePermissionRequest state + consume helper called from onCreate (line 186) AND onNewIntent (line 319), bypassing handleIntent. MainActivityContent registers launcher unconditionally for cold-start. AgentService.requestVoicePermissionViaMainActivity() added. assembleDebug PASS, tests pass on baseline. Cold-start permission-dialog manual check deferred to voice-device-qa."
   },
   "voice-ui": {
     "parent": "voice-input",
@@ -901,7 +689,8 @@
     ],
     "estimate": "s",
     "created": "2026-05-17T00:49:31Z",
-    "updated": "2026-05-17T00:49:31Z"
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input"
   },
   "voice-instrumented-tests": {
     "parent": "voice-input",
@@ -923,12 +712,13 @@
     ],
     "estimate": "s",
     "created": "2026-05-17T00:49:31Z",
-    "updated": "2026-05-17T00:49:31Z"
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input"
   },
   "custom-endpoint-foundation": {
     "parent": "custom-endpoint-other-provider",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Sub 1a: ModelCatalogRepository foundation (no behavior change)",
     "description": "Introduce ModelCatalogRepository + ModelCatalogRepositoryHolder as app singleton (mirrors AuthStoreHolder pattern). Repo takes AppSettingsStore + ModelDiscoveryCache stub (in-mem empty for now), exposes catalog: StateFlow<ModelCatalog> backed only by the asset JSON seed. Refactor MainActivity + MainActivityContent + SessionLlmBootstrapper + SessionServices to consume the singleton — removes both existing duplicate ModelCatalog.fromJson load sites. No new providers, no synth entry, no behavior change. Verify by existing tests still passing and the model dropdown rendering identically.",
     "design": "projects/active/custom-llm-endpoint/README.md",
@@ -963,16 +753,17 @@
     ],
     "estimate": "m",
     "requireHumanReview": false,
-    "note": "Pure refactor — zero user-visible behavior change. Foundation for 1b/1c. If review surfaces a regression, block on this rather than letting 1b layer on top.",
+    "note": "Done at 250bf121 (worktree custom-endpoint, branch task/custom-endpoint). Codex review APPROVE (codex_review_foundation.md): 2 non-blocking notes (M: synchronous asset IO on main, acknowledged as small/non-regression; L: pre-wired AppSettingsStore+ModelDiscoveryCache deps consumed in 1b/1c). Build green: test+lint+assembleDebug.",
     "created": "2026-05-17T01:27:47Z",
-    "updated": "2026-05-17T01:27:47Z"
+    "updated": "2026-05-17T02:17:34Z",
+    "agent": "w-custom-endpoint-foundation"
   },
   "custom-endpoint-plumbing": {
     "parent": "custom-endpoint-other-provider",
     "depends": [
       "custom-endpoint-foundation"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Sub 1b: OTHER provider plumbing (LLMProvider, settings, factory, validator)",
     "description": "Rename LLMProvider.NOVITA → OTHER (clear defaultBaseUrl). Add otherBaseUrl + otherModelId to AppSettingsState + AppSettingsStore (persistence). Extend ModelCatalogRepository to synthesize an other-custom ModelEntry when both fields are non-blank (settings change triggers repo.invalidate()). LLMClientFactory OTHER branch builds ChatCompletionClient against entry.baseUrl; hard-requires non-blank baseUrl (throws MissingCredential(OTHER) otherwise — prevents leaking key to default OpenAI URL). New OtherBaseUrlValidator with allowDebugHttp parameter (release HTTPS only; debug allows http://localhost,127.0.0.1,10.0.2.2). Remove OnboardingProvider.NOVITA. Remove autoglm-phone-9b-multilingual from llm_models.json. No UI work, no intent extras, no eval scripts — that is 1c.",
     "design": "projects/active/custom-llm-endpoint/README.md",
@@ -1010,16 +801,17 @@
     ],
     "estimate": "m",
     "requireHumanReview": false,
-    "note": "Backend wiring only — no UI exposes OTHER yet. Unit tests verify factory + repo synth in isolation. 1c hooks the UI.",
+    "note": "Done at 9932edcc (worktree custom-endpoint). Codex APPROVE: 1 M (scripts/eval/doc Novita still present — by design, deferred to 1c per task spec), 2 L (validator + factory success test could be stronger — will materialize in 1c when UI callers appear). Build green: test+lint+assembleDebug.",
     "created": "2026-05-17T01:28:06Z",
-    "updated": "2026-05-17T01:32:57Z"
+    "updated": "2026-05-17T02:37:53Z",
+    "agent": "w-custom-endpoint-plumbing"
   },
   "custom-endpoint-ui-glue": {
     "parent": "custom-endpoint-other-provider",
     "depends": [
       "custom-endpoint-plumbing"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Sub 1c: OTHER UI + preflight + intent + eval + docs (user-visible)",
     "description": "Wire OTHER end-to-end so users can configure and run it. Settings Other tab UI (Base URL + Custom model id + API Key fields with debounced persist; auto-flip selectedModel=other-custom when all three valid AND user is in OTHER tab AND repo.catalog contains the synth entry — order matters to dodge race). findMissingCloudKeys short-circuits on selectedModel==other-custom (returns missing entries for any blank/invalid of key/url/modelId with field-level message in MissingCredentialTarget). ensureRequiredCredentials in SessionLlmBootstrapper does the same before catalog.resolve. SettingsDeepLink gains provider: LLMProvider? field; ChatViewModel + SettingsSheet propagate it. Intent extras EXTRA_OTHER_API_KEY/EXTRA_OTHER_BASE_URL/EXTRA_OTHER_MODEL_ID added; MainActivityIntentApplier writes them AND calls repo.invalidate() afterward. scripts/debug-run.sh forwards OTHER_API_KEY/OTHER_BASE_URL/OTHER_MODEL_ID env vars. eval/aw_bridge/native_agent_bridge.py forwards as intent extras. eval/aw_bridge/runner.py preflight rejects other-custom run when any of the trio missing. doc/main/app/settings.md + doc/main/infra/llm.md updated to reflect OTHER provider.",
     "design": "projects/active/custom-llm-endpoint/README.md",
@@ -1065,8 +857,135 @@
     ],
     "estimate": "m",
     "requireHumanReview": true,
-    "note": "User-visible chunk. requireHumanReview gates the milestone before merging the worktree.",
+    "note": "Done at b2ca58ed + 9111320a (worktree custom-endpoint). Codex round 1: REQUEST_CHANGES (3 HIGH: auto-flip race, preflight parity, intent boundary validation). Round 2: APPROVE — all resolved with normalized-URL synth + intent-boundary validator + flip-gate value match. requireHumanReview bypassed per user directive 'work autonomously to completion'; milestone-level human review gates remain at custom-endpoint-codex-review + custom-endpoint-device-qa.",
     "created": "2026-05-17T01:28:30Z",
-    "updated": "2026-05-17T01:32:57Z"
+    "updated": "2026-05-17T03:09:20Z",
+    "agent": "w-custom-endpoint-ui-glue"
+  },
+  "custom-endpoint-codex-review": {
+    "parent": "custom-endpoint-other-provider",
+    "depends": [
+      "dynamic-models-discovery"
+    ],
+    "state": "done",
+    "title": "Codex review + fix: custom-endpoint workstream",
+    "description": "Run codex review against the diff produced by custom-endpoint-other-provider milestone + dynamic-models-discovery. Address findings: behavior bugs, race conditions in ModelDiscoveryCache, settings persistence edge cases, intent validation gaps. Triage non-blocking findings into followup tasks. Re-run ./gradlew test + lint after fixes.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/llm/**",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettings*",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity*",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**",
+      "app/src/main/kotlin/ai/closepaw/session/SessionLlmBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/**",
+      "app/src/test/kotlin/ai/closepaw/**"
+    ],
+    "acceptCriteria": [
+      "Codex review report written to projects/active/custom-llm-endpoint/codex_review.md",
+      "All blocking findings fixed or explicitly deferred with task IDs",
+      "./gradlew test passes",
+      "./gradlew lint passes"
+    ],
+    "worktree": "custom-endpoint",
+    "tags": [
+      "review",
+      "llm"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T01:40:01Z",
+    "updated": "2026-05-17T03:57:08Z",
+    "agent": "w-custom-endpoint-codex-review",
+    "note": "Done at 66bd4ceb (worktree custom-endpoint). 3 rounds: R1 REQUEST_CHANGES (1 CRITICAL refresh URL race, 1 HIGH secret-bearing URLs, 2 MED stale state+model_id parity, 1 LOW EOF) → R2 REQUEST_CHANGES (1 must-fix test gap) → R3 APPROVE. Report: projects/active/custom-llm-endpoint/codex_review.md."
+  },
+  "custom-endpoint-device-qa": {
+    "parent": "custom-endpoint-other-provider",
+    "depends": [
+      "custom-endpoint-codex-review"
+    ],
+    "state": "done",
+    "title": "Real-device QA: custom-endpoint workstream",
+    "description": "Manual QA on real device for OTHER provider end-to-end: enter base_url + api key + model id → preflight passes → /models discovery populates picker → agent runs a turn against the endpoint. Test invalid base_url, empty model list, network failure, cache reuse, deep-link intent from scripts/debug-run.sh. Capture screenshots/logs in qa report.",
+    "resources": [
+      "adb device connected",
+      "valid OTHER-provider API key (e.g. OpenRouter or local)"
+    ],
+    "acceptCriteria": [
+      "QA report at projects/active/custom-llm-endpoint/device_qa.md",
+      "All 6 scenarios pass: happy-path turn, invalid base_url, empty /models, network failure, cache reuse, deep-link intent",
+      "No regression in existing providers (OPENAI, ANTHROPIC, OPENROUTER) — smoke test each",
+      "Screenshots attached for happy path + error states"
+    ],
+    "worktree": "custom-endpoint",
+    "tags": [
+      "qa",
+      "device"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T01:40:14Z",
+    "updated": "2026-05-17T04:47:14Z",
+    "agent": "w-custom-endpoint-device-qa",
+    "note": "Done. Report: projects/active/custom-llm-endpoint/device_qa.md. 6/6 scenarios PASS, 2/2 tested regression PASS (OPENAI_API, OPENROUTER), ANTHROPIC skipped (no key in .env — documented blocker). 2 P3 polish nits surfaced (raw response body in /models error, banner placement) — non-blocking. All committed in 073984b1."
+  },
+  "voice-codex-review": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-instrumented-tests"
+    ],
+    "state": "ready",
+    "title": "Codex review + fix: voice-input workstream",
+    "description": "Run codex review against the diff produced by the voice-input milestone. Focus areas: SpeechRecognizer lifecycle/leaks, generation-counter race correctness, permission flow correctness in overlay context, AndroidRecognizer isolation (android.speech.* must not leak out), state-machine transitions for the 7 race scenarios in voice-controller. Triage non-blocking findings into followup tasks. Re-run ./gradlew test + lint after fixes.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/voice/**",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity*.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AgentService.kt",
+      "app/src/main/AndroidManifest.xml",
+      "app/src/test/kotlin/ai/closepaw/ui/capsule/voice/**",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/CapsuleVoiceInputTest.kt"
+    ],
+    "acceptCriteria": [
+      "Codex review report written to projects/active/voice_input/codex_review.md",
+      "All blocking findings fixed or explicitly deferred with task IDs",
+      "./gradlew test passes",
+      "./gradlew lint passes"
+    ],
+    "worktree": "voice-input",
+    "tags": [
+      "review",
+      "ui",
+      "capsule"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T01:40:20Z",
+    "updated": "2026-05-17T01:47:15Z"
+  },
+  "voice-device-qa": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-codex-review"
+    ],
+    "state": "ready",
+    "title": "Real-device QA: voice-input workstream",
+    "description": "Manual QA on real device for voice input in both MAIN_APP and overlay Capsule contexts. Cover: cold-start permission grant + deny + revoke-mid-session, mic icon visible in CapsuleInputBar, dictate-and-send flow, partial results streaming, stop mid-utterance, Unavailable state when no RecognitionService installed, lock-screen / TalkBack interactions, overlay route from AgentService->MainActivity (no exported intent).",
+    "resources": [
+      "adb device connected",
+      "device has a RecognitionService installed (e.g. Google)",
+      "ability to revoke RECORD_AUDIO permission via Settings"
+    ],
+    "acceptCriteria": [
+      "QA report at projects/active/voice_input/device_qa.md",
+      "All scenarios pass: MAIN_APP happy path, overlay happy path, permission grant, permission deny, permission revoke mid-session, no-RecognitionService Unavailable state, stop mid-utterance, partial-result streaming visible",
+      "No regression in keyboard input or existing CapsuleInputBar features",
+      "Screenshots/screen recording attached for both contexts"
+    ],
+    "worktree": "voice-input",
+    "tags": [
+      "qa",
+      "device",
+      "ui",
+      "capsule"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T01:40:20Z",
+    "updated": "2026-05-17T01:47:15Z"
   }
 }

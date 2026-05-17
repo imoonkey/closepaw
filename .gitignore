@@ -113,6 +113,13 @@ debug-output
 .reference/
 projects/progress.json*
 .multmux
+# QA / debug screenshots — never commit binary evidence under projects/
+projects/**/*.png
+projects/**/*.jpg
+projects/**/*.jpeg
+projects/**/*.webp
+projects/**/*.gif
+projects/**/*.mp4
 # Runtime locks
 .claude/scheduled_tasks.lock
 projects/.tasks.json.lock

@@ -1,0 +1,17 @@
+{
+  "openai-oauth": {
+    "parent": "phase3-daily-assistant",
+    "depends": [],
+    "state": "done",
+    "title": "OpenAI OAuth Login",
+    "description": "参考 OpenClaw 实现：OpenAI Codex OAuth flow。用户用 OpenAI 账号登录 → 复用已有 subscription。和手动 API key 并存。降低新用户 onboarding friction。",
+    "design": "doc/todo/openai_oauth/note.md",
+    "acceptCriteria": [
+      "OAuth login flow implemented for OpenAI",
+      "User can authenticate via OpenAI account",
+      "Falls back to manual API key entry",
+      "Token refresh handled automatically"
+    ],
+    "note": "OAuth login + CodexResponseClient implemented. Settings integration is a separate task."
+  }
+}

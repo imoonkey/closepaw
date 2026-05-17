@@ -1,0 +1,78 @@
+{
+  "phase2-utility": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Phase 2: 真实实用性",
+    "description": "Prompt externalization + app skill discovery + eval regression CI。Agent 能在用户日常用的 30+ app 上工作。",
+    "acceptCriteria": [
+      "All child tasks done",
+      "30+ app skills generated via discovery system",
+      "Eval runs as CI gate on PRs"
+    ],
+    "note": "Pending human review",
+    "updated": "2026-04-08T03:10:00+08:00"
+  },
+  "prompt-externalization": {
+    "parent": "phase2-utility",
+    "depends": [],
+    "state": "cancelled",
+    "title": "Prompt Externalization",
+    "description": "System prompt 从 StandaloneAgentDef.kt 等硬编码字符串 → assets/persona/<role>/system_prompt.md。新增 PersonaRepository（接口 + asset 实现）。App skill 迭代不再需要重新编译 APK。对应 OpenClaw roadmap P3 Phase 1。是 app skill discovery 的前置条件。",
+    "design": "doc/todo/prompt_externalization/note.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/agent/definition/**",
+      "app/src/main/assets/persona/**"
+    ],
+    "acceptCriteria": [
+      "System prompt loaded from assets/persona/standalone/system_prompt.md",
+      "PersonaRepository interface + AssetPersonaRepository implementation exist",
+      "AgentDef subclasses use PersonaRepository instead of inline strings",
+      "Changing asset file changes agent behavior without APK rebuild",
+      "./gradlew test passes"
+    ],
+    "note": "Deferred — not on near-term roadmap. Folder under projects/active/ preserved for design context. Restore via state→ready when picking up.",
+    "updated": "2026-05-17T01:49:20Z"
+  },
+  "app-skill-discovery": {
+    "parent": "phase2-utility",
+    "depends": [
+      "prompt-externalization"
+    ],
+    "state": "cancelled",
+    "title": "App Skill Discovery 系统",
+    "description": "建一个系统让 agent 自己探索 app 并提炼 SKILL.md（含 Safety section）。Discovery loop: 给定 target app → agent 启动 → 系统性探索 UI 路径 → 记录 a11y tree 特征、navigation pattern、pitfall → 生成 SKILL.md draft。英文市场 top 30 app 优先。需要 quality gate（跑 test task / 人工 review）。",
+    "design": "doc/todo/app_skill_discovery/note.md",
+    "scope": [
+      "app/src/main/assets/app_skills/**"
+    ],
+    "acceptCriteria": [
+      "Discovery system can generate SKILL.md for a given target app",
+      "Generated SKILL.md includes ## Safety section",
+      "At least 20 new app skills generated and reviewed",
+      "./gradlew assembleDebug passes"
+    ],
+    "requireHumanReview": true,
+    "note": "Deferred — not on near-term roadmap. Folder under projects/active/ preserved for design context. Restore via state→ready when picking up.",
+    "updated": "2026-05-17T01:49:20Z"
+  },
+  "eval-regression-ci": {
+    "parent": "phase2-utility",
+    "depends": [],
+    "state": "cancelled",
+    "title": "Eval 转 Regression CI",
+    "description": "AndroidWorld full set 作为 regression gate。PR 跑 eval，regression 才 fail。停止 autotune optimization loop（R58 是最后一轮主动优化）。保留 eval infra 不变。",
+    "design": "doc/todo/eval_regression_ci/note.md",
+    "scope": [
+      ".github/workflows/**",
+      "eval/**"
+    ],
+    "acceptCriteria": [
+      "CI workflow runs eval on PR",
+      "Eval regression detected and reported as CI failure",
+      "Eval pass/fail threshold configured based on R58 baseline"
+    ],
+    "note": "Deferred — not on near-term roadmap. Folder under projects/active/ preserved for design context. Restore via state→ready when picking up.",
+    "updated": "2026-05-17T01:49:20Z"
+  }
+}

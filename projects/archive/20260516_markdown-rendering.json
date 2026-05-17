@@ -1,0 +1,30 @@
+{
+  "markdown-rendering": {
+    "parent": null,
+    "depends": [],
+    "state": "cancelled",
+    "title": "Markdown rendering for FinalAnswer + StreamingText",
+    "description": "Agent answers contain markdown (bold, italic, inline/fenced code, lists, links) but render today as plain Text(bodyLarge) with raw asterisks/backticks visible. Need a streaming-safe Compose renderer — Vercel-streamdown-equivalent — that handles incomplete tokens gracefully (no flicker as the closing ** arrives token by token). Library survey, integration shape, and D1/Bound-Edition typography alignment captured in the design note. No implementation in this task.",
+    "design": "projects/active/markdown-rendering/README.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentRow.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/StreamingText.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentTrace.kt",
+      "app/build.gradle.kts (new dependency)"
+    ],
+    "acceptCriteria": [
+      "Library decision documented (default candidate: mikepenz/multiplatform-markdown-renderer)",
+      "Streaming-safety strategy defined",
+      "D1 typography mapping decided (Geist body / mono code / optional Fraunces italic / Claw links)",
+      "Open questions in design note resolved or explicitly deferred",
+      "Build subtask split out with size estimate before implementation begins"
+    ],
+    "note": "Deferred — design captured in projects/active/markdown-rendering/README.md → archived folder. Restore via state→ready when picking up.",
+    "priority": "medium",
+    "estimate": "s",
+    "created": "2026-04-22T23:55:00Z",
+    "updated": "2026-05-17T01:50:21Z",
+    "blockReason": "human-review",
+    "requireHumanReview": true
+  }
+}

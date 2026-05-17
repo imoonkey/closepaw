@@ -1,0 +1,21 @@
+{
+  "sec-app-tiers-expansion": {
+    "parent": null,
+    "depends": [],
+    "state": "cancelled",
+    "title": "app_tiers.json 扩展到 100-1000 app",
+    "description": "将 app_tiers.json 从当前 61 个 app (36 blocked + 25 normal) 扩展到覆盖世界常用 100-1000 个 app。需要设计数据获取流程: 拉取 package name + app name + category (Google Play top charts, AppBrain 等) → 用 LLM 批量评估 tier。独立设计任务。",
+    "requireHumanReview": true,
+    "scope": [
+      "app/src/main/assets/security/app_tiers.json"
+    ],
+    "acceptCriteria": [
+      "app_tiers.json contains 100+ classified apps",
+      "Coverage includes top apps from major Play Store categories",
+      "Financial/payment/auth apps correctly classified as BLOCKED",
+      "Classification methodology documented"
+    ],
+    "note": "Deferred — not on near-term roadmap. Restore via state→ready when picking up.",
+    "updated": "2026-05-17T01:50:32Z"
+  }
+}
