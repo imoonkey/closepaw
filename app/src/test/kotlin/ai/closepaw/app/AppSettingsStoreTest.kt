@@ -171,7 +171,7 @@ class AppSettingsStoreTest {
     }
 
     @Test
-    fun `setSkillDisabled true persists and updates flow`() = runBlocking {
+    fun `setSkillDisabled true persists and updates flow`() = runBlocking<Unit> {
         val store = AppSettingsStore(context)
         store.setSkillDisabled("calendar-date-math", true)
 
@@ -181,7 +181,7 @@ class AppSettingsStoreTest {
     }
 
     @Test
-    fun `setSkillDisabled false removes from set`() = runBlocking {
+    fun `setSkillDisabled false removes from set`() = runBlocking<Unit> {
         val store = AppSettingsStore(context)
         store.setSkillDisabled("alpha", true)
         store.setSkillDisabled("beta", true)
