@@ -44,6 +44,7 @@ internal fun ToolSettingsCard(
     onRowClick: (() -> Unit)? = null,
     onRowClickLabel: String? = null,
     switchEnabled: Boolean = true,
+    switchModifier: Modifier = Modifier,
     expanded: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val surfaceModifier = Modifier
@@ -112,6 +113,7 @@ internal fun ToolSettingsCard(
                     checked = switchChecked,
                     onCheckedChange = onSwitchChange,
                     enabled = switchEnabled,
+                    modifier = switchModifier,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
                         checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,

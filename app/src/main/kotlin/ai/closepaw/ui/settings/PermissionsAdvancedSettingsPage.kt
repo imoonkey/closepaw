@@ -88,12 +88,6 @@ internal fun PermissionsAdvancedSettingsPage(
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
-            DisplayModeSection(
-                persistedMode = platformMode,
-                effectiveMode = effectivePlatformMode,
-                onModeChange = onPlatformModeChange,
-            )
-            Spacer(modifier = Modifier.height(20.dp))
             SettingsSection(title = "Debug") {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
