@@ -63,6 +63,9 @@ private const val LOCAL_TAB_ENABLED = false
 private val VISIBLE_TABS: List<LlmAuthTab> =
     LlmAuthTab.entries.filter { LOCAL_TAB_ENABLED || it != LlmAuthTab.LOCAL }
 
+private fun LlmAuthTab.visibleOrFallback(): LlmAuthTab =
+    if (this in VISIBLE_TABS) this else LlmAuthTab.API_KEY
+
 private val LlmAuthTab.label: String
     get() = when (this) {
         LlmAuthTab.SIGN_IN -> "Sign In"
@@ -124,6 +127,10 @@ internal fun LlmAuthSettingsPage(
         }
         mutableStateOf(if (raw == LlmAuthTab.LOCAL && !LOCAL_TAB_ENABLED) LlmAuthTab.API_KEY else raw)
     }
+    val activeTab = selectedTab.visibleOrFallback()
+    LaunchedEffect(activeTab, selectedTab) {
+        if (activeTab != selectedTab) selectedTab = activeTab
+    }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -161,10 +168,10 @@ internal fun LlmAuthSettingsPage(
     Column(modifier = Modifier.fillMaxWidth()) {
         SettingsSubPageHeader(title = "LLM & Authentication", onBack = onBack, onClose = onClose)
 
-        TabRow(selectedTabIndex = VISIBLE_TABS.indexOf(selectedTab).coerceAtLeast(0)) {
+        TabRow(selectedTabIndex = VISIBLE_TABS.indexOf(activeTab).coerceAtLeast(0)) {
             VISIBLE_TABS.forEach { tab ->
                 Tab(
-                    selected = selectedTab == tab,
+                    selected = activeTab == tab,
                     onClick = { selectedTab = tab },
                     text = { Text(tab.label) }
                 )
@@ -177,7 +184,7 @@ internal fun LlmAuthSettingsPage(
                 .verticalScroll(rememberScrollState())
                 .padding(start = 24.dp, end = 24.dp, top = 20.dp)
         ) {
-            when (selectedTab) {
+            when (activeTab) {
                 LlmAuthTab.SIGN_IN -> SignInTabContent(
                     selectedModel = selectedModel,
                     onModelChange = { commitSignIn { onModelChange(it) } },

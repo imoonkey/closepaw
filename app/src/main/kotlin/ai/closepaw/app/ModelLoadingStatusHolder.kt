@@ -9,9 +9,12 @@ import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.ui.settings.LocalModelOption
 import ai.closepaw.ui.settings.ModelLoadingStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Transient UI state for the local model loading indicator.
@@ -29,9 +32,12 @@ class ModelLoadingStatusHolder(
         private set
 
     private var downloadJob: Job? = null
-    private var warmedSlug: String? = null
+    @Volatile
+    private var downloadGeneration = 0
+    private var warmedModelKey: String? = null
 
     fun update(value: ModelLoadingStatus) {
+        cancelDownload()
         status = value
     }
 
@@ -45,7 +51,7 @@ class ModelLoadingStatusHolder(
 
     fun updateLocalModel(model: LocalModelOption) {
         settings.updateLocalModel(model)
-        if (warmedSlug == model.modelSlug && status is ModelLoadingStatus.Ready) return
+        if (warmedModelKey == model.cacheKey && status is ModelLoadingStatus.Ready) return
         cancelDownload()
         status = ModelLoadingStatus.Idle
         startDownload(model)
@@ -57,23 +63,37 @@ class ModelLoadingStatusHolder(
             quantizationSlug = model.quantizationSlug,
         )
         val client = LFMLLMClient(context, cfg)
+        val generation = ++downloadGeneration
         downloadJob = scope.launch {
             try {
-                client.loadModel { state -> status = state.toUiStatus() }
-                warmedSlug = model.modelSlug
+                client.loadModel { state ->
+                    if (generation == downloadGeneration) status = state.toUiStatus()
+                }
+                if (generation == downloadGeneration) warmedModelKey = model.cacheKey
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                status = ModelLoadingStatus.Error(e.message ?: "Download failed")
+                if (generation == downloadGeneration) {
+                    status = ModelLoadingStatus.Error(e.message ?: "Download failed")
+                }
             } finally {
                 // Disk cache is warm; release the runner so we don't hold tensor
                 // memory until the real session starts.
-                runCatching { client.cleanup() }
+                withContext(NonCancellable) {
+                    runCatching { client.cleanup() }
+                }
+                if (generation == downloadGeneration) downloadJob = null
             }
         }
     }
 
     private fun cancelDownload() {
+        downloadGeneration++
         downloadJob?.cancel()
         downloadJob = null
-        warmedSlug = null
+        warmedModelKey = null
     }
+
+    private val LocalModelOption.cacheKey: String
+        get() = "$modelSlug/$quantizationSlug"
 }

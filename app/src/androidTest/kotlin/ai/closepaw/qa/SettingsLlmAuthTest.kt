@@ -182,4 +182,22 @@ class SettingsLlmAuthTest {
         // Sign-in button should NOT be present on API Key tab.
         compose.onAllNodesWithText("Sign in with OpenAI").assertCountEquals(0)
     }
+
+    @Test fun local_backend_falls_back_to_api_key_when_local_tab_hidden() {
+        compose.setContent {
+            AuthPage(llmBackend = LLMBackendType.LOCAL)
+        }
+
+        compose.onAllNodesWithText("Local").assertCountEquals(0)
+        compose.onNodeWithText("OpenAI Key").assertExists()
+    }
+
+    @Test fun initial_auth_tab_local_falls_back_to_api_key_when_local_tab_hidden() {
+        compose.setContent {
+            AuthPage(initialAuthTab = AuthMode.Local)
+        }
+
+        compose.onAllNodesWithText("Local").assertCountEquals(0)
+        compose.onNodeWithText("OpenAI Key").assertExists()
+    }
 }
