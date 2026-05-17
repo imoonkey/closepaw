@@ -35,17 +35,9 @@ class AppClassifierOverrideTest {
     }
 
     @Test
-    fun `bundled BLOCKED is the floor regardless of override`() = runTest {
-        val classifier = AppClassifier(mapOf("com.bank" to AppTier.BLOCKED))
-        // Write is refused so classify stays BLOCKED.
-        classifier.setOverride("com.bank", AppTier.NORMAL)
-        assertThat(classifier.classify("com.bank")).isEqualTo(AppTier.BLOCKED)
-    }
-
-    // ===== Write-time refusal =====
-
-    @Test
-    fun `setOverride refuses non-BLOCKED on bundled BLOCKED`() = runTest {
+    fun `override wins over bundled BLOCKED (no safety floor)`() = runTest {
+        // BLOCKED is no longer a write-time floor — the UI gates the downgrade with a
+        // confirm dialog, but a confirmed override fully takes effect on the classifier.
         val persisted = AtomicReference<Map<String, AppTier>?>(null)
         val classifier = AppClassifier(
             appTiers = mapOf("com.bank" to AppTier.BLOCKED),
@@ -54,17 +46,14 @@ class AppClassifierOverrideTest {
 
         val result = classifier.setOverride("com.bank", AppTier.NORMAL)
 
-        assertThat(result).isEqualTo(SetOverrideResult.RefusedBlocked)
-        assertThat(classifier.userOverrides.value).isEmpty()
-        // Refusal must not invoke the persistence callback.
-        assertThat(persisted.get()).isNull()
+        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
+        assertThat(classifier.userOverrides.value).containsEntry("com.bank", AppTier.NORMAL)
+        assertThat(classifier.classify("com.bank")).isEqualTo(AppTier.NORMAL)
+        assertThat(persisted.get()).containsEntry("com.bank", AppTier.NORMAL)
     }
 
     @Test
-    fun `setOverride refuses CAUTIOUS on bundled BLOCKED`() = runTest {
-        // Same floor as NORMAL — only BLOCKED is allowed for a bundled-BLOCKED package,
-        // and that path goes through the Removed branch (matches default). Any other tier,
-        // including CAUTIOUS, must be refused without emitting or persisting.
+    fun `override CAUTIOUS on bundled BLOCKED is accepted and persisted`() = runTest {
         val persisted = AtomicReference<Map<String, AppTier>?>(null)
         val classifier = AppClassifier(
             appTiers = mapOf("com.bank" to AppTier.BLOCKED),
@@ -73,9 +62,10 @@ class AppClassifierOverrideTest {
 
         val result = classifier.setOverride("com.bank", AppTier.CAUTIOUS)
 
-        assertThat(result).isEqualTo(SetOverrideResult.RefusedBlocked)
-        assertThat(classifier.userOverrides.value).isEmpty()
-        assertThat(persisted.get()).isNull()
+        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
+        assertThat(classifier.userOverrides.value).containsEntry("com.bank", AppTier.CAUTIOUS)
+        assertThat(classifier.classify("com.bank")).isEqualTo(AppTier.CAUTIOUS)
+        assertThat(persisted.get()).containsEntry("com.bank", AppTier.CAUTIOUS)
     }
 
     @Test

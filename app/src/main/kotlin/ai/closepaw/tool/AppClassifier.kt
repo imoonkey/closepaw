@@ -19,9 +19,11 @@ import org.json.JSONObject
  *  - [appTiers]            — bundled tiers from `assets/security/app_tiers.json` (immutable).
  *  - [userOverrides]       — per-package user overrides (mutated through [setOverride]).
  *
- * Effective tier:
- *  1. bundled[pkg] == BLOCKED → BLOCKED (safety floor, non-overridable).
- *  2. else overrides[pkg] ?: bundled[pkg] ?: CAUTIOUS.
+ * Effective tier: overrides[pkg] ?: bundled[pkg] ?: CAUTIOUS.
+ *
+ * Bundled-BLOCKED apps are flagged as sensitive in the App Access UI (lock badge, confirm
+ * dialog before downgrade) but the classifier itself does not enforce a floor — a confirmed
+ * override fully replaces the bundled tier.
  */
 class AppClassifier(
     private val appTiers: Map<String, AppTier>,
@@ -37,23 +39,17 @@ class AppClassifier(
 
     fun classify(pkg: String?): AppTier {
         if (pkg == null) return AppTier.CAUTIOUS
-        val bundled = appTiers[pkg]
-        if (bundled == AppTier.BLOCKED) return AppTier.BLOCKED
-        return _userOverrides.value[pkg] ?: bundled ?: AppTier.CAUTIOUS
+        return _userOverrides.value[pkg] ?: appTiers[pkg] ?: AppTier.CAUTIOUS
     }
 
     /**
      * Apply a user override. Serialized end-to-end (in-memory CAS + persistence)
      * by [overrideMutex] so on-disk state never diverges from [userOverrides].
      *
-     * - bundled-BLOCKED with non-BLOCKED tier → [SetOverrideResult.RefusedBlocked] (not emitted, not persisted).
-     * - tier matches bundled default          → entry removed → [SetOverrideResult.Removed].
-     * - otherwise                              → entry written → [SetOverrideResult.Accepted].
+     * - tier matches bundled default → entry removed → [SetOverrideResult.Removed].
+     * - otherwise                    → entry written → [SetOverrideResult.Accepted].
      */
     suspend fun setOverride(pkg: String, tier: AppTier): SetOverrideResult = overrideMutex.withLock {
-        if (appTiers[pkg] == AppTier.BLOCKED && tier != AppTier.BLOCKED) {
-            return@withLock SetOverrideResult.RefusedBlocked
-        }
         val bundledDefault = appTiers[pkg] ?: AppTier.CAUTIOUS
         val next = _userOverrides.updateAndGet { old ->
             if (tier == bundledDefault) old - pkg else old + (pkg to tier)
@@ -127,7 +123,4 @@ sealed interface SetOverrideResult {
 
     /** Override matched the bundled default, so the entry was removed. */
     data object Removed : SetOverrideResult
-
-    /** Bundled-BLOCKED is the safety floor; non-BLOCKED writes are refused. */
-    data object RefusedBlocked : SetOverrideResult
 }
