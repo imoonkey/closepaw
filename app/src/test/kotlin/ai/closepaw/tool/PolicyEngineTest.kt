@@ -250,22 +250,27 @@ class PolicyEngineTest {
     // --- User override interactions (canonical step ordering) ---
 
     @Test
-    fun `user NORMAL override on chrome under ALWAYS_ASK still asks - mode wins`() = runBlocking {
-        val classifier = AppClassifier(mapOf("com.android.chrome" to AppTier.NORMAL))
-        // Even though chrome is NORMAL, ALWAYS_ASK is absolute: any user override that downgrades
-        // to "auto-approve" must still ask. NORMAL is in fact the bundled default here, but a
-        // hypothetical CAUTIOUS→NORMAL override would behave the same.
-        classifier.setOverride("com.android.chrome", AppTier.NORMAL)
+    fun `user NORMAL override on cautious app under ALWAYS_ASK still asks - mode wins`() = runBlocking {
+        // Use a package not in bundled tiers (defaults to CAUTIOUS) so the NORMAL override is
+        // actually Accepted rather than auto-removed by the "matches bundled default" rule.
+        val classifier = AppClassifier(emptyMap())
+        val result = classifier.setOverride("com.unknown.app", AppTier.NORMAL)
+        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
+        assertThat(classifier.userOverrides.value).containsKey("com.unknown.app")
         val engine = PolicyEngine(ApprovalMode.ALWAYS_ASK, classifier)
 
-        val decision = engine.check("open_app", JSONObject(), "com.android.chrome")
+        val decision = engine.check("open_app", JSONObject(), "com.unknown.app")
         assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
     }
 
     @Test
-    fun `browser_script under SMART asks even with NORMAL override`() = runBlocking {
-        val classifier = AppClassifier(mapOf("com.android.chrome" to AppTier.NORMAL))
-        classifier.setOverride("com.android.chrome", AppTier.NORMAL)
+    fun `browser_script under SMART asks even with NORMAL override on cautious app`() = runBlocking {
+        // Bundled-CAUTIOUS (absent from map) + user NORMAL override → override is Accepted, but
+        // the browser_script rule must still fire (NORMAL override does NOT bypass step 4).
+        val classifier = AppClassifier(emptyMap())
+        val result = classifier.setOverride("com.android.chrome", AppTier.NORMAL)
+        assertThat(result).isEqualTo(SetOverrideResult.Accepted)
+        assertThat(classifier.userOverrides.value).containsKey("com.android.chrome")
         val engine = PolicyEngine(ApprovalMode.SMART, classifier)
 
         val decision = engine.check("browser_script", JSONObject(), "com.android.chrome")

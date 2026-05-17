@@ -13,10 +13,10 @@ import ai.closepaw.app.AppSettingsStore
  * diverge. Hoisting to the process keeps writes and reads coherent.
  *
  * Persistence: writes flow through `setOverride` → `onUserOverridesChanged` callback →
- * [AppSettingsStore.saveUserAppOverrides]. The callback runs inside the classifier's mutex
- * so emissions and disk writes stay in lock-step (last-emitted == last-persisted). Callers
- * must invoke `setOverride` on a dispatcher where a blocking `SharedPreferences.commit`-class
- * write is acceptable — i.e. [kotlinx.coroutines.Dispatchers.IO].
+ * [AppSettingsStore.saveUserAppOverrides]. The callback is `suspend` and runs inside the
+ * classifier's mutex; the store completes a synchronous `commit()` on [kotlinx.coroutines.Dispatchers.IO]
+ * before the mutex releases, so emissions and disk writes stay in lock-step
+ * (last-emitted == last-persisted).
  *
  * Single-writer rule: every override change (settings UI, capsule `ApprovalScope.ALWAYS`)
  * goes through `classifier.setOverride(...)`. The UI never writes the store directly.

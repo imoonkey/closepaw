@@ -26,7 +26,7 @@ import org.json.JSONObject
 class AppClassifier(
     private val appTiers: Map<String, AppTier>,
     initialUserOverrides: Map<String, AppTier> = emptyMap(),
-    private val onUserOverridesChanged: ((Map<String, AppTier>) -> Unit)? = null
+    private val onUserOverridesChanged: (suspend (Map<String, AppTier>) -> Unit)? = null
 ) {
     private val _userOverrides = MutableStateFlow(initialUserOverrides.toMap())
     val userOverrides: StateFlow<Map<String, AppTier>> = _userOverrides.asStateFlow()

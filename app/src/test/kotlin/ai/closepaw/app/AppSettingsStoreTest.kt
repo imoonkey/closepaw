@@ -7,6 +7,7 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Before
@@ -114,7 +115,7 @@ class AppSettingsStoreTest {
     }
 
     @Test
-    fun `user app overrides round-trip through store`() {
+    fun `user app overrides round-trip through store`() = runBlocking {
         val store = AppSettingsStore(context)
         val overrides = mapOf(
             "com.spotify.music" to AppTier.NORMAL,
@@ -128,7 +129,7 @@ class AppSettingsStoreTest {
     }
 
     @Test
-    fun `saving empty overrides clears the stored value`() {
+    fun `saving empty overrides clears the stored value`() = runBlocking {
         val store = AppSettingsStore(context)
         store.saveUserAppOverrides(mapOf("com.spotify.music" to AppTier.NORMAL))
         store.saveUserAppOverrides(emptyMap())

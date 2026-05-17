@@ -1,12 +1,20 @@
 package ai.closepaw.tool
 
 import com.google.common.truth.Truth.assertThat
+import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.protocol.AppTier
+import android.content.Context
+import android.content.SharedPreferences
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.unmockkAll
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import java.util.concurrent.atomic.AtomicReference
+import org.junit.After
 import org.junit.Test
 
 class AppClassifierOverrideTest {
@@ -49,6 +57,24 @@ class AppClassifierOverrideTest {
         assertThat(result).isEqualTo(SetOverrideResult.RefusedBlocked)
         assertThat(classifier.userOverrides.value).isEmpty()
         // Refusal must not invoke the persistence callback.
+        assertThat(persisted.get()).isNull()
+    }
+
+    @Test
+    fun `setOverride refuses CAUTIOUS on bundled BLOCKED`() = runTest {
+        // Same floor as NORMAL — only BLOCKED is allowed for a bundled-BLOCKED package,
+        // and that path goes through the Removed branch (matches default). Any other tier,
+        // including CAUTIOUS, must be refused without emitting or persisting.
+        val persisted = AtomicReference<Map<String, AppTier>?>(null)
+        val classifier = AppClassifier(
+            appTiers = mapOf("com.bank" to AppTier.BLOCKED),
+            onUserOverridesChanged = { persisted.set(it) }
+        )
+
+        val result = classifier.setOverride("com.bank", AppTier.CAUTIOUS)
+
+        assertThat(result).isEqualTo(SetOverrideResult.RefusedBlocked)
+        assertThat(classifier.userOverrides.value).isEmpty()
         assertThat(persisted.get()).isNull()
     }
 
@@ -148,5 +174,61 @@ class AppClassifierOverrideTest {
         val finalTier = classifier.userOverrides.value["com.same"]
         assertThat(finalTier).isAnyOf(AppTier.NORMAL, AppTier.BLOCKED)
         assertThat(persisted.get()).isEqualTo(classifier.userOverrides.value)
+    }
+
+    // ===== Real-store concurrency (end-to-end persistence) =====
+
+    @After fun tearDown() = unmockkAll()
+
+    @Test
+    fun `concurrent setOverride persists to real AppSettingsStore - reload matches StateFlow`() = runBlocking {
+        // Wire the classifier callback through a real AppSettingsStore (in-memory-backed
+        // SharedPreferences) and then construct a *fresh* classifier from the persisted
+        // overrides. Reloaded map must equal the original classifier's StateFlow exactly.
+        val backing = mutableMapOf<String, Any?>()
+        val context = mockContextWithPrefs(backing)
+        val store = AppSettingsStore(context)
+        val classifier = AppClassifier(
+            appTiers = emptyMap(),
+            initialUserOverrides = store.loadUserAppOverrides(),
+            onUserOverridesChanged = { snapshot -> store.saveUserAppOverrides(snapshot) }
+        )
+
+        coroutineScope {
+            (0 until 50).map { idx ->
+                async {
+                    classifier.setOverride("com.pkg.$idx", AppTier.NORMAL)
+                }
+            }.awaitAll()
+        }
+
+        val reloaded = AppSettingsStore(context).loadUserAppOverrides()
+        assertThat(classifier.userOverrides.value).hasSize(50)
+        assertThat(reloaded).isEqualTo(classifier.userOverrides.value)
+    }
+
+    private fun mockContextWithPrefs(backing: MutableMap<String, Any?>): Context {
+        val prefs = fakePrefs(backing)
+        return mockk(relaxed = true) {
+            every { getSharedPreferences(any(), any()) } returns prefs
+        }
+    }
+
+    private fun fakePrefs(backing: MutableMap<String, Any?>): SharedPreferences {
+        val editor = mockk<SharedPreferences.Editor>(relaxed = true)
+        every { editor.putString(any(), any()) } answers {
+            backing[firstArg()] = secondArg<String?>()
+            editor
+        }
+        every { editor.remove(any()) } answers {
+            backing.remove(firstArg<String>())
+            editor
+        }
+        val prefs = mockk<SharedPreferences>(relaxed = true)
+        every { prefs.edit() } returns editor
+        every { prefs.getString(any(), any()) } answers {
+            backing[firstArg()] as? String ?: secondArg()
+        }
+        return prefs
     }
 }

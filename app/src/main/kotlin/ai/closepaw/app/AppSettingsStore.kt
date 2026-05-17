@@ -220,14 +220,23 @@ class AppSettingsStore(private val context: Context) {
         }
     }
 
-    fun saveUserAppOverrides(overrides: Map<String, AppTier>) {
-        val editor = prefs().edit()
-        if (overrides.isEmpty()) {
-            editor.remove(KEY_USER_APP_OVERRIDES).apply()
-            return
+    /**
+     * Persist user app overrides synchronously via `commit()` on [Dispatchers.IO].
+     *
+     * Suspends until XML is fully written so [AppClassifier.setOverride] can `await` the
+     * disk write under its mutex — guaranteeing last-emitted == last-persisted even under
+     * concurrent writes. `apply()` would defer the write asynchronously and break that.
+     */
+    suspend fun saveUserAppOverrides(overrides: Map<String, AppTier>) {
+        withContext(Dispatchers.IO) {
+            val editor = prefs().edit()
+            if (overrides.isEmpty()) {
+                editor.remove(KEY_USER_APP_OVERRIDES).commit()
+                return@withContext
+            }
+            val obj = JSONObject()
+            for ((pkg, tier) in overrides) obj.put(pkg, tier.name)
+            editor.putString(KEY_USER_APP_OVERRIDES, obj.toString()).commit()
         }
-        val obj = JSONObject()
-        for ((pkg, tier) in overrides) obj.put(pkg, tier.name)
-        editor.putString(KEY_USER_APP_OVERRIDES, obj.toString()).apply()
     }
 }
