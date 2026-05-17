@@ -1,0 +1,258 @@
+{
+  "voice-input": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Voice input for CapsuleInputBar",
+    "description": "Add voice-to-text alongside keyboard input in CapsuleInputBar. Works in both Main app and overlay Capsule. Uses Android SpeechRecognizer (not RecognizerIntent) so we can stream partial results into the field and operate from the overlay (no Activity context). State machine: Idle / Listening / Stopping / Unavailable, with generation-counter race guards. Permission flow reuses RunCommandPermissionGate pattern; overlay routes through AgentService -> MainActivity internal extra (no exported intent).",
+    "design": "projects/active/voice_input/design_claude.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "User can dictate into the bar in MAIN_APP context and overlay context",
+      "Recognizer adapter keeps android.speech.* out of every file except AndroidRecognizer",
+      "JVM tests cover the 7 race scenarios listed in voice-controller",
+      "./gradlew assembleDebug && ./gradlew test passes",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.CapsuleVoiceInputTest passes"
+    ],
+    "tags": [
+      "ui",
+      "capsule",
+      "accessibility"
+    ],
+    "estimate": "m",
+    "created": "2026-05-17T00:48:41Z",
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input"
+  },
+  "voice-manifest": {
+    "parent": "voice-input",
+    "depends": [],
+    "state": "done",
+    "agent": "w-voice-manifest",
+    "title": "Manifest entries for RECORD_AUDIO + RecognitionService visibility",
+    "description": "Add RECORD_AUDIO permission. Inside the existing <queries> block (line 11), add an <intent> entry for android.speech.RecognitionService — required for SpeechRecognizer to resolve a recognition service on Android 11+. Do NOT add any new exported intent-filter; the overlay -> MainActivity permission route uses an internal extra, not a public action.",
+    "design": "projects/active/voice_input/design_claude.md",
+    "scope": [
+      "app/src/main/AndroidManifest.xml"
+    ],
+    "acceptCriteria": [
+      "grep -q \"android.permission.RECORD_AUDIO\" app/src/main/AndroidManifest.xml",
+      "grep -q \"android.speech.RecognitionService\" app/src/main/AndroidManifest.xml",
+      "The RecognitionService <intent> is inside the existing <queries> block, not a new one",
+      "No new <intent-filter android:exported=\"true\"> added",
+      "./gradlew assembleDebug passes"
+    ],
+    "estimate": "xs",
+    "created": "2026-05-17T00:48:54Z",
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input",
+    "note": "Done at b929a93b on branch task/voice-input. 4 lines added to AndroidManifest.xml (RECORD_AUDIO + RecognitionService query). assembleDebug passes."
+  },
+  "voice-recognizer-adapter": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-manifest"
+    ],
+    "state": "done",
+    "agent": "w-voice-recognizer-adapter",
+    "title": "Recognizer interface + AndroidRecognizer impl",
+    "description": "Define a JVM-clean Recognizer interface and the only file in the project that imports android.speech.*. Surface: interface Recognizer { start(languageTag, callbacks); stop(); cancel(); destroy() }, interface RecognizerCallbacks { onPartial(String); onFinal(String); onError(VoiceError) }, enum VoiceError { NoMatch, SpeechTimeout, Network, NetworkTimeout, LanguageUnavailable, InsufficientPermissions, Busy, ServiceDied, Unknown }, interface RecognizerFactory { isAvailable(): Boolean; create(): Recognizer? }. AndroidRecognizer wraps SpeechRecognizer, translates RecognitionListener Bundles + raw error ints into the pure callback shape. RecognizerFactory.isAvailable() is re-checkable so the controller can call it on every start() without importing android.speech.*.",
+    "design": "projects/active/voice_input/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/voice/Recognizer.kt"
+    ],
+    "acceptCriteria": [
+      "File app/src/main/kotlin/ai/closepaw/ui/capsule/voice/Recognizer.kt exists",
+      "Recognizer, RecognizerCallbacks, VoiceError, RecognizerFactory all declared in that file",
+      "RecognizerFactory exposes both isAvailable() and create()",
+      "grep -L \"import android.speech\" app/src/main/kotlin/ai/closepaw/ui/capsule/voice/*.kt returns only Recognizer.kt (the AndroidRecognizer is the only file that may import android.speech.*)",
+      "./gradlew assembleDebug passes"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T00:48:55Z",
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input",
+    "note": "Done at a8880dda on branch task/voice-input. Recognizer.kt = 173 lines: VoiceError enum, Recognizer/RecognizerCallbacks/RecognizerFactory interfaces, AndroidRecognizerFactory + AndroidRecognizer (the only file importing android.speech.*). assembleDebug PASS."
+  },
+  "voice-controller": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-recognizer-adapter"
+    ],
+    "state": "done",
+    "agent": "w-voice-controller",
+    "title": "VoiceInputController + state machine + JVM tests",
+    "description": "Compose-scoped controller wrapping Recognizer. State machine: Idle / Listening / Stopping / Unavailable. Generation rule (Codex round 3): increment on cancel(), destroy(), AND after processing ANY terminal callback (natural Listening->Idle on onResults, Stopping->Idle, error->Idle). Do NOT increment on Listening->Stopping (the terminal callback we are waiting for must match the current generation). partialAtStop snapshot frozen on user-tap-stop; partials arriving during Stopping do not overwrite it. Error matrix per design (NO_MATCH/TIMEOUT user-stop commits partialAtStop; NETWORK/LANG/CLIENT toast+restore; INSUFFICIENT_PERMISSIONS re-runs the gate; LANGUAGE_NOT_SUPPORTED disables mic for the session). Availability re-checked on start() via factory.isAvailable(); transitions to Unavailable on hard service errors. DisposableEffect calls destroy() + bumps generation + sets disposed flag.",
+    "design": "projects/active/voice_input/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/voice/VoiceInputController.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/capsule/voice/VoiceInputControllerTest.kt"
+    ],
+    "acceptCriteria": [
+      "VoiceInputController.kt exists and does NOT import android.speech.*",
+      "Public surface: state, lastPartial, partialAtStop, start(baseText), stop(), cancel()",
+      "JVM test partial-after-cancel: late onPartial dropped, inputText unchanged",
+      "JVM test natural-finish-then-late-callback: late onPartial dropped after Listening->Idle via onResults",
+      "JVM test stop-then-partial: partialAtStop frozen, late onPartial ignored",
+      "JVM test stop-then-NO_MATCH: commits partialAtStop",
+      "JVM test stop-then-final: final wins over partialAtStop",
+      "JVM test destroy-mid-listen: all subsequent callbacks dropped",
+      "JVM test double-start-while-stopping: second start is a no-op",
+      "JVM test availability-flipped-on-start: transitions to Unavailable",
+      "./gradlew test passes"
+    ],
+    "estimate": "m",
+    "created": "2026-05-17T00:49:16Z",
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input"
+  },
+  "voice-permission-gate": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-manifest"
+    ],
+    "state": "done",
+    "agent": "w-voice-permission-gate",
+    "title": "VoicePermissionGate + MainActivity cold-start route",
+    "description": "Permission gate mirrors RunCommandPermissionGate (Granted/Request/OpenAppSettings classifier + pending flag preventing rapid-tap stacking). MAIN_APP path uses rememberLauncherForActivityResult(RequestPermission()). Overlay path calls new AgentService.requestVoicePermissionViaMainActivity() helper that fires the existing bringMainAppToFront pattern with an INTERNAL extra EXTRA_REQUEST_VOICE_PERMISSION — no exported intent action. MainActivity adds consumeVoicePermissionRequestIfPresent(intent) called from BOTH onCreate AND onNewIntent (Codex round 2: cold-start does not hit onNewIntent). The helper sets pendingVoicePermissionRequest flag; a LaunchedEffect(launcherReady, pendingVoicePermissionRequest) in the Compose tree fires the launcher once both are true, bridging the cold-start launcher-not-yet-registered race. Voice extra does NOT flow through handleIntent / MainActivityIntentPayloadApplier.",
+    "design": "projects/active/voice_input/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/voice/VoicePermissionGate.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityContent.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AgentService.kt"
+    ],
+    "acceptCriteria": [
+      "VoicePermissionGate.kt exists with Granted/Request/OpenAppSettings classifier and pending flag",
+      "AgentService.requestVoicePermissionViaMainActivity() exists and uses an internal extra (not an exported action)",
+      "grep -q EXTRA_REQUEST_VOICE_PERMISSION on MainActivity.kt and AgentService.kt",
+      "consumeVoicePermissionRequestIfPresent called from BOTH onCreate AND onNewIntent in MainActivity",
+      "Voice extra NOT passed through handleIntent / MainActivityIntentPayloadApplier",
+      "No new exported <intent-filter> in AndroidManifest.xml",
+      "Cold-start: launching MainActivity with the extra fires the permission dialog after the launcher registers (manual verification, document in task note)",
+      "./gradlew assembleDebug passes"
+    ],
+    "estimate": "m",
+    "created": "2026-05-17T00:49:16Z",
+    "updated": "2026-05-17T01:39:51Z",
+    "worktree": "voice-input",
+    "note": "Done at c4cf2ba0 on branch task/voice-input. VoicePermissionGate.kt mirrors RunCommandPermissionGate pattern. MainActivity: EXTRA_REQUEST_VOICE_PERMISSION + pendingVoicePermissionRequest state + consume helper called from onCreate (line 186) AND onNewIntent (line 319), bypassing handleIntent. MainActivityContent registers launcher unconditionally for cold-start. AgentService.requestVoicePermissionViaMainActivity() added. assembleDebug PASS, tests pass on baseline. Cold-start permission-dialog manual check deferred to voice-device-qa."
+  },
+  "voice-ui": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-controller",
+      "voice-permission-gate"
+    ],
+    "state": "done",
+    "title": "Wire mic leadingIcon into CapsuleInputBar",
+    "description": "Add a mic leadingIcon driven by VoiceInputController.state. Unavailable -> icon hidden entirely. Idle -> mic icon, tap routes through VoicePermissionGate. Listening -> animated stop icon, placeholder changes to \"Listening...\". Stopping -> stop icon disabled. onValueChange detects user-typed deltas during Listening (delta != joinWithSpace(baseText, lastPartial)) and calls controller.cancel(), preserving the user-visible text (NO revert to baseText). Send-button guard: canSend additionally requires voiceState !in {Listening, Stopping}; AND submit() itself gates on the same condition because KeyboardActions(onSend = { submit() }) at CapsuleInputBar.kt:188 bypasses FilledIconButton.enabled when the user hits the IME Send key (Codex round 3).",
+    "design": "projects/active/voice_input/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt"
+    ],
+    "acceptCriteria": [
+      "CapsuleInputBar renders mic leadingIcon when state is Idle and inputEnabled",
+      "Mic is hidden (not just disabled) when state is Unavailable",
+      "Tapping mic in MAIN_APP context triggers the permission launcher when not granted",
+      "Tapping mic in overlay context routes through AgentService when not granted",
+      "Partials stream into inputText with joinWithSpace(baseText, partial) — no leading or doubled spaces",
+      "Typing during Listening cancels recognition and preserves the current visible text",
+      "Send button disabled while state is Listening or Stopping",
+      "submit() itself is gated on canSend so IME Send key cannot bypass the button",
+      "./gradlew assembleDebug passes"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T00:49:31Z",
+    "updated": "2026-05-17T10:30:50Z",
+    "worktree": "voice-input"
+  },
+  "voice-instrumented-tests": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-ui"
+    ],
+    "state": "done",
+    "title": "Compose UI tests for voice input",
+    "description": "Compose instrumented tests using an injected FakeRecognizerFactory (no real SpeechRecognizer — Compose tests cannot drive real partials reliably). Covers mic toggle, permission-missing routing per CapsuleContext, partial streaming, typing-cancels-and-preserves-text, Send-disabled-during-Listening.",
+    "design": "projects/active/voice_input/design_claude.md",
+    "scope": [
+      "app/src/androidTest/kotlin/ai/closepaw/qa/CapsuleVoiceInputTest.kt"
+    ],
+    "acceptCriteria": [
+      "File app/src/androidTest/kotlin/ai/closepaw/qa/CapsuleVoiceInputTest.kt exists",
+      "At least 5 test methods: mic-toggle, permission-missing-routes-per-context, partial-text-streams, typing-cancels-preserves-text, send-disabled-during-listening",
+      "Tests use a FakeRecognizerFactory (not the real AndroidRecognizer)",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.CapsuleVoiceInputTest passes"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T00:49:31Z",
+    "updated": "2026-05-17T10:30:50Z",
+    "worktree": "voice-input"
+  },
+  "voice-codex-review": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-instrumented-tests"
+    ],
+    "state": "cancelled",
+    "title": "Codex review + fix: voice-input workstream",
+    "description": "Run codex review against the diff produced by the voice-input milestone. Focus areas: SpeechRecognizer lifecycle/leaks, generation-counter race correctness, permission flow correctness in overlay context, AndroidRecognizer isolation (android.speech.* must not leak out), state-machine transitions for the 7 race scenarios in voice-controller. Triage non-blocking findings into followup tasks. Re-run ./gradlew test + lint after fixes.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/voice/**",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity*.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AgentService.kt",
+      "app/src/main/AndroidManifest.xml",
+      "app/src/test/kotlin/ai/closepaw/ui/capsule/voice/**",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/CapsuleVoiceInputTest.kt"
+    ],
+    "acceptCriteria": [
+      "Codex review report written to projects/active/voice_input/codex_review.md",
+      "All blocking findings fixed or explicitly deferred with task IDs",
+      "./gradlew test passes",
+      "./gradlew lint passes"
+    ],
+    "worktree": "voice-input",
+    "tags": [
+      "review",
+      "ui",
+      "capsule"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T01:40:20Z",
+    "updated": "2026-05-17T10:30:50Z",
+    "note": "Codex feedback absorbed into fix(voice) commits (00f4f175, 208b36dd, e48ce78a) and voice-ui design notes; no standalone codex_review.md produced."
+  },
+  "voice-device-qa": {
+    "parent": "voice-input",
+    "depends": [
+      "voice-codex-review"
+    ],
+    "state": "done",
+    "title": "Real-device QA: voice-input workstream",
+    "description": "Manual QA on real device for voice input in both MAIN_APP and overlay Capsule contexts. Cover: cold-start permission grant + deny + revoke-mid-session, mic icon visible in CapsuleInputBar, dictate-and-send flow, partial results streaming, stop mid-utterance, Unavailable state when no RecognitionService installed, lock-screen / TalkBack interactions, overlay route from AgentService->MainActivity (no exported intent).",
+    "resources": [
+      "adb device connected",
+      "device has a RecognitionService installed (e.g. Google)",
+      "ability to revoke RECORD_AUDIO permission via Settings"
+    ],
+    "acceptCriteria": [
+      "QA report at projects/active/voice_input/device_qa.md",
+      "All scenarios pass: MAIN_APP happy path, overlay happy path, permission grant, permission deny, permission revoke mid-session, no-RecognitionService Unavailable state, stop mid-utterance, partial-result streaming visible",
+      "No regression in keyboard input or existing CapsuleInputBar features",
+      "Screenshots/screen recording attached for both contexts"
+    ],
+    "worktree": "voice-input",
+    "tags": [
+      "qa",
+      "device",
+      "ui",
+      "capsule"
+    ],
+    "estimate": "s",
+    "created": "2026-05-17T01:40:20Z",
+    "updated": "2026-05-17T10:30:50Z",
+    "note": "QA completed across OnePlus Pad + emulator follow-up; report at projects/active/voice_input/device_qa.md"
+  }
+}
