@@ -166,6 +166,25 @@ class MemoryEditGateTest {
     }
 
     @Test
+    fun `thrown creation unlocks the gate`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val gate = MemoryEditGate(coordinator, scope)
+        advanceUntilIdle()
+
+        try {
+            coordinator.createAndSubmit("x") { throw IllegalStateException("boom") }
+        } catch (_: IllegalStateException) {
+            // expected
+        }
+        advanceUntilIdle()
+
+        assertThat(coordinator.currentSessionState.value).isNull()
+        assertThat(gate.memoryEditLocked.value).isFalse()
+    }
+
+    @Test
     fun `clearSession unlocks the gate`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val scope = TestScope(dispatcher)
@@ -181,5 +200,51 @@ class MemoryEditGateTest {
         advanceUntilIdle()
 
         assertThat(gate.memoryEditLocked.value).isFalse()
+    }
+
+    @Test
+    fun `detached non-Shutdown session keeps gate locked until that session shuts down`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val gate = MemoryEditGate(coordinator, scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Running)
+        val session = fakeSession(state)
+        coordinator.attachSession(session)
+        advanceUntilIdle()
+        assertThat(gate.memoryEditLocked.value).isTrue()
+
+        coordinator.detachSession()
+        advanceUntilIdle()
+
+        // Detached but still Running — the session can still append, so the
+        // gate must stay locked. Detaching is not shutdown.
+        assertThat(gate.memoryEditLocked.value).isTrue()
+
+        state.value = SessionState.Shutdown
+        advanceUntilIdle()
+
+        // Now the session is actually done.
+        assertThat(gate.memoryEditLocked.value).isFalse()
+    }
+
+    @Test
+    fun `attachSession of a Running session locks the gate without dispatcher advance`() {
+        // No runTest — we must observe the snapshot taken inside attachSession
+        // BEFORE the launched collector runs.
+        val dispatcher = StandardTestDispatcher()
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val gate = MemoryEditGate(coordinator, scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Running)
+        val session = fakeSession(state)
+
+        coordinator.attachSession(session)
+
+        // The eager stateIn has initialValue=true; the synchronous snapshot in
+        // attachSession sets the upstream to Running; map() runs eagerly so the
+        // downstream value reflects locked=true. Either way it must be locked.
+        assertThat(gate.memoryEditLocked.value).isTrue()
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Running)
     }
 }

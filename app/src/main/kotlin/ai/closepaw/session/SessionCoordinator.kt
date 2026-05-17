@@ -120,7 +120,14 @@ class SessionCoordinator(private val scope: CoroutineScope) {
             // Without this, an `append` racing with creation could fire while
             // currentSessionState is still null.
             _currentSessionState.value = SessionState.Created
-            val session = create()
+            val session = try {
+                create()
+            } catch (t: Throwable) {
+                // Creation threw — no session exists, so the gate must unlock.
+                _currentSessionState.value = null
+                pendingInputs.clear()
+                throw t
+            }
             if (session == null) {
                 _currentSessionState.value = null
                 pendingInputs.clear()
@@ -158,6 +165,11 @@ class SessionCoordinator(private val scope: CoroutineScope) {
      */
     fun attachSession(session: AgentSession) {
         currentSession = session
+        // Synchronous snapshot so MemoryEditGate reflects the attached session
+        // immediately — the launched collector runs asynchronously and would
+        // leave a stale-unlocked window for callers reading the flow on the
+        // same tick as the attach.
+        _currentSessionState.value = session.state.value
         observeSessionState(session)
     }
 
@@ -165,16 +177,20 @@ class SessionCoordinator(private val scope: CoroutineScope) {
      * Detach the current session without shutting it down.
      * Used when switching to history viewing mode.
      *
+     * The detached session is still alive and may still write memory, so we
+     * intentionally keep the state collector running — `currentSessionState`
+     * continues to mirror the detached session until it Shutdowns (or until
+     * a new session is attached, which swaps the source via [observeSessionState]).
+     * Without this, [MemoryEditGate] would falsely unlock while the detached
+     * session is still capable of appending.
+     *
      * Must be called from the main thread. Not guarded by the mutex —
      * callers must ensure no concurrent [submit]/[clearSession] calls.
      */
     fun detachSession() {
-        stateObserverJob?.cancel()
-        stateObserverJob = null
         currentSession = null
         pendingInputs.clear()
         lastDeadSessionFileName = null
-        _currentSessionState.value = null
     }
 
     /**
