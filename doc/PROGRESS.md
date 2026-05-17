@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-05-16: Hide Local LLM tab + auto-prewarm + catalog cleanup
+
+**What changed:**
+- `LlmAuthSettingsPage` gates the Local tab behind `private const val LOCAL_TAB_ENABLED = false`. `VISIBLE_TABS` filters out `LlmAuthTab.LOCAL`; TabRow/content `when` both branch on `activeTab = selectedTab.visibleOrFallback()`; a `LaunchedEffect` repairs a process-restored `selectedTab = LOCAL` to `API_KEY` so saved state can't bypass the gate. `LlmAuthTab.LOCAL`, `AuthMode.Local`, `LocalTabContent`, `commitLocal`, and the `when` branch stay wired — flipping the flag is one line.
+- `ModelLoadingStatusHolder` rewritten to auto-prewarm on local-model selection. Now takes `Context + CoroutineScope + AppSettingsState`. `updateLocalModel(model)` cancels any in-flight prewarm and launches a new one via a disposable `LFMLLMClient` that runs `loadModel` (warms the on-disk Leap cache) then `cleanup()` (releases the runner). Race hardening: monotonic `downloadGeneration` token gates every status write; `CancellationException` rethrown before the catch-all; cleanup runs under `withContext(NonCancellable)`; cache key includes quantization (`modelSlug/quantizationSlug`) so different quants don't false-hit the warm short-circuit; `update(value)` cancels any prewarm so the real session's status writes can't be clobbered.
+- `MainActivity` constructs the holder with `applicationContext` + `lifecycleScope`.
+- `MainActivityIntentApplierSecurityTest` updated for the new constructor (uses a `CoroutineScope(Dispatchers.Unconfined)`).
+- `SettingsLlmAuthTest` adds two regression tests for the hidden-Local fallback: `llmBackend = LOCAL` and `initialAuthTab = Local` both land on API Key, and `Local` text node count == 0.
+- Removed the broken LFM 350M `LocalModelOption` (Leap manifest returned 404 for that slug). Only `LFM2.5-1.2B-Instruct / Q4_K_M` remains.
+- `Surface` warning banner on `LocalTabContent` ("Experimental: local models are slow and underpowered…") — visible when the flag is on.
+- Catalog cleanup: `llm_models.json` drops `gpt-5.2-chat` / `gpt-5.4-chat` duplicates (Response-API entries cover the same model), adds `gpt-5.5` (1M context).
+- Doc sync: `doc/main/app/settings.md` — tab table reflects the gated Local tab; new paragraph documents `ModelLoadingStatusHolder` prewarm semantics and the gating flag.
+
+**Why:**
+- LFM 1.2B Q4 on phone CPU takes 1–3 min to emit the first tool call against the current 12-tool agent schema. Logs (model loaded 1.1s, prefill silent 83s before user-triggered cancel) confirmed slow-not-buggy. Shipping the tab in that state was misleading; deleting the code path closed off a future agent-capable small-model use case. A boolean flag preserves the wiring at zero ongoing cost.
+- Before auto-prewarm, selecting a model and immediately running an action looked like the agent was dead: the LFMLLMClient only constructed at session boot, and the user wasn't getting a download UI from settings. Prewarming on selection warms the disk cache so the real session-time `loadModel` skips the download phase.
+- Race fixes from the Codex review pass on b2d136a5: a stale prewarm callback overwriting the real session's status was the most likely real-world bug if a user navigated quickly between Settings and Chat.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/{ui/settings/{LlmAuthSettingsPage,SettingsModels}.kt,app/{ModelLoadingStatusHolder,MainActivity}.kt}`, `app/src/test/kotlin/ai/closepaw/app/MainActivityIntentApplierSecurityTest.kt`, `app/src/androidTest/kotlin/ai/closepaw/qa/SettingsLlmAuthTest.kt`, `app/src/main/assets/llm_models.json`, `doc/main/app/settings.md`.
+**Verification:** `./gradlew assembleDebug test` + `./gradlew compileDebugAndroidTestKotlin` passed on the worktree branch. Real device: dumped settings hierarchy shows only `Sign In` + `API Key` tabs (no `Local`).
+**Commit:** `b2d136a5` (gate + auto-download + catalog deletion) → `d55694d0` (`gpt-5.5` catalog refresh) → `5f102a0f` (Codex review fixes: race hardening + visibility-fallback repair effect).
+**Next:** If/when a smaller agent-capable model or a chat-only Local path lands, flip `LOCAL_TAB_ENABLED = true`.
+
 ## 2026-05-16: Auto-compact — context-window-driven history compaction replaces `maxTurns`
 
 **What changed:**
