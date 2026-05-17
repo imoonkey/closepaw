@@ -2,6 +2,7 @@ package ai.closepaw.llm
 
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertThrows
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -261,6 +262,37 @@ class ModelDiscoveryTest {
         assertThat(req.getHeader("Authorization")).isEqualTo("Bearer sk-test")
         assertThat(out.single().entry.modelId).isEqualTo("vendor/x")
         assertThat(out.single().entry.baseUrl).isEqualTo(base)
+    }
+
+    @Test
+    fun `non-2xx error message contains host only, never URL secrets (Codex r2)`() {
+        // The validator would normally block user-info / query / fragment
+        // base URLs (covered by OtherBaseUrlValidatorTest). This test pins
+        // ModelDiscovery's defence-in-depth: even if a sensitive segment
+        // slipped through into a baseUrl that discover() actually fetches,
+        // the surfaced error must not contain the segment. We do that by
+        // building a baseUrl that includes a sentinel-looking path segment
+        // and asserting it doesn't reach the error message.
+        server.enqueue(MockResponse().setResponseCode(503).setBody("upstream is down"))
+
+        val sentinel = "SUPERSECRET-do-not-leak"
+        val base = server.url("/v1/$sentinel").toString().trimEnd('/')
+        val expectedHost = server.url("/").host
+
+        val error = assertThrows(java.io.IOException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                ModelDiscovery.discover(LLMProvider.OTHER, base, "sk-test")
+            }
+        }
+        val msg = error.message.orEmpty()
+
+        assertThat(msg).doesNotContain(sentinel)
+        assertThat(msg).doesNotContain("/v1/$sentinel")
+        // Host (or a host-only identifier) IS allowed — the user needs SOME
+        // anchor to know which endpoint failed.
+        assertThat(msg).contains(expectedHost)
+        // Status code should be present so the user has a clue.
+        assertThat(msg).contains("503")
     }
 
     companion object {
