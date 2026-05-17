@@ -259,7 +259,7 @@ app/src/main/kotlin/ai/closepaw/
 ├── model/                        # Domain models
 │   └── Models.kt                 # ScreenSnapshot, etc.
 │
-├── browser/                      # Browser automation (CDP over Shizuku or wireless ADB)
+├── browser/                      # Chrome CDP runtime (over Shizuku or wireless ADB)
 │   ├── cdp/                      # Chrome DevTools Protocol client
 │   │   ├── CdpTransport.kt       # WebSocket transport abstraction
 │   │   ├── ChromeCdpCommand.kt   # CDP message types, parse/build (result is JsonElement)
