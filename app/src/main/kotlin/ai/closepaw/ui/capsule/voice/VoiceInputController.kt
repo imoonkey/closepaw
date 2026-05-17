@@ -2,7 +2,10 @@ package ai.closepaw.ui.capsule.voice
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import java.util.Locale
 
 /**
@@ -35,14 +38,15 @@ class VoiceInputController(
     private val onText: (String) -> Unit,
     private val onToast: (String) -> Unit = {},
 ) {
-    var state: VoiceState =
+    var state: VoiceState by mutableStateOf(
         if (factory.isAvailable()) VoiceState.Idle else VoiceState.Unavailable
+    )
         private set
 
-    var lastPartial: String = ""
+    var lastPartial: String by mutableStateOf("")
         private set
 
-    var partialAtStop: String = ""
+    var partialAtStop: String by mutableStateOf("")
         private set
 
     private var generation: Int = 0

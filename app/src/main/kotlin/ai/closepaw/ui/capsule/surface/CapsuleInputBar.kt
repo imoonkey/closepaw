@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -52,7 +51,6 @@ import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.CapsuleRenderSpec
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -137,23 +135,9 @@ internal fun CapsuleInputBar(
         null
     }
 
-    // VoiceInputController.state is a plain var (it's JVM-testable, no Compose deps), so we
-    // poll it into a Compose State to drive recomposition. Polling is bounded to the lifetime
-    // of this composable; one tick per ~60ms is fine for the mic icon's 4-state flip.
-    val voiceState by produceState(
-        initialValue = voiceController?.state ?: VoiceState.Unavailable,
-        voiceController,
-    ) {
-        if (voiceController == null) {
-            value = VoiceState.Unavailable
-            return@produceState
-        }
-        while (true) {
-            val s = voiceController.state
-            if (s != value) value = s
-            delay(60L)
-        }
-    }
+    // VoiceInputController.state is backed by mutableStateOf, so a direct read here makes the
+    // mic icon (and the Send/IME gating below) recompose automatically on every state change.
+    val voiceState = voiceController?.state ?: VoiceState.Unavailable
 
     val gate = if (voice?.activity != null) {
         rememberVoicePermissionGate(activity = voice.activity!!) { granted ->
