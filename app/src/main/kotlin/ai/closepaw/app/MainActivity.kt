@@ -53,6 +53,7 @@ import ai.closepaw.protocol.SessionState
 import ai.closepaw.session.AgentSession
 import ai.closepaw.session.SessionCoordinator
 import ai.closepaw.session.SubmitResult
+import ai.closepaw.tool.AppClassifierHolder
 import ai.closepaw.ui.chat.ChatViewModel
 import ai.closepaw.ui.onboarding.OnboardingScreen
 import ai.closepaw.ui.overlay.visualizer.ActionVisualizerManager
@@ -287,6 +288,7 @@ class MainActivity : ComponentActivity() {
                     onSignOut = ::handleSignOut,
                     effectivePlatformModeFlow = AgentService.instance?.effectivePlatformMode
                         ?: kotlinx.coroutines.flow.MutableStateFlow(null),
+                    appClassifier = AppClassifierHolder.get(applicationContext),
                 )
                 pendingGoalForConfirmation?.let { goal ->
                     AlertDialog(
