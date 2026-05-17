@@ -120,6 +120,9 @@ projects/**/*.jpeg
 projects/**/*.webp
 projects/**/*.gif
 projects/**/*.mp4
+# QA uiautomator dumps + visible-text snapshots — useless without their .png pair
+projects/**/qa_screens*/**/*.xml
+projects/**/qa_screens*/**/*_visible.txt
 # Runtime locks
 .claude/scheduled_tasks.lock
 projects/.tasks.json.lock
