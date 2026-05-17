@@ -46,7 +46,7 @@ internal fun ToolSettingsCard(
     switchEnabled: Boolean = true,
     expanded: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    val rowModifier = Modifier
+    val surfaceModifier = Modifier
         .fillMaxWidth()
         .let { base ->
             if (onRowClick != null) {
@@ -68,13 +68,13 @@ internal fun ToolSettingsCard(
         }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = surfaceModifier,
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(
-                modifier = rowModifier,
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {

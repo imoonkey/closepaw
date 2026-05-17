@@ -55,9 +55,9 @@ private const val TERMUX_PACKAGE = "com.termux"
  * Row order: termux_shell first, then browser_script. SettingsTermuxRowTest indexes
  * Switches by document order (`isToggleable()[0]` = Termux), so keep Termux first.
  *
- * Toggle ON path for browser_script is gated by the shared [gateBrowserScriptEnable]
- * helper — see `BrowserScriptToggleGate.kt` for why both this surface AND Permissions &
- * Advanced go through the same gate.
+ * Agent Behavior → Tools is the single UI surface for the `browser_script` toggle (the old
+ * Permissions & Advanced → Experimental duplicate was removed). The toggle still routes
+ * through [gateBrowserScriptEnable] — see `BrowserScriptToggleGate.kt`.
  */
 @Composable
 internal fun ToolsSection(
@@ -258,7 +258,18 @@ private fun BrowserScriptToolRow(
     }
     var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(refreshTick) {
+    // Only probe when the tool is actually live — enabled, gate done, no error. Probing
+    // pre-gate would cache a stale Unknown/NotBound that survives a successful Shizuku setup
+    // (the probe wouldn't re-run until refreshTick changes), leaving the row showing wrong
+    // status until the user manually taps Re-check. When probeActive flips false we also
+    // reset to Probing so a stale Bound/NotBound from a prior session doesn't leak into the
+    // mapper after a disable/re-enable cycle.
+    val probeActive = enabled && !gate.pending && gate.error == null
+    LaunchedEffect(probeActive, refreshTick) {
+        if (!probeActive) {
+            probeState = BrowserScriptProbeState.Probing
+            return@LaunchedEffect
+        }
         probeState = BrowserScriptProbeState.Probing
         probeState = when (probe.probe()) {
             ChromeCdpProbe.Result.Bound -> BrowserScriptProbeState.Bound
