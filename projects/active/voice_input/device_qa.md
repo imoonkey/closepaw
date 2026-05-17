@@ -22,6 +22,8 @@
 The FakeRecognizer-backed instrumented tests (`CapsuleVoiceInputTest`) already cover the partial-text and typing-during-listening paths against a deterministic recognizer, so the BLOCKED items below are absences of additional real-device evidence, not regressions in the code.
 
 > **Update (2026-05-17):** Emulator follow-up run on `AndroidWorldAvd2` (API 33, default `GoogleTTSRecognitionService`) cleared the OnePlus blockers — see **"Emulator follow-up run"** at the bottom of this file. Net: **8 of 9 previously-BLOCKED scenarios now PASS** (A.6+, B, C, D, E [intent-equivalent], G, H, I, J). Only F (overlay capsule mic) remains BLOCKED-on-emulator because the agent loop didn't start a session here — the recognizer + controller wiring it depends on is the same wiring scenario B proved working. The OnePlus false-affordance finding does not reproduce when a default `RecognitionService` exists.
+>
+> **Update (2026-05-17, OnePlus revisit):** Sideloading an older variant of `com.google.android.tts` (`googletts.google-speech-apk_20240805.01_p0.659565918`, arm64-v8a) installs a working `GoogleTTSRecognitionService` on the OnePlus Pad — the original `"Voice unavailable"` / `"no selected voice recognition service"` failure is gone, and `RecognitionServiceImpl#onStartListening` is now reached with `callingApp: ai.closepaw`. Recognition itself still fails with `LANGUAGE_PACK_ERROR (code 12)` because the device has no GMS (online recognizer can't auth) and no `zh-CN` SODA model. See the new **"OnePlus Pad post-fix"** section at the bottom for evidence, screenshots, and a recommendation to embed Vosk for real offline zh-CN.
 
 ---
 
@@ -345,3 +347,105 @@ tests="12" skipped="0" failures="0" errors="0"
 ```
 
 12/12 pass (was 9 — 3 added). `./gradlew :app:assembleDebug` and `:app:lintDebug` both green; no new lint warnings on the four modified files (the two pre-existing warnings on `ChatScreen.kt:96` (`ModifierParameter`) and `CapsuleOverlayHost.kt:303` (`ObsoleteSdkInt`) are unrelated to this change).
+
+---
+
+## OnePlus Pad post-fix (2026-05-17, w-voice-oneplus-fix)
+
+### TL;DR delta
+
+The hardware blocker described in **Environment notes** is *partially* removed by sideloading a `RecognitionService`-bearing build of `com.google.android.tts`. The previous failure mode — `SpeechRecognizer: no selected voice recognition service` → `"Voice unavailable"` toast — is gone. `ai.closepaw` now binds Google's `GoogleTTSRecognitionService` and reaches `RecognitionServiceImpl#onStartListening` with `callingApp: ai.closepaw, locale: zh-CN`. The recognizer just can't produce text without further setup: the device lacks Google Play Services (so `NetworkSpeechRecognizer` fails `S3 Initialization failed` immediately) and lacks the `zh-CN` SODA on-device model (so the offline fallback returns `LANGUAGE_PACK_ERROR (code 12)`). The app correctly surfaces this as a different, more specific toast — `"Voice not available for this language"` (`VoiceInputController.kt`, the `ERROR_LANGUAGE_NOT_SUPPORTED` arm). The recognizer wiring itself is healthy.
+
+### What worked: Step 2 — sideload Google `Speech Recognition & Synthesis`
+
+Step 1 (re-enable `com.google.android.googlequicksearchbox`) was blocked. The package enables fine but its `GoogleRecognitionService` component is OEM-locked at the component level — shell-level enable fails with `SecurityException: Shell cannot change component state`. After enabling, `pm query-services -a android.speech.RecognitionService` still returns only Claude's service.
+
+Step 2 needed the *older* APK variant — the latest stable APKMirror release (`24.9.361717975`, versionCode `210316632`) is TTS-only and does not declare a `RecognitionService` (verified by unpacking `AndroidManifest.xml`). The earlier variant `googletts.google-speech-apk_20240805.01_p0.659565918` (versionCode `210503774`, arm64-v8a, Android 8.0+, 73.8 MB) still ships `com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService` and was confirmed to do so by `strings -e l` over the binary manifest.
+
+Provenance of the sideloaded APK:
+
+```text
+File:    com.google.android.tts_googletts.google-speech-apk_20240805.01_p0.659565918 (arm64-v8a, nodpi).apk
+Source:  apkmirror.com (download mirrored from Cloudflare R2)
+Size:    73 867 972 bytes
+SHA-256: 280f01ff9fa6ccf21763bb2d1a5c097687c0ea841c22c1bd22bdcddd816a742f
+```
+
+After install + `settings put secure voice_recognition_service "com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService"`:
+
+```text
+$ adb -s 100.64.43.95:5555 shell pm query-services -a android.speech.RecognitionService
+    name=com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService
+    packageName=com.google.android.tts          enabled=true exported=true
+    name=com.anthropic.claude.bell.assist.ClaudeRecognitionService
+    packageName=com.anthropic.claude            enabled=true exported=true
+
+$ adb shell settings get secure voice_recognition_service
+com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService
+```
+
+### End-to-end test
+
+Pre-conditions (all set via ADB after the APK install):
+
+- ClosePaw upgraded from the older pre-voice APK installed on the tablet (which did **not** declare `RECORD_AUDIO`) to the worktree's `app/build/outputs/apk/debug/app-debug.apk` (commit `a6508b03` + voice-input branch fixes).
+- `pm grant ai.closepaw android.permission.RECORD_AUDIO` and `cmd appops set ai.closepaw RECORD_AUDIO allow` → `Uid mode: RECORD_AUDIO: foreground`.
+- Accessibility service re-enabled via `settings put --user 0 secure enabled_accessibility_services …`.
+- Onboarding already complete (`shared_prefs/onboarding_prefs.xml: onboarding_completed=true`).
+
+Steps:
+
+1. `am force-stop ai.closepaw && am start -n ai.closepaw/.app.MainActivity` → chat home renders, mic icon visible at `bounds=[151,2566][214,2629]`, `content-desc="Start voice input"`. Screenshot: `qa_screens/oneplus_fix/01_main_after_launch.png`.
+2. `input tap 182 2597` (mic). Screenshot: `qa_screens/oneplus_fix/04_after_mic_tap_clean.png`.
+3. Wait ~4 s, scrape logcat.
+
+Logcat evidence (this is the new, post-fix code path — compare with the pre-fix `no selected voice recognition service` shown earlier in this file):
+
+```text
+I RecognitionServiceImpl: RecognitionService#onStartListening
+I RecognitionServiceImpl: Create an attribution context to skip platform permission check
+I RecognitionServiceImpl: RecognitionService#logStartListening: callingApp: ai.closepaw, locale: zh-CN
+I RecognitionClient: #startListening
+I NetworkSpeechRecognizer: Online recognizer - start listening
+I SodaSpeechRecognizer: Offline recognizer - start listening
+I SodaSpeechRecognizer: Initialize Soda [locale: zh-CN], [applicationDomain: AMBIENT_ONESHOT]
+W NetworkSpeechRecognizer: Failed uploading data to S3
+W NetworkSpeechRecognizer: ekz: Initialization failed   ← no GMS / Play auth on device
+…
+I RecognitionClient: #onFallback                          ← network → on-device fallback
+E SodaSpeechRecognizer: Failed to get language pack of required locale: error 12
+W RecognitionClient: #onError space agsa_transcription_LANGUAGE_PACK_ERROR code 12!
+W RecognitionServiceImpl: Speech recognition error type LANGUAGE_PACK_ERROR with error code 12
+I CapsuleInputBar: voice toast: Voice not available for this language   ← app handles cleanly
+```
+
+Notable absences (these were present in the pre-fix run and were the worker's grep-for-MUST-be-free-of list):
+
+- ❌ no `SpeechRecognizer: no selected voice recognition service`
+- ❌ no `CapsuleInputBar: voice toast: Voice unavailable`
+- ❌ no `RemoteSpeechRecognitionService: Connection … lost, but no #startListening`
+
+Network sanity-check: device is online and can reach Google (`ping www.google.com` → 24 ms RTT). The `S3 Initialization failed` is a missing-auth failure, not a connectivity failure — `com.google.android.tts` needs GMS-issued credentials to talk to Google's ASR, and this OPlus image has no Play Services. SODA's offline model for `zh-CN` was never downloaded (that download is normally triggered by Play Services / Recorder; absent here).
+
+### Result
+
+| Aspect | Pre-fix | Post-fix |
+|---|---|---|
+| Default `RecognitionService` | none | `com.google.android.tts/…GoogleTTSRecognitionService` |
+| `factory.create() + start()` succeeds | no | yes |
+| `RecognitionService#onStartListening` reached | no | yes |
+| Recognizer issues callbacks | no (no service to bind) | yes (`onError(ERROR_LANGUAGE_NOT_SUPPORTED)`) |
+| App toast | `"Voice unavailable"` | `"Voice not available for this language"` |
+| Listening state in UI | unreachable | unreachable (errors before partials) |
+| Actual zh-CN voice → text on device | no | **still no** — needs a `zh-CN` model |
+
+### Recommendation
+
+Step 2 alone is **not enough** for end-to-end voice on this hardware in zh-CN. The recognizer service is now installed and active (which fully resolves the original `Voice unavailable` complaint), but Google's recognizer can't transcribe without either Play Services (online) or a downloaded SODA model (offline). On a vanilla `com.obric`-based OPlus image neither is available, and Step 3 (a standalone Vosk `RecognitionService` APK) does not exist in F-Droid — Vosk ships as a library that apps embed, not as a system-wide service.
+
+Path forward for the user (out of scope for this device-config task):
+
+- **Option 2 — embed Vosk in ClosePaw.** `org.vosk:vosk-android` plus the ~50 MB `zh-cn-small` model gives offline zh-CN STT with no Play dependency. Implement a small adapter behind `VoiceRecognizerFactory` so the existing controller/state-machine is unchanged.
+- **Option 3 — in-app Whisper (e.g. `whisper.cpp` via JNI).** Larger model, better accuracy, same architectural slot as Option 2.
+- **Option 1 (NOT recommended for daily use) — switch device locale to `en-US`.** `GoogleTTSRecognitionService` may auto-download the `en-US` SODA pack and start producing text without GMS, but it leaves the user typing on an English UI.
+
