@@ -4,7 +4,8 @@
 > -> See: [overlay.md](../overlay.md) for overlay system overview and mode-aware branching.
 > -> See: [state_machine.md](state_machine.md) for formal state vector and transition rules.
 > -> See: [user_flows.md](user_flows.md) for location x platform interaction matrix.
-> Last updated: 2026-05-15
+> -> See: [voice.md](voice.md) for voice-input (microphone leadingIcon, controller, permission flow).
+> Last updated: 2026-05-17
 
 ## Architecture
 
@@ -12,7 +13,7 @@
 - **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Reads mode, context, platformMode, and hasIsland from `CapsuleStateHolder`. Owns only host-specific state (focusability, touchability, interactionLocked, inputFocused). Dynamic touchability (only `Hidden` sets `FLAG_NOT_TOUCHABLE`). Debounces button callbacks (300ms). Touch gate for agent gesture injection.
 - **SmartCapsuleSurface** — single Compose entry point used by both the overlay host (`CapsuleOverlayHost`) and `ChatScreen`'s `Scaffold.bottomBar`. Slim orchestrator: derives `CapsuleRenderSpec` + `NavSpec`, lays out the four slots (status line, optional detail body, control bar, optional input bar), and routes submit intent. Receives `previousMode` from `CapsuleStateHolder` for input-clearing.
 - **CapsuleControlBar** — control-bar composable: action-button cluster (mode-driven Takeover / Resume / Done / Always / Session / Reject / Stop / Close) on the left, nav-button cluster (Minimize / OpenApp / OpenViewer, gated by `NavSpec`) on the right.
-- **CapsuleInputBar** — text-field + send composable. Owns the draft state and the `pendingInputText` / `clearDraft` / `inputEnabled` lifecycle. Exposes a single `onSubmit(text)` callback; routing (Hidden → onSend / WaitingForInput → onUserResponse / else → onSupplement) lives in the orchestrator.
+- **CapsuleInputBar** — text-field + send composable. Owns the draft state and the `pendingInputText` / `clearDraft` / `inputEnabled` lifecycle. Exposes a single `onSubmit(text)` callback; routing (Hidden → onSend / WaitingForInput → onUserResponse / else → onSupplement) lives in the orchestrator. Optional `voice: VoiceMicDeps?` parameter wires the mic `leadingIcon` (see [voice.md](voice.md)); null means voice path is unavailable to this caller and the mic icon is hidden.
 - **CapsuleBinding** — value type bridging the agent runtime and a UI host. Wraps the three StateFlows (`mode`, `platformMode`, `isStopPending`) and the two callbacks (`onStopRequested`, `onApprovalResolved`) the chat surface needs from `CapsuleStateHolder`. `InertCapsuleBinding` is the unbound-runtime fallback so `ChatScreen` can render its idle state without reaching for `AgentService.instance`. Activities (e.g. `MainActivity`) build the live binding from the service.
 
 ## CapsuleMode

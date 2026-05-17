@@ -65,7 +65,8 @@ doc/main/
 │   ├── capsule/       # Smart Capsule
 │   │   ├── architecture.md # Modes, rendering, state transitions, callbacks
 │   │   ├── state_machine.md
-│   │   └── user_flows.md
+│   │   ├── user_flows.md
+│   │   └── voice.md   # Mic leadingIcon, VoiceInputController, permission flow
 │   └── session/       # Session lifecycle state machine + user flows
 │       ├── state_machine.md
 │       └── user_flows.md

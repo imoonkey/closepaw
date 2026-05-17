@@ -51,6 +51,18 @@ Two paths drive `VirtualDisplayViewerActivity.finish()`, racing each other safel
 
 Trigger fires only at `mode=Hidden`, never at `Done` (let the user read the success message for the ~800ms before auto-hide) or `Error` (user must dismiss). Both eventually transition to Hidden, which fires the finish.
 
+### Voice permission cold-start
+
+> See: `app/MainActivity.kt#EXTRA_REQUEST_VOICE_PERMISSION`, `app/AgentService.kt#requestVoicePermissionViaMainActivity`, `ui/capsule/voice/VoicePermissionGate.kt`. Feature doc: [capsule/voice.md](capsule/voice.md).
+
+Overlays cannot host an `ActivityResultLauncher`, so the overlay capsule routes `RECORD_AUDIO` requests through `MainActivity` via an **internal** intent extra — no new exported intent action.
+
+`AgentService.requestVoicePermissionViaMainActivity()` starts `MainActivity` with `EXTRA_REQUEST_VOICE_PERMISSION=true`. `MainActivity` consumes the extra via a dedicated helper `consumeVoicePermissionRequestIfPresent(intent)` called from **both** `onCreate` AND `onNewIntent` — cold-start does not hit `onNewIntent`. The extra does **not** flow through `handleIntent` / `MainActivityIntentPayload(Applier)` (which has unrelated side effects around fresh sessions, eval intents, etc.).
+
+The helper sets a `pendingVoicePermissionRequest: Boolean` activity-level flag. The Compose tree (`MainActivityContent`) registers the launcher unconditionally via `rememberVoicePermissionGate`; a `LaunchedEffect(pendingRequest)` reads the flag and calls `gate.requestPermission()` once the launcher has been attached. This bridges the cold-start race where the launcher isn't yet registered at the moment the intent arrives.
+
+Overlay tap with permission **already granted** does not bounce through MainActivity at all — `CapsuleInputBar.onMicTap` consults `VoiceMicDeps.isPermissionGranted()` and short-circuits to `controller.start(baseText)` in place. See [capsule/voice.md § Permission flow](capsule/voice.md#permission-flow).
+
 ---
 
 ## Smart Capsule
