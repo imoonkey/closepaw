@@ -194,7 +194,7 @@ object OAuthTokenExchange {
                 "code_verifier" to verifier,
                 "redirect_uri" to OAuthConfig.REDIRECT_URI
             ).toFormBody()
-            val tokenResult = postTokenRequest(body)
+            val tokenResult = withDnsRetry { postTokenRequest(body) }
             if (tokenResult !is Result.Success) return@withContext tokenResult
 
             // Extract id_token from the initial response for token exchange
@@ -208,7 +208,7 @@ object OAuthTokenExchange {
             }
 
             // Token exchange: id_token → openai-api-key
-            val apiKeyResult = exchangeForApiKey(idToken)
+            val apiKeyResult = withDnsRetry { exchangeForApiKey(idToken) }
             if (apiKeyResult is Result.Success) {
                 // Use the exchanged API key as access token, keep original refresh token
                 Result.Success(
@@ -274,13 +274,13 @@ object OAuthTokenExchange {
                 "refresh_token" to refreshToken,
                 "client_id" to OAuthConfig.CLIENT_ID
             ).toFormBody()
-            val tokenResult = postTokenRequest(body)
+            val tokenResult = withDnsRetry { postTokenRequest(body) }
             if (tokenResult !is Result.Success) return@withContext tokenResult
 
             // Re-exchange id_token for fresh API key
             val idToken = tokenResult.tokens.idToken
             if (idToken != null) {
-                val apiKeyResult = exchangeForApiKey(idToken)
+                val apiKeyResult = withDnsRetry { exchangeForApiKey(idToken) }
                 if (apiKeyResult is Result.Success) {
                     return@withContext Result.Success(
                         OAuthTokens(
@@ -338,6 +338,23 @@ object OAuthTokenExchange {
 
     private fun List<Pair<String, String>>.toFormBody(): String =
         joinToString("&") { (k, v) -> "$k=${java.net.URLEncoder.encode(v, "UTF-8")}" }
+
+    /**
+     * Retry on transient DNS failure (UnknownHostException). The auth code / refresh
+     * token is still valid because the request never reached the server. HTTP errors
+     * and post-connect failures are NOT retried — they may have side effects.
+     */
+    private inline fun <T> withDnsRetry(block: () -> T): T {
+        var delay = 1000L
+        repeat(2) {
+            try { return block() } catch (e: java.net.UnknownHostException) {
+                Log.w(TAG, "DNS failed (${e.message}), retrying in ${delay}ms")
+                Thread.sleep(delay)
+                delay *= 2
+            }
+        }
+        return block()
+    }
 }
 
 /** Parse email from JWT access token (no signature verification — token came over TLS). */
