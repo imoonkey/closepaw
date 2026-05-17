@@ -26,7 +26,7 @@
     "com.google.android.apps.walletnfcrel": "BLOCKED",
     "com.samsung.android.spay": "BLOCKED",
     "com.apple.android.applepay": "BLOCKED",
-    "com.tencent.mm": "BLOCKED",
+    "com.tencent.mm": "CAUTIOUS",
     "com.onepassword.android": "BLOCKED",
     "com.lastpass.lpandroid": "BLOCKED",
     "com.bitwarden.android": "BLOCKED",
