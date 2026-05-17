@@ -45,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -134,6 +133,12 @@ private fun TermuxShellSettingsRow() {
 
     val displayedStatus = if (termuxShellEnabled) bridgeStatus else TermuxBridgeStatus.Disabled
     val permissionDisposition = permissionGate?.disposition()
+    val statusUi = termuxStatusUi(
+        state = bridgeStatus,
+        permissionDisposition = permissionDisposition,
+        enabledPref = termuxShellEnabled,
+    )
+
     val rowAction: (() -> Unit)? =
         when (displayedStatus) {
             TermuxBridgeStatus.NotInstalled -> {
@@ -163,125 +168,39 @@ private fun TermuxShellSettingsRow() {
             TermuxBridgeStatus.Disabled -> null
         }
 
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = rowAction != null) { rowAction?.invoke() },
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.medium
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Termux Shell",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = displayedStatus.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = displayedStatus.subtitleFor(permissionDisposition),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+    val rowClickLabel = when (displayedStatus) {
+        TermuxBridgeStatus.NotInstalled -> "Install Termux"
+        is TermuxBridgeStatus.NeedsSetup -> "Fix Termux setup"
+        TermuxBridgeStatus.Ready -> "Restart Termux bridge"
+        else -> null
+    }
 
-                if (displayedStatus == TermuxBridgeStatus.SetupInProgress) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+    ToolSettingsCard(
+        title = "Termux Shell",
+        status = statusUi,
+        switchChecked = termuxShellEnabled,
+        onSwitchChange = { enabled ->
+            scope.launch {
+                settingsStore.setTermuxShellEnabled(enabled)
+                if (enabled) {
+                    // Proactively request the dangerous permission so the user sees the system
+                    // dialog the first time they enable the toggle, instead of having to enable →
+                    // see "RUN_COMMAND missing" → tap the row → see the dialog. Skipped silently
+                    // when the gate is null (preview / unit-test ContextWrapper) or when
+                    // permission is already granted.
+                    when (permissionGate?.disposition()) {
+                        RunCommandPermissionDisposition.Request ->
+                            permissionGate.requestPermission()
+                        RunCommandPermissionDisposition.OpenAppSettings ->
+                            permissionGate.openAppSettings()
+                        RunCommandPermissionDisposition.Granted, null -> Unit
+                    }
                 }
-
-                Switch(
-                    checked = termuxShellEnabled,
-                    onCheckedChange = { enabled ->
-                        scope.launch {
-                            settingsStore.setTermuxShellEnabled(enabled)
-                            if (enabled) {
-                                // Proactively request the dangerous permission so the user sees
-                                // the system dialog the first time they enable the toggle, instead
-                                // of having to enable → see "RUN_COMMAND missing" → tap the row →
-                                // see the dialog. Skipped silently when the gate is null (preview /
-                                // unit-test ContextWrapper) or when permission is already granted.
-                                when (permissionGate?.disposition()) {
-                                    RunCommandPermissionDisposition.Request ->
-                                        permissionGate.requestPermission()
-                                    RunCommandPermissionDisposition.OpenAppSettings ->
-                                        permissionGate.openAppSettings()
-                                    RunCommandPermissionDisposition.Granted, null -> Unit
-                                }
-                            }
-                        }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                )
             }
-
-            Text(
-                text = "Setting changes apply on the next session.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp)
-            )
-        }
-    }
-}
-
-private val TermuxBridgeStatus.label: String
-    get() =
-        when (this) {
-            TermuxBridgeStatus.NotInstalled -> "Not Installed"
-            is TermuxBridgeStatus.NeedsSetup -> "Needs Setup"
-            TermuxBridgeStatus.SetupInProgress -> "Setting up…"
-            TermuxBridgeStatus.Ready -> "Ready"
-            TermuxBridgeStatus.Disabled -> "Disabled"
-        }
-
-private val TermuxBridgeStatus.subtitle: String
-    get() =
-        when (this) {
-            TermuxBridgeStatus.NotInstalled -> "Install Termux from F-Droid"
-            is TermuxBridgeStatus.NeedsSetup -> reason.toDisplayText()
-            TermuxBridgeStatus.SetupInProgress -> "This may take a minute"
-            TermuxBridgeStatus.Ready -> "Termux bridge running — tap to restart"
-            TermuxBridgeStatus.Disabled -> "Toggle to enable"
-        }
-
-/**
- * Subtitle that may vary with the runtime permission disposition. PERMISSION_MISSING is the
- * only reason whose copy depends on disposition: the row text changes between "tap to grant"
- * (system dialog still available) and "tap to open App Settings" (user picked Don't ask again
- * and only the system Settings app can flip the grant back on).
- */
-private fun TermuxBridgeStatus.subtitleFor(
-    permissionDisposition: RunCommandPermissionDisposition?,
-): String {
-    if (this is TermuxBridgeStatus.NeedsSetup &&
-        reason == NeedsSetupReason.PERMISSION_MISSING
-    ) {
-        return when (permissionDisposition) {
-            RunCommandPermissionDisposition.OpenAppSettings ->
-                "Permission permanently denied. Tap to open App Settings → Permissions."
-            RunCommandPermissionDisposition.Request,
-            RunCommandPermissionDisposition.Granted,
-            null -> "Tap to grant RUN_COMMAND permission to Termux."
-        }
-    }
-    return subtitle
+        },
+        onRowClick = rowAction,
+        onRowClickLabel = rowClickLabel,
+    )
 }
 
 /**
@@ -306,23 +225,6 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
-
-private fun NeedsSetupReason.toDisplayText(): String =
-    when (this) {
-        NeedsSetupReason.PERMISSION_MISSING -> "Tap to grant RUN_COMMAND permission to Termux."
-        NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING ->
-            "Allow external apps is disabled in Termux. Enable it, then tap setup."
-        NeedsSetupReason.TERMUX_NOT_RUNNING ->
-            "Termux is not running. Tap to open Termux, then return here."
-        NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE ->
-            "This Termux build cannot accept external commands. Install Termux from F-Droid (the Google Play build is incompatible)."
-        NeedsSetupReason.PACKAGES_MISSING -> "Missing packages — tap to install python/git/ripgrep"
-        NeedsSetupReason.BRIDGE_OUTDATED -> "Bridge daemon out of date — tap to update"
-        NeedsSetupReason.HEALTH_TIMEOUT -> "Bridge unreachable — tap to retry setup"
-        NeedsSetupReason.TERMUX_TIMEOUT -> "Termux command timed out — open Termux once and retry"
-        NeedsSetupReason.PORT_IN_USE -> "Port 18422 in use by another process"
-        NeedsSetupReason.UNKNOWN -> "Setup error — tap to retry"
-    }
 
 private fun android.content.Context.openTermuxInstallPage() {
     try {
