@@ -13,8 +13,11 @@ sealed class ActivationResult {
 
 class AgentSkillManager(
     skillsDir: File,
-    private val disabledNames: Set<String> = emptySet()
+    disabledNames: Set<String> = emptySet()
 ) {
+
+    // Defensive copy — callers shouldn't be able to mutate our filter post-construction.
+    private val disabledNames: Set<String> = disabledNames.toSet()
 
     private val catalog = AgentSkillCatalog(skillsDir)
     private val activeSkills = LinkedHashSet<String>()

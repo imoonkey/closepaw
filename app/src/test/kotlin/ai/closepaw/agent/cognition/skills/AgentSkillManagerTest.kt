@@ -442,15 +442,17 @@ class AgentSkillManagerTest {
     fun `toggle does not affect already-constructed manager`() {
         // Verifies "next session" semantics: changes to a disabled-set after
         // the manager is constructed cannot leak into the running session.
+        // The manager takes a defensive copy, so even handing it a mutable
+        // set and mutating after construction must not affect activation.
         createSkill("alpha", "Alpha", "A body.")
         val mutableDisabled = mutableSetOf<String>()
-        val manager = AgentSkillManager(tempDir.root, disabledNames = mutableDisabled.toSet())
+        val manager = AgentSkillManager(tempDir.root, disabledNames = mutableDisabled)
 
         // Simulate the user disabling alpha after the session started.
         mutableDisabled.add("alpha")
 
         val result = manager.activate("alpha")
-        // Already-constructed manager has the original (empty) disabled-set.
+        // Already-constructed manager kept the original (empty) disabled-set.
         assertThat(result).isInstanceOf(ActivationResult.Success::class.java)
     }
 }
