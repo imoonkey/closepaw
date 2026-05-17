@@ -421,9 +421,9 @@ def _validate_required_api_key(
         if config.bridge.executor_model.strip():
             models.append(config.bridge.executor_model.strip())
         raise RuntimeError(
-            "Missing required API key(s) for selected model(s): "
+            "Missing required credential/config value(s) for selected model(s): "
             f"{', '.join(missing)}. Models={models}. "
-            "Add keys to .env or environment variables."
+            "Add them to .env or environment variables."
         )
     _validate_openai_base_url(api_keys, required_keys)
 

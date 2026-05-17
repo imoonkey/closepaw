@@ -3,6 +3,7 @@ package ai.closepaw.app
 import ai.closepaw.auth.AuthCredential
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.LLMProvider
+import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.ui.settings.BrowserScriptToggleError
 import ai.closepaw.ui.settings.gateBrowserScriptEnable
@@ -78,9 +79,19 @@ internal suspend fun applyIntentPayloadToSettings(
         log("OpenAI base URL override set from intent: $url")
     }
     payload.otherBaseUrl?.let { url ->
-        settingsState.updateOtherBaseUrl(url)
-        otherChanged = true
-        log("OTHER base URL set from intent: $url")
+        // Validate at the intent boundary so we never persist junk into settings.
+        // synthOtherEntry also re-validates, but rejecting here keeps both
+        // AppSettingsState.otherBaseUrl and the on-disk preference clean — so a
+        // later UI render doesn't show the user a bad value they didn't type.
+        val validation = OtherBaseUrlValidator.validate(url)
+        validation.onSuccess { normalized ->
+            settingsState.updateOtherBaseUrl(normalized)
+            otherChanged = true
+            log("OTHER base URL set from intent: $normalized")
+        }.onFailure { err ->
+            // Don't echo the rejected URL — it could contain a sensitive host.
+            log("OTHER base URL from intent rejected: ${err.message}")
+        }
     }
     payload.otherModelId?.let { modelId ->
         settingsState.updateOtherModelId(modelId)

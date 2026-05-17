@@ -145,7 +145,7 @@ ui/settings/
 - `platform_mode` — `ACCESSIBILITY`, `VIRTUAL_DISPLAY`
 - `model` — model name string
 
-`openaiBaseUrl` is transient state set from the `openai_base_url` intent extra; it is not persisted.
+`openaiBaseUrl`, `otherBaseUrl`, and `otherModelId` are persisted SharedPreferences entries (see the field table above). They can be primed from the matching intent extras (`openai_base_url`, `other_base_url`, `other_model_id`) but the values survive process death; clearing them requires writing an empty value through Settings or the intent path.
 
 The browser automation toggle lives under **Permissions & Advanced → Experimental**. Turning it on
 only permits the runtime capability gate to continue; `browser_script` still requires Shizuku

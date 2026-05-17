@@ -459,11 +459,9 @@ private fun ApiKeyTabContent(
     }
 
     // Auto-flip rule: when the user is in the OTHER sub-tab and all three fields
-    // validate, flip selectedModel to "other-custom". Gated on the catalog actually
-    // containing the synth entry — the per-field debounces have already flushed by
-    // then because the repo only synthesizes after the AppSettingsStore writes return
-    // and invalidate the catalog. Without this guard `selectedModel` could point at a
-    // not-yet-present catalog row for one debounce window.
+    // validate, flip selectedModel to "other-custom". Logic lives in
+    // [shouldAutoFlipToOtherCustom] so it's exercised by a plain JVM unit test —
+    // the @Composable wiring here is a thin recomputation harness.
     LaunchedEffect(
         selectedProvider,
         otherBaseUrlText,
@@ -472,14 +470,46 @@ private fun ApiKeyTabContent(
         modelCatalog,
         selectedModel,
     ) {
-        if (selectedProvider != LLMProvider.OTHER) return@LaunchedEffect
-        if (apiKeyText.isBlank()) return@LaunchedEffect
-        if (otherBaseUrlText.isBlank() || otherModelIdText.isBlank()) return@LaunchedEffect
-        if (OtherBaseUrlValidator.validate(otherBaseUrlText).isFailure) return@LaunchedEffect
-        if (modelCatalog.resolveOrNull(ModelCatalogRepository.OTHER_CUSTOM_NAME) == null) return@LaunchedEffect
-        if (selectedModel == ModelCatalogRepository.OTHER_CUSTOM_NAME) return@LaunchedEffect
-        onModelChange(ModelCatalogRepository.OTHER_CUSTOM_NAME)
+        if (shouldAutoFlipToOtherCustom(
+                selectedProvider = selectedProvider,
+                apiKeyText = apiKeyText,
+                otherBaseUrlText = otherBaseUrlText,
+                otherModelIdText = otherModelIdText,
+                modelCatalog = modelCatalog,
+                selectedModel = selectedModel,
+            )
+        ) {
+            onModelChange(ModelCatalogRepository.OTHER_CUSTOM_NAME)
+        }
     }
+}
+
+/**
+ * Decide whether the OTHER auto-flip should fire right now. Pure function; exposed
+ * `internal` so the JVM regression test can pin the stale-catalog race fix
+ * (Sub 1c Codex review HIGH #1) without spinning up Compose.
+ *
+ * Gates the flip on the catalog entry MATCHING the current normalized UI values
+ * — a stale `other-custom` row from a previous valid config would otherwise let
+ * a mid-edit launch hit the old endpoint with the new key.
+ */
+internal fun shouldAutoFlipToOtherCustom(
+    selectedProvider: LLMProvider,
+    apiKeyText: String,
+    otherBaseUrlText: String,
+    otherModelIdText: String,
+    modelCatalog: ModelCatalog,
+    selectedModel: String,
+): Boolean {
+    if (selectedProvider != LLMProvider.OTHER) return false
+    if (apiKeyText.isBlank()) return false
+    if (otherBaseUrlText.isBlank() || otherModelIdText.isBlank()) return false
+    val normalizedUrl = OtherBaseUrlValidator.validate(otherBaseUrlText).getOrNull() ?: return false
+    val trimmedModelId = otherModelIdText.trim()
+    val entry = modelCatalog.resolveOrNull(ModelCatalogRepository.OTHER_CUSTOM_NAME) ?: return false
+    if (entry.baseUrl != normalizedUrl || entry.modelId != trimmedModelId) return false
+    if (selectedModel == ModelCatalogRepository.OTHER_CUSTOM_NAME) return false
+    return true
 }
 
 @Composable

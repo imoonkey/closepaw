@@ -324,6 +324,55 @@ class MainActivityIntentApplierSecurityTest {
         assertThat(invalidateCount).isEqualTo(0)
     }
 
+    @Test
+    fun `debug build skips invalid OTHER base URL and leaves settings untouched`() = runBlocking<Unit> {
+        // Regression for Sub 1c Codex HIGH #3: invalid base URL from intent must NOT be
+        // written to AppSettingsStore. Validating only at synth-time still leaves junk in
+        // persistent settings that a later UI render would surface to the user.
+        val payload = MainActivityIntentPayload(
+            apiKey = null,
+            openRouterApiKey = null,
+            openaiBaseUrl = null,
+            otherApiKey = null,
+            otherBaseUrl = "not a url",
+            otherModelId = null,
+            backendType = null,
+            perceptionMode = null,
+            platformMode = null,
+            mainModel = null,
+            approvalMode = null,
+            browserScriptEnabled = null,
+            goalText = null,
+            freshSession = false,
+            debugMode = null,
+            traceEnabled = null,
+            traceRunId = null,
+            excludedTools = emptySet(),
+            evalTurnBudget = null,
+        )
+        var invalidateCount = 0
+        val logs = mutableListOf<String>()
+
+        applyIntentPayloadToSettings(
+            payload = payload,
+            settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
+            authStore = authStore,
+            isDebugBuild = true,
+            currentPendingTraceEnabled = null,
+            currentPendingTraceRunId = null,
+            currentPendingExcludedTools = emptySet(),
+            currentPendingApprovalMode = null,
+            currentPendingEvalTurnBudget = null,
+            log = { logs += it },
+            invalidateCatalog = { invalidateCount++ },
+        )
+
+        assertThat(settingsState.otherBaseUrl).isEmpty()
+        assertThat(invalidateCount).isEqualTo(0)
+        assertThat(logs.any { it.contains("OTHER base URL from intent rejected") }).isTrue()
+    }
+
     private fun browserScriptPayload(enabled: Boolean): MainActivityIntentPayload =
         MainActivityIntentPayload(
             apiKey = null,

@@ -40,7 +40,7 @@ Cloud client using OpenAI Responses API with native function calling. Non-stream
 
 > See: `llm/ChatCompletionClient.kt`
 
-Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoint (OpenRouter, Novita, vLLM). Converts types via `ChatCompletionInterop`. Tool call deltas accumulated incrementally by index. Like `OpenAIResponseClient`, holds the active stream in an `AtomicReference<AutoCloseable>` and cancels it on flow close.
+Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoint (OpenRouter, OTHER user-configured base URL, vLLM, LM Studio, self-hosted). Converts types via `ChatCompletionInterop`. Tool call deltas accumulated incrementally by index. Like `OpenAIResponseClient`, holds the active stream in an `AtomicReference<AutoCloseable>` and cancels it on flow close.
 
 ### CodexResponseClient
 

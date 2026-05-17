@@ -158,6 +158,38 @@ class ModelCatalogRepositoryTest {
         assertThat(entry.modelId).isEqualTo("vendor/model")
     }
 
+    @Test
+    fun `no other-custom entry when otherBaseUrl fails validation`() {
+        // OtherBaseUrlValidator rejects non-http(s); see HIGH #2 in the Sub 1c review.
+        // synth must refuse to materialize so ensureRequiredCredentials reports a clean
+        // MissingCredential(OTHER) instead of leaking through to the client builder.
+        val store = fakeSettingsStore(otherBaseUrl = "not-a-url", otherModelId = "vendor/model")
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = mockk(relaxed = true),
+        )
+
+        assertThat(repo.catalog.value.resolveOrNull("other-custom")).isNull()
+    }
+
+    @Test
+    fun `synth entry stores normalized URL with trailing slash trimmed`() {
+        val store = fakeSettingsStore(
+            otherBaseUrl = "https://api.example.com/v1/",
+            otherModelId = "vendor/model",
+        )
+        val repo = ModelCatalogRepository(
+            context = contextReturningAsset(seedBytes()),
+            settingsStore = store,
+            discoveryCache = mockk(relaxed = true),
+        )
+
+        val entry = repo.catalog.value.resolveOrNull("other-custom")
+        assertThat(entry).isNotNull()
+        assertThat(entry!!.baseUrl).isEqualTo("https://api.example.com/v1")
+    }
+
     // ── Fixtures ──
 
     private fun seedBytes(): ByteArray = seedAssetFile.readBytes()
@@ -188,8 +220,6 @@ class ModelCatalogRepositoryTest {
         every { store.load() } returns defaultSettings(otherBaseUrl, otherModelId)
         return store
     }
-
-    // ── Fixtures ──
 
     private fun contextReturningAsset(bytes: ByteArray): Context {
         val assets = mockk<AssetManager>()

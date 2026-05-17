@@ -61,9 +61,17 @@ class ModelCatalogRepository(
 
     private fun synthOtherEntry(): ModelEntry? {
         val settings = settingsStore.load()
-        val baseUrl = settings.otherBaseUrl.trim()
         val modelId = settings.otherModelId.trim()
-        if (baseUrl.isBlank() || modelId.isBlank()) return null
+        if (modelId.isBlank()) return null
+        // Reject (don't synth) if the persisted base URL fails validation. Without this,
+        // ensureRequiredCredentials sees a synth row, calls into the factory, and the
+        // OpenAI SDK constructor surfaces a non-credential error with no clean OTHER
+        // deep-link. Forcing the synth to be absent for invalid URLs makes the existing
+        // "catalog row absent" check in the bootstrapper return MissingCredential(OTHER)
+        // cleanly. Store the NORMALIZED URL (trailing slash trimmed) so downstream
+        // consumers don't have to re-normalize.
+        val normalizedBaseUrl = OtherBaseUrlValidator.validate(settings.otherBaseUrl).getOrNull()
+            ?: return null
         return ModelEntry(
             name = OTHER_CUSTOM_NAME,
             displayName = modelId,
@@ -71,7 +79,7 @@ class ModelCatalogRepository(
             api = ApiType.CHAT,
             modelId = modelId,
             contextWindow = 128_000,
-            baseUrl = baseUrl,
+            baseUrl = normalizedBaseUrl,
             apiKeyEnv = null,
             supportsVision = false,
         )
