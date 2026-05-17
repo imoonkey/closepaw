@@ -10,12 +10,13 @@ import org.junit.rules.TemporaryFolder
 class MemoryRecallerTest {
 
     @get:Rule val tempDir = TemporaryFolder()
+    private lateinit var memoryDir: File
     private lateinit var store: MemoryStore
     private lateinit var recaller: MemoryRecaller
 
     @Before
     fun setUp() {
-        val memoryDir = tempDir.newFolder("memory")
+        memoryDir = tempDir.newFolder("memory")
         store = MemoryStore(memoryDir)
         recaller = MemoryRecaller(store)
     }
@@ -89,5 +90,21 @@ class MemoryRecallerTest {
         val result = recaller.recall("com.test")!!
         assertThat(result).startsWith("## Recalled Memory")
         assertThat(result).contains("durable learnings from previous sessions")
+    }
+
+    @Test
+    fun `recall skips blank memory file`() {
+        store.write(MemoryScope.USER, content = "   \n\n  \n")
+        assertThat(store.read(MemoryScope.USER)).isNotNull()
+        assertThat(recaller.recall(null)).isNull()
+    }
+
+    @Test
+    fun `recall skips memory file exceeding per-file byte cap`() {
+        val smallCapStore = MemoryStore(memoryDir, maxFileBytes = 64)
+        val smallCapRecaller = MemoryRecaller(smallCapStore)
+        // Write directly to filesystem to bypass the cap (simulates pre-cap legacy file).
+        File(memoryDir, "user.md").writeText("# User Memory\n\n" + "x".repeat(200))
+        assertThat(smallCapRecaller.recall(null)).isNull()
     }
 }
