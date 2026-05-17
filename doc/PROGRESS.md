@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-05-17: Voice input (mic leadingIcon on CapsuleInputBar)
+
+**What changed:**
+- New module `ui/capsule/voice/`: `Recognizer.kt` (interfaces + `AndroidRecognizer` — the only file in the app that imports `android.speech.*`), `VoiceInputController.kt` (state machine `Idle / Listening / Stopping / Unavailable`, generation-counter race guards, `partialAtStop` snapshot, hard-error → terminal `Unavailable` on first-callback failure), `VoicePermissionGate.kt` (mirrors `RunCommandPermissionGate`).
+- `CapsuleInputBar` takes optional `voice: VoiceMicDeps?` and renders a mic `leadingIcon` per `VoiceState`. Send button + `submit()` lambda both gated on `voiceState !in {Listening, Stopping}` so the IME Send key can't bypass. Typing during `Listening` cancels recognizer and keeps visible text.
+- `ChatScreen` wires `VoiceMicDeps` for MAIN_APP; `CapsuleOverlayHost` wires it for overlay with `activity=null` + `requestOverlayPermission = { AgentService.instance?.requestVoicePermissionViaMainActivity() }`. Overlay tap with permission already granted starts listening in-place — no MainActivity bounce.
+- `MainActivity` adds `EXTRA_REQUEST_VOICE_PERMISSION` + `consumeVoicePermissionRequestIfPresent(intent)` called from BOTH `onCreate` and `onNewIntent` (bypasses `handleIntent` / `MainActivityIntentPayload`). `MainActivityContent` runs `LaunchedEffect(pendingRequest)` to fire the launcher once it has registered — bridges cold-start race.
+- `AndroidManifest.xml`: adds `RECORD_AUDIO` + `<intent android:action="android.speech.RecognitionService"/>` inside the existing `<queries>` block (Android 11+ visibility). No new exported intent-filter.
+- Tests: 12 JVM cases (`VoiceInputControllerTest`) + 8 Compose UI cases (`CapsuleVoiceInputTest`, 7 active + 1 `@Ignore`), all using `FakeRecognizerFactory`.
+
+**Why:**
+- Voice as an input alternative to typing, working both in the Main app and the floating overlay capsule. Stock `SpeechRecognizer` (not `RecognizerIntent`) because (a) `RecognizerIntent` needs an Activity context — dead in the overlay; (b) we want streamed partial results into the field; (c) `RecognizerIntent` pops its own UI which steals focus from the Capsule.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/capsule/voice/{Recognizer,VoiceInputController,VoicePermissionGate}.kt`, `ui/capsule/surface/CapsuleInputBar.kt`, `ui/capsule/surface/SmartCapsuleSurface.kt`, `ui/overlay/compose/CapsuleOverlayHost.kt`, `ui/chat/ChatScreen.kt`, `app/MainActivity.kt`, `app/MainActivityContent.kt`, `app/AgentService.kt`, `app/src/main/AndroidManifest.xml`. Feature doc: `doc/main/ui/capsule/voice.md`.
+**Verification:** `./gradlew test` (12 `VoiceInputControllerTest`, all pass) + `./gradlew assembleDebug` + `./gradlew lint` clean. Instrumented `CapsuleVoiceInputTest` PASS on emulator (`AndroidWorldAvd2`, API 33, 7/7 active tests). End-to-end on emulator-5556: MAIN_APP mic permission flow + Listening state confirmed; overlay-granted fix verified post-`208b36dd` (focus stays on host app, capsule placeholder reads "Listening…").
+**Commit:** range `b929a93b..34463e6b` (17 commits) on branch `task/voice-input`.
+**Next:** consider an in-app language picker (currently uses `Locale.getDefault().toLanguageTag()` — devices with missing offline language packs need either system-locale change or per-app override). Real-device QA notes for Chinese-OEM ROMs without working Google speech services live in `projects/active/voice_input/device_qa.md` (environmental, not architectural).
+**Blockers:** None.
+
 ## 2026-05-16: OAuth token exchange — retry on transient DNS failure
 
 **What changed:**

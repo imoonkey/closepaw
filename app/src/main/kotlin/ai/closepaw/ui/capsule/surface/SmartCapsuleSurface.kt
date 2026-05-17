@@ -91,6 +91,7 @@ fun SmartCapsuleSurface(
     startupError: String? = null,
     onDismissStartupError: () -> Unit = {},
     onStartupErrorClick: (() -> Unit)? = null,
+    voice: VoiceMicDeps? = null,
 ) {
     val renderSpec = remember(mode, isStopPending, previousMode, transientThought) {
         val baseSpec = CapsuleRenderSpec.from(mode, previousMode, isStopPending)
@@ -180,6 +181,7 @@ fun SmartCapsuleSurface(
                         }
                         onInputSubmitted()
                     },
+                    voice = voice,
                 )
             }
         }

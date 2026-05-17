@@ -14,17 +14,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
+import ai.closepaw.app.AgentService
 import ai.closepaw.protocol.ApprovalDecision
 import ai.closepaw.protocol.ApprovalScope
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.capsule.NavAction
 import ai.closepaw.ui.capsule.surface.SmartCapsuleSurface
+import ai.closepaw.ui.capsule.surface.VoiceMicDeps
 import ai.closepaw.ui.capsule.surface.smartCapsuleHostPadding
+import ai.closepaw.ui.capsule.voice.AndroidRecognizerFactory
 import ai.closepaw.app.shouldCapsuleOverlayBeTouchable
 import ai.closepaw.platform.OverlayTouchGate
 import ai.closepaw.ui.overlay.CapsuleStateHolder
@@ -113,6 +117,21 @@ class CapsuleOverlayHost(
             val lockTouches by interactionLocked.collectAsState(initial = false)
 
             val capsuleContent: @androidx.compose.runtime.Composable () -> Unit = {
+                val voiceDeps = remember {
+                    val appCtx = service.applicationContext
+                    object : VoiceMicDeps {
+                        override val factory = AndroidRecognizerFactory(appCtx)
+                        override val activity: android.app.Activity? = null
+                        override fun isPermissionGranted(): Boolean =
+                            androidx.core.content.ContextCompat.checkSelfPermission(
+                                appCtx,
+                                android.Manifest.permission.RECORD_AUDIO,
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        override fun requestOverlayPermission() {
+                            AgentService.instance?.requestVoicePermissionViaMainActivity()
+                        }
+                    }
+                }
                 SmartCapsuleSurface(
                     mode = mode,
                     previousMode = stateHolder.previousMode,
@@ -153,6 +172,7 @@ class CapsuleOverlayHost(
                         setOverlayFocusable(false)
                     },
                     autoFocusInput = mode is CapsuleMode.WaitingForInput,
+                    voice = voiceDeps,
                 )
             }
 

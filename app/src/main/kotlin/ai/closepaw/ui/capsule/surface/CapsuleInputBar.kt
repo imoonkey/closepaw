@@ -1,5 +1,6 @@
 package ai.closepaw.ui.capsule.surface
 
+import android.app.Activity
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -12,8 +13,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +41,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.capsule.voice.RecognizerFactory
+import ai.closepaw.ui.capsule.voice.VoicePermissionDisposition
+import ai.closepaw.ui.capsule.voice.VoiceState
+import ai.closepaw.ui.capsule.voice.rememberVoiceInputController
+import ai.closepaw.ui.capsule.voice.rememberVoicePermissionGate
 import ai.closepaw.ui.overlay.model.CapsuleContext
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.CapsuleRenderSpec
@@ -45,7 +54,24 @@ import ai.closepaw.ui.theme.closePaw
 import kotlinx.coroutines.launch
 
 /**
- * CapsuleInputBar — text field with the send button as a trailing icon.
+ * Dependencies needed for the mic leadingIcon. Callers in MAIN_APP supply a real [activity];
+ * overlay callers pass [activity] = null and implement [requestOverlayPermission] to route the
+ * RECORD_AUDIO prompt through MainActivity (since overlays cannot host an ActivityResultLauncher).
+ *
+ * [isPermissionGranted] lets the overlay branch skip the MainActivity hop when RECORD_AUDIO is
+ * already granted — otherwise tapping mic with permission would yank the user into MainActivity
+ * just for the permission check to no-op.
+ */
+interface VoiceMicDeps {
+    val factory: RecognizerFactory
+    val activity: Activity?
+    fun isPermissionGranted(): Boolean
+    fun requestOverlayPermission()
+}
+
+/**
+ * CapsuleInputBar — text field with the send button as a trailing icon and an optional
+ * voice-mic leadingIcon when [voice] is wired by the caller.
  *
  * The send button lives inside `TextField.trailingIcon` so the field reads as
  * one object. Material3 TextField merges its trailingIcon subtree into the
@@ -70,6 +96,7 @@ internal fun CapsuleInputBar(
     autoFocusInput: Boolean,
     onInputFocusChanged: (Boolean) -> Unit,
     onSubmit: (String) -> Unit,
+    voice: VoiceMicDeps? = null,
 ) {
     var inputText by remember { mutableStateOf("") }
 
@@ -93,7 +120,43 @@ internal fun CapsuleInputBar(
         mode is CapsuleMode.TakeoverPending && platformMode == PlatformMode.ACCESSIBILITY -> false
         else -> true
     }
-    val hint = if (inputEnabled) spec.hint else "Take over to type note"
+
+    // Track the last text the recognizer pushed via onText so typing-during-Listening can be
+    // detected as a delta from controller output.
+    val controllerLastText = remember { mutableStateOf("") }
+    val voiceController = if (voice != null) {
+        rememberVoiceInputController(
+            factory = voice.factory,
+            onText = { newText ->
+                controllerLastText.value = newText
+                inputText = newText
+            },
+            onToast = { msg ->
+                // TODO(voice): surface via Capsule snackbar plumbing once available.
+                android.util.Log.i("CapsuleInputBar", "voice toast: $msg")
+            },
+        )
+    } else {
+        null
+    }
+
+    // VoiceInputController.state is backed by mutableStateOf, so a direct read here makes the
+    // mic icon (and the Send/IME gating below) recompose automatically on every state change.
+    val voiceState = voiceController?.state ?: VoiceState.Unavailable
+
+    val gate = if (voice?.activity != null) {
+        rememberVoicePermissionGate(activity = voice.activity!!) { granted ->
+            if (granted) voiceController?.start(baseText = inputText)
+        }
+    } else {
+        null
+    }
+
+    val hint = when {
+        voiceState == VoiceState.Listening -> "Listening…"
+        inputEnabled -> spec.hint
+        else -> "Take over to type note"
+    }
     val autoFocus = autoFocusInput && mode is CapsuleMode.WaitingForInput
 
     val focusRequester = remember { FocusRequester() }
@@ -106,7 +169,10 @@ internal fun CapsuleInputBar(
         }
     }
 
-    val submit: () -> Unit = {
+    val submit: () -> Unit = submit@{
+        if (voiceState == VoiceState.Listening || voiceState == VoiceState.Stopping) {
+            return@submit
+        }
         val text = inputText.trim()
         if (text.isNotEmpty()) {
             onSubmit(text)
@@ -117,7 +183,8 @@ internal fun CapsuleInputBar(
     val reducedMotion = ClosePawMotion.reducedMotion()
     val scope = rememberCoroutineScope()
     val sendScale = remember { Animatable(1f) }
-    val canSend = inputEnabled && inputText.isNotBlank()
+    val canSend = inputEnabled && inputText.isNotBlank() &&
+        voiceState != VoiceState.Listening && voiceState != VoiceState.Stopping
     val onSendClick: () -> Unit = {
         if (!reducedMotion) {
             scope.launch {
@@ -134,9 +201,94 @@ internal fun CapsuleInputBar(
         submit()
     }
 
+    val onMicTap: () -> Unit = mic@{
+        val v = voice ?: return@mic
+        val act = v.activity
+        if (act != null && gate != null) {
+            when (gate.disposition()) {
+                VoicePermissionDisposition.Granted ->
+                    voiceController?.start(baseText = inputText)
+                VoicePermissionDisposition.Request ->
+                    gate.requestPermission()
+                VoicePermissionDisposition.OpenAppSettings ->
+                    gate.openAppSettings()
+            }
+        } else {
+            if (v.isPermissionGranted()) {
+                voiceController?.start(baseText = inputText)
+            } else {
+                v.requestOverlayPermission()
+            }
+        }
+    }
+
+    val leadingIcon: (@Composable () -> Unit)? = when (voiceState) {
+        VoiceState.Unavailable -> null
+        VoiceState.Idle -> {
+            {
+                IconButton(
+                    onClick = onMicTap,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("qa-capsule-mic"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Mic,
+                        contentDescription = "Start voice input",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+        VoiceState.Listening -> {
+            {
+                IconButton(
+                    onClick = { voiceController?.stop() },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("qa-capsule-mic"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.StopCircle,
+                        contentDescription = "Stop voice input",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+        VoiceState.Stopping -> {
+            {
+                IconButton(
+                    onClick = {},
+                    enabled = false,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("qa-capsule-mic"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.StopCircle,
+                        contentDescription = "Stopping voice input",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+    }
+
     TextField(
         value = inputText,
-        onValueChange = { inputText = it },
+        onValueChange = { newText ->
+            // Typing (or IME edits) during Listening cancels the recognizer but keeps the user's
+            // text. Detect this by diffing against the last value the controller pushed via onText.
+            if (voiceState == VoiceState.Listening &&
+                voiceController != null &&
+                newText != controllerLastText.value
+            ) {
+                voiceController.cancel()
+            }
+            inputText = newText
+        },
         enabled = inputEnabled,
         modifier = Modifier
             .fillMaxWidth()
@@ -148,6 +300,7 @@ internal fun CapsuleInputBar(
         placeholder = {
             Text(text = hint, color = MaterialTheme.colorScheme.onSurfaceVariant)
         },
+        leadingIcon = leadingIcon,
         trailingIcon = {
             Box(modifier = Modifier.padding(end = 4.dp)) {
                 FilledIconButton(

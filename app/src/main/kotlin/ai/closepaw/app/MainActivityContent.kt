@@ -6,17 +6,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.capsule.CapsuleBinding
 import ai.closepaw.ui.capsule.InertCapsuleBinding
+import ai.closepaw.ui.capsule.voice.VoicePermissionDisposition
+import ai.closepaw.ui.capsule.voice.rememberVoicePermissionGate
 import ai.closepaw.ui.chat.ChatScreen
 import ai.closepaw.ui.chat.ChatViewModel
 import ai.closepaw.ui.chat.SettingsDeepLink
@@ -76,6 +80,33 @@ internal fun MainActivityContent(
     ClosePawTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
         val effectivePlatformMode by effectivePlatformModeFlow.collectAsStateWithLifecycle()
+
+        // Voice cold-start route: AgentService.requestVoicePermissionViaMainActivity() brings
+        // MainActivity to the front with EXTRA_REQUEST_VOICE_PERMISSION; MainActivity sets a
+        // pending flag (process state, not intent state) and we drain it here once the launcher
+        // is mounted. The launcher MUST be registered unconditionally at MainActivity scope so
+        // a cold-start (process freshly launched by the overlay) finds it ready.
+        val activity = LocalContext.current as? MainActivity
+        if (activity != null) {
+            val gate = rememberVoicePermissionGate(activity) { _ -> /* voice-ui owns the real callback */ }
+            val pendingRequest = activity.isVoicePermissionRequestPending()
+            LaunchedEffect(pendingRequest) {
+                if (!pendingRequest) return@LaunchedEffect
+                when (gate.disposition()) {
+                    VoicePermissionDisposition.Request -> {
+                        gate.requestPermission()
+                        activity.clearVoicePermissionRequest()
+                    }
+                    VoicePermissionDisposition.Granted,
+                    VoicePermissionDisposition.OpenAppSettings -> {
+                        // Granted: user toggled in Settings between request and resume. OpenAppSettings:
+                        // permanently denied — the overlay's next mic tap will surface UI; nothing to do
+                        // from the cold-start route. Either way, just clear so we don't re-fire.
+                        activity.clearVoicePermissionRequest()
+                    }
+                }
+            }
+        }
 
         // Deep-link target captured when a banner/tap wants Settings opened at a
         // specific tab. Forwarded into SettingsSheet via initialPage/initialAuthTab.

@@ -1,0 +1,4 @@
+Step 1 of 5
+Let ClosePaw control your phone
+Android only allows trusted automation through Accessibility. ClosePaw uses it to read the screen and perform taps so it can complete the tasks you ask for.
+Data & privacy details
