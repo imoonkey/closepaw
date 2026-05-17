@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-05-16: OAuth token exchange — retry on transient DNS failure
+
+**What changed:**
+- `OAuthTokenExchange` (`auth/OpenAIOAuth.kt`) wraps `postTokenRequest` and `exchangeForApiKey` calls in `withDnsRetry { ... }` (3 attempts, 1 s → 2 s backoff). Helper only catches `UnknownHostException`; HTTP errors and post-connect failures propagate immediately. Applied in both `exchange()` (sign-in code → tokens) and `refresh()` (refresh-token flow).
+
+**Why:**
+- Sign-in occasionally failed with `Unable to resolve host "auth.openai.com"` even though shell `ping` and Chrome both resolved fine — observed on a device with VPN + China DNS. The fail window is narrow: Chrome backgrounding after the localhost:1455 callback, VPN reconfig, or Java's 10 s negative-DNS cache. A fresh OAuth flow seconds later succeeded without code changes. Retrying only on `UnknownHostException` is safe because DNS failure means the request never reached the server, so the single-use OAuth authorization code is still valid. HTTP/connect-after errors are NOT retried to avoid re-spending a consumed code.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/auth/OpenAIOAuth.kt`.
+**Verification:** `./gradlew :app:compileDebugKotlin` passed. Repro covered by /investigate session: original failure on device 21:30, second attempt at 21:40 succeeded → `Signed in`.
+**Commit:** `c41c39bc`.
+
 ## 2026-05-16: Hide Local LLM tab + auto-prewarm + catalog cleanup
 
 **What changed:**
