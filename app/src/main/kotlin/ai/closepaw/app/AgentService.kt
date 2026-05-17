@@ -184,6 +184,9 @@ class AgentService : AccessibilityService() {
                         onTakeover = { submitOp(Op.Takeover) },
                         onResume = { submitOp(Op.Resume) },
                         onSupplement = { text -> submitOp(Op.Supplement(text)) },
+                        onSupplementAndResume = { text ->
+                            submitOps(Op.Supplement(text), Op.Resume)
+                        },
                         onUserResponse = { callId, response -> submitOp(Op.UserResponse(callId, response)) },
                         onApprovalResponse = { callId, decision, scope, packageName ->
                             submitOp(Op.Approve(callId, decision, scope, packageName))
@@ -292,19 +295,25 @@ class AgentService : AccessibilityService() {
     }
 
     private fun submitOp(op: Op) {
+        submitOps(op)
+    }
+
+    private fun submitOps(vararg ops: Op) {
         if (!isServiceActive) {
-            Log.w(TAG, "Dropping op while service is not active: $op")
+            Log.w(TAG, "Dropping ops while service is not active: ${ops.toList()}")
             return
         }
         val currentSession = session
-        Log.d(TAG, "submitOp: $op, session=${currentSession?.sessionId}")
+        Log.d(TAG, "submitOps: ${ops.toList()}, session=${currentSession?.sessionId}")
 
         if (currentSession == null) {
-            Log.w(TAG, "No active session for op: $op")
+            Log.w(TAG, "No active session for ops: ${ops.toList()}")
             return
         }
 
-        serviceScope.launch { currentSession.submit(op) }
+        serviceScope.launch {
+            ops.forEach { op -> currentSession.submit(op) }
+        }
     }
 
     private fun updateStatus(status: String) {

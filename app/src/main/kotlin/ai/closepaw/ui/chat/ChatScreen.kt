@@ -196,6 +196,7 @@ fun ChatScreen(
                         onSupplement = viewModel::sendSupplement,
                         onTakeover = viewModel::requestTakeover,
                         onResume = viewModel::requestResume,
+                        onSupplementAndResume = viewModel::sendSupplementAndResume,
                         onStop = {
                             if (capsuleBinding.onStopRequested()) {
                                 viewModel.stopTask()

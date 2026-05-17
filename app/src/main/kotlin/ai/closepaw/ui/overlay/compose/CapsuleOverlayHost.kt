@@ -12,6 +12,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -55,6 +56,7 @@ class CapsuleOverlayHost(
     var onTakeover: (() -> Unit)? = null
     var onResume: (() -> Unit)? = null
     var onSupplement: ((String) -> Unit)? = null
+    var onSupplementAndResume: ((String) -> Unit)? = null
     var onUserResponse: ((String, String) -> Unit)? = null
     var onApprovalResponse: ((String, ApprovalDecision, ApprovalScope, String) -> Unit)? = null
     var onStop: (() -> Unit)? = null
@@ -143,6 +145,17 @@ class CapsuleOverlayHost(
                     onSupplement = { text -> debounced { onSupplement?.invoke(text) } },
                     onTakeover = { debounced { onTakeover?.invoke() } },
                     onResume = { debounced { onResume?.invoke() } },
+                    onSupplementAndResume = { text ->
+                        debounced {
+                            val submit = onSupplementAndResume
+                            if (submit != null) {
+                                submit(text)
+                            } else {
+                                onSupplement?.invoke(text)
+                                onResume?.invoke()
+                            }
+                        }
+                    },
                     onStop = { debounced { onStop?.invoke() } },
                     onUserResponse = { callId, response ->
                         debounced { onUserResponse?.invoke(callId, response) }
@@ -191,6 +204,7 @@ class CapsuleOverlayHost(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
+                            .imePadding()
                             .smartCapsuleHostPadding()
                     ) {
                         capsuleContent()
@@ -200,6 +214,7 @@ class CapsuleOverlayHost(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .imePadding()
                         .smartCapsuleHostPadding()
                 ) {
                     capsuleContent()

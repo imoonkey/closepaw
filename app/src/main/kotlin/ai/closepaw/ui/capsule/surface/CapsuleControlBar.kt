@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -109,18 +110,7 @@ private fun ActionButtonCluster(
                 },
                 enabled = btn.enabled,
                 shape = MaterialTheme.shapes.large,
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (mode is CapsuleMode.WaitingForApproval) {
-                        MaterialTheme.colorScheme.secondary
-                    } else {
-                        MaterialTheme.colorScheme.tertiaryContainer
-                    },
-                    contentColor = if (mode is CapsuleMode.WaitingForApproval) {
-                        MaterialTheme.colorScheme.onSecondary
-                    } else {
-                        MaterialTheme.colorScheme.onTertiaryContainer
-                    },
-                ),
+                colors = primaryButtonColorsForMode(mode),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             ) {
                 Icon(
@@ -170,6 +160,23 @@ private fun ActionButtonCluster(
             }
         }
     }
+}
+
+@Composable
+private fun primaryButtonColorsForMode(mode: CapsuleMode): ButtonColors {
+    val colorScheme = MaterialTheme.colorScheme
+    return ButtonDefaults.filledTonalButtonColors(
+        containerColor = when (mode) {
+            is CapsuleMode.WaitingForApproval,
+            is CapsuleMode.Takeover -> colorScheme.secondary
+            else -> colorScheme.tertiaryContainer
+        },
+        contentColor = when (mode) {
+            is CapsuleMode.WaitingForApproval,
+            is CapsuleMode.Takeover -> colorScheme.onSecondary
+            else -> colorScheme.onTertiaryContainer
+        },
+    )
 }
 
 @Composable

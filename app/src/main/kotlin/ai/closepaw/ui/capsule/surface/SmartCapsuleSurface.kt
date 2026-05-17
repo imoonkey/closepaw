@@ -73,6 +73,10 @@ fun SmartCapsuleSurface(
     onSupplement: (String) -> Unit,
     onTakeover: () -> Unit,
     onResume: () -> Unit,
+    onSupplementAndResume: (String) -> Unit = { text ->
+        onSupplement(text)
+        onResume()
+    },
     onStop: () -> Unit,
     onUserResponse: (String, String) -> Unit,
     onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit = { _, _, _, _ -> },
@@ -177,6 +181,7 @@ fun SmartCapsuleSurface(
                         when (mode) {
                             is CapsuleMode.Hidden -> onSend(text)
                             is CapsuleMode.WaitingForInput -> onUserResponse(mode.callId, text)
+                            is CapsuleMode.Takeover -> onSupplementAndResume(text)
                             else -> onSupplement(text)
                         }
                         onInputSubmitted()

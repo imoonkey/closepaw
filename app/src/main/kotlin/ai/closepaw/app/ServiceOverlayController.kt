@@ -48,6 +48,7 @@ class ServiceOverlayController(
     private val onTakeover: () -> Unit,
     private val onResume: () -> Unit,
     private val onSupplement: (String) -> Unit,
+    private val onSupplementAndResume: (String) -> Unit,
     private val onUserResponse: (String, String) -> Unit, // (callId, response)
     private val onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit, // (callId, decision, scope, packageName)
     private val onOpenApp: () -> Unit,
@@ -92,6 +93,9 @@ class ServiceOverlayController(
         }
         this.onResume = this@ServiceOverlayController.onResume
         this.onSupplement = { text -> this@ServiceOverlayController.onSupplement(text) }
+        this.onSupplementAndResume = { text ->
+            this@ServiceOverlayController.onSupplementAndResume(text)
+        }
         this.onUserResponse = { callId, response ->
             if (stateHolder.onUserResponseSent(callId)) {
                 this@ServiceOverlayController.onUserResponse(callId, response)

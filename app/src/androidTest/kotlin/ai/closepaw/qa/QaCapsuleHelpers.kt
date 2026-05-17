@@ -22,6 +22,10 @@ fun TestCapsule(
     onSupplement: (String) -> Unit = {},
     onTakeover: () -> Unit = {},
     onResume: () -> Unit = {},
+    onSupplementAndResume: (String) -> Unit = { text ->
+        onSupplement(text)
+        onResume()
+    },
     onStop: () -> Unit = {},
     onUserResponse: (String, String) -> Unit = { _, _ -> },
     onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit = { _, _, _, _ -> },
@@ -38,6 +42,7 @@ fun TestCapsule(
             onSupplement = onSupplement,
             onTakeover = onTakeover,
             onResume = onResume,
+            onSupplementAndResume = onSupplementAndResume,
             onStop = onStop,
             onUserResponse = onUserResponse,
             onApprovalResponse = onApprovalResponse,

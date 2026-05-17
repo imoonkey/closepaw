@@ -315,6 +315,15 @@ class ChatViewModel(
         viewModelScope.launch { session.submit(Op.Supplement(text)) }
     }
 
+    /** Send a takeover note and immediately return control to the agent. */
+    fun sendSupplementAndResume(text: String) {
+        val session = sessionProvider() ?: return
+        viewModelScope.launch {
+            session.submit(Op.Supplement(text))
+            session.submit(Op.Resume)
+        }
+    }
+
     /** Request takeover (user takes control of device). */
     fun requestTakeover() {
         val session = sessionProvider() ?: return

@@ -1,5 +1,7 @@
 package ai.closepaw.qa
 
+import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.overlay.model.CapsuleContext
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -79,5 +81,45 @@ class CapsuleInputTest {
         assertEquals("c-1" to "hello", received)
         assertEquals("", compose.onNodeWithTag("qa-capsule-input").editableTextValue())
         compose.onNodeWithTag("qa-capsule-send", useUnmergedTree = true).assertIsNotEnabled()
+    }
+
+    @Test fun takeover_submit_uses_supplement_and_resume_route() {
+        var received: String? = null
+        compose.setContent {
+            TestCapsule(
+                mode = CapsuleMode.Takeover(lastThought = "Paused"),
+                onSupplementAndResume = { text -> received = text },
+            )
+        }
+
+        compose.onNodeWithTag("qa-capsule-input").performTextInput("continue")
+        compose.onNodeWithTag("qa-capsule-send", useUnmergedTree = true).performClick()
+
+        assertEquals("continue", received)
+    }
+
+    @Test fun running_input_requires_takeover_only_in_accessibility_overlay() {
+        compose.setContent {
+            TestCapsule(
+                mode = CapsuleMode.Running(thought = "Working"),
+                platformMode = PlatformMode.ACCESSIBILITY,
+                context = CapsuleContext.SCREEN_VIEWING,
+            )
+        }
+
+        compose.onNodeWithTag("qa-capsule-input").assertIsNotEnabled()
+        compose.onNodeWithText("Take over to type note").assertExists()
+    }
+
+    @Test fun running_input_is_available_in_virtual_display_overlay() {
+        compose.setContent {
+            TestCapsule(
+                mode = CapsuleMode.Running(thought = "Working"),
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                context = CapsuleContext.SCREEN_VIEWING,
+            )
+        }
+
+        compose.onNodeWithTag("qa-capsule-input").assertIsEnabled()
     }
 }
