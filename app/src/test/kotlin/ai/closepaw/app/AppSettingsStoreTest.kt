@@ -161,6 +161,62 @@ class AppSettingsStoreTest {
         assertThat(AppSettingsStore(context).loadUserAppOverrides()).isEmpty()
     }
 
+    // ===== Disabled agent skills =====
+
+    @Test
+    fun `disabled agent skills default to empty`() {
+        val store = AppSettingsStore(context)
+        assertThat(store.disabledAgentSkills.value).isEmpty()
+        assertThat(store.loadDisabledAgentSkills()).isEmpty()
+    }
+
+    @Test
+    fun `setSkillDisabled true persists and updates flow`() = runBlocking {
+        val store = AppSettingsStore(context)
+        store.setSkillDisabled("calendar-date-math", true)
+
+        assertThat(store.disabledAgentSkills.value).containsExactly("calendar-date-math")
+        assertThat(AppSettingsStore(context).loadDisabledAgentSkills())
+            .containsExactly("calendar-date-math")
+    }
+
+    @Test
+    fun `setSkillDisabled false removes from set`() = runBlocking {
+        val store = AppSettingsStore(context)
+        store.setSkillDisabled("alpha", true)
+        store.setSkillDisabled("beta", true)
+        store.setSkillDisabled("alpha", false)
+
+        assertThat(store.disabledAgentSkills.value).containsExactly("beta")
+        assertThat(AppSettingsStore(context).loadDisabledAgentSkills()).containsExactly("beta")
+    }
+
+    @Test
+    fun `setSkillDisabled clears storage when last entry removed`() = runBlocking {
+        val store = AppSettingsStore(context)
+        store.setSkillDisabled("alpha", true)
+        store.setSkillDisabled("alpha", false)
+
+        assertThat(store.disabledAgentSkills.value).isEmpty()
+        // Backing key cleared, not left as empty JSON array.
+        assertThat(backing["disabled_agent_skills"]).isNull()
+    }
+
+    @Test
+    fun `setSkillDisabled is a no-op when state already matches`() = runBlocking {
+        val store = AppSettingsStore(context)
+        store.setSkillDisabled("alpha", true)
+        val before = store.disabledAgentSkills.value
+        store.setSkillDisabled("alpha", true)
+        assertThat(store.disabledAgentSkills.value).isSameInstanceAs(before)
+    }
+
+    @Test
+    fun `malformed disabled skills JSON falls back to empty set`() {
+        backing["disabled_agent_skills"] = "not-a-json-array"
+        assertThat(AppSettingsStore(context).loadDisabledAgentSkills()).isEmpty()
+    }
+
     private fun fakePrefs(backing: MutableMap<String, Any?>): SharedPreferences {
         val editor = mockk<SharedPreferences.Editor>(relaxed = true)
         every { editor.putString(any(), any()) } answers {

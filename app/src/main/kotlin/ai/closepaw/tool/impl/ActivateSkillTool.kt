@@ -81,6 +81,8 @@ private class ActivateSkillInvocation(
                 textToolSuccess("Skill '${result.name}' is already active.")
             is ActivationResult.NotFound ->
                 ToolExecutionResult.Failure("Unknown skill '${result.name}'. Check the skill catalog in the system prompt.")
+            is ActivationResult.Disabled ->
+                ToolExecutionResult.Failure("Skill '${result.name}' is disabled in Settings. Ask the user to re-enable it under Agent Behavior → Tools.")
             is ActivationResult.ReadFailure ->
                 ToolExecutionResult.Failure("Failed to read skill '${result.name}': ${result.cause.message}")
         }

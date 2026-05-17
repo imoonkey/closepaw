@@ -311,4 +311,14 @@ class AgentSkillCatalogTest {
         assertThat(desc).contains("First line")
         assertThat(desc).contains("Second line")
     }
+
+    @Test
+    fun `allDiscovered returns every valid skill without filtering`() {
+        createSkill("alpha-skill", "Alpha")
+        createSkill("beta-skill", "Beta")
+
+        val discovered = AgentSkillCatalog(tempDir.root).allDiscovered()
+
+        assertThat(discovered.map { it.name }).containsExactly("alpha-skill", "beta-skill")
+    }
 }

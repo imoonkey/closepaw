@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 
 data class AppSettings(
@@ -46,6 +47,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_OPENAI_BASE_URL = "openai_base_url"
         private const val KEY_OTHER_BASE_URL = "other_base_url"
         private const val KEY_OTHER_MODEL_ID = "other_model_id"
+        private const val KEY_DISABLED_AGENT_SKILLS = "disabled_agent_skills"
 
         const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_DEBUG_MODE = false
@@ -63,6 +65,9 @@ class AppSettingsStore(private val context: Context) {
 
     private val _browserScriptEnabled = MutableStateFlow(loadBrowserScriptEnabled())
     val browserScriptEnabled: StateFlow<Boolean> = _browserScriptEnabled.asStateFlow()
+
+    private val _disabledAgentSkills = MutableStateFlow(loadDisabledAgentSkills())
+    val disabledAgentSkills: StateFlow<Set<String>> = _disabledAgentSkills.asStateFlow()
 
     /** Plain prefs for non-secret settings only (model, turns, mode, etc.). */
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -238,5 +243,39 @@ class AppSettingsStore(private val context: Context) {
             for ((pkg, tier) in overrides) obj.put(pkg, tier.name)
             editor.putString(KEY_USER_APP_OVERRIDES, obj.toString()).commit()
         }
+    }
+
+    // ===== Disabled agent skills =====
+
+    fun loadDisabledAgentSkills(): Set<String> {
+        val raw = prefs().getString(KEY_DISABLED_AGENT_SKILLS, null) ?: return emptySet()
+        return try {
+            val arr = JSONArray(raw)
+            buildSet {
+                for (i in 0 until arr.length()) {
+                    val name = arr.optString(i)
+                    if (name.isNotEmpty()) add(name)
+                }
+            }
+        } catch (_: Exception) {
+            emptySet()
+        }
+    }
+
+    suspend fun setSkillDisabled(name: String, disabled: Boolean) {
+        val current = _disabledAgentSkills.value
+        val next = if (disabled) current + name else current - name
+        if (next == current) return
+        withContext(Dispatchers.IO) {
+            val editor = prefs().edit()
+            if (next.isEmpty()) {
+                editor.remove(KEY_DISABLED_AGENT_SKILLS).apply()
+            } else {
+                val arr = JSONArray()
+                next.forEach { arr.put(it) }
+                editor.putString(KEY_DISABLED_AGENT_SKILLS, arr.toString()).apply()
+            }
+        }
+        _disabledAgentSkills.value = next
     }
 }

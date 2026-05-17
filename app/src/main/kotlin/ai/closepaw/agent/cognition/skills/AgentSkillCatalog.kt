@@ -11,6 +11,9 @@ class AgentSkillCatalog(skillsDir: File) {
         entries = buildCatalog(skillsDir)
     }
 
+    /** All skills discovered on disk. Pure scan — no filtering for disabled state. */
+    fun allDiscovered(): List<AgentSkillEntry> = entries.values.toList()
+
     fun catalogPrompt(): String? {
         if (entries.isEmpty()) return null
         return buildString {

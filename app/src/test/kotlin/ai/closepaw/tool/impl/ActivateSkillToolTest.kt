@@ -164,4 +164,21 @@ class ActivateSkillToolTest {
 
         assertThat(schema.getJSONArray("required").getString(0)).isEqualTo("name")
     }
+
+    @Test
+    fun `execute returns failure for disabled skill`() = runBlocking {
+        createSkill("date-math", "Compute dates", "Body.")
+        val manager = AgentSkillManager(tempDir.root, disabledNames = setOf("date-math"))
+        val t = ActivateSkillTool(manager)
+        val params = JSONObject().put("name", "date-math")
+        t.validate(params)
+        val invocation = t.createInvocation(params)
+
+        val result = invocation.execute(stubContext)
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)
+        val err = (result as ToolExecutionResult.Failure).error
+        assertThat(err).contains("disabled")
+        assertThat(err).contains("date-math")
+    }
 }
