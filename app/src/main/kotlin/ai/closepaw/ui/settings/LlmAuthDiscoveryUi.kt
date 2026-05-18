@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalogRepository
 import ai.closepaw.llm.ModelEntry
-import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.closePaw
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -128,7 +127,6 @@ internal fun SearchableGroupedModelPicker(
                                     else expandedKeys + group.key
                                 },
                             )
-                            Fleuron()
                         }
                         if (expanded) {
                             items(items = group.rows, key = { "row:${it.name}" }) { row ->
