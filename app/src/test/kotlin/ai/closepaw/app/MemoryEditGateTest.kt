@@ -247,4 +247,42 @@ class MemoryEditGateTest {
         assertThat(gate.memoryEditLocked.value).isTrue()
         assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Running)
     }
+
+    @Test
+    fun `isLockedNow reads upstream synchronously even before map collector runs`() {
+        // No runTest: we must observe the state between attachSession's
+        // synchronous upstream write and the map-collector tick that updates
+        // memoryEditLocked. A StandardTestDispatcher that we never advance
+        // keeps that collector parked.
+        val dispatcher = StandardTestDispatcher()
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val gate = MemoryEditGate(coordinator, scope)
+
+        // Settle into Shutdown (unlocked). attachSession synchronously writes
+        // _currentSessionState.value = Shutdown — no dispatcher tick needed
+        // for isLockedNow to see it.
+        val shutdownState = MutableStateFlow<SessionState>(SessionState.Shutdown)
+        coordinator.attachSession(fakeSession(shutdownState))
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Shutdown)
+        assertThat(gate.isLockedNow()).isFalse()
+
+        // Synchronous transition to Created via a fresh attachSession.
+        // currentSessionState.value flips to Created in the same tick; the
+        // map-collector that feeds memoryEditLocked has not yet been
+        // dispatched (StandardTestDispatcher does not auto-advance).
+        val createdState = MutableStateFlow<SessionState>(SessionState.Created)
+        coordinator.attachSession(fakeSession(createdState))
+        assertThat(coordinator.currentSessionState.value).isEqualTo(SessionState.Created)
+
+        // The action-time snapshot reflects Created immediately — this is the
+        // invariant TOCTOU re-checks inside MemoryFileEditor.onSave depend on.
+        assertThat(gate.isLockedNow()).isTrue()
+
+        // memoryEditLocked.value is not asserted here: it MAY still hold the
+        // stale "false" from before the Created transition because the map
+        // collector hasn't run. That stale-window is exactly what isLockedNow
+        // exists to bypass — UI observation and action-time checks are
+        // intentionally distinct paths.
+    }
 }
