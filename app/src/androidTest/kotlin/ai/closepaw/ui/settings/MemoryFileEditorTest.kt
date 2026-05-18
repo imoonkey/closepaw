@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -268,7 +269,66 @@ class MemoryFileEditorTest {
     }
 
     // ------------------------------------------------------------
-    // (5) TOCTOU: click Delete confirm while the lock transitions
+    // (5) Lock cycle: agent writes to disk while locked. On unlock,
+    //     the editor reloads from disk and discards user's stale
+    //     buffer — preventing a Save from clobbering agent appends.
+    // ------------------------------------------------------------
+    @Test fun locked_to_unlocked_reloads_buffer_from_disk_discarding_stale_user_edits() {
+        userFile().writeText("hello world")
+
+        compose.setContent {
+            ClosePawTheme {
+                MemoryFileEditor(
+                    memoryStore = memoryStore,
+                    scope = MemoryScope.USER,
+                    packageName = null,
+                    gate = gate,
+                    bounded = false,
+                )
+            }
+        }
+
+        compose.waitUntil(5_000) {
+            !gate.memoryEditLocked.value &&
+                compose.onAllNodesWithTag(MEMORY_EDITOR_EDIT_TAG).fetchSemanticsNodes().size == 1
+        }
+
+        // User enters EDIT and types a stale buffer that conflicts with what
+        // the agent is about to write.
+        compose.onNodeWithTag(MEMORY_EDITOR_EDIT_TAG).performClick()
+        compose.onNodeWithTag(MEMORY_EDITOR_TEXTFIELD_TAG)
+            .performTextReplacement("user typed text")
+        compose.onNodeWithText("user typed text").assertIsDisplayed()
+
+        // Session starts → gate locks. Text field becomes readOnly, buffer
+        // is held but cannot drift further.
+        val state = MutableStateFlow<SessionState>(SessionState.Running)
+        coordinator.attachSession(fakeSession(state))
+        compose.waitUntil(5_000) { gate.memoryEditLocked.value }
+
+        // Agent appends to disk while we're locked (simulate via direct write).
+        userFile().writeText("hello world\n## agent appended this")
+
+        // Session ends → gate unlocks. The editor must reload from disk and
+        // discard the user's stale "user typed text" buffer.
+        state.value = SessionState.Shutdown
+        compose.waitUntil(5_000) { !gate.memoryEditLocked.value }
+
+        // Buffer reflects disk content (with agent's append), NOT the user's
+        // typed text. Any subsequent Save would write the merged file.
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("hello world\n## agent appended this").fetchSemanticsNodes().size == 1
+        }
+        compose.onAllNodesWithText("user typed text").fetchSemanticsNodes().let {
+            assert(it.isEmpty()) {
+                "stale user buffer must be discarded after lock cycle, but the text is still on screen"
+            }
+        }
+        assertEquals("hello world\n## agent appended this", userFile().readText())
+    }
+
+    // ------------------------------------------------------------
+    // (6) TOCTOU: click Delete confirm while the lock transitions
     //     in flight; delete is aborted and the file remains.
     // ------------------------------------------------------------
     @Test fun delete_handler_re_checks_gate_inside_coroutine_and_aborts_on_locked_race() {

@@ -159,11 +159,12 @@ internal fun AppAccessSettingsPage(
                 //    already exists (page mounted with a stale empty index,
                 //    or two "+ Memory" taps raced), skip the write so an
                 //    existing apps/<pkg>.md is never blanked.
-                //  - Gate TOCTOU: re-check `memoryEditLocked.value` right
-                //    before the write. If a session began between click
-                //    and IO, abort with the standard toast.
+                //  - Gate TOCTOU: re-check `gate.isLockedNow()` right before
+                //    the write. If a session began between click and IO,
+                //    abort with the standard toast. `isLockedNow()` reads
+                //    the upstream state directly so it cannot lag the lock.
                 val outcome = withContext(ioDispatcher) {
-                    if (gate.memoryEditLocked.value) {
+                    if (gate.isLockedNow()) {
                         AddMemoryOutcome.Aborted
                     } else if (memoryStore.read(MemoryScope.APP, pkg) != null) {
                         AddMemoryOutcome.AlreadyExists
