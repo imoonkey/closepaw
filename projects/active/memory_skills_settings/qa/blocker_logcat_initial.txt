@@ -1,0 +1,50 @@
+05-18 00:27:14.153 D/VRITracker(20705): focusLeave <- ai.closepaw/ai.closepaw.app.MainActivity, stayDuration: 467666
+05-18 00:27:14.157 D/TouchService( 3394): RegisterAppMonitorCallback Focus featureflags = {}, package:ai.closepaw
+05-18 00:27:14.157 D/GameModeController( 3394): updateGameModeNoDisturbStateLocked activityRecord=ActivityRecord{40666051 u0 ai.closepaw/.app.MainActivity t4375 f}} isGameScene: false isScreenLocked: false mGMNoDisturbSettingsEnabled: true
+05-18 00:27:14.165 D/IslandHelper( 6411): islandActiveApp component=ai.closepaw
+05-18 00:27:14.165 D/IslandHelper( 6411): islandActiveApp list=[] packageName=ai.closepaw
+05-18 00:27:14.165 D/SceneMonitorOptEx( 6411): startMonitor: SCENE_LAUNCHER_APP_EXIT, sceneTargetName: ai.closepaw
+05-18 00:27:14.165 D/PerfSceneTracker( 6411): onPerfSceneStart: SCENE_APP_TO_HOME_ANIM, sceneTargetName: ai.closepaw
+05-18 00:27:14.166 I/PowerEvents( 3394): [FEAT_POWER_MON][0] charging scene end: app_front_charging, pkgName: ai.closepaw, current: 0
+05-18 00:27:14.167 I/PowerEvents( 3394): [FEAT_POWER_MON][0] === scene duration: 468s, app_front_charging, 0mA, ai.closepaw, uid:10348, 1, sLevel: -1, eLevel: -1, allbytes: 0kB, txBytes: 0kB, chargeCounter: 6061, chargingDuration: 468s,castInfo: , alwaysOnRecordSwitch: 0 ===
+05-18 00:27:14.167 V/WindowManager( 3394): Sent Transition (#25134) createdAt=05-18 00:27:14.132 via request=TransitionRequestInfo { type = CLOSE, triggerTask = TaskInfo{userId=0 taskId=4375 effectiveUid=10348 displayId=0 isRunning=false baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=ai.closepaw/.app.MainActivity } baseActivity=null topActivity=null origActivity=null realActivity=ComponentInfo{ai.closepaw/ai.closepaw.app.MainActivity} numActivities=0 lastActiveTime=1636375780 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{RemoteToken{9564 Task{42bb440 #4375 type=standard A=10348:ai.closepaw}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 0 - 0, 0) topActivityInfo=null launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=true isVisible=true isVisibleRequested=true isTopActivityNoDisplay=false isSleeping=false locusId=null displayAreaFeatureId=1 isTopActivityTransparent=false isActivityStackTransparent=true lastNonFullscreenBounds=Rect(326, 810 - 939, 2074) capturedLink=null capturedLinkTimestamp=0 requestedVisibleTypes=-9 topActivityRequestOpenInBrowserEducationTimestamp=0 scale=1.0 offset=Point(0, 0) appCompatTaskInfo=AppCompatTaskInfo { topActivityInSizeCompat=false eligibleForLetterboxEducation= false isLetterboxEducationEnabled= false isLetterboxDoubleTapEnabled= false eligibleForUserAspectRatioButton= false topActivityBoundsLetterboxed= false isFromLetterboxDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 topActivityAppBounds=Rect(0, 0 - 0, 0) isUserFullscreenOverrideEnabled=false isSystemFullscreenOverrideEnabled=false hasMinAspectRatioOverride=false topActivityLetterboxBounds=null cameraCompatTaskInfo=CameraCompatTaskInfo { freeformCameraCompatMode=undefined}} topActivityMainWindowFrame=null}, pipChange = null, remoteTransition = null, displayChange = null, flags = 0, debugId = 25134 }
+05-18 00:27:14.167 V/WindowManager( 3394):         {WCT{RemoteToken{9564 Task{42bb440 #4375 type=standard A=10348:ai.closepaw}}} m=CLOSE f=NONE leash=Surface(name=Task=4375)/@0x7c7d5b8 sb=Rect(0, 0 - 1264, 2800) eb=Rect(0, 0 - 1264, 2800) epz=Point(1264, 2800) d=0 taskParent=-1},
+05-18 00:27:14.168 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@b62b5f3
+05-18 00:27:14.169 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@969b2b0
+05-18 00:27:14.172 D/system_server( 3394): clearSvpTask pid 20705 tid 20705 packageName ai.closepaw
+05-18 00:27:14.172 D/system_server( 3394): clearSvpTask pid 20705 tid 3155 packageName ai.closepaw
+05-18 00:27:14.172 D/system_server( 3394): clearSvpTask pid 20705 tid 3191 packageName ai.closepaw
+05-18 00:27:14.172 D/system_server( 3394): clearSvpTask pid 20705 tid 3192 packageName ai.closepaw
+05-18 00:27:14.172 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@a330e36
+05-18 00:27:14.172 V/InputMethod(27339): unbindInput(): binding=InputBinding{android.os.BinderProxy@cb95b8f / uid 10348 / pid 20705} ic=RemoteInputConnection{idHash=#46bbe1c}
+05-18 00:27:14.174 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@5b1ae0e
+05-18 00:27:14.174 W/DynamicDDSService( 5190): appName is not found in cache: ai.closepaw
+05-18 00:27:14.175 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@c83902f
+05-18 00:27:14.175 I/MemcgManager( 3394): proc:ai.closepaw, adj:701, score:900, appScorePath:/dev/memcg/apps/uid_10348/memory.app_score
+05-18 00:27:14.176 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@2c3004b
+05-18 00:27:14.178 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@661c0d4
+05-18 00:27:14.179 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@e1bb572
+05-18 00:27:14.179 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@e841640
+05-18 00:27:14.179 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@1ebb6be
+05-18 00:27:14.179 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@9b4566c
+05-18 00:27:14.179 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@32880ca
+05-18 00:27:14.180 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@c66d58
+05-18 00:27:14.180 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@3390db3
+05-18 00:27:14.181 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@ce98f70
+05-18 00:27:14.181 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@9c662e9
+05-18 00:27:14.181 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@4d14b6e
+05-18 00:27:14.181 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@72cd20f
+05-18 00:27:14.181 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@cb0329c
+05-18 00:27:14.182 I/vendor.qti.hardware.servicetrackeraidl-service( 2073): unbindService is called for service : android/com.android.server.notification.NotificationHistoryJobService and for client system
+05-18 00:27:14.183 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@54ab07a
+05-18 00:27:14.184 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@edbdc88
+05-18 00:27:14.185 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@cc35a46
+05-18 00:27:14.185 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@963934
+05-18 00:27:14.185 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@1a0c9a3
+05-18 00:27:14.186 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@740d859
+05-18 00:27:14.186 W/ActivityManager( 3394): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@9ec5cff
+05-18 00:27:14.202 D/CoreBackPreview( 3394): Window{9904b11 u0 ai.closepaw/ai.closepaw.app.MainActivity}: Setting back callback null
+05-18 00:27:14.205 I/InputMethodManager(20705): handleMessage: MSG_UNBIND 3981 reason=SWITCH_CLIENT
+05-18 00:27:14.209 D/IslandHelper( 6411): islandActiveApp list=[] packageName=ai.closepaw
+05-18 00:27:14.839 I/CaeLog  (21467): <L4NetEvaluate> foreground app change, LAST: 10348 ClosePaw ai.closepaw; NOW: 10155 系统桌面 com.android.launcher3
+05-18 00:27:18.736 I/ai.closepaw(20705): ProfileSaver: FullProfileSaver time 27.178ms new_methods=0

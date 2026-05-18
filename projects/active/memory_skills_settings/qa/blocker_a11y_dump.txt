@@ -1,0 +1,58 @@
+ACCESSIBILITY MANAGER (dumpsys accessibility)
+
+currentUserId=0
+hasMagnificationConnection=false
+Magnifier on display#0
+    MagnificationConfig[mode: 1, activated: false, scale: 1.0, centerX: 1400.0, centerY: 604.0] 
+    Magnification region=SkRegion((0,0,2800,1208))
+    IdOfLastServiceToMagnify=-1
+    SupportWindowMagnification=true
+    WindowMagnificationConnectionState=DISCONNECTED
+User state[
+     attributes:{id=0, touchExplorationEnabled=false, serviceHandlesDoubleTap=false, requestMultiFingerGestures=false, requestTwoFingerPassthrough=false, sendMotionEventsEnabledfalse, displayMagnificationEnabled=false, autoclickEnabled=false, nonInteractiveUiTimeout=0, interactiveUiTimeout=0, installedServiceCount=6, magnificationModes={0=1, 2=1, 3=1, 4=1, 23=1, 37=1, 39=1, 40=1, 41=1, 43=1, 54=1, 56=1, 58=1, 59=1, 60=1, 61=1, 64=1, 67=1, 68=1, 70=1, 71=1, 76=1, 77=1, 78=1, 81=1, 83=1}, magnificationCapabilities=3, audioDescriptionByDefaultEnabled=false, magnificationFollowTypingEnabled=true, alwaysOnMagnificationEnabled=true}
+     button mode: 1
+     shortcut key:{}
+     button:{}
+     button target:{null}
+     gesture:{}
+     qs shortcut targets:{}
+     a11y tiles in QS panel:{}
+     Bound services:{Service[label=ClosePaw, feedbackType[FEEDBACK_GENERIC], capabilities=161, eventTypes=[TYPE_WINDOW_STATE_CHANGED, TYPE_WINDOW_CONTENT_CHANGED], notificationTimeout=100, requestA11yBtn=false]}
+     Enabled services:{{ai.closepaw/ai.closepaw.app.AgentService}}
+     Binding services:{}
+     Crashed services:{}
+     Client list info:{
+          Client list callbacks: 21
+          Client list killed: false
+          Client list broadcasts count: -1
+          Registered clients:{
+[com.google.android.tts][com.google.android.apps.bard][com.termux][com.einnovation.temu][com.google.android.gm][ai.closepaw][com.bytedance.android.securityinput][com.google.android.googlequicksearchbox][com.obric.calculator][com.ubercab][com.tencent.mm][com.tailscale.ipn][com.tencent.mm][com.duolingo][com.paypal.android.p2pmobile][com.luna.music][com.android.chrome][com.google.android.googlequicksearchbox][com.twitter.android][moe.shizuku.privileged.api][com.google.android.apps.maps]}]
+Global Info [ Top focused display Id = 0
+     Active Window Id = 12896
+     Top Focused Window Id = 12896
+     Accessibility Focused Window Id = 7273 ]
+
+Display[0] : 
+A11yWindow[AccessibilityWindowInfo[title=null, displayId=0, id=12876, taskId=-1, type=TYPE_SYSTEM, layer=1, region=SkRegion((0,0,2800,140)), bounds=Rect(0, 0 - 2800, 140), focused=false, active=false, pictureInPicture=false, transitionTime=1114399290, hasParent=false, isAnchored=false, hasChildren=false]]
+WindowInfo[WindowInfo[title=null, displayId=0, taskId=-1, type=2000, layer=0, token=android.os.BinderProxy@836db1f, region=SkRegion((0,0,2800,140)), bounds=Rect(0, 0 - 2800, 140), parent=null, focused=false, children=[], accessibility anchor=9223372034707292159, pictureInPicture=false, watchOutsideTouch=false, mTransformMatrix=Matrix{[1.0, 0.0, 0.0][0.0, 1.0, 0.0][0.0, 0.0, 1.0]}, mMagnificationSpec=<scale:1.0,offsetX:0.0,offsetY:0.0>, locales=[zh_CN,en_US]]]
+,
+A11yWindow[AccessibilityWindowInfo[title=ClosePaw, displayId=0, id=12896, taskId=4376, type=TYPE_APPLICATION, layer=0, region=SkRegion((0,0,2800,1264)), bounds=Rect(0, 0 - 2800, 1264), focused=true, active=true, pictureInPicture=false, transitionTime=1114399306, hasParent=false, isAnchored=false, hasChildren=false]]
+WindowInfo[WindowInfo[title=ClosePaw, displayId=0, taskId=4376, type=1, layer=1, token=android.os.BinderProxy@1691753, region=SkRegion((0,0,2800,1264)), bounds=Rect(0, 0 - 2800, 1264), parent=null, focused=true, children=null, accessibility anchor=9223372034707292159, pictureInPicture=false, watchOutsideTouch=false, mTransformMatrix=Matrix{[1.0, 0.0, 0.0][0.0, 1.0, 0.0][0.0, 0.0, 1.0]}, mMagnificationSpec=<scale:1.0,offsetX:0.0,offsetY:0.0>, locales=[zh_CN,en_US]]]
+
+
+Window attributes:[{12=AccessibilityWindowAttributes{mAccessibilityWindowTitle=Navigation bar Edge PanelmLocales=[zh_CN,en_US]}, 10688=AccessibilityWindowAttributes{mAccessibilityWindowTitle=PayPalmLocales=[zh_CN,en_US]}, 10690=AccessibilityWindowAttributes{mAccessibilityWindowTitle=PayPalmLocales=[zh_CN,en_US]}, 10700=AccessibilityWindowAttributes{mAccessibilityWindowTitle=地图mLocales=[zh_CN,en_US]}, 12872=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12873=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12874=AccessibilityWindowAttributes{mAccessibilityWindowTitle=设置mLocales=[zh_CN,en_US]}, 12875=AccessibilityWindowAttributes{mAccessibilityWindowTitle=开发者选项mLocales=[zh_CN,en_US]}, 12876=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12877=AccessibilityWindowAttributes{mAccessibilityWindowTitle=开发者选项mLocales=[zh_CN,en_US]}, 12878=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12879=AccessibilityWindowAttributes{mAccessibilityWindowTitle=设置mLocales=[zh_CN,en_US]}, 12880=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12881=AccessibilityWindowAttributes{mAccessibilityWindowTitle=计算器mLocales=[zh_CN,en_US]}, 12882=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12883=AccessibilityWindowAttributes{mAccessibilityWindowTitle=主屏幕mLocales=[zh_CN,en_US]}, 12884=AccessibilityWindowAttributes{mAccessibilityWindowTitle=设置mLocales=[zh_CN,en_US]}, 12885=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12886=AccessibilityWindowAttributes{mAccessibilityWindowTitle=TailscalemLocales=[zh_CN,en_US]}, 12887=AccessibilityWindowAttributes{mAccessibilityWindowTitle=Navigation bar Edge PanelmLocales=[zh_CN,en_US]}, 12888=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12889=AccessibilityWindowAttributes{mAccessibilityWindowTitle=设置mLocales=[zh_CN,en_US]}, 12890=AccessibilityWindowAttributes{mAccessibilityWindowTitle=Navigation bar Edge PanelmLocales=[zh_CN,en_US]}, 12891=AccessibilityWindowAttributes{mAccessibilityWindowTitle=设置mLocales=[zh_CN,en_US]}, 12892=AccessibilityWindowAttributes{mAccessibilityWindowTitle=nullmLocales=[zh_CN,en_US]}, 12893=AccessibilityWindowAttributes{mAccessibilityWindowTitle=导航栏mLocales=[zh_CN,en_US]}, 12894=AccessibilityWindowAttributes{mAccessibilityWindowTitle=Navigation bar Edge PanelmLocales=[zh_CN,en_US]}, 12896=AccessibilityWindowAttributes{mAccessibilityWindowTitle=ClosePawmLocales=[zh_CN,en_US]}}]
+A11yInputFilter Info : 
+Enabled features of Display [0] = [MotionEventInjector]
+Global client list info:{
+    Client list callbacks: 18
+    Client list killed: false
+    Client list broadcasts count: -1
+    Registered clients:{
+[com.obric.ai.plugin, com.wapi.wapicertmanage, com.qti.snapdragon.qdcm_ff, com.android.location.fused, com.qualcomm.qti.xrvd.service, com.android.server.telecom, com.obric.updater, com.android.keychain, com.obric.feedback, com.bytedance.os.mermaid, com.android.settings, com.obric.cloudservice, com.obric.processservice, com.obric.matrix, android, com.obric.nodisturb, vendor.qti.frameworks.utils, com.android.inputdevices, com.android.vpndialogs, com.android.localtransport, com.android.providers.settings, com.bytedance.mmi, com.tencent.soter.soterserver, com.obric.cae, com.android.DeviceAsWebcam, com.obric.aon, com.android.dynsystem][com.bytedance.android.doubaoime][com.android.keychain, com.obric.nodisturb, com.android.localtransport, com.android.vpndialogs, com.qualcomm.qti.xrvd.service, android, vendor.qti.frameworks.utils, com.bytedance.mmi, com.obric.ai.plugin, com.obric.cloudservice, com.qti.snapdragon.qdcm_ff, com.obric.aon, com.android.providers.settings, com.wapi.wapicertmanage, com.android.server.telecom, com.obric.processservice, com.android.settings, com.android.DeviceAsWebcam, com.obric.cae, com.obric.updater, com.obric.matrix, com.android.inputdevices, com.android.dynsystem, com.bytedance.os.mermaid, com.android.location.fused, com.tencent.soter.soterserver, com.obric.feedback][com.google.android.gsf, com.google.android.gms][com.obric.feedback, com.bytedance.os.mermaid, com.qti.snapdragon.qdcm_ff, android, com.obric.ai.plugin, com.android.keychain, com.bytedance.mmi, com.android.DeviceAsWebcam, com.android.server.telecom, com.obric.cloudservice, com.obric.nodisturb, com.android.providers.settings, com.android.inputdevices, com.obric.aon, com.android.dynsystem, com.android.localtransport, com.obric.cae, com.android.location.fused, com.obric.matrix, vendor.qti.frameworks.utils, com.wapi.wapicertmanage, com.tencent.soter.soterserver, com.android.settings, com.qualcomm.qti.xrvd.service, com.obric.processservice, com.android.vpndialogs, com.obric.updater][com.android.keychain, com.obric.nodisturb, com.android.localtransport, com.android.vpndialogs, com.qualcomm.qti.xrvd.service, android, vendor.qti.frameworks.utils, com.bytedance.mmi, com.obric.ai.plugin, com.obric.cloudservice, com.qti.snapdragon.qdcm_ff, com.obric.aon, com.android.providers.settings, com.wapi.wapicertmanage, com.android.server.telecom, com.obric.processservice, com.obric.feedback, com.android.settings, com.android.DeviceAsWebcam, com.obric.cae, com.obric.updater, com.obric.matrix, com.android.inputdevices, com.android.dynsystem, com.bytedance.os.mermaid, com.android.location.fused, com.tencent.soter.soterserver][com.android.vending][com.wapi.wapicertmanage, com.obric.nodisturb, com.android.dynsystem, com.android.inputdevices, com.tencent.soter.soterserver, com.qualcomm.qti.xrvd.service, com.bytedance.os.mermaid, com.obric.updater, com.android.server.telecom, com.android.settings, com.obric.ai.plugin, com.android.providers.settings, com.bytedance.mmi, com.android.localtransport, com.obric.aon, com.obric.matrix, com.obric.feedback, com.android.vpndialogs, com.qti.snapdragon.qdcm_ff, com.obric.cloudservice, com.obric.processservice, android, com.android.DeviceAsWebcam, com.obric.cae, vendor.qti.frameworks.utils, com.android.location.fused, com.android.keychain][com.larus.nova][com.android.systemui][com.bytedance.android.doubaoime][com.android.documentsui][com.obric.security][com.android.permissioncontroller][com.android.launcher3][obric.home.flow][com.android.gallery3d][com.obric.quicksearch]
+
+Proxy manager state:
+    Number of proxy connections: 0
+    Registered proxy connections:
+Accessibility Display Listener:
+    SystemUI uid: 10144
+    1 valid display: 0
