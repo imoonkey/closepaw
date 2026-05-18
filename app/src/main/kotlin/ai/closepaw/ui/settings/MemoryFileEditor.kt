@@ -92,6 +92,7 @@ internal fun MemoryFileEditor(
     bounded: Boolean,
     modifier: Modifier = Modifier,
     onOpenFull: (() -> Unit)? = null,
+    onSaved: (() -> Unit)? = null,
     onDeleted: (() -> Unit)? = null,
     onAborted: (() -> Unit)? = null,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -145,6 +146,7 @@ internal fun MemoryFileEditor(
                 SaveResult.Success -> {
                     loaded = content
                     mode = Mode.VIEW
+                    onSaved?.invoke()
                 }
                 SaveResult.TooLarge ->
                     inlineError = "Memory files cap at ${memoryStore.maxFileBytes} bytes. Trim and try again."
