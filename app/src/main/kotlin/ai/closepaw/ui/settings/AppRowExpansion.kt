@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ import kotlinx.coroutines.withContext
 internal const val APP_EXPANSION_ROOT_TAG = "app-expansion-root"
 internal const val APP_EXPANSION_SKILL_BODY_TAG = "app-expansion-skill-body"
 internal const val APP_EXPANSION_BLOCKED_WARNING_TAG = "app-expansion-blocked-warning"
+internal const val APP_EXPANSION_ADD_MEMORY_TAG = "app-expansion-add-memory"
 
 internal const val APP_BLOCKED_MEMORY_WARNING =
     "This app is set to Reject. Reject only blocks the agent from writing this memory; " +
@@ -66,6 +68,8 @@ internal fun AppRowExpansion(
     memoryStore: MemoryStore,
     gate: MemoryEditGate,
     onMemoryPresenceChanged: (hasMemory: Boolean) -> Unit,
+    onAddMemory: (() -> Unit)? = null,
+    addMemoryLocked: Boolean = false,
     onOpenFullMemoryEditor: (() -> Unit)? = null,
     startInEditNonce: String? = null,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -103,6 +107,12 @@ internal fun AppRowExpansion(
                 startInEditOnce = startInEditNonce,
                 ioDispatcher = ioDispatcher,
             )
+        } else if (onAddMemory != null) {
+            // Skill-only app (or empty row that was force-expanded): surface a
+            // "+ Memory" affordance inside the expansion so users don't have
+            // to collapse and chase the trailing-slot chip, which is hidden
+            // for skill-bearing rows by design.
+            AddMemoryChip(onAddMemory = onAddMemory, enabled = !addMemoryLocked)
         }
     }
 }
@@ -173,6 +183,38 @@ private fun SectionLabel(text: String) {
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.closePaw.inkFaint,
     )
+}
+
+@Composable
+private fun AddMemoryChip(onAddMemory: () -> Unit, enabled: Boolean) {
+    Surface(
+        onClick = onAddMemory,
+        enabled = enabled,
+        shape = MaterialTheme.shapes.small,
+        color = if (enabled) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surface,
+        modifier = Modifier.testTag(APP_EXPANSION_ADD_MEMORY_TAG),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = if (enabled) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.closePaw.inkFaint,
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Memory",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (enabled) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.closePaw.inkFaint,
+            )
+        }
+    }
 }
 
 private sealed interface SkillLoad {

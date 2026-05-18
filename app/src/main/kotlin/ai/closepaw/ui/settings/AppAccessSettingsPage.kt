@@ -518,6 +518,8 @@ private fun AppRowItem(
                         gate = gate,
                         startInEditNonce = startInEditNonce,
                         onMemoryPresenceChanged = onMemoryPresenceChanged,
+                        onAddMemory = onAddMemory,
+                        addMemoryLocked = addMemoryLocked,
                         // TODO: route to a per-app MemoryFileEditorPage variant.
                         // Requires SettingsSheet to expose a nav callback for
                         // SettingsPage.MEMORY targeting (scope=APP, pkg). Left
