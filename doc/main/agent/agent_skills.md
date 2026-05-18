@@ -1,6 +1,6 @@
 # Agent Skills
 
-> Last updated: 2026-05-02 (bundled browser-use skill install)
+> Last updated: 2026-05-17 (per-skill disable toggle with next-session semantics)
 
 agentskills.io-compatible skill system: discoverable task/capability instructions the agent can activate on demand. Coexists with — but is distinct from — the per-package App Skill system.
 
@@ -49,13 +49,36 @@ Validation:
 AgentSkillManager (session-scoped, in SessionServices)
 ├── AgentSkillCatalog (immutable, scans filesDir/skills/ once)
 │   └── Map<name, AgentSkillEntry(name, description, filePath)>
-└── activeSkills: LinkedHashSet<name>   // @Synchronized
+├── disabledNames: Set<String>            // snapshot from AppSettingsStore at construction
+└── activeSkills: LinkedHashSet<name>     // @Synchronized
 ```
 
 - `AgentSkillCatalog`: scans `filesDir/skills/*/SKILL.md` one level deep, validates each, builds the immutable name → entry map.
-- `AgentSkillManager`: `@Synchronized` activate/mention APIs. `activate(name)` always reads the file fresh and returns the body (idempotent — re-activation re-delivers the body, supporting post-compaction reload).
-- `ActivateSkillTool`: registered only when catalog is non-empty. Returns full skill body as a tool result; `PolicyEngine.Allow` (no special turn policy needed).
-- `SessionServices.copy()` preserves the same manager instance so delegated executors inherit activations.
+- `AgentSkillManager`: `@Synchronized` activate/mention APIs. The `entries` view, the catalog prompt, `activate()`, and `activateExplicitMentions()` all filter `disabledNames` out — disabled skills are invisible to the model. `activate(name)` re-reads the file fresh so post-compaction reload works (idempotent body redelivery).
+- `ActivateSkillTool`: registered only when the catalog (after disable-filter) is non-empty. Disabled skills return `ActivationResult.Disabled` → tool-side `Failure` instructing the model to ask the user to re-enable under *Agent Behavior → Tools*. Non-disabled paths use `PolicyEngine.Allow`.
+- `SessionServices.copy()` preserves the same manager instance so delegated executors inherit activations and the same disabled snapshot.
+
+### Disable filter (next-session semantics)
+
+`AppSettingsStore.disabledAgentSkills` is a persisted `StateFlow<Set<String>>`
+backed by `disabled_agent_skills` in plain `SharedPreferences` (JSON array of
+skill names). Writes go through `setSkillDisabled(name, disabled)`, serialized
+on a `Mutex` to keep concurrent toggles from racing on the read-modify-write of
+the in-memory set and the prefs commit.
+
+The filter applies **at session creation**: `SessionServices.create(...)` reads
+`disabledAgentSkills.value` once and passes a defensive copy into
+`AgentSkillManager`. A running session is unaffected by toggle changes — flip
+the switch and the new value lands the next time the user starts a session.
+
+Settings surfaces this to the user: the Tools row's subtitle reads
+*"Takes effect next session"* when the skill is disabled **and** a session is
+running (see [settings.md → Agent Behavior → Tools](../app/settings.md#agent-behavior--tools)).
+
+The model never sees disabled skills: the catalog prompt omits them, the
+explicit `/skill-name` mention parser drops them before activation, and
+`activate_skill(name)` returns `Disabled` (translated to a tool failure that
+prompts the model to ask the user to re-enable in Settings).
 
 ## Activation Paths
 

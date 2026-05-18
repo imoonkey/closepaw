@@ -2,7 +2,7 @@
 
 > Two layers: durable cross-session memory (markdown files) and the in-session
 > conversation history with auto-compaction.
-> Last updated: 2026-05-16
+> Last updated: 2026-05-17 (raw read/write API, WYSIWYG files, MemoryEditGate)
 
 ## Two Memory Layers
 
@@ -29,10 +29,11 @@ Core components:
 
 | Component | Role | File |
 |-----------|------|------|
-| **MemorySchema** | Shared scope/section vocabulary | `memory/MemorySchema.kt` |
-| **MemoryStore** | Canonical markdown read/write + validation | `memory/MemoryStore.kt` |
+| **MemorySchema** | Shared scope/section vocabulary + `SaveResult` sealed class | `memory/MemorySchema.kt` |
+| **MemoryStore** | Raw markdown read/write + schema-aware append | `memory/MemoryStore.kt` |
 | **MemoryRecaller** | Deterministic prompt recall | `memory/MemoryRecaller.kt` |
-| **RememberExperienceTool** | Typed write path for durable learnings | `tool/impl/RememberExperienceTool.kt` |
+| **RememberExperienceTool** | Typed agent-side write path for durable learnings | `tool/impl/RememberExperienceTool.kt` |
+| **MemoryEditGate** | Single-writer lock for Settings-side edits | `app/MemoryEditGate.kt` |
 
 ## Storage Model
 
@@ -47,7 +48,16 @@ memory/
     org.tasks.md
 ```
 
-Each file has a fixed section layout and timestamped bullets:
+Files are **WYSIWYG**: the bytes on disk are exactly what `MemoryStore.read()`
+returns and exactly what gets injected into the prompt via `MemoryRecaller`.
+There is no canonicalizer, no migration pass, no on-read normalization. The
+Settings → Memory editor saves the verbatim buffer; the agent's `append` path
+inserts under the named heading following explicit insertion rules
+(see [Append insertion rules](#append-insertion-rules)).
+
+The skeleton produced by `append()` when a file does not yet exist follows the
+schema below, but once a file exists Settings can freely reshape it — `append`
+will re-create missing headings on demand and will not reformat what's there.
 
 ```markdown
 # User Memory
@@ -89,17 +99,61 @@ Each file has a fixed section layout and timestamped bullets:
 
 Notes:
 
-- All entries use full timestamps: `[YYYY-MM-DD HH:MM:SS TZ]`.
-- App `Operational Notes` are plain-language bullets. They do not use inline `[pitfall]` or `[verification]` tags.
+- Entries inserted by `append()` use full timestamps: `[YYYY-MM-DD HH:MM:SS TZ]`.
+- App `Operational Notes` are plain-language bullets. There is no inline tagging.
 - If app memory conflicts with the shipped app skill, trust app memory.
+- Hand-edits from Settings are preserved byte-for-byte — including blank files
+  created by the `+ Memory` chip in App Access, which `MemoryRecaller` skips
+  rather than injecting an empty `## Recalled Memory` block.
 
-## Write Paths
+## Store API
 
-### 1. Voluntary writes via `remember_experience`
+`MemoryStore` exposes a small raw API. All file IO is `@Synchronized`; writes go
+through an atomic temp-file rename, so a crash mid-write leaves the previous
+contents intact.
 
-`remember_experience` stays as a dedicated memory tool. It does not collapse into generic file writing.
+| Method | Behavior |
+|---|---|
+| `read(scope, packageName?): String?` | Side-effect-free. Returns the file's raw UTF-8 contents, or `null` if missing/unreadable. |
+| `write(scope, packageName?, content): SaveResult` | Atomic replace. Enforces an 8192 UTF-8 byte cap. Returns `Success`, `TooLarge`, `InvalidScope`, or `IoError(msg)`. |
+| `delete(scope, packageName?): Boolean` | Removes the file. Returns `true` if the file is gone (including the not-present case). |
+| `listAppPackages(): List<String>` | Sorted list of `apps/<pkg>.md` package names that pass `[a-zA-Z0-9_.]+` validation. Drives App Access content chips. |
+| `append(scope, section, content, packageName?): Boolean` | Schema-aware insertion under the named heading. See rules below. |
 
-Parameters:
+`SaveResult` is a sealed class (`Success`, `TooLarge`, `InvalidScope`,
+`IoError(message)`) so Settings can render outcome-specific feedback. The legacy
+canonicalizer and the one-off `user_prefs.md → user.md` migration are deleted.
+
+### Append insertion rules
+
+`append()` is the only write path the agent uses (via `RememberExperienceTool`
+and the failure auto-retain in `Agent.kt`). The model never sees the raw file —
+it just names a `scope`, `section`, and content sentence:
+
+1. **Sanitize** the input: fold `\r\n\t` to single spaces, strip Unicode `Cc`
+   control characters, collapse runs of whitespace, trim, then truncate to
+   2000 chars (`maxContentLength`). Order matters — folding before stripping
+   prevents tokens from gluing together.
+2. **Format** as `- [<full timestamp>] <sanitized content>`.
+3. **No file yet** → write a fresh skeleton: title, optional intro, then one
+   heading per section in the schema's declared order; place the new entry
+   under the target heading.
+4. **File exists, heading present** → insert the bullet immediately below the
+   last bullet of that section (skipping back over the blank line that
+   separates sections, so the new bullet sits next to the existing ones).
+5. **File exists, heading missing** → append `\n## <heading>\n<entry>\n` at EOF.
+   This means hand-edited files that have lost a heading still get new entries
+   appended without reshaping the rest of the file.
+6. **Duplicate heading** → insert under the **last** occurrence. A warning is
+   logged but the write proceeds.
+
+After every step `append()` re-checks the UTF-8 byte size against the 8 KB cap
+and refuses the write if it would push the file over.
+
+### Write Paths
+
+**1. Voluntary writes via `remember_experience`** — `RememberExperienceTool`
+stays as a dedicated memory tool. Parameters:
 
 - `scope`: `user`, `device`, or `app`
 - `section`: one of the fixed sections allowed for that scope
@@ -114,23 +168,16 @@ Allowed section matrix:
 | `device` | `facts`, `pitfalls`, `verification` |
 | `app` | `app_skill_overrides`, `preferences`, `operational_notes` |
 
-The store normalizes legacy inline kind prefixes away on write, so app operational notes stay plain-language even if the model emits an older `[pitfall]`-style prefix.
+**2. Failure auto-retain** — when a task fails and the model never called
+`remember_experience`, `Agent.kt` writes one fallback entry into the current
+app's `Operational Notes` section via `appendAppOperationalNote(pkg, …)`.
 
-### 2. Failure auto-retain
-
-When a task fails and the model never called `remember_experience`, `Agent.kt` writes one fallback entry into the current app's `Operational Notes` section:
-
-```kotlin
-if (!result.success && !services.memoryStore.hasWrittenThisSession()) {
-    val pkg = services.platform.getCurrentPackageName() ?: lastKnownPackage
-    if (pkg != null) {
-        val entry = "Failed on \"${config.goal.take(60)}\": ${result.message.take(80)}"
-        services.memoryStore.appendAppOperationalNote(pkg, entry)
-    }
-}
-```
-
-This keeps the promotion path tied to task outcome without introducing a separate episodic memory store.
+**3. Settings → Memory editor (free-text)** — the user opens
+`Settings → Memory → User Memory` (or Device, or App Access → expand) and
+edits the full file in a `MemoryFileEditor`. Saving calls
+`MemoryStore.write(scope, pkg?, buffer)` directly — no canonicalization,
+no section rewriting. The 8 KB `SaveResult.TooLarge` cap is the only content
+check.
 
 ## Recall Path
 
@@ -138,28 +185,86 @@ Each planning turn, `TurnPlanningPhaseRunner` calls `memoryRecaller.recall(curre
 
 Recall is deterministic and scope-first:
 
-1. Load `user.md` if it exists.
-2. Load `device.md` if it exists.
-3. Load `apps/<current-package>.md` if it exists.
+1. Load `user.md` if it exists, is non-blank, and is ≤ 8 KB.
+2. Load `device.md` under the same gates.
+3. Load `apps/<current-package>.md` under the same gates.
 
-The recaller injects the full file contents as a `## Recalled Memory` block between working memory and app skill:
+Blank files (e.g. ones the `+ Memory` chip just created in App Access) are
+dropped before assembly so the prompt never contains an empty `## Recalled
+Memory` block. Files over the 8 KB cap are skipped with a warning — a stale
+pre-cap file should not silently inflate every prompt.
+
+The recaller injects the surviving file contents as a `## Recalled Memory`
+block between working memory and app skill:
 
 ```text
 History -> Working Memory -> Recalled Memory -> App Skill -> Observation
 ```
 
-There is no vector search, SQLite, or cross-app recall in V2.
+There is no vector search, SQLite, or cross-app recall.
+
+## Single-Writer Model: `MemoryEditGate`
+
+Both the running agent and the Settings UI can write `apps/<pkg>.md`, and the
+agent can `append` to `user.md` / `device.md` at any time. Without coordination
+a Settings save could clobber an agent append (or vice versa). The fix is a
+single-writer lock keyed off session liveness.
+
+`SessionCoordinator` exposes:
+
+```kotlin
+val currentSessionState: StateFlow<SessionState?>
+```
+
+…a hot reflection of the active session's state (`Created`, `Running`, `Idle`,
+`TakeoverPending`, `Paused`, `Shutdown`) or `null` when no session exists.
+
+`MemoryEditGate` maps that flow to `memoryEditLocked: StateFlow<Boolean>`:
+
+- `true` whenever the state is non-null and not `Shutdown` (i.e. a session
+  exists and could write at any moment).
+- `false` only when `currentSessionState` is `null` or `Shutdown`.
+- **Initial value is `true`** — Settings opens in the safe state until the
+  upstream flow has emitted at least once.
+
+UI contract (see `MemoryFileEditor.kt`):
+
+- Save / Discard / Delete buttons are disabled and a banner reads
+  *"Session is open. Stop the session to edit memory."* when locked.
+- The typed buffer is preserved — the user is not popped out of EDIT mode.
+- **Action-time TOCTOU re-check**: every save/delete handler re-reads
+  `gate.memoryEditLocked.value` inside its coroutine immediately before
+  calling `MemoryStore.write` / `delete`. If a session began between the
+  click and the IO, the write aborts with a toast and the file on disk is
+  untouched. The same re-check guards the App Access `+ Memory` chip, which
+  also goes through `write(scope, pkg, "")` to create an empty placeholder.
+
+The agent side has no symmetric lock — sessions own the write path while they
+exist, and the gate guarantees the editor cannot collide with them.
 
 ## Security and Validation
 
-- Package names are validated against `^[a-zA-Z0-9_.]+$`.
-- Content is truncated to `maxContentLength` (default 2000 chars).
-- Writes use temp-file replacement to avoid partial-file corruption.
-- File I/O is synchronized in `MemoryStore`.
+- Package names are validated against `^[a-zA-Z0-9_.]+$` (read, write, and
+  `listAppPackages`).
+- `append()` sanitizes and caps content to `maxContentLength` (default 2000
+  chars). `write()` does not sanitize — it trusts Settings to send the bytes
+  the user typed, capped only at the 8 KB file ceiling.
+- All writes use temp-file replacement to avoid partial-file corruption.
+- File IO is `@Synchronized` inside `MemoryStore`.
 
-### Memory Gate
+### Memory Gate (blocked-app write refusal)
 
-`RememberExperienceTool` enforces a **memory gate** that blocks writes when the current foreground app is classified as `BLOCKED` (financial/auth). This prevents the agent from creating persistent knowledge about blocked app content, even if the LLM attempts to call `remember_experience` while a blocked app is in the foreground.
+`RememberExperienceTool` enforces a **memory gate** that blocks agent writes
+when the current foreground app is classified as `BLOCKED` (financial/auth).
+This prevents the agent from creating persistent knowledge about blocked-app
+content even if the LLM calls `remember_experience` while a blocked app is in
+the foreground.
+
+Settings-side edits intentionally bypass this gate: a user opening the
+expanded App Access row for a blocked app and typing into the editor is the
+explicit consent that the agent-side gate exists to demand. The row still
+shows a warning chip so the consequence ("entries are still recalled when
+this app is foreground") is visible.
 
 → See: `tool/impl/RememberExperienceTool.kt`, `tool/AppClassifier.kt`
 
