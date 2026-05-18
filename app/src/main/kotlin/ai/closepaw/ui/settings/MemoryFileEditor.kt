@@ -65,7 +65,11 @@ import kotlinx.coroutines.withContext
  * disk while the editor was locked, so the buffer must be re-validated. We
  * always reload from disk; if the buffer was dirty, a one-line notice tells
  * the user their unsaved edits were dropped in favor of the agent's writes
- * (single-writer model — the agent owns memory during a session).
+ * (single-writer model — the agent owns memory during a session). The disk
+ * read is async (withContext on the IO dispatcher); during that window a
+ * `reloading` flag stands in for `locked` on every action surface so a
+ * stale pre-session buffer cannot clobber the agent's append between the
+ * lock flip and the buffer refresh.
  *
  * Action-time TOCTOU: every save/delete handler re-checks
  * `gate.isLockedNow()` inside the coroutine immediately before
@@ -84,6 +88,9 @@ internal const val MEMORY_EDIT_ABORT_TOAST =
 
 internal const val MEMORY_EDIT_RELOAD_TOAST =
     "Memory updated during session — reloaded from disk."
+
+internal const val MEMORY_EDIT_RELOADING_BANNER =
+    "Refreshing memory from disk…"
 
 internal const val MEMORY_EDITOR_TEXTFIELD_TAG = "memory-editor-textfield"
 internal const val MEMORY_EDITOR_OPEN_FULL_TAG = "memory-editor-open-full"
@@ -130,6 +137,14 @@ internal fun MemoryFileEditor(
     var writing by remember(saveKey) { mutableStateOf(false) }
     var inlineError by remember(saveKey) { mutableStateOf<String?>(null) }
     var showDeleteConfirm by remember(saveKey) { mutableStateOf(false) }
+    // Post-unlock disk reload is async (withContext on ioDispatcher). Between
+    // the locked→unlocked flip and the reload completing, the buffer is still
+    // the pre-session value: enabling Save in that window would clobber any
+    // agent appends. Treat `reloading` as functionally equivalent to `locked`
+    // for every action surface (buttons disabled, text field readOnly, IO-time
+    // re-check inside save/delete coroutines).
+    val reloadingState = remember(saveKey) { mutableStateOf(false) }
+    var reloading by reloadingState
 
     LaunchedEffect(saveKey) {
         if (!loadingDone) {
@@ -152,12 +167,17 @@ internal fun MemoryFileEditor(
         val previouslyLocked = wasLocked
         wasLocked = locked
         if (previouslyLocked && !locked) {
-            val disk = withContext(ioDispatcher) { memoryStore.read(scope, packageName) }
-            val wasDirty = buffer != loaded.orEmpty()
-            loaded = disk
-            buffer = disk.orEmpty()
-            if (wasDirty) {
-                Toast.makeText(context, MEMORY_EDIT_RELOAD_TOAST, Toast.LENGTH_SHORT).show()
+            reloading = true
+            try {
+                val disk = withContext(ioDispatcher) { memoryStore.read(scope, packageName) }
+                val wasDirty = buffer != loaded.orEmpty()
+                loaded = disk
+                buffer = disk.orEmpty()
+                if (wasDirty) {
+                    Toast.makeText(context, MEMORY_EDIT_RELOAD_TOAST, Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                reloading = false
             }
         }
     }
@@ -168,8 +188,8 @@ internal fun MemoryFileEditor(
     // honor the signal while unlocked, so a session that started during the
     // creation race won't strand the user in an EDIT view of a locked file.
     var lastSeenEditNonce by remember(saveKey) { mutableStateOf<String?>(null) }
-    LaunchedEffect(saveKey, startInEditOnce, loadingDone, locked) {
-        if (loadingDone && !locked &&
+    LaunchedEffect(saveKey, startInEditOnce, loadingDone, locked, reloading) {
+        if (loadingDone && !locked && !reloading &&
             startInEditOnce != null &&
             startInEditOnce != lastSeenEditNonce
         ) {
@@ -186,17 +206,19 @@ internal fun MemoryFileEditor(
     }
 
     val onSave: () -> Unit = handle@{
-        if (locked || writing) return@handle
+        if (locked || reloading || writing) return@handle
         writing = true
         inlineError = null
         coroutineScope.launch {
             val content = buffer
             val result: SaveResult? = withContext(ioDispatcher) {
-                // Action-time TOCTOU re-check: a session may have started
-                // between the click and our IO dispatch. Use the synchronous
-                // snapshot — `memoryEditLocked` can lag the upstream by a
-                // map-collector tick.
-                if (gate.isLockedNow()) null
+                // Action-time TOCTOU re-check: a session may have started or a
+                // post-unlock reload may still be in flight between the click
+                // and our IO dispatch. `gate.isLockedNow()` uses the
+                // synchronous SessionCoordinator snapshot; `reloadingState`
+                // is read fresh so a reload that armed after the click also
+                // aborts.
+                if (gate.isLockedNow() || reloadingState.value) null
                 else memoryStore.write(scope, packageName, content)
             }
             writing = false
@@ -218,19 +240,19 @@ internal fun MemoryFileEditor(
     }
 
     val onDiscard: () -> Unit = handle@{
-        if (locked || writing) return@handle
+        if (locked || reloading || writing) return@handle
         buffer = loaded.orEmpty()
         inlineError = null
         mode = Mode.VIEW
     }
 
     val onConfirmDelete: () -> Unit = handle@{
-        if (locked || writing) return@handle
+        if (locked || reloading || writing) return@handle
         writing = true
         inlineError = null
         coroutineScope.launch {
             val ok: Boolean? = withContext(ioDispatcher) {
-                if (gate.isLockedNow()) null
+                if (gate.isLockedNow() || reloadingState.value) null
                 else memoryStore.delete(scope, packageName)
             }
             writing = false
@@ -249,7 +271,7 @@ internal fun MemoryFileEditor(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        if (locked) {
+        if (locked || reloading) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -258,7 +280,7 @@ internal fun MemoryFileEditor(
                 shape = RoundedCornerShape(8.dp),
             ) {
                 Text(
-                    text = MEMORY_EDIT_LOCKED_BANNER,
+                    text = if (locked) MEMORY_EDIT_LOCKED_BANNER else MEMORY_EDIT_RELOADING_BANNER,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -267,11 +289,12 @@ internal fun MemoryFileEditor(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // readOnly when in VIEW mode OR while the gate is locked. The locked
-        // case matters because we don't kick the user out of EDIT on lock —
-        // disabling text input keeps the in-memory buffer stable so the
-        // locked→unlocked reload has a clean dirty-vs-not signal.
-        val readOnly = mode == Mode.VIEW || locked
+        // readOnly when in VIEW mode OR while the gate is locked OR while a
+        // post-unlock disk reload is in flight. The locked/reloading cases
+        // keep the in-memory buffer stable so the reload has a clean
+        // dirty-vs-not signal and so the user can't type into a buffer that
+        // is about to be overwritten by the disk read.
+        val readOnly = mode == Mode.VIEW || locked || reloading
         val textFieldModifier = Modifier
             .fillMaxWidth()
             .testTag(MEMORY_EDITOR_TEXTFIELD_TAG)
@@ -284,7 +307,7 @@ internal fun MemoryFileEditor(
 
         OutlinedTextField(
             value = buffer,
-            onValueChange = { if (mode == Mode.EDIT && !locked) buffer = it },
+            onValueChange = { if (mode == Mode.EDIT && !locked && !reloading) buffer = it },
             readOnly = readOnly,
             modifier = textFieldModifier,
             placeholder = {
@@ -339,25 +362,25 @@ internal fun MemoryFileEditor(
             when (mode) {
                 Mode.VIEW -> {
                     TextButton(
-                        onClick = { if (!locked) mode = Mode.EDIT },
-                        enabled = !locked && loadingDone,
+                        onClick = { if (!locked && !reloading) mode = Mode.EDIT },
+                        enabled = !locked && !reloading && loadingDone,
                         modifier = Modifier.testTag(MEMORY_EDITOR_EDIT_TAG),
                     ) { Text("Edit") }
                     TextButton(
-                        onClick = { if (!locked && !writing) showDeleteConfirm = true },
-                        enabled = !locked && !writing && loaded != null,
+                        onClick = { if (!locked && !reloading && !writing) showDeleteConfirm = true },
+                        enabled = !locked && !reloading && !writing && loaded != null,
                         modifier = Modifier.testTag(MEMORY_EDITOR_DELETE_TAG),
                     ) { Text("Delete") }
                 }
                 Mode.EDIT -> {
                     TextButton(
                         onClick = onDiscard,
-                        enabled = !locked && !writing,
+                        enabled = !locked && !reloading && !writing,
                         modifier = Modifier.testTag(MEMORY_EDITOR_DISCARD_TAG),
                     ) { Text("Discard") }
                     TextButton(
                         onClick = onSave,
-                        enabled = !locked && !writing,
+                        enabled = !locked && !reloading && !writing,
                         modifier = Modifier.testTag(MEMORY_EDITOR_SAVE_TAG),
                     ) { Text("Save") }
                 }
@@ -377,7 +400,7 @@ internal fun MemoryFileEditor(
             confirmButton = {
                 TextButton(
                     onClick = onConfirmDelete,
-                    enabled = !locked && !writing,
+                    enabled = !locked && !reloading && !writing,
                     modifier = Modifier.testTag(MEMORY_EDITOR_DELETE_CONFIRM_TAG),
                 ) { Text("Delete") }
             },
