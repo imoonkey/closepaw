@@ -1,7 +1,13 @@
 package ai.closepaw.ui.settings
 
 import com.google.common.truth.Truth.assertThat
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -146,5 +152,38 @@ class AppAccessContentIndexTest {
         index.load()
 
         assertThat(index.summaries.value.keys).containsExactly("com.b")
+    }
+
+    @Test
+    fun `update during in-flight load is not erased by load`() = runBlocking {
+        val scanStarted = CountDownLatch(1)
+        val releaseScan = CountDownLatch(1)
+        val index = AppAccessContentIndex(
+            memoryPackages = {
+                scanStarted.countDown()
+                check(releaseScan.await(2, TimeUnit.SECONDS)) { "scan never released" }
+                setOf("com.scanned")
+            },
+            skillPackages = { emptySet() },
+            ioDispatcher = Dispatchers.IO,
+        )
+
+        val loadJob = launch(Dispatchers.IO) { index.load() }
+        check(scanStarted.await(2, TimeUnit.SECONDS)) { "scan never started" }
+
+        val updateJob = launch(Dispatchers.IO) {
+            index.update("com.updated", AppContentSummary(hasMemory = true, hasSkill = false))
+        }
+        // Give update a chance to attempt the mutex while load still holds it.
+        delay(50)
+
+        releaseScan.countDown()
+        loadJob.join()
+        updateJob.join()
+
+        assertThat(index.summaryFor("com.scanned"))
+            .isEqualTo(AppContentSummary(hasMemory = true, hasSkill = false))
+        assertThat(index.summaryFor("com.updated"))
+            .isEqualTo(AppContentSummary(hasMemory = true, hasSkill = false))
     }
 }

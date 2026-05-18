@@ -9,7 +9,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Per-package content flags surfaced by the App Access page row. */
@@ -39,6 +40,7 @@ class AppAccessContentIndex(
     }
 
     private val _summaries = MutableStateFlow<Map<String, AppContentSummary>>(emptyMap())
+    private val mutex = Mutex()
 
     /** Observable map: package → summary. Empty until [load] returns. */
     val summaries: StateFlow<Map<String, AppContentSummary>> = _summaries
@@ -49,25 +51,31 @@ class AppAccessContentIndex(
 
     /**
      * Single IO pass: lists memory + skill packages, merges into a map. Safe to
-     * call repeatedly; later calls replace prior state.
+     * call repeatedly; later calls replace prior state. Serialized with
+     * [update] via [mutex] so an in-flight scan cannot clobber a concurrent
+     * row-level update.
      */
     suspend fun load(): Map<String, AppContentSummary> = withContext(ioDispatcher) {
-        val memory = memoryPackages.list()
-        val skills = skillPackages.list()
-        val merged = (memory + skills).associateWith { pkg ->
-            AppContentSummary(hasMemory = pkg in memory, hasSkill = pkg in skills)
+        mutex.withLock {
+            val memory = memoryPackages.list()
+            val skills = skillPackages.list()
+            val merged = (memory + skills).associateWith { pkg ->
+                AppContentSummary(hasMemory = pkg in memory, hasSkill = pkg in skills)
+            }
+            _summaries.value = merged
+            merged
         }
-        _summaries.value = merged
-        merged
     }
 
     /**
      * Incremental update after a save / delete in the row editor. Passing
      * [AppContentSummary.NONE] drops the entry so it no longer surfaces chips.
+     * Suspends to share [mutex] with [load].
      */
-    fun update(packageName: String, summary: AppContentSummary) {
-        _summaries.update { current ->
-            if (summary == AppContentSummary.NONE) {
+    suspend fun update(packageName: String, summary: AppContentSummary) {
+        mutex.withLock {
+            val current = _summaries.value
+            _summaries.value = if (summary == AppContentSummary.NONE) {
                 if (packageName in current) current - packageName else current
             } else {
                 current + (packageName to summary)
