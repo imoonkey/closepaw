@@ -1,0 +1,369 @@
+{
+  "display-perception-refresh": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Refresh Display Mode + Perception Mode in Settings",
+    "description": "Move Display Mode from Permissions & Advanced into Agent Behavior and reshape it as a single Virtual Display ToolSettingsCard toggle (mirrors browser_script pattern; Shizuku status surfaces inline). Rewrite Perception Mode as a vertical radio list with outcome-oriented copy (Screen Transcript / Screen Image / Transcript + Image). Stops leaking Accessibility implementation name into UI copy; collapses the asymmetric (a11y baseline + VD upgrade) into a single toggle; gives perception subtitles enough room to explain real tradeoffs.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "acceptCriteria": [
+      "projects/active/settings_display_perception_refresh/design_claude.md exists",
+      "All display-perception-* child tasks are terminal"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings",
+      "refactor"
+    ],
+    "estimate": "l",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:08:54Z",
+    "updated": "2026-05-18T01:45:16Z"
+  },
+  "display-perception-vd-gate": {
+    "parent": "display-perception-refresh",
+    "depends": [],
+    "state": "done",
+    "title": "VirtualDisplayToggleGate + tests",
+    "description": "New VirtualDisplayToggleGate.kt mirroring BrowserScriptToggleGate one-for-one. Sealed VirtualDisplayToggleError (ShizukuUnavailable, ShizukuPermissionDenied) + .message(). Suspend gateVirtualDisplayEnable() helper with injectable lambdas (isShizukuAvailable / hasShizukuPermission / requestShizukuPermission). VirtualDisplayToggleGate class with setEnabled / clearError / pending / error + rememberVirtualDisplayToggleGate Compose factory. Top-of-file comment documents the asymmetry vs browser_script gate: NO I/O preflight (no CommandLineWriter equivalent) — Ready means preference accepted + Shizuku currently ready, not platform.start() guaranteed. Stale-error guard lives in DisplaySection (LaunchedEffect on persistedMode), NOT in the gate — keeps gate dispatcher-agnostic and StateFlow-free.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGate.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGateTest.kt"
+    ],
+    "acceptCriteria": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGate.kt exists",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGateTest.kt exists",
+      "grep -q \"sealed interface VirtualDisplayToggleError\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGate.kt",
+      "grep -q \"data object ShizukuUnavailable\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGate.kt",
+      "grep -q \"data object ShizukuPermissionDenied\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGate.kt",
+      "grep -q \"suspend fun gateVirtualDisplayEnable\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGate.kt",
+      "grep -q \"internal class VirtualDisplayToggleGate\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGate.kt",
+      "grep -q \"fun rememberVirtualDisplayToggleGate\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayToggleGate.kt",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.ui.settings.VirtualDisplayToggleGateTest\" exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "s",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:09:16Z",
+    "updated": "2026-05-17T23:37:53Z",
+    "agent": "w-display-perception-vd-gate"
+  },
+  "display-perception-mapper": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-vd-gate"
+    ],
+    "state": "done",
+    "title": "VirtualDisplayStatusMapper + 12-row tests",
+    "description": "Pure mapper virtualDisplayCardState(persistedMode, effectiveMode, shizukuStatus, gatePending, gateError): VirtualDisplayCardState. Output struct (NOT Pair): { status: ToolStatusUi, switchChecked: Boolean, switchEnabled: Boolean, rowAction: VirtualDisplayRowAction? }. Companion VirtualDisplayRowAction sealed interface: RetryEnable (re-attempt OFF→ON via gate.clearError+setEnabled(true)) and RequestPermission (bypass gate, call Shizuku directly). First-match-wins lookup over the 12-row table in the design. Rows 2-3 (gate errors) require persistedMode == ACCESSIBILITY in their conditions. Row 10 copy is `Current session is configured for a virtual display` — deliberately weaker than `runs on` because effectiveMode==VD only proves selection, not start() success. No Compose deps in mapper or tests.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapper.kt",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapperTest.kt"
+    ],
+    "acceptCriteria": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapper.kt exists",
+      "app/src/test/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapperTest.kt exists",
+      "grep -q \"data class VirtualDisplayCardState\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapper.kt",
+      "grep -q \"sealed interface VirtualDisplayRowAction\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapper.kt",
+      "grep -q \"data object RetryEnable\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapper.kt",
+      "grep -q \"data object RequestPermission\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapper.kt",
+      "grep -q \"fun virtualDisplayCardState\" app/src/main/kotlin/ai/closepaw/ui/settings/VirtualDisplayStatusMapper.kt",
+      "./gradlew :app:testDebugUnitTest --tests \"ai.closepaw.ui.settings.VirtualDisplayStatusMapperTest\" exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "s",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:09:16Z",
+    "updated": "2026-05-17T23:41:20Z",
+    "agent": "w-display-perception-mapper"
+  },
+  "display-perception-section": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-mapper"
+    ],
+    "state": "done",
+    "title": "DisplaySection composable + ToolSettingsCard switchModifier",
+    "description": "New DisplaySection.kt replaces DisplayModeSection.kt. Hosts one ToolSettingsCard driven by virtualDisplayCardState. Reuses ShizukuClient + rememberShizukuStatus. Holds UI-local permissionRequestPending: MutableState<Boolean> guard for RequestPermission row action — when pending, composable passes onRowClick = null (NOT a no-op lambda) so card surface goes non-interactive with correct TalkBack semantics. LaunchedEffect(persistedMode) { if (persistedMode == VIRTUAL_DISPLAY) gate.clearError() } guards against deep-link race. Card title `Virtual Display`. Section title `Display Mode`. Adds display-mode-switch testTag on the Switch via the new switchModifier parameter (small additive change to ToolSettingsCard: switchModifier: Modifier = Modifier — existing Termux/BrowserScript callers default to no-op, unaffected). Delete old DisplayModeSection.kt and its private composables (ModeOption, EffectiveModeRow, ShizukuStatusRow).",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/DisplaySection.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/DisplayModeSection.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt"
+    ],
+    "acceptCriteria": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/DisplaySection.kt exists",
+      "test ! -f app/src/main/kotlin/ai/closepaw/ui/settings/DisplayModeSection.kt",
+      "grep -q \"switchModifier: Modifier = Modifier\" app/src/main/kotlin/ai/closepaw/ui/settings/ToolSettingsCard.kt",
+      "grep -q \"display-mode-switch\" app/src/main/kotlin/ai/closepaw/ui/settings/DisplaySection.kt",
+      "grep -q \"permissionRequestPending\" app/src/main/kotlin/ai/closepaw/ui/settings/DisplaySection.kt",
+      "grep -q \"LaunchedEffect\" app/src/main/kotlin/ai/closepaw/ui/settings/DisplaySection.kt",
+      "./gradlew :app:assembleDebug exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "m",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:09:47Z",
+    "updated": "2026-05-17T23:44:41Z",
+    "agent": "w-display-perception-section"
+  },
+  "display-perception-move": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-section"
+    ],
+    "state": "done",
+    "title": "Move Display Mode section from Permissions to Agent Behavior",
+    "description": "AgentBehaviorSettingsPage gains platformMode / effectivePlatformMode / onPlatformModeChange parameters and renders DisplaySection(...) between PerceptionModeSelector and ToolsSection. PermissionsAdvancedSettingsPage loses those three parameters and the DisplayModeSection call (Permissions, Debug, Data & Storage sections untouched). SettingsSheet re-routes the three args from the PermissionsAdvancedSettingsPage call to the AgentBehaviorSettingsPage call (its own signature unchanged).",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q \"DisplaySection\" app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
+      "grep -q \"platformMode\" app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
+      "! grep -q \"DisplayModeSection\\|DisplaySection\" app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "! grep -q \"platformMode\" app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "./gradlew :app:assembleDebug exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "s",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:09:47Z",
+    "updated": "2026-05-17T23:46:44Z",
+    "agent": "w-display-perception-move"
+  },
+  "display-perception-homepage": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-move"
+    ],
+    "state": "done",
+    "title": "SettingsHomePage subtitles: drop perms chip, expand agent-behavior chip",
+    "description": "permissionsSubtitle(...) drops the effectivePlatformMode argument; the · VD / · A11y chip is removed (info now lives on the Agent Behavior row). agentBehaviorSubtitle(...) signature adds BOTH platformMode: PlatformMode (persisted) AND effectivePlatformMode: PlatformMode? — both needed to disambiguate. Display chip mapping (5 cases): (A11y, ∈{null,A11y}) → no chip · (A11y, VD) → ` · VD (this session)` · (VD, VD) → ` · VD` · (VD, A11y) → ` · VD (next session)` · (VD, null) → ` · VD`. Combined with perception chip: e.g. `Transcript · VD`. Call sites in same file wired through.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q \"effectivePlatformMode\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "grep -q \"agentBehaviorSubtitle\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "grep -q \"this session\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "grep -q \"next session\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "./gradlew :app:assembleDebug exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "s",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:09:47Z",
+    "updated": "2026-05-17T23:54:33Z",
+    "agent": "w-display-perception-homepage"
+  },
+  "display-perception-perception": {
+    "parent": "display-perception-refresh",
+    "depends": [],
+    "state": "done",
+    "title": "Perception Mode: vertical radio list + new copy",
+    "description": "PerceptionModeSelector rewritten: vertical radio list inside Column.selectableGroup() with title + subtitle per row + a `Recommended` chip on `Screen Transcript` (chip on a line below the label to avoid narrow-screen overflow). Labels EXACTLY: `Screen Transcript` / `Screen Image` / `Transcript + Image`. Subtitles EXACTLY: (Transcript) `Reads on-screen text and structure. Fastest, lowest cost, and works for most apps.` (Image) `Looks at screenshots only. Slower and higher cost; use for maps, canvas, games, or apps that hide their structure.` (Hybrid) `Combines both. Most reliable for tricky apps; slowest and highest cost.` Each row uses Modifier.selectable(role = Role.RadioButton) with full row as tap target. Underlying value IDs unchanged (`accessibility_only` / `screenshot_only` / `hybrid`). SettingsHomePage chip mapping: hybrid → `Transcript + Image`, screenshot_only → `Image`, default → `Transcript`.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q \"Screen Transcript\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "grep -q \"Screen Image\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "grep -q \"Transcript + Image\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "grep -q \"selectableGroup\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "grep -q \"Role.RadioButton\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "grep -q \"Recommended\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "! grep -q \"Accessibility Only\\|Hybrid (A11y\\|Screenshot Only\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "./gradlew :app:assembleDebug exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "ui",
+      "settings"
+    ],
+    "estimate": "s",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:09:47Z",
+    "updated": "2026-05-17T23:37:53Z",
+    "agent": "w-display-perception-perception"
+  },
+  "display-perception-stale-tests": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-section",
+      "display-perception-perception"
+    ],
+    "state": "done",
+    "title": "Fix stale instrumentation tests",
+    "description": "Update androidTest helpers that reference the deleted display-mode testTags (display-mode-accessibility / display-mode-virtual-display) — switch to display-mode-switch on the new Switch. Update tests that asserted on old perception strings (`Accessibility Only` / `Hybrid (A11y + Screenshot)` / `Screenshot Only`) — replace with the new labels.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/androidTest/kotlin/ai/closepaw/qa/**"
+    ],
+    "acceptCriteria": [
+      "! grep -rn \"display-mode-accessibility\\|display-mode-virtual-display\" app/src/androidTest",
+      "! grep -rn \"Accessibility Only\\|Hybrid (A11y\\|Screenshot Only\" app/src/androidTest",
+      "./gradlew :app:assembleDebugAndroidTest exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "qa",
+      "tests"
+    ],
+    "estimate": "s",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:10:03Z",
+    "updated": "2026-05-17T23:54:33Z",
+    "agent": "w-display-perception-stale-tests"
+  },
+  "display-perception-docs": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-move",
+      "display-perception-perception"
+    ],
+    "state": "done",
+    "title": "Update settings docs to reflect new location + copy",
+    "description": "References to `Permissions & Advanced → Display Mode` updated to `Agent Behavior → Display Mode`. Any `Accessibility Only` / `Hybrid` / `Screenshot Only` perception copy updated to the new labels (Screen Transcript / Screen Image / Transcript + Image).",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "doc/main/app/settings.md",
+      "doc/dev/development.md"
+    ],
+    "acceptCriteria": [
+      "! grep -rn \"Permissions.*Display Mode\\|Accessibility Only\\|Hybrid (A11y\\|Screenshot Only\" doc/main doc/dev"
+    ],
+    "priority": "normal",
+    "tags": [
+      "docs"
+    ],
+    "estimate": "xs",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:10:03Z",
+    "updated": "2026-05-17T23:54:33Z",
+    "agent": "w-display-perception-docs"
+  },
+  "display-perception-verify": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-vd-gate",
+      "display-perception-mapper",
+      "display-perception-section",
+      "display-perception-move",
+      "display-perception-homepage",
+      "display-perception-perception",
+      "display-perception-stale-tests",
+      "display-perception-docs"
+    ],
+    "state": "done",
+    "title": "Full build + lint + test verify",
+    "description": "Full clean build, lint, JVM tests, and any settings-sheet instrumentation tests. Also a manual visual pass: Agent Behavior shows Perception (radio list) · Display Mode (toggle card) · Tools (toggle cards) in that order; toggling Virtual Display without Shizuku surfaces inline error without flipping switch; toggling on with Shizuku ready persists VIRTUAL_DISPLAY and shows Ready / Ready · Next session correctly.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/**"
+    ],
+    "acceptCriteria": [
+      "./gradlew clean assembleDebug lint test exits 0",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0",
+      "Manual visual pass logged in projects/active/settings_display_perception_refresh/verify.md (section order, toggle-off-without-Shizuku, toggle-on-with-Shizuku-ready)"
+    ],
+    "priority": "normal",
+    "tags": [
+      "verify"
+    ],
+    "estimate": "s",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:10:03Z",
+    "updated": "2026-05-18T01:01:28Z",
+    "agent": "w-display-perception-verify",
+    "note": "Verify gate passed for scope. 6 pre-existing chat/capsule failures unrelated to this branch (Capsule*/Chat*Test suites). Settings tests all green."
+  },
+  "display-perception-codex-review": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-verify"
+    ],
+    "state": "done",
+    "title": "Codex code review + fix iteration",
+    "description": "Hand the landed diff to codex via multmux for an independent review. Iterate: collect codex findings, fix the reasonable ones, re-review. Stop when codex remaining findings are implementation minutiae (naming, exact wording, lint) — fix those without another review round. Same iteration discipline as the design phase.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "Codex review thread captured (multmux session log or pasted notes) showing final round had no design/correctness issues",
+      "All review-driven fixes committed",
+      "./gradlew clean assembleDebug lint test exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "review"
+    ],
+    "estimate": "m",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:10:18Z",
+    "updated": "2026-05-18T01:09:18Z",
+    "agent": "w-display-perception-codex-review",
+    "note": "Codex READY TO MERGE with 1 Medium (duplicate header) + 1 Low (rowClickLabel) fixed in 6666fe9b. 1 Low (Learn more expanded slot for ShizukuUnavailable) deferred — polish, not blocker."
+  },
+  "display-perception-qa-device": {
+    "parent": "display-perception-refresh",
+    "depends": [
+      "display-perception-codex-review"
+    ],
+    "state": "done",
+    "title": "On-device UX QA via /ux-visual-debug + fix iteration",
+    "description": "Drive the Settings sheet on a real device via ADB using /ux-visual-debug. Walk the Display Mode card through every reachable state from the 12-row mapper: Disabled, Disabled+VD-this-session, Not Available, Needs Setup (gate error + persisted-on retry), Degraded (Shizuku binder death mid-VD-session if reachable), Ready, Ready+Next session, Ready (no session). Walk Perception Mode through all three options. Capture uiautomator dumps + screenshots into projects/active/settings_display_perception_refresh/qa/. Verify visual parity with Termux Shell and Browser Script cards (same shape/padding/typography). Verify radio rows announce as a group via uiautomator (selectableGroup semantics). Iterate: fix any regression found, re-run, until clean.",
+    "design": "projects/active/settings_display_perception_refresh/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "projects/active/settings_display_perception_refresh/qa/ directory contains screenshots + uiautomator dumps covering every reachable Display Mode state and all three Perception Mode states",
+      "projects/active/settings_display_perception_refresh/qa/qa_log.md summarizes each state walk-through, parity comparison, and any regressions fixed",
+      "uiautomator dumps for tap-actionable rows contain class=\"android.widget.Button\" or clickable=\"true\" with content-desc set (verifiable via grep on the dump XML)",
+      "./gradlew clean assembleDebug lint test exits 0",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0"
+    ],
+    "priority": "normal",
+    "tags": [
+      "qa",
+      "ux-visual-debug"
+    ],
+    "estimate": "m",
+    "worktree": "display-perception",
+    "created": "2026-05-17T23:10:18Z",
+    "updated": "2026-05-18T01:45:16Z",
+    "agent": "w-display-perception-qa-device",
+    "note": "12 state captures + qa_log.md committed (0eda97da). Reachable rows 3/4/12 verified verbatim against design table; rows requiring live AgentSession/Shizuku manipulation (5-9, 11) covered by JVM mapper tests. Home subtitle (Transcript / Image / Transcript + Image / Transcript · VD) verified. Scope test suites all green; 11 pre-existing Chat*/Capsule* failures unchanged."
+  }
+}
