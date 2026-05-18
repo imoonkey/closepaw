@@ -78,7 +78,7 @@ class CapsuleLifecycleTest {
             )
         }
 
-        compose.onNodeWithText("⚠ Something broke").assertExists()
+        compose.onNodeWithText("Something broke").assertExists()
         compose.onNodeWithText("Close").performClick()
         assertTrue("onDismissError was not invoked", dismissed)
     }

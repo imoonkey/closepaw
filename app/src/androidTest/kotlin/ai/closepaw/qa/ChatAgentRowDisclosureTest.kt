@@ -98,7 +98,9 @@ class ChatAgentRowDisclosureTest {
             }
         }
 
-        assertExpanded()
+        // Precondition: Live rows report "live" (locked-open), not "expanded".
+        compose.onNodeWithTag("qa-agent-bubble")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "live"))
 
         rowState = RowState.Complete
         compose.waitForIdle()

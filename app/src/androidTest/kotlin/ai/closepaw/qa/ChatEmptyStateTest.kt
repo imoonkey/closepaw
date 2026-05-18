@@ -18,17 +18,20 @@ class ChatEmptyStateTest {
 
     @get:Rule val compose = createComposeRule()
 
-    private val suggestions = listOf(
+    // Production renders each suggestion as verb + gloss in two adjacent Text
+    // nodes (MarginaliaSuggestion). Matching the verb is sufficient + unique.
+    private val verbs = listOf("Check", "Turn on", "Search")
+    private val fullSuggestions = listOf(
         "Check my unread emails",
         "Turn on Do Not Disturb",
-        "Search for nearby restaurants"
+        "Search for nearby restaurants",
     )
 
     @Test fun shows_three_suggestion_chips() {
         compose.setContent { ClosePawTheme { EmptyState(onSuggestionClick = {}) } }
 
-        suggestions.forEach { text ->
-            compose.onNodeWithText("\"$text\"").assertExists()
+        verbs.forEach { verb ->
+            compose.onNodeWithText(verb).assertExists()
         }
         compose.onAllNodes(hasClickAction()).assertCountEquals(3)
     }
@@ -37,8 +40,9 @@ class ChatEmptyStateTest {
         var clicked: String? = null
         compose.setContent { ClosePawTheme { EmptyState(onSuggestionClick = { clicked = it }) } }
 
-        compose.onNodeWithText("\"${suggestions[1]}\"").performClick()
+        // Click action lives on the Row, not the Text; tap by clickable index.
+        compose.onAllNodes(hasClickAction())[1].performClick()
 
-        assertEquals(suggestions[1], clicked)
+        assertEquals(fullSuggestions[1], clicked)
     }
 }
