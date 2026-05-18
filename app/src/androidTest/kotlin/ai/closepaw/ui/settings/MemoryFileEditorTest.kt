@@ -174,10 +174,11 @@ class MemoryFileEditorTest {
     @Test fun save_handler_re_checks_gate_inside_coroutine_and_aborts_on_locked_race() {
         userFile().writeText("untouched")
 
-        // A dispatcher that parks the next task until release() is called.
-        // We use this to interleave: click Save → coroutine launched and
-        // parked → flip gate to locked → release → coroutine resumes and
-        // re-checks gate.value (now true) → aborts before writing.
+        // A dispatcher that delegates to real IO until armed. When armed it
+        // queues blocks instead, letting the test interleave external state
+        // changes (e.g. gate flipping locked) with a parked IO coroutine.
+        // We arm AFTER the initial load so the editor populates normally,
+        // then park only the save-path IO hop.
         val parking = ParkingDispatcher()
 
         var aborts = 0
@@ -195,23 +196,24 @@ class MemoryFileEditorTest {
             }
         }
 
+        // Wait for the initial load to complete: Edit becomes enabled only
+        // when loadingDone is true (and the gate is unlocked).
         compose.waitUntil(5_000) {
             !gate.memoryEditLocked.value &&
                 compose.onAllNodesWithTag(MEMORY_EDITOR_EDIT_TAG).fetchSemanticsNodes().size == 1
         }
+        compose.onNodeWithTag(MEMORY_EDITOR_EDIT_TAG).assertIsEnabled()
 
         compose.onNodeWithTag(MEMORY_EDITOR_EDIT_TAG).performClick()
         compose.onNodeWithTag(MEMORY_EDITOR_TEXTFIELD_TAG)
             .performTextReplacement("racy-new-content")
-        // Drain the initial load task (the LaunchedEffect also goes through
-        // our dispatcher when it dispatches IO).
-        parking.releaseAll()
-        compose.waitForIdle()
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).assertIsEnabled()
 
-        // Click Save while the gate is still unlocked. The launch goes to
-        // our parking dispatcher and waits for release.
-        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).assertIsEnabled().performClick()
-        // Wait for the coroutine to enqueue work into our dispatcher.
+        // Arm parking before Save so only the save-path IO hop is parked.
+        parking.arm()
+
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).performClick()
+        // Wait for the save coroutine to dispatch its IO block onto our parker.
         compose.waitUntil(2_000) { parking.pendingCount() >= 1 }
 
         // Flip the gate to locked BEFORE releasing the parked IO task.
@@ -264,19 +266,82 @@ class MemoryFileEditorTest {
         compose.onNodeWithTag(MEMORY_EDITOR_DISCARD_TAG).performClick()
         compose.onNodeWithTag(MEMORY_EDITOR_OPEN_FULL_TAG).assertIsEnabled()
     }
+
+    // ------------------------------------------------------------
+    // (5) TOCTOU: click Delete confirm while the lock transitions
+    //     in flight; delete is aborted and the file remains.
+    // ------------------------------------------------------------
+    @Test fun delete_handler_re_checks_gate_inside_coroutine_and_aborts_on_locked_race() {
+        userFile().writeText("untouched")
+
+        val parking = ParkingDispatcher()
+        var aborts = 0
+
+        compose.setContent {
+            ClosePawTheme {
+                MemoryFileEditor(
+                    memoryStore = memoryStore,
+                    scope = MemoryScope.USER,
+                    packageName = null,
+                    gate = gate,
+                    bounded = false,
+                    onAborted = { aborts++ },
+                    ioDispatcher = parking,
+                )
+            }
+        }
+
+        compose.waitUntil(5_000) {
+            !gate.memoryEditLocked.value &&
+                compose.onAllNodesWithTag(MEMORY_EDITOR_DELETE_TAG).fetchSemanticsNodes().size == 1
+        }
+        compose.onNodeWithTag(MEMORY_EDITOR_DELETE_TAG).assertIsEnabled()
+
+        // Open the confirm dialog.
+        compose.onNodeWithTag(MEMORY_EDITOR_DELETE_TAG).performClick()
+        compose.waitUntil(2_000) {
+            compose.onAllNodesWithTag(MEMORY_EDITOR_DELETE_CONFIRM_TAG).fetchSemanticsNodes().size == 1
+        }
+
+        // Arm parking only for the delete-path IO hop.
+        parking.arm()
+
+        compose.onNodeWithTag(MEMORY_EDITOR_DELETE_CONFIRM_TAG).performClick()
+        compose.waitUntil(2_000) { parking.pendingCount() >= 1 }
+
+        val state = MutableStateFlow<SessionState>(SessionState.Running)
+        coordinator.attachSession(fakeSession(state))
+        compose.waitUntil(2_000) { gate.memoryEditLocked.value }
+
+        parking.releaseAll()
+        compose.waitForIdle()
+        compose.waitUntil(2_000) { aborts == 1 }
+
+        assertEquals(1, aborts)
+        assertEquals("untouched", userFile().readText())
+    }
 }
 
 /**
- * A dispatcher that queues every dispatched runnable and runs nothing until
- * [releaseAll] is called. Lets a test interleave external state changes
- * (e.g. gate flipping locked) with a parked IO coroutine.
+ * A dispatcher that delegates to [Dispatchers.IO] by default. When [arm] is
+ * called, subsequent dispatches are queued and run nothing until
+ * [releaseAll] is invoked. Lets a test park a specific IO hop (e.g. the
+ * save coroutine) while letting unrelated hops (e.g. the initial load) run
+ * normally.
  */
 private class ParkingDispatcher : CoroutineDispatcher() {
     private val queue = ConcurrentLinkedQueue<Runnable>()
+    @Volatile private var armed = false
 
     override fun dispatch(context: CoroutineContext, block: Runnable) {
-        queue.add(block)
+        if (armed) {
+            queue.add(block)
+        } else {
+            Dispatchers.IO.dispatch(context, block)
+        }
     }
+
+    fun arm() { armed = true }
 
     fun pendingCount(): Int = queue.size
 

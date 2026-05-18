@@ -25,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -79,6 +79,7 @@ internal const val MEMORY_EDITOR_DISCARD_TAG = "memory-editor-discard"
 internal const val MEMORY_EDITOR_DELETE_TAG = "memory-editor-delete"
 internal const val MEMORY_EDITOR_EDIT_TAG = "memory-editor-edit"
 internal const val MEMORY_EDITOR_BANNER_TAG = "memory-editor-banner"
+internal const val MEMORY_EDITOR_DELETE_CONFIRM_TAG = "memory-editor-delete-confirm"
 
 private enum class Mode { VIEW, EDIT }
 
@@ -97,7 +98,7 @@ internal fun MemoryFileEditor(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val locked by gate.memoryEditLocked.collectAsState()
+    val locked by gate.memoryEditLocked.collectAsStateWithLifecycle()
 
     // Saved keys: scope + package. Re-opening the same file restores buffer.
     val saveKey = "memory-editor:${scope.wireValue}:${packageName ?: ""}"
@@ -312,6 +313,7 @@ internal fun MemoryFileEditor(
                 TextButton(
                     onClick = onConfirmDelete,
                     enabled = !locked && !writing,
+                    modifier = Modifier.testTag(MEMORY_EDITOR_DELETE_CONFIRM_TAG),
                 ) { Text("Delete") }
             },
             dismissButton = {
