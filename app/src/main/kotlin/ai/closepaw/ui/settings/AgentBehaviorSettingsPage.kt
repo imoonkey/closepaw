@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMastheadDrillDown
 
 @Composable
@@ -49,6 +50,7 @@ internal fun AgentBehaviorSettingsPage(
                 onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
                 isSessionRunning = isSessionRunning,
             )
+            Fleuron()
             Spacer(modifier = Modifier.height(32.dp))
         }
     }

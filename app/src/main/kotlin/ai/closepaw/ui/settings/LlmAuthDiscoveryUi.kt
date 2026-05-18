@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -46,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalogRepository
 import ai.closepaw.llm.ModelEntry
+import ai.closepaw.ui.theme.Fleuron
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -128,7 +128,7 @@ internal fun SearchableGroupedModelPicker(
                                     else expandedKeys + group.key
                                 },
                             )
-                            HorizontalDivider()
+                            Fleuron()
                         }
                         if (expanded) {
                             items(items = group.rows, key = { "row:${it.name}" }) { row ->

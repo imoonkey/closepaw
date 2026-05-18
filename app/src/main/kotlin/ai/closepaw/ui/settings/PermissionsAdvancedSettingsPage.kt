@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ai.closepaw.BuildConfig
+import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMastheadDrillDown
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -137,6 +138,7 @@ internal fun PermissionsAdvancedSettingsPage(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
+            Fleuron()
             Spacer(modifier = Modifier.height(32.dp))
         }
     }

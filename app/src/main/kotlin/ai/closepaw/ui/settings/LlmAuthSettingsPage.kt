@@ -44,6 +44,7 @@ import ai.closepaw.llm.ModelIdValidator
 import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.LLMBackendType
+import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMastheadDrillDown
 import ai.closepaw.BuildConfig
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -250,6 +251,7 @@ internal fun LlmAuthSettingsPage(
                     modelLoadingStatus = modelLoadingStatus
                 )
             }
+            Fleuron()
             Spacer(modifier = Modifier.height(32.dp))
         }
     }

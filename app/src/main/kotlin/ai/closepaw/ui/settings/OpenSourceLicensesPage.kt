@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMastheadDrillDown
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -115,6 +116,7 @@ private fun LicenseList(rows: List<LicenseEntry>, onOpenUrl: (String) -> Unit) {
         items(rows, key = { entry -> entry.dependency ?: entry.project ?: entry.hashCode().toString() }) { entry ->
             LicenseCard(entry = entry, onOpenUrl = onOpenUrl)
         }
+        item { Fleuron() }
         item { Spacer(modifier = Modifier.height(24.dp)) }
     }
 }
