@@ -190,6 +190,7 @@ class MemorySettingsPageTest {
                     isAccessibilityEnabled = true,
                     isOverlayEnabled = true,
                     debugMode = false,
+                    platformMode = PlatformMode.ACCESSIBILITY,
                     effectivePlatformMode = PlatformMode.ACCESSIBILITY,
                     appClassifier = AppClassifier(appTiers = emptyMap()),
                     onNavigate = {},
