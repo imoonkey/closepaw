@@ -67,6 +67,7 @@ internal fun AppRowExpansion(
     gate: MemoryEditGate,
     onMemoryPresenceChanged: (hasMemory: Boolean) -> Unit,
     onOpenFullMemoryEditor: (() -> Unit)? = null,
+    startInEditNonce: String? = null,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     modifier: Modifier = Modifier,
 ) {
@@ -99,6 +100,7 @@ internal fun AppRowExpansion(
                 onOpenFull = onOpenFullMemoryEditor,
                 onSaved = { onMemoryPresenceChanged(true) },
                 onDeleted = { onMemoryPresenceChanged(false) },
+                startInEditOnce = startInEditNonce,
                 ioDispatcher = ioDispatcher,
             )
         }

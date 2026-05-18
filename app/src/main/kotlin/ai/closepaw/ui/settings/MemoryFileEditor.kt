@@ -95,6 +95,12 @@ internal fun MemoryFileEditor(
     onSaved: (() -> Unit)? = null,
     onDeleted: (() -> Unit)? = null,
     onAborted: (() -> Unit)? = null,
+    // One-shot signal: when this nonce changes (and the editor's saveKey
+    // matches the file being created), the editor enters EDIT mode after
+    // load. Used by App Access "+ Memory" so the user lands directly in
+    // an editable buffer. Consumed via a remembered "last-seen" nonce so
+    // recomposition won't re-trigger on subsequent renders.
+    startInEditOnce: String? = null,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     val context = LocalContext.current
@@ -118,6 +124,22 @@ internal fun MemoryFileEditor(
             loaded = text
             buffer = text.orEmpty()
             loadingDone = true
+        }
+    }
+
+    // Consume the one-shot start-in-edit signal exactly once per nonce. The
+    // remembered "last-seen" string survives recomposition but not process
+    // death — matching the saveKey-scoped buffer state semantics. We only
+    // honor the signal while unlocked, so a session that started during the
+    // creation race won't strand the user in an EDIT view of a locked file.
+    var lastSeenEditNonce by remember(saveKey) { mutableStateOf<String?>(null) }
+    LaunchedEffect(saveKey, startInEditOnce, loadingDone, locked) {
+        if (loadingDone && !locked &&
+            startInEditOnce != null &&
+            startInEditOnce != lastSeenEditNonce
+        ) {
+            lastSeenEditNonce = startInEditOnce
+            mode = Mode.EDIT
         }
     }
 
