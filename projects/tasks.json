@@ -1034,7 +1034,7 @@
   "display-perception-refresh": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Refresh Display Mode + Perception Mode in Settings",
     "description": "Move Display Mode from Permissions & Advanced into Agent Behavior and reshape it as a single Virtual Display ToolSettingsCard toggle (mirrors browser_script pattern; Shizuku status surfaces inline). Rewrite Perception Mode as a vertical radio list with outcome-oriented copy (Screen Transcript / Screen Image / Transcript + Image). Stops leaking Accessibility implementation name into UI copy; collapses the asymmetric (a11y baseline + VD upgrade) into a single toggle; gives perception subtitles enough room to explain real tradeoffs.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1051,12 +1051,12 @@
     "estimate": "l",
     "worktree": "display-perception",
     "created": "2026-05-17T23:08:54Z",
-    "updated": "2026-05-17T23:08:54Z"
+    "updated": "2026-05-18T01:45:16Z"
   },
   "display-perception-vd-gate": {
     "parent": "display-perception-refresh",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "VirtualDisplayToggleGate + tests",
     "description": "New VirtualDisplayToggleGate.kt mirroring BrowserScriptToggleGate one-for-one. Sealed VirtualDisplayToggleError (ShizukuUnavailable, ShizukuPermissionDenied) + .message(). Suspend gateVirtualDisplayEnable() helper with injectable lambdas (isShizukuAvailable / hasShizukuPermission / requestShizukuPermission). VirtualDisplayToggleGate class with setEnabled / clearError / pending / error + rememberVirtualDisplayToggleGate Compose factory. Top-of-file comment documents the asymmetry vs browser_script gate: NO I/O preflight (no CommandLineWriter equivalent) — Ready means preference accepted + Shizuku currently ready, not platform.start() guaranteed. Stale-error guard lives in DisplaySection (LaunchedEffect on persistedMode), NOT in the gate — keeps gate dispatcher-agnostic and StateFlow-free.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1083,14 +1083,15 @@
     "estimate": "s",
     "worktree": "display-perception",
     "created": "2026-05-17T23:09:16Z",
-    "updated": "2026-05-17T23:09:16Z"
+    "updated": "2026-05-17T23:37:53Z",
+    "agent": "w-display-perception-vd-gate"
   },
   "display-perception-mapper": {
     "parent": "display-perception-refresh",
     "depends": [
       "display-perception-vd-gate"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "VirtualDisplayStatusMapper + 12-row tests",
     "description": "Pure mapper virtualDisplayCardState(persistedMode, effectiveMode, shizukuStatus, gatePending, gateError): VirtualDisplayCardState. Output struct (NOT Pair): { status: ToolStatusUi, switchChecked: Boolean, switchEnabled: Boolean, rowAction: VirtualDisplayRowAction? }. Companion VirtualDisplayRowAction sealed interface: RetryEnable (re-attempt OFF→ON via gate.clearError+setEnabled(true)) and RequestPermission (bypass gate, call Shizuku directly). First-match-wins lookup over the 12-row table in the design. Rows 2-3 (gate errors) require persistedMode == ACCESSIBILITY in their conditions. Row 10 copy is `Current session is configured for a virtual display` — deliberately weaker than `runs on` because effectiveMode==VD only proves selection, not start() success. No Compose deps in mapper or tests.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1116,14 +1117,15 @@
     "estimate": "s",
     "worktree": "display-perception",
     "created": "2026-05-17T23:09:16Z",
-    "updated": "2026-05-17T23:09:16Z"
+    "updated": "2026-05-17T23:41:20Z",
+    "agent": "w-display-perception-mapper"
   },
   "display-perception-section": {
     "parent": "display-perception-refresh",
     "depends": [
       "display-perception-mapper"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "DisplaySection composable + ToolSettingsCard switchModifier",
     "description": "New DisplaySection.kt replaces DisplayModeSection.kt. Hosts one ToolSettingsCard driven by virtualDisplayCardState. Reuses ShizukuClient + rememberShizukuStatus. Holds UI-local permissionRequestPending: MutableState<Boolean> guard for RequestPermission row action — when pending, composable passes onRowClick = null (NOT a no-op lambda) so card surface goes non-interactive with correct TalkBack semantics. LaunchedEffect(persistedMode) { if (persistedMode == VIRTUAL_DISPLAY) gate.clearError() } guards against deep-link race. Card title `Virtual Display`. Section title `Display Mode`. Adds display-mode-switch testTag on the Switch via the new switchModifier parameter (small additive change to ToolSettingsCard: switchModifier: Modifier = Modifier — existing Termux/BrowserScript callers default to no-op, unaffected). Delete old DisplayModeSection.kt and its private composables (ModeOption, EffectiveModeRow, ShizukuStatusRow).",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1149,14 +1151,15 @@
     "estimate": "m",
     "worktree": "display-perception",
     "created": "2026-05-17T23:09:47Z",
-    "updated": "2026-05-17T23:09:47Z"
+    "updated": "2026-05-17T23:44:41Z",
+    "agent": "w-display-perception-section"
   },
   "display-perception-move": {
     "parent": "display-perception-refresh",
     "depends": [
       "display-perception-section"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Move Display Mode section from Permissions to Agent Behavior",
     "description": "AgentBehaviorSettingsPage gains platformMode / effectivePlatformMode / onPlatformModeChange parameters and renders DisplaySection(...) between PerceptionModeSelector and ToolsSection. PermissionsAdvancedSettingsPage loses those three parameters and the DisplayModeSection call (Permissions, Debug, Data & Storage sections untouched). SettingsSheet re-routes the three args from the PermissionsAdvancedSettingsPage call to the AgentBehaviorSettingsPage call (its own signature unchanged).",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1180,14 +1183,15 @@
     "estimate": "s",
     "worktree": "display-perception",
     "created": "2026-05-17T23:09:47Z",
-    "updated": "2026-05-17T23:09:47Z"
+    "updated": "2026-05-17T23:46:44Z",
+    "agent": "w-display-perception-move"
   },
   "display-perception-homepage": {
     "parent": "display-perception-refresh",
     "depends": [
       "display-perception-move"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "SettingsHomePage subtitles: drop perms chip, expand agent-behavior chip",
     "description": "permissionsSubtitle(...) drops the effectivePlatformMode argument; the · VD / · A11y chip is removed (info now lives on the Agent Behavior row). agentBehaviorSubtitle(...) signature adds BOTH platformMode: PlatformMode (persisted) AND effectivePlatformMode: PlatformMode? — both needed to disambiguate. Display chip mapping (5 cases): (A11y, ∈{null,A11y}) → no chip · (A11y, VD) → ` · VD (this session)` · (VD, VD) → ` · VD` · (VD, A11y) → ` · VD (next session)` · (VD, null) → ` · VD`. Combined with perception chip: e.g. `Transcript · VD`. Call sites in same file wired through.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1209,12 +1213,13 @@
     "estimate": "s",
     "worktree": "display-perception",
     "created": "2026-05-17T23:09:47Z",
-    "updated": "2026-05-17T23:09:47Z"
+    "updated": "2026-05-17T23:54:33Z",
+    "agent": "w-display-perception-homepage"
   },
   "display-perception-perception": {
     "parent": "display-perception-refresh",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Perception Mode: vertical radio list + new copy",
     "description": "PerceptionModeSelector rewritten: vertical radio list inside Column.selectableGroup() with title + subtitle per row + a `Recommended` chip on `Screen Transcript` (chip on a line below the label to avoid narrow-screen overflow). Labels EXACTLY: `Screen Transcript` / `Screen Image` / `Transcript + Image`. Subtitles EXACTLY: (Transcript) `Reads on-screen text and structure. Fastest, lowest cost, and works for most apps.` (Image) `Looks at screenshots only. Slower and higher cost; use for maps, canvas, games, or apps that hide their structure.` (Hybrid) `Combines both. Most reliable for tricky apps; slowest and highest cost.` Each row uses Modifier.selectable(role = Role.RadioButton) with full row as tap target. Underlying value IDs unchanged (`accessibility_only` / `screenshot_only` / `hybrid`). SettingsHomePage chip mapping: hybrid → `Transcript + Image`, screenshot_only → `Image`, default → `Transcript`.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1240,7 +1245,8 @@
     "estimate": "s",
     "worktree": "display-perception",
     "created": "2026-05-17T23:09:47Z",
-    "updated": "2026-05-17T23:09:47Z"
+    "updated": "2026-05-17T23:37:53Z",
+    "agent": "w-display-perception-perception"
   },
   "display-perception-stale-tests": {
     "parent": "display-perception-refresh",
@@ -1248,7 +1254,7 @@
       "display-perception-section",
       "display-perception-perception"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Fix stale instrumentation tests",
     "description": "Update androidTest helpers that reference the deleted display-mode testTags (display-mode-accessibility / display-mode-virtual-display) — switch to display-mode-switch on the new Switch. Update tests that asserted on old perception strings (`Accessibility Only` / `Hybrid (A11y + Screenshot)` / `Screenshot Only`) — replace with the new labels.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1268,7 +1274,8 @@
     "estimate": "s",
     "worktree": "display-perception",
     "created": "2026-05-17T23:10:03Z",
-    "updated": "2026-05-17T23:10:03Z"
+    "updated": "2026-05-17T23:54:33Z",
+    "agent": "w-display-perception-stale-tests"
   },
   "display-perception-docs": {
     "parent": "display-perception-refresh",
@@ -1276,7 +1283,7 @@
       "display-perception-move",
       "display-perception-perception"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Update settings docs to reflect new location + copy",
     "description": "References to `Permissions & Advanced → Display Mode` updated to `Agent Behavior → Display Mode`. Any `Accessibility Only` / `Hybrid` / `Screenshot Only` perception copy updated to the new labels (Screen Transcript / Screen Image / Transcript + Image).",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1294,7 +1301,8 @@
     "estimate": "xs",
     "worktree": "display-perception",
     "created": "2026-05-17T23:10:03Z",
-    "updated": "2026-05-17T23:10:03Z"
+    "updated": "2026-05-17T23:54:33Z",
+    "agent": "w-display-perception-docs"
   },
   "display-perception-verify": {
     "parent": "display-perception-refresh",
@@ -1308,7 +1316,7 @@
       "display-perception-stale-tests",
       "display-perception-docs"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Full build + lint + test verify",
     "description": "Full clean build, lint, JVM tests, and any settings-sheet instrumentation tests. Also a manual visual pass: Agent Behavior shows Perception (radio list) · Display Mode (toggle card) · Tools (toggle cards) in that order; toggling Virtual Display without Shizuku surfaces inline error without flipping switch; toggling on with Shizuku ready persists VIRTUAL_DISPLAY and shows Ready / Ready · Next session correctly.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1327,14 +1335,16 @@
     "estimate": "s",
     "worktree": "display-perception",
     "created": "2026-05-17T23:10:03Z",
-    "updated": "2026-05-17T23:10:03Z"
+    "updated": "2026-05-18T01:01:28Z",
+    "agent": "w-display-perception-verify",
+    "note": "Verify gate passed for scope. 6 pre-existing chat/capsule failures unrelated to this branch (Capsule*/Chat*Test suites). Settings tests all green."
   },
   "display-perception-codex-review": {
     "parent": "display-perception-refresh",
     "depends": [
       "display-perception-verify"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex code review + fix iteration",
     "description": "Hand the landed diff to codex via multmux for an independent review. Iterate: collect codex findings, fix the reasonable ones, re-review. Stop when codex remaining findings are implementation minutiae (naming, exact wording, lint) — fix those without another review round. Same iteration discipline as the design phase.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1353,14 +1363,16 @@
     "estimate": "m",
     "worktree": "display-perception",
     "created": "2026-05-17T23:10:18Z",
-    "updated": "2026-05-17T23:10:18Z"
+    "updated": "2026-05-18T01:09:18Z",
+    "agent": "w-display-perception-codex-review",
+    "note": "Codex READY TO MERGE with 1 Medium (duplicate header) + 1 Low (rowClickLabel) fixed in 6666fe9b. 1 Low (Learn more expanded slot for ShizukuUnavailable) deferred — polish, not blocker."
   },
   "display-perception-qa-device": {
     "parent": "display-perception-refresh",
     "depends": [
       "display-perception-codex-review"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "On-device UX QA via /ux-visual-debug + fix iteration",
     "description": "Drive the Settings sheet on a real device via ADB using /ux-visual-debug. Walk the Display Mode card through every reachable state from the 12-row mapper: Disabled, Disabled+VD-this-session, Not Available, Needs Setup (gate error + persisted-on retry), Degraded (Shizuku binder death mid-VD-session if reachable), Ready, Ready+Next session, Ready (no session). Walk Perception Mode through all three options. Capture uiautomator dumps + screenshots into projects/active/settings_display_perception_refresh/qa/. Verify visual parity with Termux Shell and Browser Script cards (same shape/padding/typography). Verify radio rows announce as a group via uiautomator (selectableGroup semantics). Iterate: fix any regression found, re-run, until clean.",
     "design": "projects/active/settings_display_perception_refresh/design_claude.md",
@@ -1382,7 +1394,9 @@
     "estimate": "m",
     "worktree": "display-perception",
     "created": "2026-05-17T23:10:18Z",
-    "updated": "2026-05-17T23:10:18Z"
+    "updated": "2026-05-18T01:45:16Z",
+    "agent": "w-display-perception-qa-device",
+    "note": "12 state captures + qa_log.md committed (0eda97da). Reachable rows 3/4/12 verified verbatim against design table; rows requiring live AgentSession/Shizuku manipulation (5-9, 11) covered by JVM mapper tests. Home subtitle (Transcript / Image / Transcript + Image / Transcript · VD) verified. Scope test suites all green; 11 pre-existing Chat*/Capsule* failures unchanged."
   },
   "memory-settings": {
     "parent": null,
@@ -1407,7 +1421,7 @@
   "memory-settings-store-raw-refactor": {
     "parent": "memory-settings",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "MemoryStore: delete canonicalizer, add raw API, explicit append rules",
     "description": "Delete the read-time canonicalizer (loadSections + buildCanonicalDocument + legacy user_prefs.md migration + inline [kind]-prefix normalization). Add new raw API: read(scope, packageName?): String? (side-effect-free), write(scope, packageName?, content): SaveResult (atomic temp-file replace; 8192 UTF-8 bytes cap), delete(scope, packageName?), listAppPackages(): List<String>. Rewrite append(scope, section, content, packageName?) per the explicit insertion rules in the design (sanitation order: fold whitespace → strip control chars → collapse → trim → truncate 2000 chars; new file creates skeleton; missing heading appends new block at EOF; duplicate heading inserts under last; over-cap returns false + logs). append() keeps Boolean signature so RememberExperienceTool stays unchanged. Switch MemoryRecaller to read + takeIf isNotBlank + over-cap skip. Remove old readUserMemory / readDeviceMemory / readAppMemory; update call sites. writtenThisSession stays where it is (session-local — single-writer model means no holder/tracker extraction needed).",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1426,12 +1440,14 @@
     "worktree": "memory-settings",
     "estimate": "m",
     "created": "2026-05-17T23:29:31Z",
-    "updated": "2026-05-17T23:29:31Z"
+    "updated": "2026-05-17T23:57:56Z",
+    "agent": "w-memory-settings-store-raw-refactor",
+    "note": "Done at b645c6e0 + 30269606 (multibyte UTF-8 tests). Canonicalizer + legacy migration deleted. read/write/delete/listAppPackages + new append rules in place. RememberExperienceTool signature unchanged."
   },
   "memory-settings-edit-gate": {
     "parent": "memory-settings",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "MemoryEditGate + SessionCoordinator.currentSessionState",
     "description": "Extend SessionCoordinator with currentSessionState: StateFlow<SessionState?>. Critical: createAndSubmit (or equivalent creation entry point) must emit Created BEFORE invoking the suspending AgentSession.create block, otherwise the creation-in-progress window isn't locked. Aborted creation emits null. Add MemoryEditGate.memoryEditLocked: StateFlow<Boolean> = currentSessionState.map { it != null && it != SessionState.Shutdown }. Initial value true (safe default while flow is collecting). Locks for Created / Running / Idle / TakeoverPending / Paused; unlocks only when no session or Shutdown.",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1450,7 +1466,9 @@
     "worktree": "memory-settings",
     "estimate": "s",
     "created": "2026-05-17T23:29:32Z",
-    "updated": "2026-05-17T23:29:32Z"
+    "updated": "2026-05-17T23:57:56Z",
+    "agent": "w-memory-settings-edit-gate",
+    "note": "Done at 1eb2ae05 + 3fe423bd. SessionCoordinator.currentSessionState + MemoryEditGate.memoryEditLocked wired. Round 2 closed three correctness gaps: createAndSubmit exception rollback, detachSession keeps lock until Shutdown, attachSession synchronous state seed."
   },
   "memory-settings-file-editor": {
     "parent": "memory-settings",
@@ -1458,7 +1476,7 @@
       "memory-settings-store-raw-refactor",
       "memory-settings-edit-gate"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "MemoryFileEditor (bounded + unbounded) with gate lock",
     "description": "Reusable composable MemoryFileEditor(bounded: Boolean). Bounded variant uses heightIn(max=240.dp) + internal scroll + '↗ Open' affordance (disabled while editor is dirty — prevents double-buffer race with full-page editor). Unbounded fills available space. VIEW/EDIT toggle, Save/Discard/Delete (with confirm), oversize error, IO on Dispatchers.IO, save disabled while writing, failure keeps EDIT with inline error. Observes MemoryEditGate.memoryEditLocked: when true, Save/Discard/Delete/+Memory disabled and banner 'Session is open. Stop the session to edit memory.' is shown; typed buffer preserved. Action-time TOCTOU re-check: every save/delete handler re-reads memoryEditLocked.value inside the coroutine immediately before MemoryStore.write/delete; if locked, abort with toast 'Memory edit aborted — a session just started.'",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1477,14 +1495,16 @@
     "worktree": "memory-settings",
     "estimate": "m",
     "created": "2026-05-17T23:29:47Z",
-    "updated": "2026-05-17T23:29:47Z"
+    "updated": "2026-05-18T00:23:14Z",
+    "agent": "w-memory-settings-file-editor",
+    "note": "Done at e2aab237 + 4a21c2aa. Reusable composable with bounded/unbounded variants, gate-locking, lifecycle-aware state collection, TOCTOU re-check, save+delete TOCTOU tests. (commit was lost to a worktree race and cherry-picked back as e2aab237.)"
   },
   "memory-settings-memory-page": {
     "parent": "memory-settings",
     "depends": [
       "memory-settings-file-editor"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Settings → Memory page (User + Device only); IA reshuffle",
     "description": "Add SettingsPage.MEMORY to SettingsSheet enum + dispatch. New MemorySettingsPage lists User + Device only (per-app moved to App Access). Tap → unbounded MemoryFileEditorPage. Top banner when session active. Reshuffle Settings home IA: merge 'Voice' header into 'Behavior'; move 'LLM & Authentication' row into Behavior section; add 'Memory' row to Behavior.",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1502,14 +1522,16 @@
     "worktree": "memory-settings",
     "estimate": "s",
     "created": "2026-05-17T23:29:52Z",
-    "updated": "2026-05-17T23:29:52Z"
+    "updated": "2026-05-18T00:54:53Z",
+    "agent": "w-memory-settings-memory-page",
+    "note": "Done at e70b2db4 + 90bbeca7. SettingsPage.MEMORY enum, MemorySettingsPage with User+Device rows, IA reshuffle (Voice header dropped, LLM/Auth moved to Behavior, Memory row added), session-active banner, BackHandler preserves Memory list, MainActivity/MainActivityContent/SettingsSheet wired with MemoryStore+MemoryEditGate."
   },
   "memory-settings-app-access-index": {
     "parent": "memory-settings",
     "depends": [
       "memory-settings-store-raw-refactor"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "AppAccessContentIndex preload",
     "description": "Page-scoped index of Map<package, AppContentSummary(hasMemory, hasSkill)>. Single IO pass on page mount: MemoryStore.listAppPackages() + AssetManager.list('app_skills') filtered to those whose SKILL.md parses cleanly. Incremental update(pkg, summary) API for save/delete callbacks — avoids re-scanning during scroll.",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1524,7 +1546,9 @@
     "worktree": "memory-settings",
     "estimate": "s",
     "created": "2026-05-17T23:29:52Z",
-    "updated": "2026-05-17T23:29:52Z"
+    "updated": "2026-05-18T00:23:14Z",
+    "agent": "w-memory-settings-app-access-index",
+    "note": "Done at cfa03c4e + e0a2a1c4. AppAccessContentIndex with mutex-serialized load/update + 10 unit tests. NOTE: index is not yet wired into AppAccessSettingsPage — that wiring is the scope of memory-settings-app-access-expansion."
   },
   "memory-settings-app-access-expansion": {
     "parent": "memory-settings",
@@ -1532,7 +1556,7 @@
       "memory-settings-file-editor",
       "memory-settings-app-access-index"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "App Access per-app inline expansion (memory editor + skill viewer)",
     "description": "AppRowItem gains trailing chevron when content exists (memory or skill) or '+ Memory' chip when neither exists. Summary chips ('Memory' / 'Skill') next to package label come from AppAccessContentIndex (no per-row IO). Expanded area renders read-only app skill viewer (if asset exists) above bounded MemoryFileEditor (if file exists; or after '+ Memory' creates an empty one). Tier selector unchanged. Blocked-app warning chip shown above editor when row pkg classified BLOCKED. Save/delete callbacks call index.update(...) for live chip refresh.",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1550,12 +1574,14 @@
     "worktree": "memory-settings",
     "estimate": "m",
     "created": "2026-05-17T23:30:09Z",
-    "updated": "2026-05-17T23:30:09Z"
+    "updated": "2026-05-18T00:54:53Z",
+    "agent": "w-memory-settings-app-access-expansion",
+    "note": "Done at 386202d3 + 1949b476. AppRowExpansion + AppAccessSettingsPage wires AppAccessContentIndex, summary chips, +Memory affordance (gate-respecting + idempotent + auto-EDIT via startInEditOnce), BLOCKED warning chip, MemoryFileEditor.onSaved propagates to index.update. Follow-up: ↗ Open from inline editor not wired into App Access (TODO)."
   },
   "memory-settings-skill-disable-core": {
     "parent": "memory-settings",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Agent Skill disable: store + manager filtering + activate tool gate",
     "description": "Persist disabledAgentSkills: StateFlow<Set<String>> in AppSettingsStore + setSkillDisabled(name, Boolean). Rename AgentSkillCatalog.all() → allDiscovered() (pure discovery, no filtering). AgentSkillManager constructor takes disabledNames: Set<String> and filters in catalogPrompt() / activate() / activateExplicitMentions(). Add ActivationResult.Disabled(name) branch. ActivateSkillTool returns a clean failure for Disabled. SessionServices.create() snapshots AppSettingsStore.disabledAgentSkills.value once (KISS next-session semantics — running session not affected by mid-session toggle).",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1578,14 +1604,16 @@
     "worktree": "memory-settings",
     "estimate": "m",
     "created": "2026-05-17T23:30:16Z",
-    "updated": "2026-05-17T23:30:16Z"
+    "updated": "2026-05-17T23:57:56Z",
+    "agent": "w-memory-settings-skill-disable-core",
+    "note": "Done at 63c94642 + 839fdd16. AppSettingsStore.disabledAgentSkills (Mutex-serialized writes) + AgentSkillCatalog/Manager filtering (defensive copy) + ActivateSkillTool refusal. Next-session snapshot in SessionServices."
   },
   "memory-settings-skill-toggle-ui": {
     "parent": "memory-settings",
     "depends": [
       "memory-settings-skill-disable-core"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Agent Skill toggle rows in Tools section + info icon viewer",
     "description": "Extend ToolSettingsCard with optional trailingInfoIcon: (() -> Unit)? slot — renders Icons.Outlined.Info IconButton between title block and switch (null = unchanged behavior). New AgentSkillToggleRows: invoke BundledAgentSkillInstaller on Dispatchers.IO once before scanning (first-run safety, idempotent), then iterate AgentSkillCatalog.allDiscovered(). Per row: name = title, frontmatter description = subtitle, switch persists via AppSettingsStore.setSkillDisabled. When current toggle differs from session-start snapshot, subtitle includes 'Changes apply to next session'. Info icon → bottom sheet with read-only TextField of full SKILL.md body. Append AgentSkillToggleRows() inside ToolsSection after BrowserScriptToolRow.",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1604,7 +1632,9 @@
     "worktree": "memory-settings",
     "estimate": "m",
     "created": "2026-05-17T23:30:16Z",
-    "updated": "2026-05-17T23:30:16Z"
+    "updated": "2026-05-18T00:23:14Z",
+    "agent": "w-memory-settings-skill-toggle-ui",
+    "note": "Done at 883edea9 + b780757f. Per-skill toggle rows in Tools section, info-icon viewer, session-running state threaded from SessionCoordinator.currentSessionState through MainActivity → MainActivityContent → SettingsSheet → AgentBehaviorSettingsPage → ToolsSection → AgentSkillToggleRows so the \"Takes effect next session\" subtitle works in production."
   },
   "memory-settings-docs-update": {
     "parent": "memory-settings",
@@ -1613,7 +1643,7 @@
       "memory-settings-app-access-expansion",
       "memory-settings-skill-toggle-ui"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Docs sync",
     "description": "Update architecture docs: canonicalizer removed → memory files WYSIWYG; explicit append insertion rules with sanitation order; single-writer model (Settings editor locks via MemoryEditGate when session active); Settings → Memory page; App Access per-app expansion (bounded inline editor + ↗ Open escape); Agent Skill toggle next-session semantics; blocked-app warning copy.",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1632,14 +1662,16 @@
     "worktree": "memory-settings",
     "estimate": "s",
     "created": "2026-05-17T23:30:28Z",
-    "updated": "2026-05-17T23:30:28Z"
+    "updated": "2026-05-18T01:02:51Z",
+    "agent": "w-memory-settings-docs-update",
+    "note": "Done at 279abd79. doc/main/agent/memory.md + agent_skills.md + app/settings.md synced with the new raw API, MemoryEditGate, disabled-skills toggle, Memory page, App Access expansion, and IA reshuffle."
   },
   "memory-settings-codex-review-iter": {
     "parent": "memory-settings",
     "depends": [
       "memory-settings-docs-update"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Codex code review + fix iteration",
     "description": "Run codex (via multmux) on the implementation diff for the full memory-settings milestone. Apply fixes for any High or Medium finding. Re-review. Iterate until codex returns APPROVED or only flags implementation-level nits (which are fixed in-place without another review round). Mirrors the design-review loop that produced the design doc.",
     "design": "projects/active/memory_skills_settings/design_claude.md",
@@ -1651,7 +1683,9 @@
     "worktree": "memory-settings",
     "estimate": "m",
     "created": "2026-05-17T23:30:34Z",
-    "updated": "2026-05-17T23:30:34Z"
+    "updated": "2026-05-18T01:40:49Z",
+    "agent": "w-memory-settings-codex-review-iter",
+    "note": "Done after 4 codex review rounds. Final verdict: APPROVED WITH NITS — no block-merge. Iteration commits: foundation review → 30269606/839fdd16/3fe423bd; UI review 1 → e0a2a1c4/4a21c2aa/b780757f; UI review 2 → 90bbeca7/1949b476; final whole-feature review → 9f9eefab; reload-window fix → 9f06c5fa. Outstanding nits (deferred): reload-abort toast copy is session-specific; bounded '↗ Open' from AppAccess is not wired (TODO comment in code); AppAccessContentIndex potential race when computing summary outside mutex; skill-toggle ordering during in-flight session creation."
   },
   "memory-settings-qa-real-device": {
     "parent": "memory-settings",
