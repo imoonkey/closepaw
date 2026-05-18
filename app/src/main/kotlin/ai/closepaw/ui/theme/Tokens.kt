@@ -6,12 +6,9 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -68,17 +65,11 @@ internal fun darkClosePawTokens() = ClosePawTokens(
     spacing = ClosePawSpacing(),
 )
 
-// D1 §4.4: subtle warm under-shadow plus a top hairline. The capsule and the
-// modal sheet/drawer are the only callers; everything else stays flat.
+// D1 §4.4: subtle warm under-shadow only — the "lift" effect. (The earlier
+// top hairline read as a divider on small cards after foldedPaper was
+// extended to Settings rows in Phase 3, so it was removed.)
 @Composable
 fun Modifier.foldedPaper(shape: Shape = MaterialTheme.shapes.large): Modifier {
     val warm = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
-    val hairline = MaterialTheme.colorScheme.outline
-    val strokePx = with(LocalDensity.current) { 1.dp.toPx() }
-    return this
-        .shadow(elevation = 4.dp, shape = shape, ambientColor = warm, spotColor = warm)
-        .drawWithContent {
-            drawContent()
-            drawLine(hairline, Offset.Zero, Offset(size.width, 0f), strokePx)
-        }
+    return this.shadow(elevation = 4.dp, shape = shape, ambientColor = warm, spotColor = warm)
 }

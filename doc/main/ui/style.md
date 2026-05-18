@@ -22,7 +22,7 @@ authoritative reference.
 | `Tokens.kt` | `ClosePawTokens`, `ClosePawSpacing`, `Modifier.foldedPaper`, `MaterialTheme.closePaw` accessor |
 | `Motion.kt` | `ClosePawMotion` (durations, easings, named primitives, `reducedMotion()`) |
 | `Type.kt` | `ClosePawTypography` — Geist on every Material slot; identity / mono extras carried in `ClosePawTokens` |
-| `Ornaments.kt` | `Fleuron`, `PageMasthead` (+ `Identity` / `DrillDown` wrappers), `PawGlyph`, `TodayLabel`, `SectionHeader` — the Bound Edition paper-zine register |
+| `Ornaments.kt` | `Fleuron`, `PageMasthead` (+ `Identity` / `DrillDown` wrappers), `PawGlyph`, `SectionHeader` — the Bound Edition paper-zine register |
 | `PaperGrain.kt` | `Modifier.paperGrain` (light) and `Modifier.lanternVignette` (dark) background passes |
 | `WindowInsets.kt` | `AppWindowInsets` singleton |
 
@@ -176,8 +176,11 @@ itself rather than wrapping every transition globally. The contract:
 
 > See: `ui/theme/Tokens.kt` — `Modifier.foldedPaper(shape)`
 
-The only shared chrome primitive. Subtle warm under-shadow + a top hairline.
-Chained onto the existing `Surface`, not wrapped around one.
+The only shared chrome primitive. Subtle warm under-shadow only — the "lift"
+effect that makes a card feel like a folded page resting on paper. Chained
+onto the existing `Surface`, not wrapped around one. (An earlier draft also
+drew a 1dp top hairline; that read as a divider on small cards after the
+modifier was extended to Settings rows, so it was removed.)
 
 **Applies to:**
 
@@ -203,25 +206,25 @@ use these primitives directly — never reinvent the glyph or layout.
 | Primitive | Purpose |
 |---|---|
 | `Fleuron()` | Centered Fraunces italic `❦` (16sp, `inkFaint`), 12dp vertical padding. The single shared section divider / seal. |
-| `PageMasthead(title, leadingSlot, rightSlot, trailingSlot)` | 48dp running-head row hosting three slots. Defaults: `leadingSlot = { PawGlyph() }`, `rightSlot = { TodayLabel() }`, `trailingSlot = {}`. Fraunces italic title (18sp, `onSurface`) in the middle, `weight(1f)`, ellipsized. |
-| `PageMastheadIdentity(title, onClose)` | Convenience wrapper for top-level identity pages (Chat, Drawer, Settings home). Defaults to paw + today label, with an optional close `IconButton` in the trailing slot. |
-| `PageMastheadDrillDown(title, onBack, onClose)` | Convenience wrapper for drilled-down pages (every Settings sub-page). Back chevron (`Icons.Rounded.ChevronLeft`) in the leading slot, close (`Icons.Rounded.Close`) in the trailing slot, today label between. |
+| `PageMasthead(title, leadingSlot, rightSlot, trailingSlot)` | 48dp running-head row hosting three slots. Defaults: `leadingSlot = { PawGlyph() }`, `rightSlot = {}`, `trailingSlot = {}`. Fraunces italic title (18sp, `onSurface`) in the middle, `weight(1f)`, ellipsized. |
+| `PageMastheadIdentity(title, onClose)` | Convenience wrapper for top-level identity pages (Chat, Drawer, Settings home). Defaults to paw in leading and an optional close `IconButton` in trailing. |
+| `PageMastheadDrillDown(title, onBack, onClose)` | Convenience wrapper for drilled-down pages (every Settings sub-page). Back chevron (`Icons.Rounded.ChevronLeft`) in leading, close (`Icons.Rounded.Close`) in trailing. |
 | `PawGlyph(modifier, onClick)` | 18dp paw icon at `onSurface`. Optional tap target — defaults to passive identity glyph. |
-| `TodayLabel(modifier)` | Locale-formatted current day via `DateFormat.getMediumDateFormat(LocalContext.current).format(Date())`. Renders as `monoSmall` / `inkFaint`. The canonical right-slot ledger for `PageMasthead`. Composable, not a `String` — call sites never see `Context`. |
 | `SectionHeader(text)` | Fraunces italic 18sp `inkFaint`, 16dp top / 4dp bottom padding. Section subhead inside identity surfaces. |
 
 ### Mastheaded Surfaces
 
 The `PageMasthead` running-head appears on every "page-level" identity surface:
 
-- `ChatHeader` — `[paw] ClosePaw [today date] [+]`
-- `NavigationDrawer` `DrawerHeader` — `[paw] Sessions [today date] [×]`
-- `SettingsHomePage` — `[paw] Settings [today date] [×]` via `PageMastheadIdentity`
-- Every Settings sub-page — `[‹] Title [today date] [×]` via `PageMastheadDrillDown`
+- `ChatHeader` — `[paw] ClosePaw … [+]`
+- `NavigationDrawer` `DrawerHeader` — `[paw] Sessions … [×]`
+- `SettingsHomePage` — `[paw] Settings … [×]` via `PageMastheadIdentity`
+- Every Settings sub-page — `[‹] Title … [×]` via `PageMastheadDrillDown`
 
-The leading paw (or back chevron) + Fraunces italic title + `monoSmall` ledger
-date is the identity contract — the right slot is text-only and read-only
-(no tap target).
+The leading paw (or back chevron) + Fraunces italic title is the identity
+contract — no right-slot ledger by default. (An earlier draft put a
+locale-formatted date in the right slot; that was removed because the date
+read as visual noise that competed with the title.)
 
 ---
 
@@ -283,7 +286,7 @@ ui/theme/
 ├── Tokens.kt         # ClosePawTokens, ClosePawSpacing, MaterialTheme.closePaw, foldedPaper
 ├── Motion.kt         # ClosePawMotion (durations, easings, primitives, reducedMotion)
 ├── Type.kt           # ClosePawTypography (Geist) + identity / mono extras
-├── Ornaments.kt      # Fleuron, PageMasthead (+ Identity / DrillDown), PawGlyph, TodayLabel, SectionHeader
+├── Ornaments.kt      # Fleuron, PageMasthead (+ Identity / DrillDown), PawGlyph, SectionHeader
 ├── PaperGrain.kt     # Modifier.paperGrain (light) / Modifier.lanternVignette (dark)
 └── WindowInsets.kt   # AppWindowInsets singleton
 ```

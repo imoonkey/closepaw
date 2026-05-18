@@ -15,7 +15,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 ┌────────────────────────────────────────────────────────────────┐
 │                        ChatScreen                              │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │ ChatHeader     │ [≡] · paw · ClosePaw · todayLabel · [+] │   │
+│  │ ChatHeader     │ [≡] · paw · ClosePaw · [+] │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
 │  │ MessageList   │ User/Agent bubbles, Action cards        │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
@@ -34,7 +34,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 
 | Component | Purpose |
 |-----------|---------|
-| **ChatHeader** | `[≡]` menu + `PageMasthead("ClosePaw", todayLabel())` + `[+]` new chat (when messages exist). The masthead carries the leading paw, Fraunces italic title, and `monoSmall` ledger date — see `style.md` Bound Edition Ornaments |
+| **ChatHeader** | `[≡]` menu + `PageMasthead("ClosePaw")` + `[+]` new chat (when messages exist). The masthead carries the leading paw and Fraunces italic title — see `style.md` Bound Edition Ornaments |
 | **MessageBubble** | User/Agent message bubbles (asymmetric corner shapes; text wrapped in `SelectionContainer` so users can long-press to select & copy via the native menu) |
 | **StreamingText** | Text with blinking cursor (530ms alpha animation) |
 | **ThinkingIndicator** | Paw-toe sequence + Fraunces italic "Thinking…" label, polite live region |
@@ -46,7 +46,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 
 The `PageMasthead` running-head appears on the three "page-level" identity
 surfaces; each pairs the leading paw + Fraunces italic title with a
-`todayLabel()` ledger in the right slot:
+context-appropriate trailing icon (no right-slot ledger by default):
 
 | Surface | Title | Trailing slot |
 |---|---|---|
@@ -60,7 +60,7 @@ Asymmetric one-screen layout, no chips:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ [≡] · paw · ClosePaw · todayLabel ─────────────────  [+] │
+│ [≡] · paw · ClosePaw ─────────────────  [+] │
 ├──────────────────────────────────────────────────────────┤
 │                                            ◐ paw bleed   │
 │                                          ◐◐ (top-right,  │
@@ -131,7 +131,7 @@ Opens via menu button (≡). Contains session history and settings access.
 
 ```
 ┌─────────────────────────────────┐
-│ paw · Sessions · todayLabel · X │
+│ paw · Sessions · X │
 ├─────────────────────────────────┤
 │  [ + New Conversation ]         │
 ├─────────────────────────────────┤

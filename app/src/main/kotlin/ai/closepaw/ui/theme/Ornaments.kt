@@ -1,7 +1,6 @@
 package ai.closepaw.ui.theme
 
 import ai.closepaw.R
-import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -20,10 +19,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -31,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.Date
 
 // "Bound Edition" ornaments. Single source for the paper-zine register —
 // fleuron + running-head — so call sites never reinvent them.
@@ -60,7 +56,7 @@ fun PageMasthead(
     title: String,
     modifier: Modifier = Modifier,
     leadingSlot: @Composable RowScope.() -> Unit = { PawGlyph() },
-    rightSlot: @Composable RowScope.() -> Unit = { TodayLabel() },
+    rightSlot: @Composable RowScope.() -> Unit = {},
     trailingSlot: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
@@ -101,20 +97,6 @@ fun PawGlyph(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
         contentDescription = null,
         modifier = tappable,
         tint = MaterialTheme.colorScheme.onSurface,
-    )
-}
-
-@Composable
-fun TodayLabel(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val text = remember(context) {
-        DateFormat.getMediumDateFormat(context).format(Date())
-    }
-    Text(
-        text = text,
-        modifier = modifier,
-        style = MaterialTheme.closePaw.monoSmall,
-        color = MaterialTheme.closePaw.inkFaint,
     )
 }
 
