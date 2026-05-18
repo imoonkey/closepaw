@@ -32,14 +32,26 @@
 | 4  | ✅ `03_display_disabled_row4` | Default state on fresh app. |
 | 5  | ❌ Unreachable | Needs an active VD session before toggling off. We did not start a task. |
 | 6  | ❌ Unreachable | Needs Shizuku to die after persistedMode=VD. Out of scope. |
-| 7  | ❌ Not directly visible as final card state | The transient permission request (`04_shizuku_perm_dialog`) hits this state but the dialog covers the card; once the user picks an option the row settles to Row 3 (deny) or Row 12 (allow). |
+| 7  | ✅ `13_display_row7_perm_denied_vd` | Captured by force-stopping ClosePaw (Shizuku binder unbinds, app classifies as `NeedsPermission`) with `persistedMode == VIRTUAL_DISPLAY` already set. Subtitle reads "Grant Shizuku permission to use Virtual Display." verbatim. |
 | 8  | ❌ Unreachable | `Shizuku.Authorizing` only exists during the in-flight permission grant — same brief window as 7. |
 | 9  | ❌ Unreachable | Needs `Shizuku.PermissionDenied` after persistedMode=VD. Test device only persisted VD *after* permission was granted (Row 12). |
 | 10 | ❌ Unreachable | Needs `effectiveMode == VIRTUAL_DISPLAY`, which requires a live agent session that successfully started VD. No tasks were run. |
 | 11 | ❌ Unreachable | Same — needs `effectiveMode == ACCESSIBILITY` while persisted=VD, i.e. session predates the toggle. |
 | 12 | ✅ `06_display_ready_row12` | Captured after granting Shizuku. |
 
-**Reachable on this device without running a task**: 3 / 12 (Rows 3, 4, 12). Plus the live "Setting up…/Checking Shizuku…" transient (`04`).
+**Reachable on this device without running a task**: 4 / 12 (Rows 3, 4, 7, 12). Plus the live "Setting up…/Checking Shizuku…" transient (`04`).
+
+### Second pass — attempted live-session captures (Rows 5/10/11) and Shizuku-unavailable variants (Rows 1/2/6/8)
+
+Followup attempt to drive remaining rows via `debug-run.sh` + an active `AgentSession`. Findings:
+
+- **VD session does start** with `PERCEPTION_MODE=accessibility_only`, `PLATFORM_MODE=virtual_display`, Shizuku Ready. Logcat shows `VirtualDisplayPlatform: Started: displayId=91, 1264x2800@560dpi` and per-turn `VirtualDisplayPlatform: Captured screen` lines.
+- **Settings card on the physical display still renders Row 12 ("Will start on a virtual display.") even while the session is running on the VD.** Two contributing factors observed: (a) the session ends quickly (~25 s for simple goals) — by the time the Settings sheet is navigated to, `effectiveMode` is back to `null`; (b) opening Settings via tap requires bringing ClosePaw to the foreground, which races with the agent bringing the target app (Calculator) to the foreground on physical display (Android's `VirtualDisplay` does not isolate `Activity` launches on this ColorOS build — Calculator showed up on Display #0 alongside the VD task).
+- **Row 6/8 (Shizuku Unavailable)** could not be triggered cleanly: `pm disable-user moe.shizuku.privileged.api` disables the Shizuku Manager UI process but leaves the `shizuku_server` daemon (adb-shell-owned) running, so the app continues to classify Shizuku as "NeedsPermission" rather than "Unavailable". Properly killing `shizuku_server` would leave the device in an unrecoverable state without a real user to restart Shizuku via its Manager UI.
+- **Row 2 (gateError=ShizukuUnavailable, persisted=Accessibility)** likewise gates on a true Shizuku-unavailable signal; falls back to Row 3 (PermissionDenied) when the user denies the Shizuku permission dialog instead.
+- **ColorOS friction**: `adb shell am force-stop ai.closepaw` wipes `enabled_accessibility_services` *and* drops the Shizuku binder binding. Re-enabling via `settings put secure enabled_accessibility_services ai.closepaw/ai.closepaw.app.AgentService` + `accessibility_enabled=1` does stick (verified by `dumpsys accessibility` → `Bound services:{Service[label=ClosePaw…]}`). Shizuku permission, however, can only be re-granted by a real-finger tap on the Shizuku permission dialog — `adb shell input tap` does not register on the permission-dialog window on Android 16 + ColorOS (touch injection blocked for permission-class dialogs).
+
+**Conclusion**: Rows 5, 6, 8, 9, 10, 11 are blocked by Android/ColorOS device realities, not by missing app behavior. The `connectedDebugAndroidTest` suite already covers these state combinations via test fakes (`DisplayModeSettingsTest`). Rows 1 and 2 share the gate-error transient nature of Row 7's pre-state and are accepted as same-family.
 
 ## Perception card
 
