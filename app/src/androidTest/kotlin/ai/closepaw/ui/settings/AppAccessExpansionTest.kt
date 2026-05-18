@@ -4,21 +4,28 @@ import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.memory.MemoryStore
 import ai.closepaw.platform.AppInfo
 import ai.closepaw.protocol.AppTier
+import ai.closepaw.protocol.SessionState
+import ai.closepaw.session.AgentSession
 import ai.closepaw.session.SessionCoordinator
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -105,12 +112,11 @@ class AppAccessExpansionTest {
     }
 
     // -------------------------------------------------------------
-    // (1) Empty row exposes "+ Memory"; clicking creates the file and
-    //     expands the row. After expansion, the chevron replaces the
-    //     "+ Memory" chip and the Memory summary chip is shown next
-    //     to the label.
+    // (1) Empty row exposes "+ Memory"; clicking creates the file,
+    //     surfaces the Memory chip + chevron, expands the row, AND
+    //     lands the user directly in EDIT mode (Save / Discard visible).
     // -------------------------------------------------------------
-    @Test fun add_memory_creates_file_updates_chip_and_expands_row() {
+    @Test fun add_memory_creates_file_updates_chip_expands_and_enters_edit() {
         val pkg = "com.example.alpha"
         renderPage(rows = listOf(row(pkg)), index = emptyIndex())
 
@@ -133,12 +139,75 @@ class AppAccessExpansionTest {
         compose.onNodeWithTag(APP_ROW_MEMORY_CHIP_TAG).assertIsDisplayed()
         compose.onAllNodesWithTag(APP_ROW_ADD_MEMORY_TAG).assertCountEquals(0)
 
-        // Row is expanded (the bounded MemoryFileEditor is mounted).
+        // Row is expanded (the bounded MemoryFileEditor is mounted) AND lands
+        // directly in EDIT — Save / Discard visible instead of Edit / Delete.
         compose.waitUntil(5_000) {
             compose.onAllNodesWithTag(APP_EXPANSION_ROOT_TAG).fetchSemanticsNodes().size == 1
         }
         compose.onNodeWithTag(MEMORY_EDITOR_TEXTFIELD_TAG).assertIsDisplayed()
-        compose.onNodeWithTag(MEMORY_EDITOR_EDIT_TAG).assertIsDisplayed()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag(MEMORY_EDITOR_SAVE_TAG).fetchSemanticsNodes().size == 1
+        }
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).assertIsDisplayed()
+        compose.onNodeWithTag(MEMORY_EDITOR_DISCARD_TAG).assertIsDisplayed()
+        compose.onAllNodesWithTag(MEMORY_EDITOR_EDIT_TAG).assertCountEquals(0)
+    }
+
+    // -------------------------------------------------------------
+    // (1b) "+ Memory" is disabled (and clicking is a no-op) while the
+    //      gate is locked. No file is created.
+    // -------------------------------------------------------------
+    @Test fun add_memory_disabled_when_gate_locked_and_no_file_written() {
+        val pkg = "com.example.locked"
+
+        // Lock the gate before mounting the page.
+        val sessionState = MutableStateFlow<SessionState>(SessionState.Running)
+        val session = mockk<AgentSession>(relaxed = true).also {
+            every { it.state } returns sessionState
+            coEvery { it.submit(any()) } returns Unit
+        }
+        coordinator.attachSession(session)
+
+        renderPage(rows = listOf(row(pkg)), index = emptyIndex())
+
+        compose.waitUntil(5_000) { gate.memoryEditLocked.value }
+
+        compose.onNodeWithTag(APP_ROW_ADD_MEMORY_TAG).assertIsDisplayed()
+        compose.onNodeWithTag(APP_ROW_ADD_MEMORY_TAG).assertIsNotEnabled()
+
+        compose.onNodeWithTag(APP_ROW_ADD_MEMORY_TAG).performClick()
+        compose.waitForIdle()
+
+        // No write occurred; chip still says "+ Memory"; nothing on disk.
+        assertTrue("apps/${pkg}.md must not exist", !File(memoryDir, "apps/${pkg}.md").exists())
+        compose.onAllNodesWithTag(APP_ROW_MEMORY_CHIP_TAG).assertCountEquals(0)
+        compose.onAllNodesWithTag(APP_ROW_TRAILING_CHEVRON_TAG).assertCountEquals(0)
+    }
+
+    // -------------------------------------------------------------
+    // (1c) "+ Memory" is idempotent: clicking on a row whose apps/<pkg>.md
+    //      already exists must NOT blank the file, only expand the row +
+    //      flip the index.
+    // -------------------------------------------------------------
+    @Test fun add_memory_does_not_overwrite_existing_file() {
+        val pkg = "com.example.preserve"
+        File(memoryDir, "apps").mkdirs()
+        File(memoryDir, "apps/${pkg}.md").writeText("KEEP_ME")
+
+        // Index is stale: page mounted before listAppPackages refresh, so the
+        // row still shows "+ Memory" even though a file is on disk.
+        renderPage(rows = listOf(row(pkg)), index = emptyIndex())
+
+        compose.waitUntil(5_000) { !gate.memoryEditLocked.value }
+        compose.onNodeWithTag(APP_ROW_ADD_MEMORY_TAG).assertIsDisplayed()
+
+        compose.onNodeWithTag(APP_ROW_ADD_MEMORY_TAG).performClick()
+
+        // File contents untouched even though "+ Memory" fired.
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag(APP_ROW_TRAILING_CHEVRON_TAG).fetchSemanticsNodes().size == 1
+        }
+        assertEquals("KEEP_ME", File(memoryDir, "apps/${pkg}.md").readText())
     }
 
     // -------------------------------------------------------------

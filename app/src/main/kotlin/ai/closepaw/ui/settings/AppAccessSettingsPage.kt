@@ -4,6 +4,7 @@ import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.memory.MemoryScope
 import ai.closepaw.memory.MemoryStore
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -62,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.closePaw
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -78,6 +80,8 @@ internal const val APP_ROW_TRAILING_CHEVRON_TAG = "app-row-trailing-chevron"
 internal const val APP_ROW_ADD_MEMORY_TAG = "app-row-add-memory"
 internal const val APP_ROW_MEMORY_CHIP_TAG = "app-row-memory-chip"
 internal const val APP_ROW_SKILL_CHIP_TAG = "app-row-skill-chip"
+
+private enum class AddMemoryOutcome { Created, AlreadyExists, Aborted, WriteFailed }
 
 @Composable
 internal fun AppAccessSettingsPage(
@@ -124,6 +128,12 @@ internal fun AppAccessSettingsPage(
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(AppFilter.All) }
     val expandedPackages = remember { mutableStateMapOf<String, Boolean>() }
+    // Per-package one-shot nonce: bumped whenever "+ Memory" creates a fresh
+    // file, threaded into MemoryFileEditor so the editor lands in EDIT
+    // immediately rather than VIEW. Map survives recomposition only — process
+    // death drops the signal, which is correct (file already exists).
+    val startInEditNonces = remember { mutableStateMapOf<String, String>() }
+    val locked by gate.memoryEditLocked.collectAsStateWithLifecycle()
 
     val commitTier: (String, AppTier) -> Unit = { pkg, tier ->
         coroutineScope.launch(Dispatchers.IO) {
@@ -139,18 +149,52 @@ internal fun AppAccessSettingsPage(
     }
 
     val onAddMemory: (String) -> Unit = { pkg ->
-        coroutineScope.launch {
-            // Create an empty memory file so the row can transition into the
-            // chevron / editor state. Page-scoped index is updated under the
-            // same mutex that guards `load`.
-            val result = withContext(ioDispatcher) {
-                memoryStore.write(MemoryScope.APP, pkg, "")
+        // UI-layer gate: chip is also disabled when locked, but the click can
+        // race the lock flipping true mid-recomposition. Drop the click here
+        // before launching to avoid spawning an aborted coroutine.
+        if (!locked) {
+            coroutineScope.launch {
+                // Two safety layers around the write:
+                //  - Idempotent: re-read inside the coroutine. If a file
+                //    already exists (page mounted with a stale empty index,
+                //    or two "+ Memory" taps raced), skip the write so an
+                //    existing apps/<pkg>.md is never blanked.
+                //  - Gate TOCTOU: re-check `memoryEditLocked.value` right
+                //    before the write. If a session began between click
+                //    and IO, abort with the standard toast.
+                val outcome = withContext(ioDispatcher) {
+                    if (gate.memoryEditLocked.value) {
+                        AddMemoryOutcome.Aborted
+                    } else if (memoryStore.read(MemoryScope.APP, pkg) != null) {
+                        AddMemoryOutcome.AlreadyExists
+                    } else {
+                        when (memoryStore.write(MemoryScope.APP, pkg, "")) {
+                            ai.closepaw.memory.SaveResult.Success ->
+                                AddMemoryOutcome.Created
+                            else -> AddMemoryOutcome.WriteFailed
+                        }
+                    }
+                }
+                when (outcome) {
+                    AddMemoryOutcome.Created, AddMemoryOutcome.AlreadyExists -> {
+                        val existing = summaries[pkg] ?: AppContentSummary.NONE
+                        index.update(pkg, existing.copy(hasMemory = true))
+                        expandedPackages[pkg] = true
+                        // Fresh nonce: editor consumes it once and switches to EDIT.
+                        startInEditNonces[pkg] =
+                            "${System.currentTimeMillis()}-${startInEditNonces.size}"
+                    }
+                    AddMemoryOutcome.Aborted -> {
+                        Toast.makeText(context, MEMORY_EDIT_ABORT_TOAST, Toast.LENGTH_SHORT).show()
+                    }
+                    AddMemoryOutcome.WriteFailed -> {
+                        // Best-effort: nothing to surface inline (no error host on the row).
+                        // The agent's write path will retry next session.
+                    }
+                }
             }
-            if (result is ai.closepaw.memory.SaveResult.Success) {
-                val existing = summaries[pkg] ?: AppContentSummary.NONE
-                index.update(pkg, existing.copy(hasMemory = true))
-                expandedPackages[pkg] = true
-            }
+        } else {
+            Toast.makeText(context, MEMORY_EDIT_ABORT_TOAST, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -180,6 +224,8 @@ internal fun AppAccessSettingsPage(
                     classifier = appClassifier,
                     summaries = summaries,
                     expanded = expandedPackages,
+                    startInEditNonces = startInEditNonces,
+                    addMemoryLocked = locked,
                     onToggleExpand = { pkg ->
                         expandedPackages[pkg] = !(expandedPackages[pkg] ?: false)
                     },
@@ -304,6 +350,8 @@ private fun AppList(
     classifier: AppClassifier,
     summaries: Map<String, AppContentSummary>,
     expanded: Map<String, Boolean>,
+    startInEditNonces: Map<String, String>,
+    addMemoryLocked: Boolean,
     onToggleExpand: (String) -> Unit,
     onPickTier: (pkg: String, tier: AppTier) -> Unit,
     onAddMemory: (String) -> Unit,
@@ -340,6 +388,8 @@ private fun AppList(
                     isBundledBlocked = isBundledBlocked,
                     summary = summary,
                     isExpanded = expanded[pkg] ?: false,
+                    addMemoryLocked = addMemoryLocked,
+                    startInEditNonce = startInEditNonces[pkg],
                     onToggleExpand = { onToggleExpand(pkg) },
                     onAddMemory = { onAddMemory(pkg) },
                     onPickTier = { tier -> onPickTier(pkg, tier) },
@@ -361,6 +411,8 @@ private fun AppRowItem(
     isBundledBlocked: Boolean,
     summary: AppContentSummary,
     isExpanded: Boolean,
+    addMemoryLocked: Boolean,
+    startInEditNonce: String?,
     onToggleExpand: () -> Unit,
     onAddMemory: () -> Unit,
     onPickTier: (AppTier) -> Unit,
@@ -442,6 +494,7 @@ private fun AppRowItem(
                 TrailingSlot(
                     hasContent = hasContent,
                     isExpanded = isExpanded,
+                    addMemoryLocked = addMemoryLocked,
                     onToggleExpand = onToggleExpand,
                     onAddMemory = onAddMemory,
                 )
@@ -462,7 +515,14 @@ private fun AppRowItem(
                         skillLoader = skillLoader,
                         memoryStore = memoryStore,
                         gate = gate,
+                        startInEditNonce = startInEditNonce,
                         onMemoryPresenceChanged = onMemoryPresenceChanged,
+                        // TODO: route to a per-app MemoryFileEditorPage variant.
+                        // Requires SettingsSheet to expose a nav callback for
+                        // SettingsPage.MEMORY targeting (scope=APP, pkg). Left
+                        // unwired here so the bounded editor remains usable;
+                        // long content still scrolls inside the bounded frame.
+                        onOpenFullMemoryEditor = null,
                         ioDispatcher = ioDispatcher,
                     )
                 }
@@ -475,6 +535,7 @@ private fun AppRowItem(
 private fun TrailingSlot(
     hasContent: Boolean,
     isExpanded: Boolean,
+    addMemoryLocked: Boolean,
     onToggleExpand: () -> Unit,
     onAddMemory: () -> Unit,
 ) {
@@ -497,8 +558,13 @@ private fun TrailingSlot(
             }
         }
     } else {
+        // UI-layer enforcement of the single-writer rule for "+ Memory" — the
+        // action-layer re-check still happens inside the click coroutine, but
+        // disabling here also stops the visible affordance from looking
+        // tappable while a session is open.
         Surface(
             onClick = onAddMemory,
+            enabled = !addMemoryLocked,
             shape = MaterialTheme.shapes.small,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp,
@@ -508,17 +574,19 @@ private fun TrailingSlot(
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val tint = if (addMemoryLocked) MaterialTheme.closePaw.inkFaint
+                else MaterialTheme.colorScheme.onSurface
                 Icon(
                     imageVector = Icons.Outlined.Add,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = tint,
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "Memory",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = tint,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
