@@ -36,6 +36,9 @@ data class ClosePawSpacing(
     val md: Dp = 12.dp,
     val lg: Dp = 20.dp,
     val xl: Dp = 32.dp,
+    // Intent aliases — same baseline grid, named for the slot they document.
+    val cardPadding: Dp = 16.dp,
+    val pagePadding: Dp = 20.dp,
 )
 
 internal val LocalClosePawTokens = compositionLocalOf<ClosePawTokens> {

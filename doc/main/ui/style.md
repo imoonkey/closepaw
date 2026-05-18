@@ -22,7 +22,7 @@ authoritative reference.
 | `Tokens.kt` | `ClosePawTokens`, `ClosePawSpacing`, `Modifier.foldedPaper`, `MaterialTheme.closePaw` accessor |
 | `Motion.kt` | `ClosePawMotion` (durations, easings, named primitives, `reducedMotion()`) |
 | `Type.kt` | `ClosePawTypography` — Geist on every Material slot; identity / mono extras carried in `ClosePawTokens` |
-| `Ornaments.kt` | `Fleuron`, `PageMasthead`, `SectionHeader`, `todayLabel` — the Bound Edition paper-zine register |
+| `Ornaments.kt` | `Fleuron`, `PageMasthead` (+ `Identity` / `DrillDown` wrappers), `PawGlyph`, `TodayLabel`, `SectionHeader` — the Bound Edition paper-zine register |
 | `PaperGrain.kt` | `Modifier.paperGrain` (light) and `Modifier.lanternVignette` (dark) background passes |
 | `WindowInsets.kt` | `AppWindowInsets` singleton |
 
@@ -136,6 +136,14 @@ attribution in `app/src/main/assets/FONT_ATTRIBUTION.md`.
 Five steps on the 4dp baseline grid: `xs=4` · `sm=8` · `md=12` · `lg=20` · `xl=32`.
 Reached via `MaterialTheme.closePaw.spacing`. No `xxl`; horizontal page padding is `lg`.
 
+Two **intent aliases** sit on the same grid — they don't add new values, they
+name the slot:
+
+| Alias | Value | Documents |
+|---|---|---|
+| `cardPadding` | `16.dp` | Card internal padding (between `md` and `lg`; preserves the historical 16dp Settings card padding) |
+| `pagePadding` | `20.dp` (= `lg`) | Horizontal page padding for identity surfaces |
+
 ---
 
 ## Motion
@@ -169,8 +177,19 @@ itself rather than wrapping every transition globally. The contract:
 > See: `ui/theme/Tokens.kt` — `Modifier.foldedPaper(shape)`
 
 The only shared chrome primitive. Subtle warm under-shadow + a top hairline.
-Capsule and modal sheet/drawer use it; everything else stays flat. Chained onto
-the existing `Surface`, not wrapped around one.
+Chained onto the existing `Surface`, not wrapped around one.
+
+**Applies to:**
+
+- Capsule surface
+- Modal sheet / drawer chrome
+- **Any Settings card that represents a navigable or tappable
+  page-of-the-book** — navigation rows, tool toggle cards, auth cards
+
+**Does NOT apply to:**
+
+- Inline content cards (radio groups inside a parent card, inline editors,
+  alert banners) — nested shadows muddy the hierarchy
 
 ---
 
@@ -178,26 +197,31 @@ the existing `Surface`, not wrapped around one.
 
 > See: `ui/theme/Ornaments.kt`
 
-Three ornaments give the chat shell its paper-zine register. Call sites use
-these primitives directly — never reinvent the glyph or layout.
+The ornaments give every identity surface its paper-zine register. Call sites
+use these primitives directly — never reinvent the glyph or layout.
 
-| Primitive | Purpose | Where |
-|---|---|---|
-| `Fleuron()` | Centered Fraunces italic `❦` (16sp, `inkFaint`), 12dp vertical padding. The single shared section divider. | Settings home (above Version footer); end-of-conversation seal candidates |
-| `PageMasthead(title, rightSlot, leadingPaw)` | Running-head row: optional paw glyph + Fraunces italic title (18sp `onSurface`) + optional `monoSmall` right slot, followed by a 1dp `outline` hairline. | `ChatHeader`, `NavigationDrawer` header, `SettingsHomePage` |
-| `SectionHeader(text)` | Fraunces italic 18sp `inkFaint`, 16dp top / 4dp bottom padding. Section subhead inside identity surfaces. | Settings home (`Voice`, `Behavior`, `System`) |
-| `todayLabel()` | Locale-formatted current day from `DateFormat.getMediumDateFormat`. The canonical right-slot ledger string for `PageMasthead`. | All masthead surfaces |
+| Primitive | Purpose |
+|---|---|
+| `Fleuron()` | Centered Fraunces italic `❦` (16sp, `inkFaint`), 12dp vertical padding. The single shared section divider / seal. |
+| `PageMasthead(title, leadingSlot, rightSlot, trailingSlot)` | 48dp running-head row hosting three slots. Defaults: `leadingSlot = { PawGlyph() }`, `rightSlot = { TodayLabel() }`, `trailingSlot = {}`. Fraunces italic title (18sp, `onSurface`) in the middle, `weight(1f)`, ellipsized. |
+| `PageMastheadIdentity(title, onClose)` | Convenience wrapper for top-level identity pages (Chat, Drawer, Settings home). Defaults to paw + today label, with an optional close `IconButton` in the trailing slot. |
+| `PageMastheadDrillDown(title, onBack, onClose)` | Convenience wrapper for drilled-down pages (every Settings sub-page). Back chevron (`Icons.Rounded.ChevronLeft`) in the leading slot, close (`Icons.Rounded.Close`) in the trailing slot, today label between. |
+| `PawGlyph(modifier, onClick)` | 18dp paw icon at `onSurface`. Optional tap target — defaults to passive identity glyph. |
+| `TodayLabel(modifier)` | Locale-formatted current day via `DateFormat.getMediumDateFormat(LocalContext.current).format(Date())`. Renders as `monoSmall` / `inkFaint`. The canonical right-slot ledger for `PageMasthead`. Composable, not a `String` — call sites never see `Context`. |
+| `SectionHeader(text)` | Fraunces italic 18sp `inkFaint`, 16dp top / 4dp bottom padding. Section subhead inside identity surfaces. |
 
 ### Mastheaded Surfaces
 
 The `PageMasthead` running-head appears on every "page-level" identity surface:
 
-- `ChatHeader` — `[≡] · paw · ClosePaw · todayLabel · [+]`
-- `NavigationDrawer` `DrawerHeader` — `paw · Sessions · todayLabel · [×]`
-- `SettingsHomePage` — `paw · Settings · todayLabel`
+- `ChatHeader` — `[paw] ClosePaw [today date] [+]`
+- `NavigationDrawer` `DrawerHeader` — `[paw] Sessions [today date] [×]`
+- `SettingsHomePage` — `[paw] Settings [today date] [×]` via `PageMastheadIdentity`
+- Every Settings sub-page — `[‹] Title [today date] [×]` via `PageMastheadDrillDown`
 
-The leading paw + Fraunces italic title + monoSmall ledger date is the
-identity contract — the right slot is text-only and read-only (no tap target).
+The leading paw (or back chevron) + Fraunces italic title + `monoSmall` ledger
+date is the identity contract — the right slot is text-only and read-only
+(no tap target).
 
 ---
 
@@ -259,7 +283,7 @@ ui/theme/
 ├── Tokens.kt         # ClosePawTokens, ClosePawSpacing, MaterialTheme.closePaw, foldedPaper
 ├── Motion.kt         # ClosePawMotion (durations, easings, primitives, reducedMotion)
 ├── Type.kt           # ClosePawTypography (Geist) + identity / mono extras
-├── Ornaments.kt      # Fleuron, PageMasthead, SectionHeader, todayLabel
+├── Ornaments.kt      # Fleuron, PageMasthead (+ Identity / DrillDown), PawGlyph, TodayLabel, SectionHeader
 ├── PaperGrain.kt     # Modifier.paperGrain (light) / Modifier.lanternVignette (dark)
 └── WindowInsets.kt   # AppWindowInsets singleton
 ```
