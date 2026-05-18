@@ -1,7 +1,13 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
+import ai.closepaw.app.MemoryEditGate
+import ai.closepaw.memory.MemoryScope
+import ai.closepaw.memory.MemoryStore
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +27,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,8 +39,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -43,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.closePaw
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -61,27 +74,83 @@ private enum class AppFilter(val label: String) {
     Reject("Reject"),
 }
 
+internal const val APP_ROW_TRAILING_CHEVRON_TAG = "app-row-trailing-chevron"
+internal const val APP_ROW_ADD_MEMORY_TAG = "app-row-add-memory"
+internal const val APP_ROW_MEMORY_CHIP_TAG = "app-row-memory-chip"
+internal const val APP_ROW_SKILL_CHIP_TAG = "app-row-skill-chip"
+
 @Composable
 internal fun AppAccessSettingsPage(
     appClassifier: AppClassifier,
+    memoryStore: MemoryStore,
+    gate: MemoryEditGate,
     onBack: () -> Unit,
     onClose: () -> Unit,
+    contentIndex: AppAccessContentIndex? = null,
+    skillLoader: (suspend (String) -> String?)? = null,
+    rowsOverride: List<AppRow>? = null,
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     val context = LocalContext.current
     val overrides by appClassifier.userOverrides.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    val rowsState = produceState<List<AppRow>?>(initialValue = null, context) {
-        value = withContext(Dispatchers.IO) { loadInstalledAppRows(context) }
+    val index = remember(context, contentIndex) {
+        contentIndex ?: AppAccessContentIndex(
+            memoryPackages = AppAccessContentIndex.memoryLister(memoryStore),
+            skillPackages = AppAccessContentIndex.assetSkillLister(context.assets),
+        )
+    }
+    val summaries by index.summaries.collectAsState()
+
+    val effectiveSkillLoader: suspend (String) -> String? = if (skillLoader != null) {
+        skillLoader
+    } else {
+        val repo = remember(context) { AssetAppSkillRepository(context.assets) }
+        remember(repo) { { pkg: String -> repo.load(pkg) } }
+    }
+
+    LaunchedEffect(index) { index.load() }
+
+    val rowsState = produceState<List<AppRow>?>(initialValue = rowsOverride, context, rowsOverride) {
+        if (rowsOverride != null) {
+            value = rowsOverride
+        } else {
+            value = withContext(ioDispatcher) { loadInstalledAppRows(context) }
+        }
     }
     val rows = rowsState.value
 
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(AppFilter.All) }
+    val expandedPackages = remember { mutableStateMapOf<String, Boolean>() }
 
     val commitTier: (String, AppTier) -> Unit = { pkg, tier ->
         coroutineScope.launch(Dispatchers.IO) {
             appClassifier.setOverride(pkg, tier)
+        }
+    }
+
+    val onMemoryPresenceChanged: (String, Boolean) -> Unit = { pkg, hasMemory ->
+        val existing = summaries[pkg] ?: AppContentSummary.NONE
+        coroutineScope.launch {
+            index.update(pkg, existing.copy(hasMemory = hasMemory))
+        }
+    }
+
+    val onAddMemory: (String) -> Unit = { pkg ->
+        coroutineScope.launch {
+            // Create an empty memory file so the row can transition into the
+            // chevron / editor state. Page-scoped index is updated under the
+            // same mutex that guards `load`.
+            val result = withContext(ioDispatcher) {
+                memoryStore.write(MemoryScope.APP, pkg, "")
+            }
+            if (result is ai.closepaw.memory.SaveResult.Success) {
+                val existing = summaries[pkg] ?: AppContentSummary.NONE
+                index.update(pkg, existing.copy(hasMemory = true))
+                expandedPackages[pkg] = true
+            }
         }
     }
 
@@ -109,7 +178,18 @@ internal fun AppAccessSettingsPage(
                 AppList(
                     rows = filtered,
                     classifier = appClassifier,
+                    summaries = summaries,
+                    expanded = expandedPackages,
+                    onToggleExpand = { pkg ->
+                        expandedPackages[pkg] = !(expandedPackages[pkg] ?: false)
+                    },
                     onPickTier = { pkg, tier -> commitTier(pkg, tier) },
+                    onAddMemory = onAddMemory,
+                    onMemoryPresenceChanged = onMemoryPresenceChanged,
+                    memoryStore = memoryStore,
+                    gate = gate,
+                    skillLoader = effectiveSkillLoader,
+                    ioDispatcher = ioDispatcher,
                 )
             }
         }
@@ -222,7 +302,16 @@ private fun LoadingState() {
 private fun AppList(
     rows: List<AppRow>,
     classifier: AppClassifier,
+    summaries: Map<String, AppContentSummary>,
+    expanded: Map<String, Boolean>,
+    onToggleExpand: (String) -> Unit,
     onPickTier: (pkg: String, tier: AppTier) -> Unit,
+    onAddMemory: (String) -> Unit,
+    onMemoryPresenceChanged: (String, Boolean) -> Unit,
+    memoryStore: MemoryStore,
+    gate: MemoryEditGate,
+    skillLoader: suspend (String) -> String?,
+    ioDispatcher: CoroutineDispatcher,
 ) {
     val listState = rememberLazyListState()
     LazyColumn(
@@ -244,11 +333,21 @@ private fun AppList(
             items(rows, key = { it.info.packageName }) { row ->
                 val pkg = row.info.packageName
                 val isBundledBlocked = classifier.bundledTier(pkg) == AppTier.BLOCKED
+                val summary = summaries[pkg] ?: AppContentSummary.NONE
                 AppRowItem(
                     row = row,
                     effectiveTier = classifier.classify(pkg),
                     isBundledBlocked = isBundledBlocked,
+                    summary = summary,
+                    isExpanded = expanded[pkg] ?: false,
+                    onToggleExpand = { onToggleExpand(pkg) },
+                    onAddMemory = { onAddMemory(pkg) },
                     onPickTier = { tier -> onPickTier(pkg, tier) },
+                    onMemoryPresenceChanged = { has -> onMemoryPresenceChanged(pkg, has) },
+                    memoryStore = memoryStore,
+                    gate = gate,
+                    skillLoader = skillLoader,
+                    ioDispatcher = ioDispatcher,
                 )
             }
         }
@@ -260,11 +359,23 @@ private fun AppRowItem(
     row: AppRow,
     effectiveTier: AppTier,
     isBundledBlocked: Boolean,
+    summary: AppContentSummary,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onAddMemory: () -> Unit,
     onPickTier: (AppTier) -> Unit,
+    onMemoryPresenceChanged: (Boolean) -> Unit,
+    memoryStore: MemoryStore,
+    gate: MemoryEditGate,
+    skillLoader: suspend (String) -> String?,
+    ioDispatcher: CoroutineDispatcher,
 ) {
-    val icon by produceState<ImageBitmap?>(initialValue = null, row.info.packageName) {
+    val pkg = row.info.packageName
+    val icon by produceState<ImageBitmap?>(initialValue = null, pkg) {
         value = row.iconLoader()
     }
+    val hasContent = summary.hasMemory || summary.hasSkill
+    val effectivelyBlocked = effectiveTier == AppTier.BLOCKED
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -275,7 +386,16 @@ private fun AppRowItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AppIcon(bitmap = icon)
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        // Tap row body (not the trailing slot, not tier chips) to expand.
+                        // Only active when there is something to show — empty rows
+                        // route through the "+ Memory" affordance instead.
+                        .let { base ->
+                            if (hasContent) base.clickable(onClick = onToggleExpand) else base
+                        },
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = row.info.label,
@@ -294,9 +414,17 @@ private fun AppRowItem(
                                 tint = MaterialTheme.closePaw.inkFaint,
                             )
                         }
+                        if (summary.hasMemory) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            SummaryChip(text = "Memory", testTag = APP_ROW_MEMORY_CHIP_TAG)
+                        }
+                        if (summary.hasSkill) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            SummaryChip(text = "Skill", testTag = APP_ROW_SKILL_CHIP_TAG)
+                        }
                     }
                     Text(
-                        text = row.info.packageName,
+                        text = pkg,
                         style = MaterialTheme.closePaw.monoSmall,
                         color = MaterialTheme.closePaw.inkFaint,
                         maxLines = 1,
@@ -310,6 +438,13 @@ private fun AppRowItem(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+                TrailingSlot(
+                    hasContent = hasContent,
+                    isExpanded = isExpanded,
+                    onToggleExpand = onToggleExpand,
+                    onAddMemory = onAddMemory,
+                )
             }
             Spacer(modifier = Modifier.height(10.dp))
             if (isBundledBlocked) {
@@ -317,7 +452,94 @@ private fun AppRowItem(
             } else {
                 TierSegmentedSelector(selected = effectiveTier, onPick = onPickTier)
             }
+            AnimatedVisibility(visible = isExpanded && hasContent) {
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    AppRowExpansion(
+                        packageName = pkg,
+                        isBlocked = effectivelyBlocked,
+                        showMemoryEditor = summary.hasMemory,
+                        skillLoader = skillLoader,
+                        memoryStore = memoryStore,
+                        gate = gate,
+                        onMemoryPresenceChanged = onMemoryPresenceChanged,
+                        ioDispatcher = ioDispatcher,
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun TrailingSlot(
+    hasContent: Boolean,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onAddMemory: () -> Unit,
+) {
+    if (hasContent) {
+        Surface(
+            onClick = onToggleExpand,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier
+                .size(32.dp)
+                .testTag(APP_ROW_TRAILING_CHEVRON_TAG),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = if (isExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    } else {
+        Surface(
+            onClick = onAddMemory,
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp,
+            modifier = Modifier.testTag(APP_ROW_ADD_MEMORY_TAG),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Memory",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryChip(text: String, testTag: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.small,
+        tonalElevation = 1.dp,
+        modifier = Modifier.testTag(testTag),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
