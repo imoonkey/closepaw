@@ -1,8 +1,11 @@
 package ai.closepaw.qa
 
+import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.memory.MemoryStore
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.session.SessionCoordinator
 import ai.closepaw.ui.settings.LlmAuthSettingsPage
 import ai.closepaw.ui.settings.LocalModelOption
 import ai.closepaw.ui.settings.ModelLoadingStatus
@@ -11,6 +14,11 @@ import ai.closepaw.ui.settings.PermissionsAdvancedSettingsPage
 import ai.closepaw.ui.settings.SettingsSheet
 import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /** Minimal model catalog with one model per provider, both API shapes on OpenAI. */
 internal fun testModelCatalog(): ModelCatalog = ModelCatalog.fromJson(
@@ -34,6 +42,14 @@ internal fun TestSettingsSheet(
     selectedModel: String = "gpt-5.2",
     onDismiss: () -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val memoryStore = remember(context) {
+        MemoryStore(java.io.File(context.cacheDir, "qa-memory-${System.nanoTime()}"))
+    }
+    val gate = remember(context) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        MemoryEditGate(SessionCoordinator(scope), scope)
+    }
     ClosePawTheme {
         SettingsSheet(
             llmBackend = llmBackend,
@@ -64,6 +80,8 @@ internal fun TestSettingsSheet(
             effectivePlatformMode = null,
             onPlatformModeChange = {},
             onDismiss = onDismiss,
+            memoryStore = memoryStore,
+            memoryEditGate = gate,
         )
     }
 }

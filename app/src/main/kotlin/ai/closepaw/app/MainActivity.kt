@@ -37,6 +37,7 @@ import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ModelCatalogRepository
 import ai.closepaw.llm.ModelCatalogRepositoryHolder
+import ai.closepaw.memory.MemoryStore
 import ai.closepaw.onboarding.OnboardingDemoController
 import ai.closepaw.onboarding.OnboardingEffect
 import ai.closepaw.onboarding.OnboardingStore
@@ -97,6 +98,12 @@ class MainActivity : ComponentActivity() {
 
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val coordinator = SessionCoordinator(sessionScope)
+    private val settingsMemoryStore: MemoryStore by lazy {
+        MemoryStore(java.io.File(applicationContext.filesDir, "memory"))
+    }
+    private val memoryEditGate: MemoryEditGate by lazy {
+        MemoryEditGate(coordinator, sessionScope)
+    }
     private lateinit var settingsState: AppSettingsState
     private lateinit var modelCatalogRepo: ModelCatalogRepository
     private lateinit var modelLoadingStatusHolder: ModelLoadingStatusHolder
@@ -290,6 +297,8 @@ class MainActivity : ComponentActivity() {
                         ?: kotlinx.coroutines.flow.MutableStateFlow(null),
                     appClassifier = AppClassifierHolder.get(applicationContext),
                     currentSessionStateFlow = coordinator.currentSessionState,
+                    memoryStore = settingsMemoryStore,
+                    memoryEditGate = memoryEditGate,
                 )
                 pendingGoalForConfirmation?.let { goal ->
                     AlertDialog(

@@ -21,9 +21,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.memory.MemoryStore
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.tool.AppClassifier
@@ -34,6 +36,7 @@ enum class SettingsPage {
     HOME,
     LLM_AUTH,
     AGENT_BEHAVIOR,
+    MEMORY,
     PERMISSIONS_ADVANCED,
     APP_ACCESS,
     OPEN_SOURCE_LICENSES,
@@ -79,6 +82,8 @@ fun SettingsSheet(
     onOtherModelIdChange: (String) -> Unit = {},
     appClassifier: AppClassifier = AppClassifierHolder.get(LocalContext.current.applicationContext),
     isSessionRunning: Boolean = false,
+    memoryStore: MemoryStore,
+    memoryEditGate: MemoryEditGate,
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
     val reducedMotion = ClosePawMotion.reducedMotion()
@@ -170,6 +175,12 @@ fun SettingsSheet(
                     onClose = onDismiss,
                     isSessionRunning = isSessionRunning,
                 )
+                SettingsPage.MEMORY -> MemorySettingsPage(
+                    memoryStore = memoryStore,
+                    gate = memoryEditGate,
+                    onBack = { settingsPage = SettingsPage.HOME },
+                    onClose = onDismiss,
+                )
                 SettingsPage.PERMISSIONS_ADVANCED -> PermissionsAdvancedSettingsPage(
                     isAccessibilityEnabled = isAccessibilityEnabled,
                     isOverlayEnabled = isOverlayEnabled,
@@ -184,6 +195,8 @@ fun SettingsSheet(
                 )
                 SettingsPage.APP_ACCESS -> AppAccessSettingsPage(
                     appClassifier = appClassifier,
+                    memoryStore = memoryStore,
+                    gate = memoryEditGate,
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss,
                 )
