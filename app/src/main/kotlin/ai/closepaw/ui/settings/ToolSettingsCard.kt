@@ -11,7 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -45,6 +49,8 @@ internal fun ToolSettingsCard(
     onRowClickLabel: String? = null,
     switchEnabled: Boolean = true,
     switchModifier: Modifier = Modifier,
+    trailingInfoIcon: (() -> Unit)? = null,
+    trailingInfoIconLabel: String? = null,
     expanded: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val surfaceModifier = Modifier
@@ -108,6 +114,17 @@ internal fun ToolSettingsCard(
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
+
+                if (trailingInfoIcon != null) {
+                    val infoLabel = trailingInfoIconLabel ?: "View $title details"
+                    IconButton(onClick = trailingInfoIcon) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = infoLabel,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
 
                 Switch(
                     checked = switchChecked,
