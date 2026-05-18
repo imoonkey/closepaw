@@ -4,6 +4,7 @@ import ai.closepaw.agent.cognition.skills.AgentSkillCatalog
 import ai.closepaw.agent.cognition.skills.AgentSkillEntry
 import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.session.SessionServices
+import ai.closepaw.ui.theme.closePaw
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,7 +91,7 @@ internal fun AgentSkillToggleRows(
     // gap under the preceding Tools rows. Only paid once the section actually renders.
     Spacer(modifier = Modifier.height(20.dp))
     SettingsSection(title = "Agent Skills") {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)) {
             skills.forEach { result ->
                 val skill = result.entry
                 val isDisabled = skill.name in disabledSkills
@@ -136,24 +137,24 @@ private fun SkillContentDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 32.dp)
+                .padding(horizontal = MaterialTheme.closePaw.spacing.lg, vertical = MaterialTheme.closePaw.spacing.xl)
                 .heightIn(max = 560.dp),
             color = MaterialTheme.colorScheme.surface,
             shape = MaterialTheme.shapes.large,
             tonalElevation = 6.dp,
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(MaterialTheme.closePaw.spacing.lg)) {
                 Text(
                     text = result.entry.name,
                     style = MaterialTheme.typography.titleLarge,
                 )
-                Spacer(modifier = Modifier.padding(top = 4.dp))
+                Spacer(modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.xs))
                 Text(
                     text = result.entry.description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.padding(top = 12.dp))
+                Spacer(modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.md))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -165,7 +166,7 @@ private fun SkillContentDialog(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Spacer(modifier = Modifier.padding(top = 12.dp))
+                Spacer(modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.md))
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                     TextButton(onClick = onDismiss) { Text("Close") }
                 }

@@ -133,7 +133,7 @@ private fun AppSkillViewer(body: String) {
                 modifier = Modifier
                     .heightIn(min = 0.dp, max = 200.dp)
                     .verticalScroll(rememberScrollState())
-                    .padding(12.dp),
+                    .padding(MaterialTheme.closePaw.spacing.md),
             ) {
                 Text(
                     text = body,
@@ -176,7 +176,7 @@ private fun AddMemoryChip(onAddMemory: () -> Unit, enabled: Boolean) {
         modifier = Modifier.testTag(APP_EXPANSION_ADD_MEMORY_TAG),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = MaterialTheme.closePaw.spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

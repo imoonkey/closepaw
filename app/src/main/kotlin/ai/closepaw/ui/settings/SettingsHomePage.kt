@@ -57,8 +57,8 @@ internal fun SettingsHomePage(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = MaterialTheme.closePaw.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
         ) {
             SectionHeader("Behavior")
             SettingsNavigationRow(

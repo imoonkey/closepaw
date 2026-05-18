@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.closePaw
 import ai.closepaw.ui.theme.foldedPaper
 
 sealed interface OpenAiAuthUiState {
@@ -50,7 +51,7 @@ internal fun OpenAiAuthCard(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding)) {
             when (state) {
                 is OpenAiAuthUiState.SignedOut -> SignedOutContent(onStartOAuth)
                 is OpenAiAuthUiState.InProgress -> InProgressContent(onCancelOAuth)
@@ -82,7 +83,7 @@ private fun SignedOutContent(onStartOAuth: () -> Unit) {
 private fun InProgressContent(onCancelOAuth: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)
     ) {
         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
         Text(
@@ -101,7 +102,7 @@ private fun InProgressContent(onCancelOAuth: () -> Unit) {
 private fun FinishingContent() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)
     ) {
         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
         Text(
@@ -116,7 +117,7 @@ private fun FinishingContent() {
 private fun SignedInContent(email: String?, onSignOut: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
     ) {
         Box(
             modifier = Modifier

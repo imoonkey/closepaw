@@ -45,6 +45,7 @@ import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalogRepository
 import ai.closepaw.llm.ModelEntry
 import ai.closepaw.ui.theme.Fleuron
+import ai.closepaw.ui.theme.closePaw
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -109,7 +110,7 @@ internal fun SearchableGroupedModelPicker(
                     text = if (state.isSearching) "No models match \"$query\"" else "No models available",
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .padding(16.dp),
+                        .padding(MaterialTheme.closePaw.spacing.cardPadding),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -158,7 +159,7 @@ private fun GroupHeaderRow(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = 10.dp),
     ) {
         Icon(
             imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
@@ -199,7 +200,7 @@ private fun PickerRow(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .background(background)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = MaterialTheme.closePaw.spacing.cardPadding, vertical = 10.dp),
     ) {
         Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
             if (selected) {
@@ -277,14 +278,14 @@ internal fun RefreshModelsRow(
                 text = error,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.xs),
             )
         } else if (reason != null) {
             Text(
                 text = reason,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.xs),
             )
         }
     }

@@ -22,6 +22,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.ui.theme.PageMastheadDrillDown
+import ai.closepaw.ui.theme.closePaw
+import androidx.compose.material3.MaterialTheme
 
 internal const val MEMORY_SETTINGS_BANNER_TAG = "memory-settings-banner"
 internal const val MEMORY_SETTINGS_USER_ROW_TAG = "memory-settings-user-row"
@@ -68,8 +70,8 @@ internal fun MemorySettingsPage(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = MaterialTheme.closePaw.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm),
         ) {
             if (locked) {
                 SettingsAlertCard(

@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMastheadDrillDown
+import ai.closepaw.ui.theme.closePaw
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -94,7 +95,7 @@ private fun LoadingNotice() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = MaterialTheme.closePaw.spacing.lg, vertical = MaterialTheme.closePaw.spacing.cardPadding),
     ) {
         Text(
             text = "Loading licenses...",
@@ -109,8 +110,8 @@ private fun LicenseList(rows: List<LicenseEntry>, onOpenUrl: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = MaterialTheme.closePaw.spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm),
     ) {
         item { LicensesPreamble() }
         items(rows, key = { entry -> entry.dependency ?: entry.project ?: entry.hashCode().toString() }) { entry ->
@@ -126,11 +127,11 @@ private fun LicensesPreamble() {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 8.dp),
+            .padding(top = MaterialTheme.closePaw.spacing.sm, bottom = MaterialTheme.closePaw.spacing.sm),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium,
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = "ClosePaw is licensed under the Apache License 2.0. The list below " +
                     "is generated at build time from every runtime dependency.",
@@ -165,7 +166,7 @@ private fun LicenseCard(entry: LicenseEntry, onOpenUrl: (String) -> Unit) {
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium,
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding), verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.xs)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,

@@ -7,6 +7,7 @@ import ai.closepaw.browser.setup.ShizukuShellRunner
 import ai.closepaw.termux.NeedsSetupReason
 import ai.closepaw.termux.TermuxBridgeManager
 import ai.closepaw.termux.TermuxBridgeStatus
+import ai.closepaw.ui.theme.closePaw
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -65,7 +66,7 @@ internal fun ToolsSection(
     isSessionRunning: Boolean = false,
 ) {
     SettingsSection(title = "Tools") {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)) {
             TermuxShellSettingsRow()
             BrowserScriptToolRow(
                 enabled = browserScriptEnabled,
@@ -325,7 +326,7 @@ private fun BrowserScriptToolRow(
         onRowClickLabel = rowClickLabel,
         expanded = if (showExpandedHelp) {
             {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)) {
                     if (probeState is BrowserScriptProbeState.NotBound) {
                         Button(
                             onClick = { scope.launch { deepLink.open() } },
@@ -382,7 +383,7 @@ private fun FlagUrlInlineHelp(onCopy: () -> Unit) {
         color = MaterialTheme.colorScheme.surface,
         shape = MaterialTheme.shapes.small,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Column(modifier = Modifier.padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = 10.dp)) {
             Text(
                 text = "Chrome didn't open the flags page? Paste this URL manually:",
                 style = MaterialTheme.typography.bodySmall,

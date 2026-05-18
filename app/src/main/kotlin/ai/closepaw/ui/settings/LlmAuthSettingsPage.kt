@@ -45,6 +45,7 @@ import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMastheadDrillDown
+import ai.closepaw.ui.theme.closePaw
 import ai.closepaw.BuildConfig
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CoroutineScope
@@ -199,7 +200,7 @@ internal fun LlmAuthSettingsPage(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 24.dp, end = 24.dp, top = 20.dp)
+                .padding(start = MaterialTheme.closePaw.spacing.lg, end = MaterialTheme.closePaw.spacing.lg, top = MaterialTheme.closePaw.spacing.lg)
         ) {
             when (activeTab) {
                 LlmAuthTab.SIGN_IN -> SignInTabContent(
@@ -574,12 +575,12 @@ private fun LocalTabContent(
                 "and will not reliably drive the agent. Use a cloud model for real work.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(MaterialTheme.closePaw.spacing.md)
         )
     }
     Spacer(modifier = Modifier.height(16.dp))
     SettingsSection(title = "Local Model") {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)) {
             LocalModelDropdown(
                 selectedModelId = selectedLocalModel,
                 onModelChange = onLocalModelChange

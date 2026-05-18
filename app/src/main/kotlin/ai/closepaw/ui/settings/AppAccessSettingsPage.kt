@@ -207,8 +207,8 @@ internal fun AppAccessSettingsPage(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = MaterialTheme.closePaw.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md),
         ) {
             SearchField(query = query, onQueryChange = { query = it })
             FilterChipsRow(selected = filter, onSelect = { filter = it })
@@ -253,7 +253,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         shape = MaterialTheme.shapes.medium,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -320,7 +320,7 @@ private fun FilterChip(
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp),
+            modifier = Modifier.padding(vertical = MaterialTheme.closePaw.spacing.sm, horizontal = MaterialTheme.closePaw.spacing.md),
             style = MaterialTheme.typography.labelSmall,
             color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
             else MaterialTheme.colorScheme.onSurface,
@@ -337,7 +337,7 @@ private fun LoadingState() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(MaterialTheme.closePaw.spacing.lg),
         contentAlignment = Alignment.TopCenter,
     ) {
         CircularProgressIndicator(
@@ -368,8 +368,8 @@ private fun AppList(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = MaterialTheme.closePaw.spacing.lg, vertical = MaterialTheme.closePaw.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm),
     ) {
         if (rows.isEmpty()) {
             item {
@@ -377,7 +377,7 @@ private fun AppList(
                     text = "No apps match.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.closePaw.inkFaint,
-                    modifier = Modifier.padding(top = 24.dp),
+                    modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.lg),
                 )
             }
         } else {
@@ -440,7 +440,7 @@ private fun AppRowItem(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium,
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(MaterialTheme.closePaw.spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AppIcon(bitmap = icon)
                 Spacer(modifier = Modifier.width(12.dp))
@@ -685,7 +685,7 @@ private fun RejectOnlyChip() {
             tonalElevation = 2.dp,
         ) {
             Row(
-                modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
+                modifier = Modifier.padding(vertical = MaterialTheme.closePaw.spacing.sm, horizontal = MaterialTheme.closePaw.spacing.sm),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -725,7 +725,7 @@ private fun SegmentChip(
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
+            modifier = Modifier.padding(vertical = MaterialTheme.closePaw.spacing.sm, horizontal = MaterialTheme.closePaw.spacing.sm),
             style = MaterialTheme.typography.labelMedium,
             color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
             else MaterialTheme.colorScheme.onSurface,

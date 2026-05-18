@@ -42,7 +42,7 @@ internal fun MemoryFileEditorPage(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = MaterialTheme.closePaw.spacing.lg),
         ) {
             Surface(
                 modifier = Modifier

@@ -52,12 +52,12 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
                 shape = MaterialTheme.shapes.medium
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
                     ) {
                         Text(
                             text = "Downloading model...",
@@ -85,9 +85,9 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
                 shape = MaterialTheme.shapes.medium
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
                 ) {
                     LinearProgressIndicator(
                         modifier = Modifier.weight(1f)
@@ -108,9 +108,9 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
                 shape = MaterialTheme.shapes.medium
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
                 ) {
                     Box(
                         modifier = Modifier
@@ -169,7 +169,7 @@ internal fun SettingsRow(
         shape = MaterialTheme.shapes.medium
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -228,7 +228,7 @@ internal fun SettingsNavigationRow(
         shape = MaterialTheme.shapes.medium
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -290,9 +290,9 @@ internal fun PerceptionModeSelector(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium
     ) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(vertical = MaterialTheme.closePaw.spacing.sm)) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = MaterialTheme.closePaw.spacing.cardPadding, vertical = MaterialTheme.closePaw.spacing.sm),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -326,7 +326,7 @@ internal fun PerceptionModeSelector(
                                 onClick = { onModeChange(option.value) },
                                 role = Role.RadioButton,
                             )
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = 10.dp),
                         verticalAlignment = Alignment.Top
                     ) {
                         RadioButton(
@@ -368,7 +368,7 @@ private fun RecommendedChip() {
             text = "Recommended",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            modifier = Modifier.padding(horizontal = MaterialTheme.closePaw.spacing.sm, vertical = 2.dp),
         )
     }
 }
