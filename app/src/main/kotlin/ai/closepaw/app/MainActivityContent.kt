@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.protocol.SessionState
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.capsule.CapsuleBinding
 import ai.closepaw.ui.capsule.InertCapsuleBinding
@@ -78,10 +79,16 @@ internal fun MainActivityContent(
     initialSettingsDeepLink: SettingsDeepLink? = null,
     effectivePlatformModeFlow: StateFlow<PlatformMode?> = MutableStateFlow(null),
     appClassifier: AppClassifier,
+    currentSessionStateFlow: StateFlow<SessionState?> = MutableStateFlow(null),
 ) {
     ClosePawTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
         val effectivePlatformMode by effectivePlatformModeFlow.collectAsStateWithLifecycle()
+        val currentSessionState by currentSessionStateFlow.collectAsStateWithLifecycle()
+        // Mirrors MemoryEditGate: any non-Shutdown session (including creation-in-progress
+        // Created) counts as "session running" for the next-session subtitle on disabled
+        // skills. Only `null` or Shutdown means the next session reads the latest toggle.
+        val isSessionRunning = currentSessionState != null && currentSessionState != SessionState.Shutdown
 
         // Voice cold-start route: AgentService.requestVoicePermissionViaMainActivity() brings
         // MainActivity to the front with EXTRA_REQUEST_VOICE_PERMISSION; MainActivity sets a
@@ -190,6 +197,7 @@ internal fun MainActivityContent(
                     onOtherBaseUrlChange = settingsState::updateOtherBaseUrl,
                     onOtherModelIdChange = settingsState::updateOtherModelId,
                     appClassifier = appClassifier,
+                    isSessionRunning = isSessionRunning,
                 )
             }
         }

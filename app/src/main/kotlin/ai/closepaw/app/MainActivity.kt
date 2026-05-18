@@ -289,6 +289,7 @@ class MainActivity : ComponentActivity() {
                     effectivePlatformModeFlow = AgentService.instance?.effectivePlatformMode
                         ?: kotlinx.coroutines.flow.MutableStateFlow(null),
                     appClassifier = AppClassifierHolder.get(applicationContext),
+                    currentSessionStateFlow = coordinator.currentSessionState,
                 )
                 pendingGoalForConfirmation?.let { goal ->
                     AlertDialog(
