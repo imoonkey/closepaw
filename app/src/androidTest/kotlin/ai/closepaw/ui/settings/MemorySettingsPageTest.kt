@@ -9,9 +9,10 @@ import ai.closepaw.session.AgentSession
 import ai.closepaw.session.SessionCoordinator
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.ClosePawTheme
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -42,7 +43,7 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class MemorySettingsPageTest {
 
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     @get:Rule val tempFolder = TemporaryFolder()
 
     private lateinit var memoryDir: File
@@ -125,6 +126,48 @@ class MemorySettingsPageTest {
         compose.onNodeWithText("User Memory").assertIsDisplayed()
         compose.onNodeWithTag(MEMORY_EDITOR_TEXTFIELD_TAG).assertIsDisplayed()
         compose.onNodeWithTag(MEMORY_EDITOR_EDIT_TAG).assertIsDisplayed()
+    }
+
+    // System back from the editor must collapse to the Memory list, not fire
+    // the page-level onBack (which would pop to Settings home).
+    @Test fun back_from_editor_returns_to_memory_list_not_home() {
+        File(memoryDir, "user.md").writeText("hello")
+        var pageBackInvocations = 0
+
+        compose.setContent {
+            ClosePawTheme {
+                MemorySettingsPage(
+                    memoryStore = memoryStore,
+                    gate = gate,
+                    onBack = { pageBackInvocations++ },
+                    onClose = {},
+                )
+            }
+        }
+
+        // Open the editor.
+        compose.onNodeWithTag(MEMORY_SETTINGS_USER_ROW_TAG).performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag(MEMORY_EDITOR_TEXTFIELD_TAG).fetchSemanticsNodes().size == 1
+        }
+
+        // Press system back via the activity's dispatcher.
+        compose.runOnUiThread {
+            compose.activity.onBackPressedDispatcher.onBackPressed()
+        }
+
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag(MEMORY_SETTINGS_USER_ROW_TAG).fetchSemanticsNodes().size == 1
+        }
+
+        // The Memory list is back; the editor is gone; the page-level onBack
+        // was not invoked.
+        compose.onNodeWithTag(MEMORY_SETTINGS_USER_ROW_TAG).assertIsDisplayed()
+        compose.onNodeWithTag(MEMORY_SETTINGS_DEVICE_ROW_TAG).assertIsDisplayed()
+        compose.onAllNodesWithTag(MEMORY_EDITOR_TEXTFIELD_TAG).assertCountEquals(0)
+        assert(pageBackInvocations == 0) {
+            "page-level onBack should not fire while the editor is open"
+        }
     }
 
     // IA reshuffle: LLM & Authentication moves under Behavior, Voice header
