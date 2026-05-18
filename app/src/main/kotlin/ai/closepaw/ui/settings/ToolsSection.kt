@@ -73,6 +73,8 @@ internal fun ToolsSection(
             )
         }
     }
+    Spacer(modifier = Modifier.height(20.dp))
+    AgentSkillToggleRows()
 }
 
 @Composable
