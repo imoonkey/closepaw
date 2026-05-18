@@ -1,0 +1,25 @@
+=== Device-level blocker evidence (OnePlus P0110, Android 14/15) ===
+
+The accessibility service is silently NOT bound even though it is listed as
+enabled in secure settings. This prevents real-device validation of flows
+(d), (e), and the long-session portion of (h) because every session start
+requires the AgentService accessibility binder to be live.
+
+# Smoking gun — dumpsys accessibility (taken after explicit `settings put`)
+     Enabled services:{{ai.closepaw/ai.closepaw.app.AgentService}}
+     Binding services:{}
+     Crashed services:{}
+
+# The system accepted the secure setting (see SettingsShellCmd) but the
+# accessibility manager never created a binding for ai.closepaw/.app.AgentService.
+05-18 00:28:54.075 V/SettingsShellCmd( 3394): putForUser(userId=0, table=secure, key=enabled_accessibility_services, value=ai.closepaw/ai.closepaw.app.AgentService, tag=null, makeDefault=false, overrideableByRestore=false)
+
+# In-app banner reflects the missing binding (see blocker_screenshot.png):
+#   "Accessibility disabled — Agent cannot automate. [Fix]"
+#
+# This is consistent with OnePlus's vendor-managed accessibility/app-freezer
+# policy aggressively unbinding services owned by non-pinned apps. The
+# lock-flow correctness is already covered on emulator + JVM:
+#   - MemoryEditGateTest
+#   - SessionCoordinatorTest
+#   - MemoryFileEditorTest (gate scenarios)
