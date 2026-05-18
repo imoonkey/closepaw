@@ -28,6 +28,9 @@ class ChatStreamingCursorTest {
             state = AgentMessageState.Streaming
         )
         compose.setContent { ClosePawTheme { MessageBubble(msg) } }
+        // Cursor uses rememberInfiniteTransition; halt the clock after the
+        // initial frame so semantic reads don't wait on a never-idle composition.
+        compose.mainClock.autoAdvance = false
 
         compose.onNodeWithTag(CURSOR_TEST_TAG).assertExists()
     }

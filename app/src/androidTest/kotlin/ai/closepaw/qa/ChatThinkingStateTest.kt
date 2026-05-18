@@ -28,6 +28,9 @@ class ChatThinkingStateTest {
             state = AgentMessageState.Thinking
         )
         compose.setContent { ClosePawTheme { MessageBubble(msg) } }
+        // Indicator uses rememberInfiniteTransition; halt the clock after the
+        // initial frame so semantic reads don't wait on a never-idle composition.
+        compose.mainClock.autoAdvance = false
 
         compose.onNodeWithTag("qa-thinking-indicator").assertExists()
     }
@@ -40,8 +43,12 @@ class ChatThinkingStateTest {
             state = AgentMessageState.Streaming
         )
         compose.setContent { ClosePawTheme { MessageBubble(msg) } }
+        // StreamingText cursor uses rememberInfiniteTransition; same rationale.
+        compose.mainClock.autoAdvance = false
 
         compose.onAllNodesWithTag("qa-thinking-indicator").assertCountEquals(0)
-        compose.onNodeWithText("partial response").assertExists()
+        // StreamingText's annotated text contains the inline-content placeholder
+        // char after the text, so onNodeWithText must match by substring.
+        compose.onNodeWithText("partial response", substring = true).assertExists()
     }
 }
