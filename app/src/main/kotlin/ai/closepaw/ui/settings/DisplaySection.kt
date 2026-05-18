@@ -75,7 +75,7 @@ internal fun DisplaySection(
         null -> null
     }
 
-    val rowClickLabel = when (cardState.rowAction) {
+    val rowClickLabel = if (rowAction == null) null else when (cardState.rowAction) {
         VirtualDisplayRowAction.RetryEnable -> "Retry Virtual Display setup"
         VirtualDisplayRowAction.RequestPermission -> "Grant Shizuku permission"
         null -> null

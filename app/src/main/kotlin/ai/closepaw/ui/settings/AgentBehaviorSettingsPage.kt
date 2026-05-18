@@ -36,13 +36,11 @@ internal fun AgentBehaviorSettingsPage(
                 PerceptionModeSelector(selectedMode = perceptionMode, onModeChange = onPerceptionModeChange)
             }
             Spacer(modifier = Modifier.height(20.dp))
-            SettingsSection(title = "Display Mode") {
-                DisplaySection(
-                    persistedMode = platformMode,
-                    effectiveMode = effectivePlatformMode,
-                    onPlatformModeChange = onPlatformModeChange,
-                )
-            }
+            DisplaySection(
+                persistedMode = platformMode,
+                effectiveMode = effectivePlatformMode,
+                onPlatformModeChange = onPlatformModeChange,
+            )
             Spacer(modifier = Modifier.height(20.dp))
             ToolsSection(
                 browserScriptEnabled = browserScriptEnabled,
