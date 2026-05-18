@@ -380,6 +380,93 @@ class MemoryFileEditorTest {
         assertEquals(1, aborts)
         assertEquals("untouched", userFile().readText())
     }
+
+    // ------------------------------------------------------------
+    // (7) Reload window: between the locked→unlocked flip and the
+    //     post-unlock disk read completing, Save must stay disabled
+    //     so a stale pre-session buffer cannot clobber agent appends.
+    //     After reload completes, normal save resumes.
+    // ------------------------------------------------------------
+    @Test fun locked_to_unlocked_reload_window_keeps_save_disabled_then_re_enables() {
+        userFile().writeText("on disk pre-session")
+        val parking = ParkingDispatcher()
+
+        compose.setContent {
+            ClosePawTheme {
+                MemoryFileEditor(
+                    memoryStore = memoryStore,
+                    scope = MemoryScope.USER,
+                    packageName = null,
+                    gate = gate,
+                    bounded = false,
+                    ioDispatcher = parking,
+                )
+            }
+        }
+
+        // Initial load runs unparked (arm() not called yet).
+        compose.waitUntil(5_000) {
+            !gate.memoryEditLocked.value &&
+                compose.onAllNodesWithTag(MEMORY_EDITOR_EDIT_TAG).fetchSemanticsNodes().size == 1
+        }
+
+        // Enter EDIT, type a stale buffer destined to lose to the agent's append.
+        compose.onNodeWithTag(MEMORY_EDITOR_EDIT_TAG).performClick()
+        compose.onNodeWithTag(MEMORY_EDITOR_TEXTFIELD_TAG)
+            .performTextReplacement("stale user buffer")
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).assertIsEnabled()
+
+        // Session starts → lock.
+        val state = MutableStateFlow<SessionState>(SessionState.Running)
+        coordinator.attachSession(fakeSession(state))
+        compose.waitUntil(5_000) { gate.memoryEditLocked.value }
+
+        // Agent appends to disk while locked.
+        userFile().writeText("on disk post-session")
+
+        // Arm parking BEFORE unlock so the post-unlock reload IO hop is parked.
+        parking.arm()
+
+        // Session ends → unlock → reload starts → parked on `parking`.
+        state.value = SessionState.Shutdown
+        compose.waitUntil(5_000) { !gate.memoryEditLocked.value }
+        compose.waitUntil(2_000) { parking.pendingCount() >= 1 }
+
+        // (1) Save stays disabled while the reload is parked; banner stays.
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).assertIsNotEnabled()
+        compose.onNodeWithTag(MEMORY_EDITOR_DISCARD_TAG).assertIsNotEnabled()
+        compose.onNodeWithTag(MEMORY_EDITOR_BANNER_TAG).assertIsDisplayed()
+        compose.onNodeWithText(MEMORY_EDIT_RELOADING_BANNER).assertIsDisplayed()
+
+        // (2) Clicking Save during the reload window is a no-op: the button
+        //     is disabled, no IO is dispatched, and the file is unchanged.
+        val pendingBeforeClick = parking.pendingCount()
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).performClick()
+        compose.waitForIdle()
+        assertEquals(pendingBeforeClick, parking.pendingCount())
+        assertEquals("on disk post-session", userFile().readText())
+
+        // (3) Release reload → reloading=false → Save re-enabled, normal save
+        //     reflects the reloaded buffer plus any new edits.
+        parking.releaseAndDisarm()
+        compose.waitForIdle()
+
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("on disk post-session").fetchSemanticsNodes().size == 1
+        }
+        compose.onAllNodesWithTag(MEMORY_EDITOR_BANNER_TAG).fetchSemanticsNodes().let {
+            assert(it.isEmpty()) { "banner should disappear once reload completes" }
+        }
+
+        // Still in EDIT mode (entered before the lock); edit the freshly
+        // reloaded buffer and save normally.
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).assertIsEnabled()
+        compose.onNodeWithTag(MEMORY_EDITOR_TEXTFIELD_TAG)
+            .performTextReplacement("user save after reload")
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).performClick()
+        compose.waitUntil(5_000) { userFile().readText() == "user save after reload" }
+        assertEquals("user save after reload", userFile().readText())
+    }
 }
 
 /**
@@ -410,5 +497,11 @@ private class ParkingDispatcher : CoroutineDispatcher() {
             val r = queue.poll() ?: break
             r.run()
         }
+    }
+
+    /** Drain pending blocks AND stop queueing future dispatches. */
+    fun releaseAndDisarm() {
+        armed = false
+        releaseAll()
     }
 }
