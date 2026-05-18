@@ -78,6 +78,7 @@ fun SettingsSheet(
     onOtherBaseUrlChange: (String) -> Unit = {},
     onOtherModelIdChange: (String) -> Unit = {},
     appClassifier: AppClassifier = AppClassifierHolder.get(LocalContext.current.applicationContext),
+    isSessionRunning: Boolean = false,
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
     val reducedMotion = ClosePawMotion.reducedMotion()
@@ -166,7 +167,8 @@ fun SettingsSheet(
                     browserScriptEnabled = browserScriptEnabled,
                     onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
                     onBack = { settingsPage = SettingsPage.HOME },
-                    onClose = onDismiss
+                    onClose = onDismiss,
+                    isSessionRunning = isSessionRunning,
                 )
                 SettingsPage.PERMISSIONS_ADVANCED -> PermissionsAdvancedSettingsPage(
                     isAccessibilityEnabled = isAccessibilityEnabled,

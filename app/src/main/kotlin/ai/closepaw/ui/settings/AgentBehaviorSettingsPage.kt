@@ -22,7 +22,8 @@ internal fun AgentBehaviorSettingsPage(
     browserScriptEnabled: Boolean,
     onBrowserScriptEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    isSessionRunning: Boolean = false,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SettingsSubPageHeader(title = "Agent Behavior", onBack = onBack, onClose = onClose)
@@ -45,6 +46,7 @@ internal fun AgentBehaviorSettingsPage(
             ToolsSection(
                 browserScriptEnabled = browserScriptEnabled,
                 onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
+                isSessionRunning = isSessionRunning,
             )
             Spacer(modifier = Modifier.height(32.dp))
         }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -85,6 +86,9 @@ internal fun AgentSkillToggleRows(
 
     var viewerSkill by remember { mutableStateOf<AgentSkillLoaderResult?>(null) }
 
+    // Top padding lives here (not in ToolsSection) so an empty/loading catalog leaves zero
+    // gap under the preceding Tools rows. Only paid once the section actually renders.
+    Spacer(modifier = Modifier.height(20.dp))
     SettingsSection(title = "Agent Skills") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             skills.forEach { result ->

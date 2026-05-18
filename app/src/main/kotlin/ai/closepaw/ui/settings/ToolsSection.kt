@@ -63,6 +63,7 @@ private const val TERMUX_PACKAGE = "com.termux"
 internal fun ToolsSection(
     browserScriptEnabled: Boolean,
     onBrowserScriptEnabledChange: (Boolean) -> Unit,
+    isSessionRunning: Boolean = false,
 ) {
     SettingsSection(title = "Tools") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -73,8 +74,9 @@ internal fun ToolsSection(
             )
         }
     }
-    Spacer(modifier = Modifier.height(20.dp))
-    AgentSkillToggleRows()
+    // Spacer is intentionally NOT rendered here — AgentSkillToggleRows owns its own top
+    // padding so an empty/loading catalog leaves zero extra gap under the Tools section.
+    AgentSkillToggleRows(isSessionRunning = isSessionRunning)
 }
 
 @Composable
