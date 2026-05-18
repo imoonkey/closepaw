@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.theme.PageMastheadDrillDown
 
 @Composable
 internal fun AgentBehaviorSettingsPage(
@@ -26,7 +27,7 @@ internal fun AgentBehaviorSettingsPage(
     isSessionRunning: Boolean = false,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsSubPageHeader(title = "Agent Behavior", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = "Agent Behavior", onBack = onBack, onClose = onClose)
         Column(
             modifier = Modifier
                 .fillMaxWidth()

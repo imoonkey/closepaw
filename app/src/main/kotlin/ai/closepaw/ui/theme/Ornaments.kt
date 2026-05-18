@@ -92,29 +92,6 @@ fun PageMasthead(
     }
 }
 
-// Pre-slot call-site compatibility shim. Three known callers (ChatHeader,
-// NavigationDrawer DrawerHeader, SettingsHomePage) continue to compile during
-// the Phase 0 → Phase 1 window; Phase 1 migrates them and deletes this.
-@Deprecated(
-    message = "Use the slot-based PageMasthead or PageMastheadIdentity / PageMastheadDrillDown convenience wrappers.",
-    replaceWith = ReplaceWith("PageMasthead(title = title, modifier = modifier)"),
-)
-@Composable
-fun PageMasthead(
-    title: String,
-    modifier: Modifier = Modifier,
-    leadingPaw: Boolean = true,
-    onLeadingClick: (() -> Unit)? = null,
-) {
-    PageMasthead(
-        title = title,
-        modifier = modifier,
-        leadingSlot = {
-            if (leadingPaw) PawGlyph(onClick = onLeadingClick)
-        },
-    )
-}
-
 @Composable
 fun PawGlyph(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     val sized = modifier.size(18.dp)

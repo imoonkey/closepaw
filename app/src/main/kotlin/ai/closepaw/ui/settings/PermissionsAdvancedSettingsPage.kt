@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ai.closepaw.BuildConfig
+import ai.closepaw.ui.theme.PageMastheadDrillDown
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -60,7 +61,7 @@ internal fun PermissionsAdvancedSettingsPage(
     onClose: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsSubPageHeader(title = "Permissions & Advanced", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = "Permissions & Advanced", onBack = onBack, onClose = onClose)
         Column(
             modifier = Modifier
                 .fillMaxWidth()

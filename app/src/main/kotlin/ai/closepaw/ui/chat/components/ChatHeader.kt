@@ -62,24 +62,24 @@ fun ChatHeader(
 
         PageMasthead(
             title = "ClosePaw",
-            leadingPaw = true,
             modifier = Modifier.weight(1f),
+            trailingSlot = {
+                if (showNewChatButton && onNewChatClick != null) {
+                    IconButton(
+                        onClick = onNewChatClick,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = "New conversation",
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.size(48.dp))
+                }
+            },
         )
-
-        if (showNewChatButton && onNewChatClick != null) {
-            IconButton(
-                onClick = onNewChatClick,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = "New conversation",
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            Spacer(modifier = Modifier.size(48.dp))
-        }
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.PageMastheadDrillDown
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -79,7 +80,7 @@ internal fun OpenSourceLicensesPage(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        SettingsSubPageHeader(title = "Open Source Licenses", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = "Open Source Licenses", onBack = onBack, onClose = onClose)
         when (val rows = entries) {
             null -> LoadingNotice()
             else -> LicenseList(rows = rows, onOpenUrl = { url -> openUrl(context, url) })

@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,7 +53,7 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.history.model.SessionInfo
 import ai.closepaw.ui.session.TimeUtils
 import ai.closepaw.ui.theme.AppWindowInsets
-import ai.closepaw.ui.theme.PageMasthead
+import ai.closepaw.ui.theme.PageMastheadIdentity
 import ai.closepaw.ui.theme.closePaw
 
 /**
@@ -161,26 +160,11 @@ fun NavigationDrawerContent(
 private fun DrawerHeader(
     onClose: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        PageMasthead(
-            title = "Sessions",
-            leadingPaw = true,
-            modifier = Modifier.weight(1f),
-        )
-
-        IconButton(onClick = onClose) {
-            Icon(
-                imageVector = Icons.Rounded.Close,
-                contentDescription = "Close",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
+    PageMastheadIdentity(
+        title = "Sessions",
+        onClose = onClose,
+        modifier = Modifier.padding(top = 12.dp, bottom = 12.dp),
+    )
 }
 
 /**

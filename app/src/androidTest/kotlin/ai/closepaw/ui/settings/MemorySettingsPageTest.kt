@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -82,6 +83,21 @@ class MemorySettingsPageTest {
         compose.onNodeWithTag(MEMORY_SETTINGS_DEVICE_ROW_TAG).assertIsDisplayed()
         compose.onNodeWithText("User Memory").assertIsDisplayed()
         compose.onNodeWithText("Device Memory").assertIsDisplayed()
+    }
+
+    // Phase 1: every sub-page renders the unified PageMastheadDrillDown — the
+    // back chevron, the Fraunces title, and the close affordance all land.
+    // One representative sub-page is enough to cover the shared composable.
+    @Test fun sub_page_masthead_renders_back_title_and_close() {
+        compose.setContent {
+            ClosePawTheme {
+                MemorySettingsPage(memoryStore, gate, onBack = {}, onClose = {})
+            }
+        }
+
+        compose.onNodeWithContentDescription("Back").assertIsDisplayed()
+        compose.onNodeWithText("Memory").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close").assertIsDisplayed()
     }
 
     @Test fun banner_appears_only_when_gate_is_locked() {

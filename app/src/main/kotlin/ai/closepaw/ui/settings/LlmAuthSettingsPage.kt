@@ -44,6 +44,7 @@ import ai.closepaw.llm.ModelIdValidator
 import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.LLMBackendType
+import ai.closepaw.ui.theme.PageMastheadDrillDown
 import ai.closepaw.BuildConfig
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CoroutineScope
@@ -182,7 +183,7 @@ internal fun LlmAuthSettingsPage(
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsSubPageHeader(title = "LLM & Authentication", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = "LLM & Authentication", onBack = onBack, onClose = onClose)
 
         TabRow(selectedTabIndex = VISIBLE_TABS.indexOf(activeTab).coerceAtLeast(0)) {
             VISIBLE_TABS.forEach { tab ->

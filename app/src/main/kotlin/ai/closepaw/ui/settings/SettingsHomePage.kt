@@ -2,24 +2,18 @@ package ai.closepaw.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -33,7 +27,7 @@ import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.Fleuron
-import ai.closepaw.ui.theme.PageMasthead
+import ai.closepaw.ui.theme.PageMastheadIdentity
 import ai.closepaw.ui.theme.SectionHeader
 import ai.closepaw.ui.theme.closePaw
 import kotlinx.coroutines.Dispatchers
@@ -57,25 +51,7 @@ internal fun SettingsHomePage(
     onDismiss: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PageMasthead(
-                title = "Settings",
-                leadingPaw = true,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onDismiss) {
-                Icon(
-                    imageVector = Icons.Rounded.Close,
-                    contentDescription = "Close",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        PageMastheadIdentity(title = "Settings", onClose = onDismiss)
 
         Column(
             modifier = Modifier

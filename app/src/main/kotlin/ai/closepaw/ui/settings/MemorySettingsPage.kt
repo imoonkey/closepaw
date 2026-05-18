@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ai.closepaw.ui.theme.PageMastheadDrillDown
 
 internal const val MEMORY_SETTINGS_BANNER_TAG = "memory-settings-banner"
 internal const val MEMORY_SETTINGS_USER_ROW_TAG = "memory-settings-user-row"
@@ -66,7 +67,7 @@ internal fun MemorySettingsPage(
     val locked by gate.memoryEditLocked.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsSubPageHeader(title = "Memory", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = "Memory", onBack = onBack, onClose = onClose)
         Column(
             modifier = Modifier
                 .fillMaxWidth()

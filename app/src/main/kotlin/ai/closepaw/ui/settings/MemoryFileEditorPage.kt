@@ -3,6 +3,7 @@ package ai.closepaw.ui.settings
 import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.memory.MemoryScope
 import ai.closepaw.memory.MemoryStore
+import ai.closepaw.ui.theme.PageMastheadDrillDown
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,7 +33,7 @@ internal fun MemoryFileEditorPage(
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        SettingsSubPageHeader(title = title, onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = title, onBack = onBack, onClose = onClose)
         Column(
             modifier = Modifier
                 .fillMaxWidth()

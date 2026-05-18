@@ -4,6 +4,7 @@ import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.memory.MemoryScope
 import ai.closepaw.memory.MemoryStore
+import ai.closepaw.ui.theme.PageMastheadDrillDown
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
@@ -200,7 +201,7 @@ internal fun AppAccessSettingsPage(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        SettingsSubPageHeader(title = "App Access", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = "App Access", onBack = onBack, onClose = onClose)
 
         Column(
             modifier = Modifier

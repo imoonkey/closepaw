@@ -16,11 +16,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -32,44 +29,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
 import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
-
-/**
- * Settings header with title and close button.
- */
-@Composable
-internal fun SettingsHeader(
-    onClose: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.titleLarge.copy(fontFamily = Fraunces),
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        IconButton(onClick = onClose) {
-            Icon(
-                imageVector = Icons.Rounded.Close,
-                contentDescription = "Close",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
 
 /**
  * Model loading status indicator.
@@ -287,43 +251,6 @@ internal fun SettingsNavigationRow(
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.closePaw.inkFaint,
-            )
-        }
-    }
-}
-
-@Composable
-internal fun SettingsSubPageHeader(
-    title: String,
-    onBack: () -> Unit,
-    onClose: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge.copy(fontFamily = Fraunces),
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f)
-        )
-        IconButton(onClick = onClose) {
-            Icon(
-                imageVector = Icons.Rounded.Close,
-                contentDescription = "Close",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
