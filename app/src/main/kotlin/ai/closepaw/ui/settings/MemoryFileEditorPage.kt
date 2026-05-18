@@ -4,12 +4,16 @@ import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.memory.MemoryScope
 import ai.closepaw.memory.MemoryStore
 import ai.closepaw.ui.theme.PageMastheadDrillDown
+import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.ui.theme.foldedPaper
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -40,15 +44,25 @@ internal fun MemoryFileEditorPage(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
         ) {
-            MemoryFileEditor(
-                memoryStore = memoryStore,
-                scope = scope,
-                packageName = packageName,
-                gate = gate,
-                bounded = false,
-                onDeleted = onBack,
-                ioDispatcher = ioDispatcher,
-            )
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .foldedPaper(MaterialTheme.shapes.medium),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Column(modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding)) {
+                    MemoryFileEditor(
+                        memoryStore = memoryStore,
+                        scope = scope,
+                        packageName = packageName,
+                        gate = gate,
+                        bounded = false,
+                        onDeleted = onBack,
+                        ioDispatcher = ioDispatcher,
+                    )
+                }
+            }
         }
     }
 }

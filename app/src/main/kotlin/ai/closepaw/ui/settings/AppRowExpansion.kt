@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -125,7 +124,7 @@ private fun AppSkillViewer(body: String) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(8.dp),
+            shape = MaterialTheme.shapes.small,
             tonalElevation = 1.dp,
         ) {
             // Bounded internal scroll so a long SKILL.md body cannot push the
@@ -149,31 +148,12 @@ private fun AppSkillViewer(body: String) {
 
 @Composable
 private fun BlockedAppWarning() {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(APP_EXPANSION_BLOCKED_WARNING_TAG),
-        color = MaterialTheme.colorScheme.errorContainer,
-        shape = RoundedCornerShape(8.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Warning,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = APP_BLOCKED_MEMORY_WARNING,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-        }
-    }
+    SettingsAlertCard(
+        message = APP_BLOCKED_MEMORY_WARNING,
+        tone = AlertTone.Warning,
+        icon = Icons.Outlined.Warning,
+        modifier = Modifier.testTag(APP_EXPANSION_BLOCKED_WARNING_TAG),
+    )
 }
 
 @Composable

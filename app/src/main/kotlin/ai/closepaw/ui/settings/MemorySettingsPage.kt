@@ -11,11 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,20 +72,11 @@ internal fun MemorySettingsPage(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (locked) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(MEMORY_SETTINGS_BANNER_TAG),
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Text(
-                        text = MEMORY_EDIT_LOCKED_BANNER,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    )
-                }
+                SettingsAlertCard(
+                    message = MEMORY_EDIT_LOCKED_BANNER,
+                    tone = AlertTone.Error,
+                    modifier = Modifier.testTag(MEMORY_SETTINGS_BANNER_TAG),
+                )
             }
 
             SettingsNavigationRow(

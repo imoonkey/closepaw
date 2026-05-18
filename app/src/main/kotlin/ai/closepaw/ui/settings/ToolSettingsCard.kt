@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.foldedPaper
 
 internal data class ToolStatusUi(
     val label: String,
@@ -75,7 +76,7 @@ internal fun ToolSettingsCard(
         }
 
     Surface(
-        modifier = surfaceModifier,
+        modifier = surfaceModifier.foldedPaper(MaterialTheme.shapes.medium),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium,
     ) {

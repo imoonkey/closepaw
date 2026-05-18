@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -331,7 +330,7 @@ private fun BrowserScriptToolRow(
                         Button(
                             onClick = { scope.launch { deepLink.open() } },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.large,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -361,7 +360,7 @@ private fun BrowserScriptToolRow(
                     OutlinedButton(
                         onClick = { refreshTick++ },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.large,
                     ) {
                         Text(text = "Re-check", style = MaterialTheme.typography.labelLarge)
                     }
@@ -381,7 +380,7 @@ private fun FlagUrlInlineHelp(onCopy: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.small,
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             Text(
@@ -399,7 +398,7 @@ private fun FlagUrlInlineHelp(onCopy: () -> Unit) {
             OutlinedButton(
                 onClick = onCopy,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
+                shape = MaterialTheme.shapes.large,
             ) {
                 Text(text = "Copy URL", style = MaterialTheme.typography.labelLarge)
             }

@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -65,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.ui.theme.foldedPaper
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -434,7 +434,9 @@ private fun AppRowItem(
     val effectivelyBlocked = effectiveTier == AppTier.BLOCKED
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .foldedPaper(MaterialTheme.shapes.medium),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium,
     ) {
@@ -622,7 +624,7 @@ private fun AppIcon(bitmap: ImageBitmap?) {
     Box(
         modifier = Modifier
             .size(36.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.small)
             .background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.Center,
     ) {

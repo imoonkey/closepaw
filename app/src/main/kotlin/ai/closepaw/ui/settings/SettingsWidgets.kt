@@ -34,6 +34,7 @@ import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
 import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.ui.theme.foldedPaper
 
 /**
  * Model loading status indicator.
@@ -44,7 +45,9 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
         is ModelLoadingStatus.Idle -> Unit
         is ModelLoadingStatus.Downloading -> {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .foldedPaper(MaterialTheme.shapes.medium),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -75,7 +78,9 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
         }
         is ModelLoadingStatus.Loading -> {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .foldedPaper(MaterialTheme.shapes.medium),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -96,7 +101,9 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
         }
         is ModelLoadingStatus.Ready -> {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .foldedPaper(MaterialTheme.shapes.medium),
                 color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -120,23 +127,10 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
             }
         }
         is ModelLoadingStatus.Error -> {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.errorContainer,
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Error: ${status.message}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-            }
+            SettingsAlertCard(
+                message = "Error: ${status.message}",
+                tone = AlertTone.Error,
+            )
         }
     }
 }
@@ -169,7 +163,8 @@ internal fun SettingsRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .foldedPaper(MaterialTheme.shapes.medium),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium
     ) {
@@ -227,7 +222,8 @@ internal fun SettingsNavigationRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .foldedPaper(MaterialTheme.shapes.medium),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium
     ) {
@@ -288,7 +284,9 @@ internal fun PerceptionModeSelector(
     )
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .foldedPaper(MaterialTheme.shapes.medium),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.medium
     ) {
