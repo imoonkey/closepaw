@@ -84,18 +84,21 @@ internal fun SettingsHomePage(
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SectionHeader("Voice")
+            SectionHeader("Behavior")
             SettingsNavigationRow(
                 title = "LLM & Authentication",
                 subtitle = llmSubtitle(llmBackend, selectedModel, modelOptions, selectedLocalModel, modelCatalog),
                 onClick = { onNavigate(SettingsPage.LLM_AUTH) }
             )
-
-            SectionHeader("Behavior")
             SettingsNavigationRow(
                 title = "Agent Behavior",
                 subtitle = agentBehaviorSubtitle(perceptionMode, platformMode, effectivePlatformMode),
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }
+            )
+            SettingsNavigationRow(
+                title = "Memory",
+                subtitle = "User and Device memory files",
+                onClick = { onNavigate(SettingsPage.MEMORY) }
             )
 
             SectionHeader("Access")

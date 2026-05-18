@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.llm.ModelCatalog
+import ai.closepaw.memory.MemoryStore
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.protocol.SessionState
@@ -80,6 +81,8 @@ internal fun MainActivityContent(
     effectivePlatformModeFlow: StateFlow<PlatformMode?> = MutableStateFlow(null),
     appClassifier: AppClassifier,
     currentSessionStateFlow: StateFlow<SessionState?> = MutableStateFlow(null),
+    memoryStore: MemoryStore,
+    memoryEditGate: MemoryEditGate,
 ) {
     ClosePawTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
@@ -198,6 +201,8 @@ internal fun MainActivityContent(
                     onOtherModelIdChange = settingsState::updateOtherModelId,
                     appClassifier = appClassifier,
                     isSessionRunning = isSessionRunning,
+                    memoryStore = memoryStore,
+                    memoryEditGate = memoryEditGate,
                 )
             }
         }
