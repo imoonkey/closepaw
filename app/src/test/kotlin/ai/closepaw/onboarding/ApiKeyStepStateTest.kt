@@ -610,4 +610,80 @@ class ApiKeyStepStateTest {
         assertThat(vm.stepState).isEqualTo(ApiKeyStepState.OAuthReady)
         scope.coroutineContext.job.cancel()
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // FRESH ENTRY WITH PENDING OUTCOME BUT EXISTING AUTHSTORE CREDENTIAL
+    // (Regression: previously the wizard ignored AuthStore on Pending entry,
+    //  forcing users with valid keys back through OAuth or manual entry.)
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `fresh entry with Pending outcome auto-marks Done and advances when OPENAI_CODEX credential exists`() = runTest {
+        every { store.loadOutcomes() } returns onApiKeyStepOutcomes(apiKey = StepOutcome.Pending)
+        every { authStore.has(LLMProvider.OPENAI_CODEX) } returns true
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+
+        val vm = makeVm(scope); drain(scope, this)
+
+        // Outcome reconciled to Done and auto-advanced to Demo.
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+        verify { store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done) }
+        scope.coroutineContext.job.cancel()
+    }
+
+    @Test
+    fun `fresh entry with Pending outcome auto-marks Done and advances when OPENROUTER api key exists`() = runTest {
+        every { store.loadOutcomes() } returns onApiKeyStepOutcomes(apiKey = StepOutcome.Pending)
+        every { authStore.has(LLMProvider.OPENAI_CODEX) } returns false
+        every { authStore.has(LLMProvider.OPENROUTER) } returns true
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+
+        val vm = makeVm(scope); drain(scope, this)
+
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+        scope.coroutineContext.job.cancel()
+    }
+
+    @Test
+    fun `fresh entry with Pending outcome auto-marks Done and advances when OPENAI_API api key exists`() = runTest {
+        every { store.loadOutcomes() } returns onApiKeyStepOutcomes(apiKey = StepOutcome.Pending)
+        every { authStore.has(LLMProvider.OPENAI_CODEX) } returns false
+        every { authStore.has(LLMProvider.OPENAI_API) } returns true
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+
+        val vm = makeVm(scope); drain(scope, this)
+
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+        scope.coroutineContext.job.cancel()
+    }
+
+    @Test
+    fun `back-nav from Demo to Pending ApiKey with existing credential shows success without advancing`() = runTest {
+        // Demo is Pending so wizard lands there first; user navigates back to ApiKey.
+        // On re-entry, autoAdvance=false so we render the success state and stay put,
+        // letting the user choose to switch provider or continue manually.
+        every { store.loadOutcomes() } returns StepOutcomes(
+            accessibility = StepOutcome.Done,
+            overlay = StepOutcome.Done,
+            battery = StepOutcome.Skipped,
+            apiKey = StepOutcome.Done,   // wizard starts on Demo
+            demo = StepOutcome.Pending,
+        )
+        every { authStore.has(LLMProvider.OPENAI_CODEX) } returns false
+        every { authStore.has(LLMProvider.OPENROUTER) } returns true
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+
+        val vm = makeVm(scope); drain(scope, this)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+
+        vm.goBack(); drain(scope, this)
+
+        assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
+        assertThat(vm.selectedProvider).isEqualTo(OnboardingProvider.OPENROUTER)
+        assertThat(vm.stepState).isInstanceOf(ApiKeyStepState.Valid::class.java)
+        scope.coroutineContext.job.cancel()
+    }
 }

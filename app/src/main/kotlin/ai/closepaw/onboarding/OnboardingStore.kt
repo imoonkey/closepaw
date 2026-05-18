@@ -79,6 +79,12 @@ class OnboardingStore(private val context: Context) {
      * - Schema < 2 → strip legacy keys introduced before the auth-cleanup split
      *   ([LEGACY_KEY_AUTH_METHOD]). The legacy encrypted prefs file
      *   `onboarding_secure_prefs` is left on disk; nothing reads it anymore.
+     * - Any run: if onboarding is not complete but [hasLegacyUsageEvidence] still
+     *   reports an existing user, mark complete. Recovers users whose
+     *   `onboarding_prefs` was wiped/reset (e.g. selective Auto Backup restore,
+     *   manual data clear of just this prefs file) while `auth_store` survived.
+     *   Safe because cloud credentials can only be written through onboarding or
+     *   the post-onboarding Settings page — their presence implies prior success.
      */
     fun migrateIfNeeded(hasLegacyUsageEvidence: () -> Boolean) {
         val p = prefs()
@@ -104,6 +110,11 @@ class OnboardingStore(private val context: Context) {
                 .putInt(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
                 .apply()
             Log.d(TAG, "Migrated onboarding schema $existing → $CURRENT_SCHEMA_VERSION")
+        }
+
+        if (!p.getBoolean(KEY_COMPLETED, false) && hasLegacyUsageEvidence()) {
+            p.edit().putBoolean(KEY_COMPLETED, true).apply()
+            Log.d(TAG, "Reconciled: credential exists but onboarding flag was cleared — marked complete")
         }
     }
 

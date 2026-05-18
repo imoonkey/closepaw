@@ -110,4 +110,36 @@ class OnboardingStoreTest {
         // Completion flag preserved across migration
         assertThat(plainBacking["onboarding_completed"]).isEqualTo(true)
     }
+
+    @Test
+    fun `migrateIfNeeded reconciles current-schema incomplete user when evidence appears`() {
+        // Simulate: onboarding_prefs is at current schema but never marked complete
+        // (e.g. selective Auto Backup restore wiped this file but auth_store survived).
+        plainBacking["schema_version"] = 2
+        plainBacking["onboarding_completed"] = false
+
+        OnboardingStore(context).migrateIfNeeded { true }
+
+        assertThat(plainBacking["onboarding_completed"]).isEqualTo(true)
+    }
+
+    @Test
+    fun `migrateIfNeeded does not reconcile when no evidence exists`() {
+        plainBacking["schema_version"] = 2
+        plainBacking["onboarding_completed"] = false
+
+        OnboardingStore(context).migrateIfNeeded { false }
+
+        assertThat(plainBacking["onboarding_completed"]).isEqualTo(false)
+    }
+
+    @Test
+    fun `migrateIfNeeded leaves already-complete flag untouched`() {
+        plainBacking["schema_version"] = 2
+        plainBacking["onboarding_completed"] = true
+
+        OnboardingStore(context).migrateIfNeeded { true }
+
+        assertThat(plainBacking["onboarding_completed"]).isEqualTo(true)
+    }
 }

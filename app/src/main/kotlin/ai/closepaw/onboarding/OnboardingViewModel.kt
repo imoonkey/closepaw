@@ -337,26 +337,24 @@ class OnboardingViewModel(
                 checkCurrentPermission(isReturnFromSettings = isResume, autoAdvance = autoAdvance)
             }
             WizardStep.ApiKey -> {
-                // If step already Done (back navigation), show a success state
-                // derived from AuthStore rather than any OnboardingStore value.
-                // If AuthStore has no matching credential (cleared/upgraded), fall
-                // through to the normal editable state so the user can recover.
+                // AuthStore is the source of truth for credentials. If one exists for
+                // any onboarding provider, show the "already signed in" state and mark
+                // the step Done — regardless of the locally stored outcome. Covers:
+                //   - Back navigation to a Done step.
+                //   - Re-install / wiped onboarding_prefs while auth_store survived.
+                //   - Demo-failure reset that flipped outcome to Pending.
+                if (tryRenderExistingCredential()) {
+                    if (autoAdvance) {
+                        scope.launch {
+                            delay(AUTO_ADVANCE_DELAY_MS)
+                            advanceToNextStep()
+                        }
+                    }
+                    return
+                }
+
                 if (outcomes.apiKey == StepOutcome.Done) {
-                    if (authStore.has(LLMProvider.OPENAI_CODEX)) {
-                        authMethod = ApiKeyAuthMethod.OAUTH
-                        selectedProvider = OnboardingProvider.OPENAI_API
-                        stepState = ApiKeyStepState.OAuthSuccess("")
-                        return
-                    }
-                    val matched = OnboardingProvider.entries
-                        .firstOrNull { authStore.has(it.llmProvider) }
-                    if (matched != null) {
-                        authMethod = ApiKeyAuthMethod.MANUAL
-                        selectedProvider = matched
-                        stepState = ApiKeyStepState.Valid("")
-                        return
-                    }
-                    // Credential was deleted — reset outcome so user can re-enter.
+                    // Outcome said Done but no matching credential — recover.
                     store.saveOutcome(WizardStep.ApiKey, StepOutcome.Pending)
                     outcomes = outcomes.copy(apiKey = StepOutcome.Pending)
                 }
@@ -436,6 +434,41 @@ class OnboardingViewModel(
     private fun advanceToNextStep() {
         val next = nextStep(currentStep)
         enterStep(next, isResume = false)
+    }
+
+    /**
+     * If [AuthStore] already has a credential for any onboarding-visible provider,
+     * render the matching success state, mark the step Done, and return true.
+     * Returns false when no credential exists.
+     *
+     * OpenAI OAuth takes precedence over manual keys so a user who completed OAuth
+     * sees the OAuth success card on re-entry rather than a generic "Valid" badge.
+     */
+    private fun tryRenderExistingCredential(): Boolean {
+        if (authStore.has(LLMProvider.OPENAI_CODEX)) {
+            authMethod = ApiKeyAuthMethod.OAUTH
+            selectedProvider = OnboardingProvider.OPENAI_API
+            stepState = ApiKeyStepState.OAuthSuccess("")
+            markApiKeyDoneIfNeeded()
+            return true
+        }
+        val matched = OnboardingProvider.entries
+            .firstOrNull { authStore.has(it.llmProvider) }
+        if (matched != null) {
+            authMethod = ApiKeyAuthMethod.MANUAL
+            selectedProvider = matched
+            stepState = ApiKeyStepState.Valid("")
+            markApiKeyDoneIfNeeded()
+            return true
+        }
+        return false
+    }
+
+    private fun markApiKeyDoneIfNeeded() {
+        if (outcomes.apiKey != StepOutcome.Done) {
+            store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
+            outcomes = outcomes.copy(apiKey = StepOutcome.Done)
+        }
     }
 
     private fun nextStep(current: WizardStep): WizardStep = when (current) {
