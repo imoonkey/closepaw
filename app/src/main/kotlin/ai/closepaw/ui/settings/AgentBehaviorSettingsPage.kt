@@ -10,11 +10,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import ai.closepaw.protocol.PlatformMode
 
 @Composable
 internal fun AgentBehaviorSettingsPage(
     perceptionMode: String,
     onPerceptionModeChange: (String) -> Unit,
+    platformMode: PlatformMode,
+    effectivePlatformMode: PlatformMode?,
+    onPlatformModeChange: (PlatformMode) -> Unit,
     browserScriptEnabled: Boolean,
     onBrowserScriptEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
@@ -31,6 +35,12 @@ internal fun AgentBehaviorSettingsPage(
             SettingsSection(title = "Perception") {
                 PerceptionModeSelector(selectedMode = perceptionMode, onModeChange = onPerceptionModeChange)
             }
+            Spacer(modifier = Modifier.height(20.dp))
+            DisplaySection(
+                persistedMode = platformMode,
+                effectiveMode = effectivePlatformMode,
+                onPlatformModeChange = onPlatformModeChange,
+            )
             Spacer(modifier = Modifier.height(20.dp))
             ToolsSection(
                 browserScriptEnabled = browserScriptEnabled,

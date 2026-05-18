@@ -50,6 +50,7 @@ internal fun SettingsHomePage(
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
     debugMode: Boolean,
+    platformMode: PlatformMode,
     effectivePlatformMode: PlatformMode?,
     appClassifier: AppClassifier,
     onNavigate: (SettingsPage) -> Unit,
@@ -93,14 +94,14 @@ internal fun SettingsHomePage(
             SectionHeader("Behavior")
             SettingsNavigationRow(
                 title = "Agent Behavior",
-                subtitle = agentBehaviorSubtitle(perceptionMode),
+                subtitle = agentBehaviorSubtitle(perceptionMode, platformMode, effectivePlatformMode),
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }
             )
 
             SectionHeader("Access")
             SettingsNavigationRow(
                 title = "Permissions & Advanced",
-                subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode, effectivePlatformMode),
+                subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode),
                 onClick = { onNavigate(SettingsPage.PERMISSIONS_ADVANCED) }
             )
             SettingsNavigationRow(
@@ -151,20 +152,32 @@ private fun llmSubtitle(
 }
 
 private fun agentBehaviorSubtitle(
-    perceptionMode: String
+    perceptionMode: String,
+    platformMode: PlatformMode,
+    effectivePlatformMode: PlatformMode?,
 ): String {
-    return when (perceptionMode) {
-        "hybrid" -> "Hybrid"
-        "screenshot_only" -> "Screenshot"
-        else -> "Accessibility"
+    val perceptionChip = when (perceptionMode) {
+        "hybrid" -> "Transcript + Image"
+        "screenshot_only" -> "Image"
+        else -> "Transcript"
     }
+    val displayChip = when (platformMode) {
+        PlatformMode.ACCESSIBILITY -> when (effectivePlatformMode) {
+            PlatformMode.VIRTUAL_DISPLAY -> " · VD (this session)"
+            else -> ""
+        }
+        PlatformMode.VIRTUAL_DISPLAY -> when (effectivePlatformMode) {
+            PlatformMode.ACCESSIBILITY -> " · VD (next session)"
+            else -> " · VD"
+        }
+    }
+    return "$perceptionChip$displayChip"
 }
 
 private fun permissionsSubtitle(
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
     debugMode: Boolean,
-    effectivePlatformMode: PlatformMode?,
 ): String {
     val grantedCount = listOf(isAccessibilityEnabled, isOverlayEnabled).count { it }
     val permSummary = when (grantedCount) {
@@ -172,12 +185,7 @@ private fun permissionsSubtitle(
         1 -> "1 of 2 granted"
         else -> "Setup required"
     }
-    val modeChip = when (effectivePlatformMode) {
-        PlatformMode.VIRTUAL_DISPLAY -> " · VD"
-        PlatformMode.ACCESSIBILITY -> " · A11y"
-        null -> ""
-    }
-    return "$permSummary · Debug ${if (debugMode) "on" else "off"}$modeChip"
+    return "$permSummary · Debug ${if (debugMode) "on" else "off"}"
 }
 
 /**

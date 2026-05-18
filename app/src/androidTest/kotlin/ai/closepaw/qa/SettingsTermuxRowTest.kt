@@ -105,6 +105,9 @@ class SettingsTermuxRowTest {
                     AgentBehaviorSettingsPage(
                         perceptionMode = "accessibility_only",
                         onPerceptionModeChange = {},
+                        platformMode = ai.closepaw.protocol.PlatformMode.ACCESSIBILITY,
+                        effectivePlatformMode = null,
+                        onPlatformModeChange = {},
                         browserScriptEnabled = false,
                         onBrowserScriptEnabledChange = {},
                         onBack = {},
@@ -147,9 +150,9 @@ class SettingsTermuxRowTest {
     @Test fun toggle_off_persists_to_prefs() {
         // Default termux_shell_enabled is true, so the switch starts ON.
         setRowContent(TermuxBridgeStatus.Ready)
-        // Two Switches now exist on the page (Termux and Browser Script). Termux is rendered
-        // first in the layout (Execution section) — index [0] in document order.
-        compose.onAllNodes(isToggleable())[0].performClick()
+        // Three Switches now exist on the page (Virtual Display, Termux, Browser Script).
+        // Display Mode renders before Tools, so Termux is index [1] in document order.
+        compose.onAllNodes(isToggleable())[1].performClick()
         // setTermuxShellEnabled is suspend (Dispatchers.IO write); poll prefs.
         compose.waitUntil(timeoutMillis = 3000) {
             !prefs.getBoolean("termux_shell_enabled", true)
@@ -161,7 +164,7 @@ class SettingsTermuxRowTest {
         // Seed prefs to false so the switch starts OFF.
         prefs.edit().putBoolean("termux_shell_enabled", false).commit()
         setRowContent(TermuxBridgeStatus.Ready)
-        compose.onAllNodes(isToggleable())[0].performClick()
+        compose.onAllNodes(isToggleable())[1].performClick()
         compose.waitUntil(timeoutMillis = 3000) {
             prefs.getBoolean("termux_shell_enabled", false)
         }

@@ -41,7 +41,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ai.closepaw.BuildConfig
-import ai.closepaw.protocol.PlatformMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -53,9 +52,6 @@ internal fun PermissionsAdvancedSettingsPage(
     isOverlayEnabled: Boolean,
     onAccessibilityClick: () -> Unit,
     onOverlayClick: () -> Unit,
-    platformMode: PlatformMode,
-    effectivePlatformMode: PlatformMode?,
-    onPlatformModeChange: (PlatformMode) -> Unit,
     debugMode: Boolean,
     onDebugModeChange: (Boolean) -> Unit,
     traceEnabled: Boolean,
@@ -87,12 +83,6 @@ internal fun PermissionsAdvancedSettingsPage(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(20.dp))
-            DisplayModeSection(
-                persistedMode = platformMode,
-                effectiveMode = effectivePlatformMode,
-                onModeChange = onPlatformModeChange,
-            )
             Spacer(modifier = Modifier.height(20.dp))
             SettingsSection(title = "Debug") {
                 Surface(
