@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -34,34 +32,38 @@ internal fun MemoryFileEditorPage(
     gate: MemoryEditGate,
     onBack: () -> Unit,
     onClose: () -> Unit,
+    onDeleted: (() -> Unit)? = null,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         PageMastheadDrillDown(title = title, onBack = onBack, onClose = onClose)
-        Column(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = MaterialTheme.closePaw.spacing.lg),
+                .weight(1f)
+                .padding(horizontal = MaterialTheme.closePaw.spacing.lg)
+                .foldedPaper(MaterialTheme.shapes.medium),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = MaterialTheme.shapes.medium,
         ) {
-            Surface(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .foldedPaper(MaterialTheme.shapes.medium),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium,
+                    .fillMaxSize()
+                    .padding(MaterialTheme.closePaw.spacing.cardPadding),
             ) {
-                Column(modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding)) {
-                    MemoryFileEditor(
-                        memoryStore = memoryStore,
-                        scope = scope,
-                        packageName = packageName,
-                        gate = gate,
-                        bounded = false,
-                        onDeleted = onBack,
-                        ioDispatcher = ioDispatcher,
-                    )
-                }
+                MemoryFileEditor(
+                    memoryStore = memoryStore,
+                    scope = scope,
+                    packageName = packageName,
+                    gate = gate,
+                    bounded = false,
+                    modifier = Modifier.fillMaxSize(),
+                    onDeleted = {
+                        onDeleted?.invoke()
+                        onBack()
+                    },
+                    ioDispatcher = ioDispatcher,
+                )
             }
         }
     }

@@ -7,6 +7,7 @@ import ai.closepaw.memory.MemoryStore
 import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMastheadDrillDown
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -34,12 +35,14 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -82,6 +85,9 @@ internal const val APP_ROW_TRAILING_CHEVRON_TAG = "app-row-trailing-chevron"
 internal const val APP_ROW_ADD_MEMORY_TAG = "app-row-add-memory"
 internal const val APP_ROW_MEMORY_CHIP_TAG = "app-row-memory-chip"
 internal const val APP_ROW_SKILL_CHIP_TAG = "app-row-skill-chip"
+internal const val APP_ROW_MEMORY_CREATE_ERROR_TAG = "app-row-memory-create-error"
+
+private const val APP_MEMORY_CREATE_FAILED_MESSAGE = "Could not create app memory. Try again."
 
 private enum class AddMemoryOutcome { Created, AlreadyExists, Aborted, WriteFailed }
 
@@ -135,6 +141,8 @@ internal fun AppAccessSettingsPage(
     // immediately rather than VIEW. Map survives recomposition only — process
     // death drops the signal, which is correct (file already exists).
     val startInEditNonces = remember { mutableStateMapOf<String, String>() }
+    val memoryCreateFailures = remember { mutableStateMapOf<String, Boolean>() }
+    var openFullMemoryPackage by rememberSaveable { mutableStateOf<String?>(null) }
     val locked by gate.memoryEditLocked.collectAsStateWithLifecycle()
 
     val commitTier: (String, AppTier) -> Unit = { pkg, tier ->
@@ -148,6 +156,32 @@ internal fun AppAccessSettingsPage(
         coroutineScope.launch {
             index.update(pkg, existing.copy(hasMemory = hasMemory))
         }
+        if (hasMemory) {
+            memoryCreateFailures.remove(pkg)
+        }
+    }
+
+    val fullEditorPackage = openFullMemoryPackage
+    BackHandler(enabled = fullEditorPackage != null) {
+        openFullMemoryPackage = null
+    }
+    if (fullEditorPackage != null) {
+        MemoryFileEditorPage(
+            title = "App Memory",
+            memoryStore = memoryStore,
+            scope = MemoryScope.APP,
+            packageName = fullEditorPackage,
+            gate = gate,
+            onBack = { openFullMemoryPackage = null },
+            onClose = onClose,
+            onDeleted = {
+                onMemoryPresenceChanged(fullEditorPackage, false)
+                expandedPackages.remove(fullEditorPackage)
+                memoryCreateFailures.remove(fullEditorPackage)
+            },
+            ioDispatcher = ioDispatcher,
+        )
+        return
     }
 
     val onAddMemory: (String) -> Unit = { pkg ->
@@ -155,6 +189,7 @@ internal fun AppAccessSettingsPage(
         // race the lock flipping true mid-recomposition. Drop the click here
         // before launching to avoid spawning an aborted coroutine.
         if (!locked) {
+            memoryCreateFailures.remove(pkg)
             coroutineScope.launch {
                 // Two safety layers around the write:
                 //  - Idempotent: re-read inside the coroutine. If a file
@@ -180,6 +215,7 @@ internal fun AppAccessSettingsPage(
                 }
                 when (outcome) {
                     AddMemoryOutcome.Created, AddMemoryOutcome.AlreadyExists -> {
+                        memoryCreateFailures.remove(pkg)
                         val existing = summaries[pkg] ?: AppContentSummary.NONE
                         index.update(pkg, existing.copy(hasMemory = true))
                         expandedPackages[pkg] = true
@@ -191,8 +227,7 @@ internal fun AppAccessSettingsPage(
                         Toast.makeText(context, MEMORY_EDIT_ABORT_TOAST, Toast.LENGTH_SHORT).show()
                     }
                     AddMemoryOutcome.WriteFailed -> {
-                        // Best-effort: nothing to surface inline (no error host on the row).
-                        // The agent's write path will retry next session.
+                        memoryCreateFailures[pkg] = true
                     }
                 }
             }
@@ -228,12 +263,14 @@ internal fun AppAccessSettingsPage(
                     summaries = summaries,
                     expanded = expandedPackages,
                     startInEditNonces = startInEditNonces,
+                    memoryCreateFailures = memoryCreateFailures,
                     addMemoryLocked = locked,
                     onToggleExpand = { pkg ->
                         expandedPackages[pkg] = !(expandedPackages[pkg] ?: false)
                     },
                     onPickTier = { pkg, tier -> commitTier(pkg, tier) },
                     onAddMemory = onAddMemory,
+                    onOpenFullMemoryEditor = { pkg -> openFullMemoryPackage = pkg },
                     onMemoryPresenceChanged = onMemoryPresenceChanged,
                     memoryStore = memoryStore,
                     gate = gate,
@@ -354,10 +391,12 @@ private fun AppList(
     summaries: Map<String, AppContentSummary>,
     expanded: Map<String, Boolean>,
     startInEditNonces: Map<String, String>,
+    memoryCreateFailures: Map<String, Boolean>,
     addMemoryLocked: Boolean,
     onToggleExpand: (String) -> Unit,
     onPickTier: (pkg: String, tier: AppTier) -> Unit,
     onAddMemory: (String) -> Unit,
+    onOpenFullMemoryEditor: (String) -> Unit,
     onMemoryPresenceChanged: (String, Boolean) -> Unit,
     memoryStore: MemoryStore,
     gate: MemoryEditGate,
@@ -393,8 +432,10 @@ private fun AppList(
                     isExpanded = expanded[pkg] ?: false,
                     addMemoryLocked = addMemoryLocked,
                     startInEditNonce = startInEditNonces[pkg],
+                    memoryCreateFailed = memoryCreateFailures[pkg] == true,
                     onToggleExpand = { onToggleExpand(pkg) },
                     onAddMemory = { onAddMemory(pkg) },
+                    onOpenFullMemoryEditor = { onOpenFullMemoryEditor(pkg) },
                     onPickTier = { tier -> onPickTier(pkg, tier) },
                     onMemoryPresenceChanged = { has -> onMemoryPresenceChanged(pkg, has) },
                     memoryStore = memoryStore,
@@ -417,8 +458,10 @@ private fun AppRowItem(
     isExpanded: Boolean,
     addMemoryLocked: Boolean,
     startInEditNonce: String?,
+    memoryCreateFailed: Boolean,
     onToggleExpand: () -> Unit,
     onAddMemory: () -> Unit,
+    onOpenFullMemoryEditor: () -> Unit,
     onPickTier: (AppTier) -> Unit,
     onMemoryPresenceChanged: (Boolean) -> Unit,
     memoryStore: MemoryStore,
@@ -511,6 +554,13 @@ private fun AppRowItem(
             } else {
                 TierSegmentedSelector(selected = effectiveTier, onPick = onPickTier)
             }
+            if (memoryCreateFailed) {
+                Spacer(modifier = Modifier.height(10.dp))
+                MemoryCreateFailureCard(
+                    onRetry = onAddMemory,
+                    retryEnabled = !addMemoryLocked,
+                )
+            }
             AnimatedVisibility(visible = isExpanded && hasContent) {
                 Column {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -525,18 +575,31 @@ private fun AppRowItem(
                         onMemoryPresenceChanged = onMemoryPresenceChanged,
                         onAddMemory = onAddMemory,
                         addMemoryLocked = addMemoryLocked,
-                        // TODO: route to a per-app MemoryFileEditorPage variant.
-                        // Requires SettingsSheet to expose a nav callback for
-                        // SettingsPage.MEMORY targeting (scope=APP, pkg). Left
-                        // unwired here so the bounded editor remains usable;
-                        // long content still scrolls inside the bounded frame.
-                        onOpenFullMemoryEditor = null,
+                        onOpenFullMemoryEditor = onOpenFullMemoryEditor,
                         ioDispatcher = ioDispatcher,
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun MemoryCreateFailureCard(
+    onRetry: () -> Unit,
+    retryEnabled: Boolean,
+) {
+    SettingsAlertCard(
+        message = APP_MEMORY_CREATE_FAILED_MESSAGE,
+        tone = AlertTone.Error,
+        icon = Icons.Outlined.Warning,
+        modifier = Modifier.testTag(APP_ROW_MEMORY_CREATE_ERROR_TAG),
+        action = {
+            TextButton(onClick = onRetry, enabled = retryEnabled) {
+                Text("Retry")
+            }
+        },
+    )
 }
 
 @Composable

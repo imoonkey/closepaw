@@ -302,7 +302,7 @@ internal fun MemoryFileEditor(
             .let { base ->
                 // Bounded variant caps the text field height so 8 KB content
                 // does not stretch the row. Internal scroll handles overflow.
-                if (bounded) base.heightIn(min = 96.dp, max = 240.dp) else base
+                if (bounded) base.heightIn(min = 96.dp, max = 240.dp) else base.weight(1f)
             }
 
         OutlinedTextField(
