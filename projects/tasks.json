@@ -1566,5 +1566,271 @@
     ],
     "created": "2026-05-18T21:14:00Z",
     "updated": "2026-05-18T21:14:00Z"
+  },
+  "ui-polish-release": {
+    "parent": "publish-play-store",
+    "depends": [],
+    "state": "done",
+    "title": "Pre-release UI polish",
+    "description": "Whole-app UI polish before Play Store submission. Local fixes only — no redesign. Splits into 6 leaf groups under this milestone. Final aligned design at projects/active/ui_polish_release/final/design.md (cn version at final/cn/design.md). 9 of 12 open questions resolved (D1-D7 in design doc); 3 deferred to QA-screenshot phase.",
+    "design": "projects/active/ui_polish_release/final/design.md",
+    "acceptCriteria": [
+      "all child leaves are done",
+      "./gradlew assembleDebug exits 0",
+      "./gradlew lint exits 0"
+    ],
+    "tags": [
+      "ui",
+      "release",
+      "polish"
+    ],
+    "created": "2026-05-19T14:23:18Z",
+    "updated": "2026-05-19T14:24:09Z"
+  },
+  "ui-polish-onboarding-shell": {
+    "parent": "ui-polish-release",
+    "depends": [],
+    "state": "done",
+    "title": "P0 引导完成页 Shell + 始终滚动",
+    "description": "Two changes in one task. (1) Route WizardStep.Complete through OnboardingShell (drop duplicate \"You are All Set!\" title) so the final CTA inherits systemBarsPadding()/imePadding() — fixes P0-1. (2) Replace BoxWithConstraints + IME heuristic at OnboardingShell.kt:60-79 with a simple always-vertical-scroll model using imePadding() (D7). No new inset references in CompleteStepContent — use AppWindowInsets policy.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/**"
+    ],
+    "acceptCriteria": [
+      "WizardStep.Complete renders inside OnboardingShell (no duplicate title)",
+      "CompleteStepContent contains no systemBarsPadding/statusBarsPadding/imePadding calls",
+      "OnboardingShell.kt no longer references BoxWithConstraints",
+      "grep -rn \"systemBarsPadding\\|statusBarsPadding\" app/src/main/kotlin/ai/closepaw/ui/onboarding finds zero new uses",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0"
+    ],
+    "tags": [
+      "p0",
+      "onboarding"
+    ],
+    "estimate": "s",
+    "created": "2026-05-19T14:24:08Z",
+    "updated": "2026-05-19T14:35:51Z",
+    "worktree": "uip-onboarding",
+    "agent": "w-ui-polish-onboarding-shell"
+  },
+  "ui-polish-capsule-attention": {
+    "parent": "ui-polish-release",
+    "depends": [],
+    "state": "done",
+    "title": "P0 Capsule 注意状态布局：隐藏次级导航",
+    "description": "P0-2 with decision D1. In WaitingForApproval/WaitingForInput/WaitingForAction/Error, render only the required action row (Always/Session/Reject etc.) at 48dp effective targets. Hide VD nav arrows entirely in these states. Nav returns when state transitions back to Running. Touch up CapsuleRenderSpec.kt:120/195 layout policy and CapsuleControlBar.kt:67/97 rendering. Verify no horizontal clipping at 360dp width / fontScale 1.5.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/model/CapsuleRenderSpec.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleControlBar.kt"
+    ],
+    "acceptCriteria": [
+      "WaitingForApproval/Input/Action/Error states do not render VD nav controls",
+      "Running state still renders nav controls as before",
+      "All required action buttons in attention states have Modifier.minimumInteractiveComponentSize() applied",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0",
+      "./gradlew test exits 0"
+    ],
+    "tags": [
+      "p0",
+      "capsule"
+    ],
+    "estimate": "m",
+    "created": "2026-05-19T14:24:08Z",
+    "updated": "2026-05-19T14:38:51Z",
+    "worktree": "uip-capsule",
+    "agent": "w-ui-polish-capsule-attention"
+  },
+  "ui-polish-a11y-segmented": {
+    "parent": "ui-polish-release",
+    "depends": [
+      "ui-polish-capsule-attention",
+      "ui-polish-memory-app-access",
+      "ui-polish-settings-failures",
+      "ui-polish-session-drawer",
+      "ui-polish-paper-visual"
+    ],
+    "state": "done",
+    "title": "P1 可访问性清扫 + App Access segmented 筛选器",
+    "description": "Bundles P1-1 a11y sweep with D5 segmented filter migration since both touch the App Access page. (a) Apply Modifier.minimumInteractiveComponentSize() to: CapsuleInputBar.kt:229/306, CapsuleControlBar.kt:218, StatusIslandCompose.kt:42, CompletionHandoffCtaRow.kt:59, AppAccessSettingsPage.kt:248/290/542, NavigationDrawer.kt:290, PermissionRepairCard.kt:119. Add Role/stateDescription/contentDescription where missing. (b) P1-2 capsule status row: add Role.Button + label when onStatusClick is non-null (SmartCapsuleSurface.kt:276). (c) D5: replace App Access custom filter chips with Material SingleChoiceSegmentedButtonRow to match LlmAuthSettingsPage:398 — this eliminates most a11y work for the filter row itself.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/**",
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/compose/StatusIslandCompose.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/CompletionHandoffCtaRow.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppAccessSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/navigation/NavigationDrawer.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionRepairCard.kt"
+    ],
+    "acceptCriteria": [
+      "App Access filter row uses SingleChoiceSegmentedButtonRow",
+      "Custom interactive surfaces in scope expose Role + contentDescription where applicable",
+      "grep -n minimumInteractiveComponentSize app/src/main/kotlin/ai/closepaw/ui/capsule/ shows new uses",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0"
+    ],
+    "tags": [
+      "p1",
+      "a11y"
+    ],
+    "estimate": "m",
+    "created": "2026-05-19T14:24:08Z",
+    "updated": "2026-05-19T15:16:46Z",
+    "worktree": "uip-a11y",
+    "agent": "w-ui-polish-a11y-segmented"
+  },
+  "ui-polish-memory-app-access": {
+    "parent": "ui-polish-release",
+    "depends": [],
+    "state": "done",
+    "title": "P1 记忆失败可见 + 单 App 全编辑器 + 不限大小铺满",
+    "description": "P1-4 + P1-5 combined. (a) P1-4: + Memory create failure currently maps to WriteFailed and shows nothing; surface failure with inline SettingsAlertCard per D4 (AppAccessSettingsPage.kt:153/193/528). Add a per-app full-page memory editor route (currently passes onOpenFullMemoryEditor = null at AppAccessSettingsPage.kt:528 despite documented affordance). Preserve dirty-buffer guard from MemoryFileEditor.kt:352. (b) P1-5: make MemoryFileEditorPage height-aware — masthead fixed, editor surface fills remaining height, action row reachable, text field scrolls internally (MemoryFileEditorPage.kt:39/41, MemoryFileEditor.kt:303).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppAccessSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/MemoryFileEditor.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/MemoryFileEditorPage.kt"
+    ],
+    "acceptCriteria": [
+      "Per-app + Memory create failure renders a visible SettingsAlertCard with retry",
+      "AppAccessSettingsPage passes a non-null onOpenFullMemoryEditor for bounded per-app memory",
+      "MemoryFileEditorPage editor surface fills available height (no nested scrolling column wrapping)",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0",
+      "./gradlew test exits 0"
+    ],
+    "tags": [
+      "p1",
+      "memory",
+      "app-access"
+    ],
+    "estimate": "m",
+    "created": "2026-05-19T14:24:09Z",
+    "updated": "2026-05-19T14:42:08Z",
+    "worktree": "uip-memory",
+    "agent": "w-ui-polish-memory-app-access"
+  },
+  "ui-polish-settings-failures": {
+    "parent": "ui-polish-release",
+    "depends": [],
+    "state": "done",
+    "title": "P1 设置失败状态：OTHER 校验 / 语音反馈 / 破坏性清理 / loading-empty",
+    "description": "Bundles P1-6, P1-7, P1-9, P2-1 — all about making failure/empty paths visible in settings. (a) P1-6: wire OtherBaseUrlValidator and ModelIdValidator to isError + supportingText in LlmAuthSettingsPage.kt:613/635 and LlmAuthDiscoveryUi.kt:273. (b) P1-7 + D4: route voice recognizer/permission errors to inline SettingsAlertCard at the chat scaffold (replaces Log.i in CapsuleInputBar.kt:134). (c) P1-9: wrap deleteRecursively in PermissionsAdvancedSettingsPage.kt:171/198 with success/failure handling; only show \"Cleared\" on real success. (d) P2-1: add paper-toned loading/empty/error states to AppAccessSettingsPage.kt:336/374 and OpenSourceLicensesPage.kt:63/86.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/OpenSourceLicensesPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "OTHER provider Base URL and Custom Model Id fields show isError + supportingText when validators fail",
+      "Voice recognizer errors render visible SettingsAlertCard (no longer log-only)",
+      "PermissionsAdvancedSettingsPage trace/session clear handles deleteRecursively failure and does not report Cleared on failure",
+      "AppAccess + Licenses pages show explicit loading/empty/error states",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0"
+    ],
+    "tags": [
+      "p1",
+      "settings",
+      "failures"
+    ],
+    "estimate": "m",
+    "created": "2026-05-19T14:24:09Z",
+    "updated": "2026-05-19T14:45:13Z",
+    "worktree": "uip-settings",
+    "agent": "w-ui-polish-settings-failures"
+  },
+  "ui-polish-session-drawer": {
+    "parent": "ui-polish-release",
+    "depends": [],
+    "state": "done",
+    "title": "P1 会话抽屉 active/corrupted 状态 + 48dp 删除",
+    "description": "P1-8. SessionInfo already exposes isActive/isCorrupted but NavigationDrawer.kt:235/290 ignores them. Add a row treatment for active (visual marker) and corrupted (disable normal open via a guard, keep delete reachable, surface the corrupted reason). Give the delete button a 48dp effective target via Modifier.minimumInteractiveComponentSize().",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/navigation/NavigationDrawer.kt"
+    ],
+    "acceptCriteria": [
+      "Drawer row visually distinguishes active session",
+      "Drawer row visually distinguishes corrupted session and blocks normal open",
+      "Delete button on drawer rows has 48dp effective touch target",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0"
+    ],
+    "tags": [
+      "p1",
+      "drawer"
+    ],
+    "estimate": "m",
+    "created": "2026-05-19T14:24:09Z",
+    "updated": "2026-05-19T14:42:08Z",
+    "worktree": "uip-drawer",
+    "agent": "w-ui-polish-session-drawer"
+  },
+  "ui-polish-paper-visual": {
+    "parent": "ui-polish-release",
+    "depends": [
+      "ui-polish-onboarding-shell",
+      "ui-polish-session-drawer"
+    ],
+    "state": "done",
+    "title": "P1 纸张噪点 + 形状 token + 引导排版",
+    "description": "P1-3 (with D2 semantics) + P2-3 + P2-4. (a) P1-3: PaperGrain.kt:41 default 0.04f -> 0.015f. Keep Modifier.paperGrain as overlay (D2) — for both ChatScreen.kt:286 and SettingsSheet.kt:103, apply grain via a sibling Box drawn behind the content rather than wrapping it. (b) P2-3: replace bare RoundedCornerShape(N.dp) with theme shapes in PermissionRepairCard.kt:50, NavigationDrawer.kt:238/241, MessageBubble.kt:55. Document user-bubble asymmetric shape as intentional, and per D3 apply a 1dp outline border (Ink alpha 0.18) to the user bubble. (c) P2-4: use Fraunces italic Regular where identity style applies (OnboardingShell.kt:113, OnboardingSteps.kt:203/677); ensure provider/auth choices wrap under large font.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/theme/PaperGrain.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/MessageBubble.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionRepairCard.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/navigation/NavigationDrawer.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingShell.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt"
+    ],
+    "acceptCriteria": [
+      "PaperGrain default strength is 0.015f",
+      "ChatScreen and SettingsSheet apply grain via sibling background Box (Modifier.paperGrain not chained on top of content)",
+      "User bubble in MessageBubble has 1dp outline border at Ink alpha 0.18",
+      "No new RoundedCornerShape(N.dp) literals in PermissionRepairCard / NavigationDrawer / MessageBubble for non-asymmetric shapes",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0"
+    ],
+    "tags": [
+      "p1",
+      "p2",
+      "visual-system"
+    ],
+    "estimate": "m",
+    "created": "2026-05-19T14:24:09Z",
+    "updated": "2026-05-19T15:03:37Z",
+    "worktree": "uip-paper",
+    "agent": "w-ui-polish-paper-visual",
+    "note": "Merge conflicts with onboarding-shell (OnboardingSteps.kt — keep onboarding-shell deletion of duplicate title) and session-drawer (NavigationDrawer.kt — keep drawer structure, swap RoundedCornerShape(8.dp) for MaterialTheme.shapes.small in rowShape). Resolve at final merge."
+  },
+  "ui-polish-repair-card-narrow": {
+    "parent": "ui-polish-release",
+    "depends": [],
+    "state": "done",
+    "title": "Fix PermissionRepairCard narrow-width clipping",
+    "description": "Real-device QA on Nubia P0110 caught: PermissionRepairCard RepairRow at PermissionRepairCard.kt:81-128 puts title (bodyMedium) and detail (bodySmall) in one inline Row with fillMaxWidth/weight(1f), and the outer Row has fixed .height(44.dp). On narrow widths the detail wraps to 3 lines (Agent / cannot / automate) and the fixed height clips. Same card is used in chat empty state and after onboarding when permissions revoked, so the bug is user-visible. Fix: stack title above detail in a Column (each Text on its own line), drop the fixed .height(44.dp) in favor of a min/wrap-content height that respects the new two-line stack. Keep the dot + Fix button column structure, the Rust dot color, and the bodyMedium/bodySmall + InkFaint tones unchanged.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/PermissionRepairCard.kt"
+    ],
+    "acceptCriteria": [
+      "RepairRow renders title and detail in a Column (vertical stack), not in an inline Row",
+      "RepairRow outer Row no longer uses fixed .height(44.dp) — uses heightIn min or wrap-content",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0"
+    ],
+    "tags": [
+      "p2",
+      "polish",
+      "real-device-qa"
+    ],
+    "estimate": "xs",
+    "worktree": "uip-repair-narrow",
+    "created": "2026-05-19T18:38:04Z",
+    "updated": "2026-05-19T18:45:02Z",
+    "agent": "w-uip-repair-narrow"
   }
 }
