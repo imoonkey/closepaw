@@ -17,7 +17,7 @@
             android:pathData="M 1.5,19.45 a 4.35,6.95 0 1,0 8.7,0 a 4.35,6.95 0 1,0 -8.7,0 Z"
             android:fillColor="#00000000"
             android:strokeColor="#FFFFFF"
-            android:strokeWidth="2.2"
+            android:strokeWidth="3.4"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"/>
     </group>
@@ -27,7 +27,7 @@
         android:pathData="M 13.95,9.15 a 4.35,8.05 0 1,0 8.7,0 a 4.35,8.05 0 1,0 -8.7,0 Z"
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.2"
+        android:strokeWidth="3.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"/>
 
@@ -36,7 +36,7 @@
         android:pathData="M 29.25,9.15 a 4.35,8.05 0 1,0 8.7,0 a 4.35,8.05 0 1,0 -8.7,0 Z"
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.2"
+        android:strokeWidth="3.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"/>
 
@@ -49,7 +49,7 @@
             android:pathData="M 41.6,19.45 a 4.35,6.95 0 1,0 8.7,0 a 4.35,6.95 0 1,0 -8.7,0 Z"
             android:fillColor="#00000000"
             android:strokeColor="#FFFFFF"
-            android:strokeWidth="2.2"
+            android:strokeWidth="3.4"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"/>
     </group>
@@ -59,7 +59,7 @@
         android:pathData="M 33.1,58.8 C 29.8,61.7 25.5,63.4 20.9,62.4 C 12.4,60.6 7.4,52.7 7.8,43.7 C 8.3,33.9 15.2,26.2 25.7,25.1 C 35.8,24.1 41.7,31.6 40.7,40.3 C 39.9,47.2 34.1,51.6 28.6,49.8 C 27.3,49.4 26.3,48.7 25.6,48.3"
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.2"
+        android:strokeWidth="3.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"/>
 </vector>

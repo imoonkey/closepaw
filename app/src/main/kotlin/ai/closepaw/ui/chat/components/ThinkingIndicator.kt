@@ -96,7 +96,7 @@ private fun PawToeSequence(tint: Color) {
     Canvas(modifier = Modifier.size(width = 23.dp, height = 28.dp)) {
         val s = size.height / 64f
         val stroke = Stroke(
-            width = 2.2f * s,
+            width = 3.4f * s,
             cap = StrokeCap.Round,
             join = StrokeJoin.Round,
         )
