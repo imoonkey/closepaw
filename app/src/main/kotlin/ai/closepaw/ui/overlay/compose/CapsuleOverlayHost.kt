@@ -9,14 +9,17 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +30,7 @@ import ai.closepaw.protocol.ApprovalDecision
 import ai.closepaw.protocol.ApprovalScope
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.capsule.NavAction
+import ai.closepaw.ui.capsule.surface.LocalVoiceFeedback
 import ai.closepaw.ui.capsule.surface.SmartCapsuleSurface
 import ai.closepaw.ui.capsule.surface.VoiceMicDeps
 import ai.closepaw.ui.capsule.surface.smartCapsuleHostPadding
@@ -120,6 +124,7 @@ class CapsuleOverlayHost(
             val lockTouches by interactionLocked.collectAsState(initial = false)
 
             val capsuleContent: @androidx.compose.runtime.Composable () -> Unit = {
+                val overlayContext = LocalContext.current
                 val voiceDeps = remember {
                     val appCtx = service.applicationContext
                     object : VoiceMicDeps {
@@ -135,59 +140,69 @@ class CapsuleOverlayHost(
                         }
                     }
                 }
-                SmartCapsuleSurface(
-                    mode = mode,
-                    previousMode = stateHolder.previousMode,
-                    isStopPending = stopPending,
-                    platformMode = platform,
-                    context = ctx,
-                    transientThought = flashThought,
-                    onSend = { text -> debounced { onSend?.invoke(text) } },
-                    onSupplement = { text -> debounced { onSupplement?.invoke(text) } },
-                    onTakeover = { debounced { onTakeover?.invoke() } },
-                    onResume = { debounced { onResume?.invoke() } },
-                    onSupplementAndResume = { text ->
-                        debounced {
-                            val submit = onSupplementAndResume
-                            if (submit != null) {
-                                submit(text)
-                            } else {
-                                onSupplement?.invoke(text)
-                                onResume?.invoke()
+                CompositionLocalProvider(
+                    LocalVoiceFeedback provides { message ->
+                        Toast.makeText(
+                            overlayContext.applicationContext,
+                            message,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    },
+                ) {
+                    SmartCapsuleSurface(
+                        mode = mode,
+                        previousMode = stateHolder.previousMode,
+                        isStopPending = stopPending,
+                        platformMode = platform,
+                        context = ctx,
+                        transientThought = flashThought,
+                        onSend = { text -> debounced { onSend?.invoke(text) } },
+                        onSupplement = { text -> debounced { onSupplement?.invoke(text) } },
+                        onTakeover = { debounced { onTakeover?.invoke() } },
+                        onResume = { debounced { onResume?.invoke() } },
+                        onSupplementAndResume = { text ->
+                            debounced {
+                                val submit = onSupplementAndResume
+                                if (submit != null) {
+                                    submit(text)
+                                } else {
+                                    onSupplement?.invoke(text)
+                                    onResume?.invoke()
+                                }
                             }
-                        }
-                    },
-                    onStop = { debounced { onStop?.invoke() } },
-                    onUserResponse = { callId, response ->
-                        debounced { onUserResponse?.invoke(callId, response) }
-                    },
-                    onApprovalResponse = { callId, decision, scope, packageName ->
-                        debounced { onApprovalResponse?.invoke(callId, decision, scope, packageName) }
-                    },
-                    onDismissError = { debounced { onDismissError?.invoke() } },
-                    onNavigate = { action ->
-                        debounced {
-                            when (action) {
-                                NavAction.MINIMIZE -> onMinimize?.invoke()
-                                NavAction.OPEN_APP -> onOpenApp?.invoke()
-                                NavAction.OPEN_VIEWER -> onOpenViewer?.invoke()
+                        },
+                        onStop = { debounced { onStop?.invoke() } },
+                        onUserResponse = { callId, response ->
+                            debounced { onUserResponse?.invoke(callId, response) }
+                        },
+                        onApprovalResponse = { callId, decision, scope, packageName ->
+                            debounced { onApprovalResponse?.invoke(callId, decision, scope, packageName) }
+                        },
+                        onDismissError = { debounced { onDismissError?.invoke() } },
+                        onNavigate = { action ->
+                            debounced {
+                                when (action) {
+                                    NavAction.MINIMIZE -> onMinimize?.invoke()
+                                    NavAction.OPEN_APP -> onOpenApp?.invoke()
+                                    NavAction.OPEN_VIEWER -> onOpenViewer?.invoke()
+                                }
                             }
-                        }
-                    },
-                    hasIsland = islandEnabled,
-                    onStatusClick = if (platform != PlatformMode.ACCESSIBILITY) {
-                        { debounced { onOpenApp?.invoke() } }
-                    } else {
-                        null
-                    },
-                    onInputFocusChanged = { focused -> inputFocused.value = focused },
-                    onInputSubmitted = {
-                        inputFocused.value = false
-                        setOverlayFocusable(false)
-                    },
-                    autoFocusInput = mode is CapsuleMode.WaitingForInput,
-                    voice = voiceDeps,
-                )
+                        },
+                        hasIsland = islandEnabled,
+                        onStatusClick = if (platform != PlatformMode.ACCESSIBILITY) {
+                            { debounced { onOpenApp?.invoke() } }
+                        } else {
+                            null
+                        },
+                        onInputFocusChanged = { focused -> inputFocused.value = focused },
+                        onInputSubmitted = {
+                            inputFocused.value = false
+                            setOverlayFocusable(false)
+                        },
+                        autoFocusInput = mode is CapsuleMode.WaitingForInput,
+                        voice = voiceDeps,
+                    )
+                }
             }
 
             if (lockTouches) {

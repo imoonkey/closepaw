@@ -2,6 +2,8 @@ package ai.closepaw.ui.capsule.surface
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -103,6 +105,7 @@ internal fun CapsuleControlBar(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActionButtonCluster(
     buttons: CapsuleRenderSpec.ButtonsSpec,
@@ -118,11 +121,8 @@ private fun ActionButtonCluster(
 ) {
     val actionModifier =
         if (requiredActionsOnly) Modifier.minimumInteractiveComponentSize() else Modifier
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val spacing = MaterialTheme.closePaw.spacing.sm
+    val actionButtons: @Composable () -> Unit = {
         buttons.primary?.let { btn ->
             FilledTonalButton(
                 onClick = {
@@ -194,6 +194,23 @@ private fun ActionButtonCluster(
                     color = MaterialTheme.colorScheme.error,
                 )
             }
+        }
+    }
+    if (requiredActionsOnly) {
+        FlowRow(
+            modifier = modifier,
+            horizontalArrangement = Arrangement.spacedBy(spacing),
+            verticalArrangement = Arrangement.spacedBy(spacing),
+        ) {
+            actionButtons()
+        }
+    } else {
+        Row(
+            modifier = modifier,
+            horizontalArrangement = Arrangement.spacedBy(spacing),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            actionButtons()
         }
     }
 }
