@@ -62,7 +62,6 @@ fun StatusIslandCompose(
             StatusPawGlyph(
                 color = dotColor,
                 size = 14.dp,
-                pulsing = pulsing,
             )
             val textModifier = Modifier.widthIn(max = 220.dp)
             if (reducedMotion) {

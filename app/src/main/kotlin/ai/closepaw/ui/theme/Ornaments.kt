@@ -38,15 +38,11 @@ fun Fleuron(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth().padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = "❦",
-            style = TextStyle(
-                fontFamily = Fraunces,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.Normal,
-                fontSize = 16.sp,
-            ),
-            color = MaterialTheme.closePaw.inkFaint,
+        Icon(
+            painter = painterResource(R.drawable.ic_paw),
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.closePaw.inkFaint,
         )
     }
 }

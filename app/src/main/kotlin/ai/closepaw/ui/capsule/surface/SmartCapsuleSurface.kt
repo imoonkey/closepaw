@@ -300,7 +300,6 @@ private fun CapsuleStatusLine(
             StatusPawGlyph(
                 color = dotColor,
                 size = 14.dp,
-                pulsing = spec.dot.pulsing,
             )
             Spacer(Modifier.width(8.dp))
         }

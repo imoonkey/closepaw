@@ -19,6 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -29,9 +34,10 @@ import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
 
 /**
- * ThinkingIndicator — paw-toe sequence (motion spec §4). Three toes + pad
- * fill cumulatively over a 900ms cycle (225ms phase boundaries), then reset.
- * Ink tint, alpha-only animation (30% → 100%); no scale, no Claw color.
+ * ThinkingIndicator — line-art paw matching [R.drawable.ic_paw] / logo.
+ * Body (C-spiral) always full alpha; 4 toes light cumulatively over 900ms
+ * (225ms phase boundaries), then reset. Ink tint, alpha-only animation
+ * (30% → 100%); no scale, no Claw color.
  */
 @Composable
 fun ThinkingIndicator(modifier: Modifier = Modifier) {
@@ -86,36 +92,47 @@ private fun PawToeSequence(tint: Color) {
         )
         animated
     }
-    Canvas(modifier = Modifier.size(28.dp)) {
-        // Cumulative fill per spec §4: element lights at its phase and stays
-        // lit until the 900ms reset.
-        fun alphaFor(index: Int) = pawToeAlpha(phase, index)
-        val s = size.minDimension / 64f  // 64x64 design viewport.
-        // Order: toe₁ → toe₂ → toe₃ → pad.
-        // toe₁ — left
-        drawOval(
-            color = tint.copy(alpha = alphaFor(0)),
-            topLeft = Offset(11f * s, 8f * s),
-            size = Size(11f * s, 14f * s),
+    // 52×64 design viewport (matches ic_paw.xml); preserve aspect.
+    Canvas(modifier = Modifier.size(width = 23.dp, height = 28.dp)) {
+        val s = size.height / 64f
+        val stroke = Stroke(
+            width = 2.2f * s,
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round,
         )
-        // toe₂ — center
-        drawOval(
-            color = tint.copy(alpha = alphaFor(1)),
-            topLeft = Offset(26.5f * s, 0f),
-            size = Size(11f * s, 14f * s),
-        )
-        // toe₃ — right
-        drawOval(
-            color = tint.copy(alpha = alphaFor(2)),
-            topLeft = Offset(42f * s, 8f * s),
-            size = Size(11f * s, 14f * s),
-        )
-        // pad
-        drawOval(
-            color = tint.copy(alpha = alphaFor(3)),
-            topLeft = Offset(16f * s, 28f * s),
-            size = Size(32f * s, 26f * s),
-        )
+
+        // Body (C-spiral) — always fully lit.
+        val body = Path().apply {
+            moveTo(33.1f * s, 58.8f * s)
+            cubicTo(29.8f * s, 61.7f * s, 25.5f * s, 63.4f * s, 20.9f * s, 62.4f * s)
+            cubicTo(12.4f * s, 60.6f * s, 7.4f * s, 52.7f * s, 7.8f * s, 43.7f * s)
+            cubicTo(8.3f * s, 33.9f * s, 15.2f * s, 26.2f * s, 25.7f * s, 25.1f * s)
+            cubicTo(35.8f * s, 24.1f * s, 41.7f * s, 31.6f * s, 40.7f * s, 40.3f * s)
+            cubicTo(39.9f * s, 47.2f * s, 34.1f * s, 51.6f * s, 28.6f * s, 49.8f * s)
+            cubicTo(27.3f * s, 49.4f * s, 26.3f * s, 48.7f * s, 25.6f * s, 48.3f * s)
+        }
+        drawPath(body, tint, style = stroke)
+
+        // 4 toes — phased left → right.
+        fun toe(cx: Float, cy: Float, rx: Float, ry: Float, alpha: Float, rotDeg: Float = 0f) {
+            val draw = {
+                drawOval(
+                    color = tint.copy(alpha = alpha),
+                    topLeft = Offset((cx - rx) * s, (cy - ry) * s),
+                    size = Size(2 * rx * s, 2 * ry * s),
+                    style = stroke,
+                )
+            }
+            if (rotDeg != 0f) {
+                rotate(rotDeg, pivot = Offset(cx * s, cy * s)) { draw() }
+            } else {
+                draw()
+            }
+        }
+        toe(5.85f, 19.45f, 4.35f, 6.95f, pawToeAlpha(phase, 0), rotDeg = -18f)
+        toe(18.3f, 9.15f, 4.35f, 8.05f, pawToeAlpha(phase, 1))
+        toe(33.6f, 9.15f, 4.35f, 8.05f, pawToeAlpha(phase, 2))
+        toe(45.95f, 19.45f, 4.35f, 6.95f, pawToeAlpha(phase, 3), rotDeg = 18f)
     }
 }
 
