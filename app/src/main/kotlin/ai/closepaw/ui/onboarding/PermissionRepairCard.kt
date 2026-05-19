@@ -88,7 +88,6 @@ private fun RepairRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -98,13 +97,12 @@ private fun RepairRow(
                 .background(MaterialTheme.colorScheme.error, CircleShape),
         )
         Spacer(Modifier.width(10.dp))
-        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(Modifier.width(6.dp))
             Text(
                 text = detail,
                 style = MaterialTheme.typography.bodySmall,
