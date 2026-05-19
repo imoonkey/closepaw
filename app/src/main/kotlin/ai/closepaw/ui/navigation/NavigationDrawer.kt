@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -209,6 +213,33 @@ private fun DrawerSessionItem(
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val rowShape = RoundedCornerShape(8.dp)
+    val isCorrupted = session.isCorrupted
+    val rowColor = when {
+        isCorrupted -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.24f)
+        session.isActive -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val rowBorder = when {
+        isCorrupted -> BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+        session.isActive -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+        else -> null
+    }
+    val rowStateDescription = when {
+        isCorrupted -> "Unreadable session file. Cannot open."
+        session.isActive -> "Active session"
+        else -> null
+    }
+    val statusText = when {
+        isCorrupted -> "Unreadable session file"
+        session.isActive -> "Active session"
+        else -> null
+    }
+    val statusColor = when {
+        isCorrupted -> MaterialTheme.colorScheme.error
+        session.isActive -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     if (showDeleteConfirm) {
         AlertDialog(
@@ -235,10 +266,26 @@ private fun DrawerSessionItem(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceVariant,  // Full opacity
-        shape = RoundedCornerShape(8.dp)
+            .clip(rowShape)
+            .then(
+                if (isCorrupted) {
+                    Modifier
+                } else {
+                    Modifier.clickable(
+                        onClickLabel = "Open session",
+                        role = Role.Button,
+                        onClick = onClick
+                    )
+                }
+            )
+            .semantics {
+                if (rowStateDescription != null) {
+                    stateDescription = rowStateDescription
+                }
+            },
+        color = rowColor,
+        shape = rowShape,
+        border = rowBorder
     ) {
         Row(
             modifier = Modifier
@@ -255,6 +302,18 @@ private fun DrawerSessionItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                if (statusText != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 
                 Spacer(modifier = Modifier.height(4.dp))
                 
@@ -287,16 +346,21 @@ private fun DrawerSessionItem(
 
             // Delete button — ghosted; visible but de-emphasised so the row
             // reads as a passive ledger entry, not a destructive surface.
-            IconButton(
-                onClick = { showDeleteConfirm = true },
-                modifier = Modifier.size(32.dp)
+            Box(
+                modifier = Modifier.minimumInteractiveComponentSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Delete,
-                    contentDescription = "Delete session",
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.closePaw.inkFaint
-                )
+                IconButton(
+                    onClick = { showDeleteConfirm = true },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = "Delete session",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.closePaw.inkFaint
+                    )
+                }
             }
         }
     }
