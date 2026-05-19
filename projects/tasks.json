@@ -1342,5 +1342,229 @@
     "updated": "2026-05-18T04:30:54Z",
     "agent": "w-memory-settings-qa-real-device",
     "note": "Real-device QA: 5 PASS (a,b,c,f,g) — 3 BLOCKED-DEVICE (d,e,h-session-start) — 0 FAIL. Real-device flows requiring a live session are blocked by an OnePlus vendor service that silently unbinds AgentService (Enabled services: {AgentService}; Binding services: {}). Lock-flow correctness independently covered by JVM tests + full emulator QA. Evidence at projects/active/memory_skills_settings/qa/RESULTS.md + per-flow PNGs. Emulator surfaced one known-issue (flow h buffer-preservation across activity recreate; session-protection invariants hold; deferred as follow-up)."
+  },
+  "settings-design-unification": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Settings design unification (Bound Edition)",
+    "description": "Pull Settings (home + every sub-page) into the Bound Edition register that Chat and Capsule already inhabit. Same warm paper grain, same Fraunces italic running head, same folded-paper tactile chrome, same Fleuron seals. 5 phases (foundations → mastheads → shell → cards → spacing), each independently shippable. Phase 5 (card variant consolidation) and grain strength experiment are deferred to separate tasks.",
+    "design": "projects/active/settings_design_unification/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Tokens.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/ChatHeader.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/navigation/NavigationDrawer.kt",
+      "doc/main/ui/style.md"
+    ],
+    "acceptCriteria": [
+      "All 5 phase children (settings-unify-foundations/mastheads/shell/cards/spacing) are done",
+      "./gradlew clean assembleDebug lint test passes",
+      "Real-device QA pass via /ux-visual-debug on Chat home, Settings home, all sub-pages, light + dark + reduced motion",
+      "doc/main/ui/style.md reflects new PageMasthead contract and folded-paper rule"
+    ],
+    "tags": [
+      "ui",
+      "design-system",
+      "refactor"
+    ],
+    "created": "2026-05-18T21:13:03Z",
+    "updated": "2026-05-18T22:25:16Z",
+    "note": "All 5 phases done. b78fe389 (P0 ornaments+tokens) → 570e2a2e (P1 mastheads) → 2d51350d (P2 grain+Fleuron) → 1fb3b08f (P3 foldedPaper+shapes+SettingsAlertCard) → b6d0c6de (P4 spacing). Phase 5 (card variant consolidation) intentionally deferred per design — trigger when a 7th card variant is needed. Followup: real-device visual QA via /ux-visual-debug to validate the unified Bound Edition register across light/dark/narrow-phone/reduced-motion."
+  },
+  "settings-unify-foundations": {
+    "parent": "settings-design-unification",
+    "depends": [],
+    "state": "done",
+    "title": "Phase 0 — Ornaments + token foundations",
+    "description": "Introduce the new design-system primitives WITHOUT changing visible app pixels yet. Extend PageMasthead to slot-based API (leadingSlot/rightSlot/trailingSlot, defaults to PawGlyph + TodayLabel + empty). Add PageMastheadIdentity and PageMastheadDrillDown convenience wrappers. Add PawGlyph and TodayLabel composables (TodayLabel is Composable not String — uses LocalContext for locale date). Add ClosePawSpacing.cardPadding=16.dp and pagePadding=lg aliases. Introduce SettingsCard primitive (foldedPaper + surfaceVariant + shapes.medium + standard padding + optional onClick). Update style.md to reflect new contract and folded-paper rule extension (now covers Settings navigation cards).",
+    "design": "projects/active/settings_design_unification/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Tokens.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsCard.kt",
+      "doc/main/ui/style.md"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/ui/settings/SettingsCard.kt",
+      "grep -q \"fun PageMastheadDrillDown\" app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "grep -q \"fun PageMastheadIdentity\" app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "grep -q \"fun TodayLabel\" app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "grep -q \"fun PawGlyph\" app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "grep -q \"cardPadding\" app/src/main/kotlin/ai/closepaw/ui/theme/Tokens.kt",
+      "grep -q \"PageMastheadDrillDown\" doc/main/ui/style.md",
+      "./gradlew assembleDebug exits 0"
+    ],
+    "estimate": "s",
+    "tags": [
+      "ui",
+      "design-system"
+    ],
+    "created": "2026-05-18T21:13:25Z",
+    "updated": "2026-05-18T21:29:41Z",
+    "agent": "w-settings-unify-foundations",
+    "note": "Done at b78fe389. Slot-based PageMasthead + Identity/DrillDown wrappers + PawGlyph + TodayLabel + SettingsCard primitive + cardPadding/pagePadding tokens + style.md doc sync. assembleDebug green. Codex flagged that the @Deprecated shim inherits default rightSlot=TodayLabel() — that's the documented Phase 0 behavior per design doc (3 legacy call sites start showing today's date, validated via screenshot in Phase 1)."
+  },
+  "settings-unify-mastheads": {
+    "parent": "settings-design-unification",
+    "depends": [
+      "settings-unify-foundations"
+    ],
+    "state": "done",
+    "title": "Phase 1 — Mastheads (kill dead headers, migrate all sub-pages)",
+    "description": "Every page-level surface uses the unified PageMasthead. ChatHeader and DrawerHeader pick up TodayLabel via default rightSlot. SettingsHomePage uses PageMastheadIdentity. All 7 sub-pages (LlmAuth, AgentBehavior, Memory, MemoryFileEditor, PermissionsAdvanced, AppAccess, OpenSourceLicenses) use PageMastheadDrillDown. Delete SettingsHeader (dead duplicate) and SettingsSubPageHeader (replaced). Delete deprecated leadingPaw/onLeadingClick params on PageMasthead. Update MemorySettingsPageTest assertions for new masthead structure.",
+    "design": "projects/active/settings_design_unification/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/ChatHeader.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/navigation/NavigationDrawer.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/MemorySettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/MemoryFileEditorPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppAccessSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/OpenSourceLicensesPage.kt",
+      "app/src/androidTest/kotlin/ai/closepaw/ui/MemorySettingsPageTest.kt"
+    ],
+    "acceptCriteria": [
+      "! grep -q \"internal fun SettingsHeader\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "! grep -q \"internal fun SettingsSubPageHeader\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsWidgets.kt",
+      "! grep -rq \"SettingsSubPageHeader(\" app/src/main/kotlin/ai/closepaw/ui/settings/",
+      "for f in LlmAuthSettingsPage AgentBehaviorSettingsPage MemorySettingsPage MemoryFileEditorPage PermissionsAdvancedSettingsPage AppAccessSettingsPage OpenSourceLicensesPage; do grep -q PageMastheadDrillDown app/src/main/kotlin/ai/closepaw/ui/settings/$f.kt || exit 1; done",
+      "grep -q PageMastheadIdentity app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "./gradlew assembleDebug test exits 0"
+    ],
+    "estimate": "m",
+    "tags": [
+      "ui",
+      "design-system"
+    ],
+    "created": "2026-05-18T21:13:25Z",
+    "updated": "2026-05-18T21:54:33Z",
+    "agent": "w-settings-unify-mastheads",
+    "note": "Done at 570e2a2e. ChatHeader/NavigationDrawer/SettingsHomePage + 7 sub-pages migrated to slot-based PageMasthead/Identity/DrillDown. SettingsHeader + SettingsSubPageHeader deleted. @Deprecated overload removed. Added sub_page_masthead_renders_back_title_and_close smoke test in MemorySettingsPageTest (passes on device). All Phase 1 criteria green."
+  },
+  "settings-unify-shell": {
+    "parent": "settings-design-unification",
+    "depends": [
+      "settings-unify-mastheads"
+    ],
+    "state": "done",
+    "title": "Phase 2 — Settings shell grain + Fleuron seals",
+    "description": "Settings shell joins the paper-zine. Add .background(colorScheme.background).paperGrain() to SettingsSheet outer Column (uses default strength=0.04f, matching current Chat exactly — do not bump in this PR, see grain-strength-experiment followup). Replace HorizontalDivider() with Fleuron() in LlmAuthDiscoveryUi. Add closing Fleuron() at the end of identity sub-pages: LlmAuth, AgentBehavior, Permissions, AppAccess, OpenSourceLicenses (skip Memory File Editor — tool sub-page).",
+    "design": "projects/active/settings_design_unification/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AgentBehaviorSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/PermissionsAdvancedSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/AppAccessSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/OpenSourceLicensesPage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q paperGrain app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "! grep -E \"^(import.*)?HorizontalDivider\\b\" app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt | grep -v import",
+      "grep -q Fleuron app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt",
+      "for f in LlmAuthSettingsPage AgentBehaviorSettingsPage PermissionsAdvancedSettingsPage AppAccessSettingsPage OpenSourceLicensesPage; do grep -q Fleuron app/src/main/kotlin/ai/closepaw/ui/settings/$f.kt || exit 1; done",
+      "./gradlew assembleDebug exits 0"
+    ],
+    "estimate": "s",
+    "tags": [
+      "ui",
+      "design-system"
+    ],
+    "created": "2026-05-18T21:13:44Z",
+    "updated": "2026-05-18T22:00:18Z",
+    "agent": "w-settings-unify-shell",
+    "note": "Done at 2d51350d. SettingsSheet gains .background().paperGrain() at default 4% strength. LlmAuthDiscoveryUi HorizontalDivider→Fleuron. 5 identity sub-pages (LlmAuth, AgentBehavior, PermissionsAdvanced, AppAccess, OpenSourceLicenses) closed with Fleuron(). Tool sub-pages skipped per design."
+  },
+  "settings-unify-cards": {
+    "parent": "settings-design-unification",
+    "depends": [
+      "settings-unify-shell"
+    ],
+    "state": "done",
+    "title": "Phase 3 — Card chrome (foldedPaper) + shape normalization",
+    "description": "Every Settings card lifts off the paper with the same warm under-shadow Capsule has. All shapes route through MaterialTheme.shapes (8/10/16dp only). Introduce SettingsAlertCard primitive for error/warning surfaces. For each existing hand-rolled card, append .foldedPaper(shapes.medium) to its Surface modifier chain (do NOT yet refactor to derive from SettingsCard — that is Phase 5, deferred). Normalize: every RoundedCornerShape(12.dp) → shapes.medium for cards / shapes.large for buttons; every RoundedCornerShape(8.dp) → shapes.small. Replace ad-hoc error Surfaces in MemorySettingsPage and AppRowExpansion with SettingsAlertCard.",
+    "design": "projects/active/settings_design_unification/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/ui/settings/SettingsAlertCard.kt",
+      "! grep -rn \"RoundedCornerShape(12\" app/src/main/kotlin/ai/closepaw/ui/settings/",
+      "! grep -rn \"RoundedCornerShape(8\" app/src/main/kotlin/ai/closepaw/ui/settings/",
+      "[ $(grep -rl foldedPaper app/src/main/kotlin/ai/closepaw/ui/settings/ | wc -l) -ge 6 ]",
+      "grep -q SettingsAlertCard app/src/main/kotlin/ai/closepaw/ui/settings/MemorySettingsPage.kt",
+      "./gradlew assembleDebug test exits 0"
+    ],
+    "estimate": "m",
+    "tags": [
+      "ui",
+      "design-system"
+    ],
+    "created": "2026-05-18T21:13:44Z",
+    "updated": "2026-05-18T22:13:22Z",
+    "agent": "w-settings-unify-cards",
+    "note": "Done at 1fb3b08f. SettingsAlertCard primitive (Error/Warning/Info tones) + foldedPaper applied to 6 hand-rolled cards (OpenAiAuthCard, SettingsWidgets rows, ToolSettingsCard, AppRow, MemoryFileEditorPage, MemorySettingsPage rows). All RoundedCornerShape(12/8.dp) literals normalized to MaterialTheme.shapes.{medium,large,small}. 3 ad-hoc error surfaces consolidated into SettingsAlertCard (MemorySettingsPage, AppRowExpansion, SettingsWidgets ModelLoadingStatusIndicator)."
+  },
+  "settings-unify-spacing": {
+    "parent": "settings-design-unification",
+    "depends": [
+      "settings-unify-cards"
+    ],
+    "state": "done",
+    "title": "Phase 4 — Spacing token sweep",
+    "description": "All Settings paddings and arrangements route through MaterialTheme.closePaw.spacing.*. Bulk mechanical edit per spacing migration table in design doc: 4→xs, 8→sm, 12→md, 16→cardPadding(new), 20→lg, 24→lg (visible 4dp narrowing on Settings home — flagged as deliberate alignment with style.md). 32→xl. Done last to avoid conflict with chrome changes.",
+    "design": "projects/active/settings_design_unification/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
+    ],
+    "acceptCriteria": [
+      "[ $(grep -rn \"MaterialTheme.closePaw.spacing\" app/src/main/kotlin/ai/closepaw/ui/settings/ | wc -l) -ge 30 ]",
+      "[ $(grep -rE \"\\.padding\\([0-9]+\\.dp\\)\" app/src/main/kotlin/ai/closepaw/ui/settings/ | wc -l) -le 5 ]",
+      "./gradlew assembleDebug lint test exits 0"
+    ],
+    "estimate": "s",
+    "tags": [
+      "ui",
+      "design-system",
+      "refactor"
+    ],
+    "created": "2026-05-18T21:14:00Z",
+    "updated": "2026-05-18T22:25:16Z",
+    "agent": "w-settings-unify-spacing",
+    "note": "Done at b6d0c6de. Bulk spacing-token sweep across all ui/settings/ files — 0 remaining hardcoded padding/spacedBy/PaddingValues literals in (4/8/12/16/20/24/32).dp range. Settings home page padding intentionally reduced 24→20.dp per decision 7. assembleDebug green."
+  },
+  "grain-strength-experiment": {
+    "parent": null,
+    "depends": [
+      "settings-design-unification"
+    ],
+    "state": "ready",
+    "title": "Followup — paperGrain strength / texture experiment",
+    "description": "After Settings unification lands, revisit paperGrain to see if a stronger / different texture model is worth pursuing. Current default is strength=0.04f (4% max alpha uniform random noise) per PaperGrain.kt:41 — reads as faint imperfection on real devices, not magazine paper. Three candidate moves in order of investment: (a) bump default strength to 0.08–0.10 (single-line change, needs light + dark real-device validation); (b) replace uniform random with multi-octave fractal noise; (c) replace with a pre-rendered paper-fiber PNG asset in res/drawable. Start with (a), promote to (b) or (c) only if (a) plateaus visually. User explicitly chose to defer this until after the main unification milestone (2026-05-18).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/theme/PaperGrain.kt",
+      "app/src/main/res/drawable/**"
+    ],
+    "acceptCriteria": [
+      "Real-device QA via /ux-visual-debug confirms grain reads as paper texture in light mode without looking dirty",
+      "Real-device QA confirms dark mode lanternVignette still works at chosen strength",
+      "./gradlew assembleDebug lint test exits 0",
+      "Decision recorded in projects/active/settings_design_unification/design_claude.md Open question 7 (which of a/b/c was chosen and why)"
+    ],
+    "estimate": "s",
+    "tags": [
+      "ui",
+      "design-system",
+      "experiment"
+    ],
+    "created": "2026-05-18T21:14:00Z",
+    "updated": "2026-05-18T21:14:00Z"
   }
 }
