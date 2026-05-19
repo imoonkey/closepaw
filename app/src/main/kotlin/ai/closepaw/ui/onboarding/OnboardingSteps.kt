@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -158,6 +160,7 @@ fun PermissionStepContent(
 // ── API Key Step ──
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun ApiKeyStepContent(
     state: ApiKeyStepState,
     selectedProvider: OnboardingProvider,
@@ -200,9 +203,10 @@ fun ApiKeyStepContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Provider picker
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OnboardingProvider.visibleInUi.forEach { provider ->
                 FilterChip(

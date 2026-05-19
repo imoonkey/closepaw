@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -30,6 +31,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ai.closepaw.llm.LLMProvider
@@ -196,7 +199,12 @@ private fun PickerRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .minimumInteractiveComponentSize()
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.RadioButton,
+            )
             .background(background)
             .padding(horizontal = MaterialTheme.closePaw.spacing.cardPadding, vertical = 10.dp),
     ) {
@@ -245,30 +253,28 @@ internal fun RefreshModelsRow(
     val reason = (gate as? RefreshButtonGate.State.Disabled)?.reason
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onRefresh, enabled = enabled) {
-                if (refreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Refreshing…")
-                } else {
-                    Icon(Icons.Outlined.Refresh, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Refresh models")
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-            val timestamp = discoveryState.lastFetchedAt[provider]
-            if (timestamp != null) {
-                Text(
-                    text = "Last refreshed: ${formatTimestamp(timestamp)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        TextButton(onClick = onRefresh, enabled = enabled) {
+            if (refreshing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
                 )
+                Spacer(Modifier.width(8.dp))
+                Text("Refreshing…")
+            } else {
+                Icon(Icons.Outlined.Refresh, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("Refresh models")
             }
+        }
+        val timestamp = discoveryState.lastFetchedAt[provider]
+        if (timestamp != null) {
+            Text(
+                text = "Last refreshed: ${formatTimestamp(timestamp)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.xs),
+            )
         }
         val error = discoveryState.lastError[provider]
         if (error != null) {

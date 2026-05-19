@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import ai.closepaw.ui.theme.ClosePawMotion
 
 internal sealed interface VisualizationItem {
     val id: Long
@@ -47,16 +48,19 @@ internal fun ActionVisualizerCompose(
     items: List<VisualizationItem>,
     modifier: Modifier = Modifier,
 ) {
+    val reducedMotion = ClosePawMotion.reducedMotion()
     var frameTimeMs by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
     val tapColor = MaterialTheme.colorScheme.primary
     val longPressColor = MaterialTheme.colorScheme.tertiary
     val swipeColor = MaterialTheme.colorScheme.primary
     val scrollColor = MaterialTheme.colorScheme.secondary
 
-    LaunchedEffect(items.isNotEmpty()) {
-        if (!items.isNotEmpty()) return@LaunchedEffect
-        while (true) {
-            withFrameMillis { frameTimeMs = it }
+    if (!reducedMotion) {
+        LaunchedEffect(items.isNotEmpty()) {
+            if (items.isEmpty()) return@LaunchedEffect
+            while (true) {
+                withFrameMillis { frameTimeMs = it }
+            }
         }
     }
 
@@ -68,9 +72,13 @@ internal fun ActionVisualizerCompose(
         val maxClickRadius = 48.dp.toPx()
 
         items.forEach { item ->
-            val elapsed = (frameTimeMs - item.createdAtMs).coerceAtLeast(0L)
-            val progress = (elapsed.toFloat() / item.durationMs.coerceAtLeast(1L).toFloat())
-                .coerceIn(0f, 1f)
+            val progress = if (reducedMotion) {
+                1f
+            } else {
+                val elapsed = (frameTimeMs - item.createdAtMs).coerceAtLeast(0L)
+                (elapsed.toFloat() / item.durationMs.coerceAtLeast(1L).toFloat())
+                    .coerceIn(0f, 1f)
+            }
 
             when (item) {
                 is VisualizationItem.Click -> {
