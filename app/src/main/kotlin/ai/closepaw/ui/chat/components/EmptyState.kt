@@ -46,8 +46,8 @@ private data class Suggestion(val verb: String, val gloss: String) {
 }
 
 private val SUGGESTIONS = listOf(
-    Suggestion("Check", "my unread emails"),
-    Suggestion("Turn on", "Do Not Disturb"),
+    Suggestion("Get me", "a ride home"),
+    Suggestion("Catch me up", "on emails and messages"),
     Suggestion("Search", "for nearby restaurants"),
 )
 
