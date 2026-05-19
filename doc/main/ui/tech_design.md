@@ -43,7 +43,7 @@ ui/
 │   │   ├── AgentSummary.kt      # outcomeFooter + collapsedSummary helpers
 │   │   ├── CollapsePill.kt      # Pill chip: [▸ ✓ N actions · 12s], Lucide icons, tween animation
 │   │   ├── StreamingText.kt     # Final-block Text with inlineContent serif `|` cursor
-│   │   ├── ThinkingIndicator.kt # 3 animated dots (ClosePawMotion.ThinkingPulse)
+│   │   ├── ThinkingIndicator.kt # Line-art paw: C-body always lit, 4 toes fill cumulatively over 900ms (ClosePawMotion.Breath)
 │   │   └── EmptyState.kt        # First launch with suggestion chips + serif italic question
 │   └── model/
 │       ├── ChatMessage.kt       # User + Agent message wrappers
@@ -59,7 +59,7 @@ ui/
 │       ├── CapsuleInputBar.kt       # Text field + send (owns draft state)
 │       ├── SmartCapsuleHostLayout.kt
 │       ├── StatusColors.kt          # Mode → status dot/glow color derivation
-│       └── StatusPawGlyph.kt        # Paw glyph (identity surface)
+│       └── StatusPawGlyph.kt        # Line-art paw glyph, tinted by status color (static — no breath animation)
 │
 ├── overlay/model/
 │   ├── CapsuleRenderSpec.kt     # Stateless: CapsuleMode → visual properties

@@ -205,7 +205,7 @@ use these primitives directly — never reinvent the glyph or layout.
 
 | Primitive | Purpose |
 |---|---|
-| `Fleuron()` | Centered Fraunces italic `❦` (16sp, `inkFaint`), 12dp vertical padding. The single shared section divider / seal. |
+| `Fleuron()` | Centered line-art paw glyph (`R.drawable.ic_paw`, 16dp, `inkFaint`), 12dp vertical padding. The single shared section divider / seal — uses the brand mark instead of a typographic fleuron so the same paw recurs across launcher, capsule, and dividers. |
 | `PageMasthead(title, leadingSlot, rightSlot, trailingSlot)` | 48dp running-head row hosting three slots. Defaults: `leadingSlot = { PawGlyph() }`, `rightSlot = {}`, `trailingSlot = {}`. Fraunces italic title (18sp, `onSurface`) in the middle, `weight(1f)`, ellipsized. |
 | `PageMastheadIdentity(title, onClose)` | Convenience wrapper for top-level identity pages (Chat, Drawer, Settings home). Defaults to paw in leading and an optional close `IconButton` in trailing. |
 | `PageMastheadDrillDown(title, onBack, onClose)` | Convenience wrapper for drilled-down pages (every Settings sub-page). Back chevron (`Icons.Rounded.ChevronLeft`) in leading, close (`Icons.Rounded.Close`) in trailing. |

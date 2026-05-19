@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-05-18: Brand mark unified — line-art paw across launcher + every in-app surface
+
+**What changed:**
+- Launcher icon replaced: `drawable/ic_launcher_foreground.xml` (placeholder `+`) deleted; per-density `drawable-{mdpi..xxxhdpi}/ic_launcher_foreground.png` + `mipmap-{density}/ic_launcher.png` and `ic_launcher_round.png` PNGs traced from the "44" logo exploration, Claw `#C44528` stroke on Paper `#F5F1EA` background (`values/colors.xml` updated). Adaptive icon XML wiring in `mipmap-anydpi-v26/` stays the same.
+- `drawable/ic_paw.xml` rewritten as a stroke-based VectorDrawable (viewport 52×64): 4 stroked toe ellipses (two outer tilted ±18° via group rotation) + one open C-spiral cubic-Bézier body. `strokeColor="#FFFFFF"` so call sites tint via `Icon(tint=…)` / `ColorFilter.tint(…)`.
+- `StatusPawGlyph` stripped: breath/pulse animation and `pulsing` parameter removed (KISS); call sites (`StatusIslandCompose`, `SmartCapsuleSurface`) drop the `pulsing=` arg. Glyph is now a static `Image(painter=ic_paw)` tinted by status color.
+- `ThinkingIndicator` rewritten to match the new logo: Canvas draws the same line-art shapes (4 stroked toes + stroked C-body); body stays at full alpha while toes fill cumulatively left → right over 900ms. `PAW_TOE_ELEMENT_COUNT` stays 4 so `ThinkingIndicatorCadenceTest` passes unchanged — the body just isn't part of the phased sequence.
+- `Ornaments.Fleuron()` swapped from Unicode `❦` to `Icon(painter=ic_paw)` at 16dp with `inkFaint` tint. 8 settings-page divider call sites adopt automatically.
+
+**Why:**
+- The shipped launcher was a Material-Studio placeholder (blue circle + white cross), unrecognizable as ClosePaw. User picked logo #44 from a brand exploration sheet (a line-art paw whose body forms an open "C"). Goal: that mark recurs everywhere a paw appears — home-screen icon, status capsule, thinking indicator, settings dividers — so every surface reinforces brand identity.
+- KISS dropped two animations during this pass: the StatusPawGlyph breath (line-art at 14dp under animation looked muddy without a clean win) and the per-element animation count change for ThinkingIndicator (kept at 4 instead of 5 so the cadence test contract holds; body is decoration, toes carry the motion).
+
+**Key files:** `app/src/main/res/drawable/ic_paw.xml`, `app/src/main/res/{drawable,mipmap}-{mdpi..xxxhdpi}/`, `app/src/main/res/values/colors.xml`, `ui/capsule/surface/StatusPawGlyph.kt`, `ui/chat/components/ThinkingIndicator.kt`, `ui/theme/Ornaments.kt`, `ui/overlay/compose/StatusIslandCompose.kt`, `ui/capsule/surface/SmartCapsuleSurface.kt`. Doc sync: `doc/main/ui/style.md`, `doc/main/ui/tech_design.md`, `doc/main/ui/user_interaction.md`.
+**Verification:** `./gradlew installDebug` clean × 2 (after icon swap, after ThinkingIndicator + Fleuron). `./gradlew :app:testDebugUnitTest --tests ThinkingIndicatorCadenceTest` passes (4-element cadence contract intact). On-device install (`P0110 - 16`): launcher icon renders Claw paw on Paper, in-app status capsule + thinking indicator + settings page dividers all show the new line-art mark.
+**Commit:** `28219dbc`.
+**Next:** none queued. Optional future cleanup: archive `.design-preview/` (scratch HTML mockups produced during this pass).
+**Blockers:** None.
+
 ## 2026-05-17: Voice input (mic leadingIcon on CapsuleInputBar)
 
 **What changed:**

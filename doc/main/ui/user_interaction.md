@@ -37,7 +37,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 | **ChatHeader** | `[≡]` menu + `PageMasthead("ClosePaw")` + `[+]` new chat (when messages exist). The masthead carries the leading paw and Fraunces italic title — see `style.md` Bound Edition Ornaments |
 | **MessageBubble** | User/Agent message bubbles (asymmetric corner shapes; text wrapped in `SelectionContainer` so users can long-press to select & copy via the native menu) |
 | **StreamingText** | Text with blinking cursor (530ms alpha animation) |
-| **ThinkingIndicator** | Paw-toe sequence + Fraunces italic "Thinking…" label, polite live region |
+| **ThinkingIndicator** | Line-art paw with C-body always lit and 4 toes filling cumulatively (`ic_paw` shape, 900ms cycle) + Fraunces italic "Thinking…" label, polite live region |
 | **ActionCard** | Tool execution card with state-dependent styling |
 | **EmptyState** | Asymmetric marginalia layout (Bound Edition) — see below |
 | **SmartCapsuleSurface** | Capsule layout: status line (paw + `[t+Xs]` ledger when Running + thought) + detail body + control bar + input bar |
