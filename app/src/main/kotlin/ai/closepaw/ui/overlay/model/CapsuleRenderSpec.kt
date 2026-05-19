@@ -28,11 +28,17 @@ data class CapsuleRenderSpec(
     /** A single button in the control bar. The Compose layer chooses the icon. */
     data class ButtonSpec(val text: String, val enabled: Boolean = true)
 
+    enum class ControlLayout {
+        SharedWithNav,
+        RequiredActionsOnly,
+    }
+
     /** Control-bar button configuration. null fields = button hidden. */
     data class ButtonsSpec(
         val primary: ButtonSpec?,
         val secondary: ButtonSpec? = null,
         val stop: ButtonSpec?,
+        val layout: ControlLayout = ControlLayout.SharedWithNav,
     )
 
     /** Input-bar specification. null = input bar hidden. */
@@ -97,6 +103,7 @@ data class CapsuleRenderSpec(
                     buttons = ButtonsSpec(
                         primary = null,
                         stop = stopButtonSpec(isStopPending),
+                        layout = ControlLayout.RequiredActionsOnly,
                     ),
                     input = InputSpec(
                         hint = "Type your response...",
@@ -113,6 +120,7 @@ data class CapsuleRenderSpec(
                     buttons = ButtonsSpec(
                         primary = ButtonSpec("Done"),
                         stop = stopButtonSpec(isStopPending),
+                        layout = ControlLayout.RequiredActionsOnly,
                     ),
                     input = null,
                 )
@@ -125,6 +133,7 @@ data class CapsuleRenderSpec(
                         primary = ButtonSpec("Always"),
                         secondary = ButtonSpec("Session"),
                         stop = ButtonSpec("Reject"),
+                        layout = ControlLayout.RequiredActionsOnly,
                     ),
                     input = null,
                 )
@@ -144,6 +153,7 @@ data class CapsuleRenderSpec(
                     buttons = ButtonsSpec(
                         primary = null,
                         stop = ButtonSpec("Close"),
+                        layout = ControlLayout.RequiredActionsOnly,
                     ),
                     input = null,
                 )

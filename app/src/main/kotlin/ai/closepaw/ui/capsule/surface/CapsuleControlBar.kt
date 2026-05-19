@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,10 +43,12 @@ import ai.closepaw.ui.theme.closePaw
 /**
  * CapsuleControlBar — the row beneath the status line / detail body.
  *
- * Two clusters share one `Row(SpaceBetween)`:
+ * Most states share one `Row(SpaceBetween)`:
  *  - [ActionButtonCluster] (left): mode-driven action buttons (Takeover, Resume, Done,
  *    Always / Session / Reject, Stop, Close).
  *  - [NavButtonCluster] (right): nav icons (Minimize, OpenApp, OpenViewer) gated by [NavSpec].
+ *
+ * Attention states render only their action buttons so required choices get the full row.
  *
  * Both clusters hide together when mode is `Done`; that gate is enforced by
  * [SmartCapsuleSurface] (skips the entire bar) and by [NavSpec.from] (zeroes
@@ -64,14 +67,14 @@ internal fun CapsuleControlBar(
     onDismissError: () -> Unit,
     onNavigate: (NavAction) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val requiredActionsOnly =
+        spec.buttons.layout == CapsuleRenderSpec.ControlLayout.RequiredActionsOnly
+    if (requiredActionsOnly) {
         ActionButtonCluster(
             buttons = spec.buttons,
             mode = mode,
+            modifier = Modifier.fillMaxWidth(),
+            requiredActionsOnly = true,
             onTakeover = onTakeover,
             onResume = onResume,
             onStop = onStop,
@@ -79,7 +82,24 @@ internal fun CapsuleControlBar(
             onApprovalResponse = onApprovalResponse,
             onDismissError = onDismissError,
         )
-        NavButtonCluster(navSpec = navSpec, onNavigate = onNavigate)
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ActionButtonCluster(
+                buttons = spec.buttons,
+                mode = mode,
+                onTakeover = onTakeover,
+                onResume = onResume,
+                onStop = onStop,
+                onDone = onDone,
+                onApprovalResponse = onApprovalResponse,
+                onDismissError = onDismissError,
+            )
+            NavButtonCluster(navSpec = navSpec, onNavigate = onNavigate)
+        }
     }
 }
 
@@ -87,6 +107,8 @@ internal fun CapsuleControlBar(
 private fun ActionButtonCluster(
     buttons: CapsuleRenderSpec.ButtonsSpec,
     mode: CapsuleMode,
+    modifier: Modifier = Modifier,
+    requiredActionsOnly: Boolean = false,
     onTakeover: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
@@ -94,7 +116,13 @@ private fun ActionButtonCluster(
     onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit,
     onDismissError: () -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)) {
+    val actionModifier =
+        if (requiredActionsOnly) Modifier.minimumInteractiveComponentSize() else Modifier
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         buttons.primary?.let { btn ->
             FilledTonalButton(
                 onClick = {
@@ -108,6 +136,7 @@ private fun ActionButtonCluster(
                         else -> {}
                     }
                 },
+                modifier = actionModifier,
                 enabled = btn.enabled,
                 shape = MaterialTheme.shapes.large,
                 colors = primaryButtonColorsForMode(mode),
@@ -125,7 +154,13 @@ private fun ActionButtonCluster(
 
         buttons.secondary?.let { btn ->
             if (mode is CapsuleMode.WaitingForApproval) {
-                ApprovalScopeButton(btn, mode, ApprovalScope.SESSION, onApprovalResponse)
+                ApprovalScopeButton(
+                    btn = btn,
+                    mode = mode,
+                    scope = ApprovalScope.SESSION,
+                    modifier = actionModifier,
+                    onApprovalResponse = onApprovalResponse,
+                )
             }
         }
 
@@ -140,6 +175,7 @@ private fun ActionButtonCluster(
                         else -> onStop()
                     }
                 },
+                modifier = actionModifier,
                 enabled = btn.enabled,
                 shape = MaterialTheme.shapes.large,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
@@ -243,10 +279,12 @@ private fun ApprovalScopeButton(
     btn: CapsuleRenderSpec.ButtonSpec,
     mode: CapsuleMode.WaitingForApproval,
     scope: ApprovalScope,
+    modifier: Modifier = Modifier,
     onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String) -> Unit,
 ) {
     FilledTonalButton(
         onClick = { onApprovalResponse(mode.callId, ApprovalDecision.APPROVED, scope, mode.packageName) },
+        modifier = modifier,
         enabled = btn.enabled,
         shape = MaterialTheme.shapes.large,
         colors = ButtonDefaults.filledTonalButtonColors(
