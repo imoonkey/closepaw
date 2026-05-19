@@ -619,21 +619,11 @@ fun CompleteStepContent(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
-
         Icon(
             imageVector = Icons.Filled.Check,
             contentDescription = null,
             modifier = Modifier.size(72.dp),
             tint = MaterialTheme.colorScheme.secondary
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "You're All Set!",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(32.dp))

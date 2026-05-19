@@ -1,21 +1,16 @@
 package ai.closepaw.ui.onboarding
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import ai.closepaw.R
+import ai.closepaw.ui.theme.AppWindowInsets
 import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 
@@ -53,32 +49,14 @@ fun OnboardingShell(
         color = MaterialTheme.colorScheme.background
     ) {
         val spacing = MaterialTheme.closePaw.spacing
-        // Two layout modes via height + IME heuristics so step bodies'
-        // Spacer(weight) pattern keeps pinning CTAs on tall screens, while
-        // short heights — landscape OR portrait-with-IME — fall back to a
-        // scrollable column so the CTA stays reachable.
-        BoxWithConstraints(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()
+                .windowInsetsPadding(AppWindowInsets.systemBars)
                 .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = spacing.lg)
         ) {
-            // imePadding above shrinks maxHeight when the keyboard opens, but
-            // on most portrait phones the residual ~500-600dp still exceeds
-            // the static <480dp threshold, so also force scroll whenever the
-            // IME is up — that catches the API-key step CTA reliably.
-            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-            val imeVisible = WindowInsets.isImeVisible
-            val needsScroll = maxHeight < 480.dp || imeVisible
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (needsScroll) Modifier.verticalScroll(rememberScrollState())
-                        else Modifier.fillMaxHeight()
-                    )
-                    .padding(horizontal = spacing.lg)
-            ) {
             Spacer(modifier = Modifier.height(spacing.md))
 
             // Back arrow + step counter
@@ -119,7 +97,6 @@ fun OnboardingShell(
 
             // Step content
             content()
-            }
         }
     }
 }

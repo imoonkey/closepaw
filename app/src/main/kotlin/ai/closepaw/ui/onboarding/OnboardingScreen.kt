@@ -146,14 +146,21 @@ fun OnboardingScreen(
         }
 
         WizardStep.Complete -> {
-            CompleteStepContent(
-                outcomes = outcomes,
-                authMethod = authMethod,
-                accessibilityGranted = accessibilityGranted,
-                overlayGranted = overlayGranted,
-                batteryGranted = batteryGranted,
-                onFinish = onFinish
-            )
+            OnboardingShell(
+                stepIndex = totalSteps,
+                totalSteps = totalSteps,
+                title = "You're All Set!",
+                onBack = backAction
+            ) {
+                CompleteStepContent(
+                    outcomes = outcomes,
+                    authMethod = authMethod,
+                    accessibilityGranted = accessibilityGranted,
+                    overlayGranted = overlayGranted,
+                    batteryGranted = batteryGranted,
+                    onFinish = onFinish
+                )
+            }
         }
     }
 }
