@@ -6,22 +6,27 @@ import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -29,10 +34,13 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMastheadDrillDown
 import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.ui.theme.foldedPaper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import java.io.IOException
 
 @Serializable
 internal data class LicenseEntry(
@@ -62,12 +70,16 @@ private const val LICENSES_ASSET = "open_source_licenses.json"
 
 internal suspend fun loadLicenseEntries(context: Context): List<LicenseEntry> =
     withContext(Dispatchers.IO) {
-        runCatching {
-            context.assets.open(LICENSES_ASSET).use { input ->
-                LicenseJson.decodeFromString<List<LicenseEntry>>(input.bufferedReader().readText())
-            }
-        }.getOrElse { emptyList() }
+        context.assets.open(LICENSES_ASSET).use { input ->
+            LicenseJson.decodeFromString<List<LicenseEntry>>(input.bufferedReader().readText())
+        }
     }
+
+private sealed interface LicenseLoadState {
+    data object Loading : LicenseLoadState
+    data class Loaded(val rows: List<LicenseEntry>) : LicenseLoadState
+    data class Error(val message: String) : LicenseLoadState
+}
 
 @Composable
 internal fun OpenSourceLicensesPage(
@@ -75,33 +87,120 @@ internal fun OpenSourceLicensesPage(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    var entries by remember { mutableStateOf<List<LicenseEntry>?>(null) }
+    var reloadKey by remember { mutableStateOf(0) }
+    var loadState by remember { mutableStateOf<LicenseLoadState>(LicenseLoadState.Loading) }
 
-    LaunchedEffect(Unit) {
-        entries = loadLicenseEntries(context).sortedBy { (it.project ?: it.dependency ?: "").lowercase() }
+    LaunchedEffect(context, reloadKey) {
+        loadState = LicenseLoadState.Loading
+        loadState = loadLicenseState(context)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
         PageMastheadDrillDown(title = "Open Source Licenses", onBack = onBack, onClose = onClose)
-        when (val rows = entries) {
-            null -> LoadingNotice()
-            else -> LicenseList(rows = rows, onOpenUrl = { url -> openUrl(context, url) })
+        when (val state = loadState) {
+            LicenseLoadState.Loading -> LoadingNotice()
+            is LicenseLoadState.Error -> ErrorNotice(
+                message = state.message,
+                onRetry = { reloadKey += 1 },
+            )
+            is LicenseLoadState.Loaded -> {
+                if (state.rows.isEmpty()) {
+                    EmptyNotice()
+                } else {
+                    LicenseList(rows = state.rows, onOpenUrl = { url -> openUrl(context, url) })
+                }
+            }
         }
     }
 }
 
+private suspend fun loadLicenseState(context: Context): LicenseLoadState =
+    try {
+        val rows = loadLicenseEntries(context)
+            .sortedBy { (it.project ?: it.dependency ?: "").lowercase() }
+        LicenseLoadState.Loaded(rows)
+    } catch (e: IOException) {
+        LicenseLoadState.Error("Could not open the generated license asset. Retry from Settings.")
+    } catch (e: SerializationException) {
+        LicenseLoadState.Error("Could not read the generated license asset. Retry from Settings.")
+    }
+
 @Composable
 private fun LoadingNotice() {
+    LicenseNoticeCard(
+        title = "Loading licenses",
+        message = "Reading the generated dependency license list.",
+        loading = true,
+    )
+}
+
+@Composable
+private fun EmptyNotice() {
+    LicenseNoticeCard(
+        title = "No license entries",
+        message = "The generated license asset is empty.",
+    )
+}
+
+@Composable
+private fun ErrorNotice(message: String, onRetry: () -> Unit) {
+    LicenseNoticeCard(
+        title = "Could not load licenses",
+        message = message,
+        action = {
+            TextButton(onClick = onRetry) {
+                Text("Retry")
+            }
+        },
+    )
+}
+
+@Composable
+private fun LicenseNoticeCard(
+    title: String,
+    message: String,
+    loading: Boolean = false,
+    action: (@Composable () -> Unit)? = null,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MaterialTheme.closePaw.spacing.lg, vertical = MaterialTheme.closePaw.spacing.cardPadding),
     ) {
-        Text(
-            text = "Loading licenses...",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .foldedPaper(MaterialTheme.shapes.medium),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Row(
+                modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md),
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                action?.invoke()
+            }
+        }
     }
 }
 

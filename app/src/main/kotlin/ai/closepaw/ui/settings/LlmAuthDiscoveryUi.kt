@@ -280,7 +280,7 @@ internal fun RefreshModelsRow(
             )
         } else if (reason != null) {
             Text(
-                text = reason,
+                text = "Refresh disabled: $reason",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.xs),

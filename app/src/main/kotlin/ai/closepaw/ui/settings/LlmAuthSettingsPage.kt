@@ -611,6 +611,7 @@ private fun canonicalizeMainModel(
 
 @Composable
 private fun OtherBaseUrlField(value: String, onValueChange: (String) -> Unit) {
+    val error = OtherBaseUrlValidator.validate(value).exceptionOrNull()?.message
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -623,6 +624,10 @@ private fun OtherBaseUrlField(value: String, onValueChange: (String) -> Unit) {
             )
         },
         singleLine = true,
+        isError = error != null,
+        supportingText = error?.let { message ->
+            { Text(message) }
+        },
         shape = MaterialTheme.shapes.small,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -633,6 +638,7 @@ private fun OtherBaseUrlField(value: String, onValueChange: (String) -> Unit) {
 
 @Composable
 private fun OtherModelIdField(value: String, onValueChange: (String) -> Unit) {
+    val error = ModelIdValidator.validate(value).exceptionOrNull()?.message
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -645,6 +651,10 @@ private fun OtherModelIdField(value: String, onValueChange: (String) -> Unit) {
             )
         },
         singleLine = true,
+        isError = error != null,
+        supportingText = error?.let { message ->
+            { Text(message) }
+        },
         shape = MaterialTheme.shapes.small,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,

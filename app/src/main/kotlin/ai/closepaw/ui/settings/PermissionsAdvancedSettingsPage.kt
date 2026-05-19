@@ -147,6 +147,13 @@ internal fun PermissionsAdvancedSettingsPage(
 private const val TRACE_DIR = "inspection-trace"
 private const val SESSIONS_DIR = "sessions"
 
+private sealed interface ClearDataState {
+    data object Idle : ClearDataState
+    data object Clearing : ClearDataState
+    data object Cleared : ClearDataState
+    data class Failed(val message: String) : ClearDataState
+}
+
 @Composable
 private fun DataStorageSection(
     traceEnabled: Boolean,
@@ -154,10 +161,30 @@ private fun DataStorageSection(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var tracesCleared by remember { mutableStateOf(false) }
-    var sessionsCleared by remember { mutableStateOf(false) }
+    var traceClearState by remember { mutableStateOf<ClearDataState>(ClearDataState.Idle) }
+    var sessionClearState by remember { mutableStateOf<ClearDataState>(ClearDataState.Idle) }
     var showClearTracesConfirm by remember { mutableStateOf(false) }
     var showClearSessionsConfirm by remember { mutableStateOf(false) }
+
+    fun clearTraces() {
+        if (traceClearState is ClearDataState.Clearing) return
+        traceClearState = ClearDataState.Clearing
+        scope.launch {
+            traceClearState = withContext(Dispatchers.IO) {
+                clearDirectory(context.getExternalFilesDir(TRACE_DIR), label = "traces")
+            }
+        }
+    }
+
+    fun clearSessions() {
+        if (sessionClearState is ClearDataState.Clearing) return
+        sessionClearState = ClearDataState.Clearing
+        scope.launch {
+            sessionClearState = withContext(Dispatchers.IO) {
+                clearDirectory(File(context.filesDir, SESSIONS_DIR), label = "session history")
+            }
+        }
+    }
 
     if (showClearTracesConfirm) {
         AlertDialog(
@@ -168,12 +195,7 @@ private fun DataStorageSection(
                 TextButton(
                     onClick = {
                         showClearTracesConfirm = false
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                context.getExternalFilesDir(TRACE_DIR)?.deleteRecursively()
-                            }
-                            tracesCleared = true
-                        }
+                        clearTraces()
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -195,12 +217,7 @@ private fun DataStorageSection(
                 TextButton(
                     onClick = {
                         showClearSessionsConfirm = false
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                File(context.filesDir, SESSIONS_DIR).deleteRecursively()
-                            }
-                            sessionsCleared = true
-                        }
+                        clearSessions()
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -270,19 +287,62 @@ private fun DataStorageSection(
 
             // Clear traces button
             ClearDataButton(
-                label = if (tracesCleared) "Traces Cleared" else "Clear Traces",
-                enabled = !tracesCleared,
+                label = clearDataButtonLabel(traceClearState, idle = "Clear Traces", clearing = "Clearing Traces", cleared = "Traces Cleared"),
+                enabled = traceClearState !is ClearDataState.Clearing && traceClearState !is ClearDataState.Cleared,
                 onClick = { showClearTracesConfirm = true }
             )
+            ClearFailureAlert(state = traceClearState, onRetry = { clearTraces() })
 
             // Clear session history button
             ClearDataButton(
-                label = if (sessionsCleared) "Sessions Cleared" else "Clear Session History",
-                enabled = !sessionsCleared,
+                label = clearDataButtonLabel(sessionClearState, idle = "Clear Session History", clearing = "Clearing Sessions", cleared = "Sessions Cleared"),
+                enabled = sessionClearState !is ClearDataState.Clearing && sessionClearState !is ClearDataState.Cleared,
                 onClick = { showClearSessionsConfirm = true }
             )
+            ClearFailureAlert(state = sessionClearState, onRetry = { clearSessions() })
         }
     }
+}
+
+private fun clearDirectory(directory: File?, label: String): ClearDataState {
+    if (directory == null) {
+        return ClearDataState.Failed("Could not access $label storage. Retry from Settings.")
+    }
+    return try {
+        if (directory.deleteRecursively()) {
+            ClearDataState.Cleared
+        } else {
+            ClearDataState.Failed("Could not clear $label. Retry from Settings.")
+        }
+    } catch (e: SecurityException) {
+        ClearDataState.Failed("Could not clear $label because storage access was denied.")
+    }
+}
+
+private fun clearDataButtonLabel(
+    state: ClearDataState,
+    idle: String,
+    clearing: String,
+    cleared: String,
+): String = when (state) {
+    ClearDataState.Idle,
+    is ClearDataState.Failed -> idle
+    ClearDataState.Clearing -> "$clearing..."
+    ClearDataState.Cleared -> cleared
+}
+
+@Composable
+private fun ClearFailureAlert(state: ClearDataState, onRetry: () -> Unit) {
+    val failed = state as? ClearDataState.Failed ?: return
+    SettingsAlertCard(
+        message = failed.message,
+        tone = AlertTone.Error,
+        action = {
+            TextButton(onClick = onRetry) {
+                Text("Retry")
+            }
+        },
+    )
 }
 
 @Composable

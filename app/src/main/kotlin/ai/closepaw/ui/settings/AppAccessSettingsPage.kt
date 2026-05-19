@@ -69,6 +69,7 @@ import ai.closepaw.tool.AppClassifier
 import ai.closepaw.ui.theme.closePaw
 import ai.closepaw.ui.theme.foldedPaper
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -90,6 +91,12 @@ internal const val APP_ROW_MEMORY_CREATE_ERROR_TAG = "app-row-memory-create-erro
 private const val APP_MEMORY_CREATE_FAILED_MESSAGE = "Could not create app memory. Try again."
 
 private enum class AddMemoryOutcome { Created, AlreadyExists, Aborted, WriteFailed }
+
+private sealed interface AppRowsState {
+    data object Loading : AppRowsState
+    data class Loaded(val rows: List<AppRow>) : AppRowsState
+    data class Error(val message: String) : AppRowsState
+}
 
 @Composable
 internal fun AppAccessSettingsPage(
@@ -124,14 +131,28 @@ internal fun AppAccessSettingsPage(
 
     LaunchedEffect(index) { index.load() }
 
-    val rowsState = produceState<List<AppRow>?>(initialValue = rowsOverride, context, rowsOverride) {
+    var appRowsReloadKey by remember { mutableStateOf(0) }
+    val rowsState by produceState<AppRowsState>(
+        initialValue = AppRowsState.Loading,
+        context,
+        rowsOverride,
+        appRowsReloadKey,
+    ) {
+        value = AppRowsState.Loading
         if (rowsOverride != null) {
-            value = rowsOverride
+            value = AppRowsState.Loaded(rowsOverride)
         } else {
-            value = withContext(ioDispatcher) { loadInstalledAppRows(context) }
+            value = try {
+                AppRowsState.Loaded(withContext(ioDispatcher) { loadInstalledAppRows(context) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                AppRowsState.Error("ClosePaw does not have permission to read the installed app list.")
+            } catch (e: RuntimeException) {
+                AppRowsState.Error("Could not read the installed app list. Retry from Settings.")
+            }
         }
     }
-    val rows = rowsState.value
 
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(AppFilter.All) }
@@ -251,11 +272,17 @@ internal fun AppAccessSettingsPage(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        when {
-            rows == null -> LoadingState()
-            else -> {
-                val filtered = remember(rows, overrides, query, filter) {
-                    filterRows(rows, appClassifier, query.trim(), filter)
+        when (val state = rowsState) {
+            AppRowsState.Loading -> LoadingState()
+            is AppRowsState.Error -> {
+                AppRowsErrorState(
+                    message = state.message,
+                    onRetry = { appRowsReloadKey += 1 },
+                )
+            }
+            is AppRowsState.Loaded -> {
+                val filtered = remember(state.rows, overrides, query, filter) {
+                    filterRows(state.rows, appClassifier, query.trim(), filter)
                 }
                 AppList(
                     rows = filtered,
@@ -377,10 +404,75 @@ private fun LoadingState() {
             .padding(MaterialTheme.closePaw.spacing.lg),
         contentAlignment = Alignment.TopCenter,
     ) {
-        CircularProgressIndicator(
-            color = MaterialTheme.colorScheme.primary,
-            strokeWidth = 2.dp,
+        AppAccessNoticeCard(
+            title = "Loading apps",
+            message = "Reading installed apps and access rules.",
+            loading = true,
         )
+    }
+}
+
+@Composable
+private fun AppRowsErrorState(message: String, onRetry: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(MaterialTheme.closePaw.spacing.lg),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        AppAccessNoticeCard(
+            title = "Could not load apps",
+            message = message,
+            action = {
+                TextButton(onClick = onRetry) {
+                    Text("Retry")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AppAccessNoticeCard(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+    loading: Boolean = false,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .foldedPaper(MaterialTheme.shapes.medium),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Row(
+            modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md),
+        ) {
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 2.dp,
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            action?.invoke()
+        }
     }
 }
 
@@ -412,11 +504,10 @@ private fun AppList(
     ) {
         if (rows.isEmpty()) {
             item {
-                Text(
-                    text = "No apps match.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.closePaw.inkFaint,
-                    modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.lg),
+                AppAccessNoticeCard(
+                    title = "No apps match",
+                    message = "Try a different search or filter.",
+                    modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.sm),
                 )
             }
         } else {

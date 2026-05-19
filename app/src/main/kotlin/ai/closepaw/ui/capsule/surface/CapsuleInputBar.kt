@@ -28,8 +28,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -68,6 +70,8 @@ interface VoiceMicDeps {
     fun isPermissionGranted(): Boolean
     fun requestOverlayPermission()
 }
+
+internal val LocalVoiceFeedback = staticCompositionLocalOf<(String) -> Unit> { {} }
 
 /**
  * CapsuleInputBar — text field with the send button as a trailing icon and an optional
@@ -124,6 +128,7 @@ internal fun CapsuleInputBar(
     // Track the last text the recognizer pushed via onText so typing-during-Listening can be
     // detected as a delta from controller output.
     val controllerLastText = remember { mutableStateOf("") }
+    val reportVoiceFeedback by rememberUpdatedState(LocalVoiceFeedback.current)
     val voiceController = if (voice != null) {
         rememberVoiceInputController(
             factory = voice.factory,
@@ -132,8 +137,7 @@ internal fun CapsuleInputBar(
                 inputText = newText
             },
             onToast = { msg ->
-                // TODO(voice): surface via Capsule snackbar plumbing once available.
-                android.util.Log.i("CapsuleInputBar", "voice toast: $msg")
+                reportVoiceFeedback(msg)
             },
         )
     } else {
@@ -146,7 +150,11 @@ internal fun CapsuleInputBar(
 
     val gate = if (voice?.activity != null) {
         rememberVoicePermissionGate(activity = voice.activity!!) { granted ->
-            if (granted) voiceController?.start(baseText = inputText)
+            if (granted) {
+                voiceController?.start(baseText = inputText)
+            } else {
+                reportVoiceFeedback("Microphone permission denied")
+            }
         }
     } else {
         null
@@ -210,13 +218,16 @@ internal fun CapsuleInputBar(
                     voiceController?.start(baseText = inputText)
                 VoicePermissionDisposition.Request ->
                     gate.requestPermission()
-                VoicePermissionDisposition.OpenAppSettings ->
+                VoicePermissionDisposition.OpenAppSettings -> {
+                    reportVoiceFeedback("Microphone permission is disabled. Re-enable it in Android Settings.")
                     gate.openAppSettings()
+                }
             }
         } else {
             if (v.isPermissionGranted()) {
                 voiceController?.start(baseText = inputText)
             } else {
+                reportVoiceFeedback("Microphone permission is required")
                 v.requestOverlayPermission()
             }
         }

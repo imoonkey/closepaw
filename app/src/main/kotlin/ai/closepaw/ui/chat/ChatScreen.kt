@@ -39,6 +39,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -57,6 +58,7 @@ import ai.closepaw.app.AgentService
 import ai.closepaw.history.model.SessionInfo
 import ai.closepaw.ui.capsule.CapsuleBinding
 import ai.closepaw.ui.capsule.NavAction
+import ai.closepaw.ui.capsule.surface.LocalVoiceFeedback
 import ai.closepaw.ui.capsule.surface.SmartCapsuleSurface
 import ai.closepaw.ui.capsule.surface.VoiceMicDeps
 import ai.closepaw.ui.capsule.surface.smartCapsuleHostPadding
@@ -70,10 +72,18 @@ import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.navigation.NavigationDrawerContent
 import ai.closepaw.ui.onboarding.PermissionRepairCard
 import ai.closepaw.ui.overlay.model.CapsuleContext
+import ai.closepaw.ui.settings.AlertTone
+import ai.closepaw.ui.settings.SettingsAlertCard
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
 import ai.closepaw.ui.theme.paperGrain
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private data class VoiceFeedbackAlert(
+    val id: Long,
+    val message: String,
+)
 
 /**
  * ChatScreen - Main chat interface composable.
@@ -129,6 +139,19 @@ fun ChatScreen(
                 // here. Fallback safely to the AgentService bridge so misuse is non-fatal.
                 AgentService.instance?.requestVoicePermissionViaMainActivity()
             }
+        }
+    }
+    var nextVoiceFeedbackId by remember { mutableStateOf(0L) }
+    var voiceFeedback by remember { mutableStateOf<VoiceFeedbackAlert?>(null) }
+    val reportVoiceFeedback: (String) -> Unit = { message ->
+        nextVoiceFeedbackId += 1
+        voiceFeedback = VoiceFeedbackAlert(nextVoiceFeedbackId, message)
+    }
+    LaunchedEffect(voiceFeedback?.id) {
+        val current = voiceFeedback ?: return@LaunchedEffect
+        delay(7_000)
+        if (voiceFeedback?.id == current.id) {
+            voiceFeedback = null
         }
     }
     
@@ -217,46 +240,55 @@ fun ChatScreen(
                                 onFixBattery = onFixBattery,
                             )
                         }
-                        SmartCapsuleSurface(
-                            mode = capsuleMode,
-                            isStopPending = isStopPending,
-                            platformMode = capsulePlatformMode,
-                            context = CapsuleContext.MAIN_APP,
-                            onSend = viewModel::sendMessage,
-                            onSupplement = viewModel::sendSupplement,
-                            onTakeover = viewModel::requestTakeover,
-                            onResume = viewModel::requestResume,
-                            onSupplementAndResume = viewModel::sendSupplementAndResume,
-                            onStop = {
-                                if (capsuleBinding.onStopRequested()) {
-                                    viewModel.stopTask()
-                                }
-                            },
-                            onUserResponse = { callId, response ->
-                                forwardUserResponse(capsuleBinding, viewModel::sendUserResponse, callId, response)
-                            },
-                            onApprovalResponse = { callId, decision, approvalScope, packageName ->
-                                if (capsuleBinding.onApprovalResolved(callId)) {
-                                    viewModel.sendApprovalResponse(callId, decision, approvalScope, packageName)
-                                }
-                            },
-                            onDismissError = { viewModel.dismissError() },
-                            onNavigate = { action ->
-                                if (action == NavAction.OPEN_VIEWER) {
-                                    onOpenViewer()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            previousMode = capsuleBinding.previousMode(),
-                            pendingInputText = pendingInput,
-                            onPendingInputConsumed = { viewModel.consumePendingInput() },
-                            startupError = startupError,
-                            onDismissStartupError = { viewModel.dismissStartupError() },
-                            onStartupErrorClick = {
-                                onOpenSettings(viewModel.startupErrorDeepLink.value)
-                            },
-                            voice = voiceDeps,
-                        )
+                        voiceFeedback?.let { alert ->
+                            SettingsAlertCard(
+                                message = alert.message,
+                                tone = AlertTone.Error,
+                                modifier = Modifier.padding(bottom = MaterialTheme.closePaw.spacing.sm),
+                            )
+                        }
+                        CompositionLocalProvider(LocalVoiceFeedback provides reportVoiceFeedback) {
+                            SmartCapsuleSurface(
+                                mode = capsuleMode,
+                                isStopPending = isStopPending,
+                                platformMode = capsulePlatformMode,
+                                context = CapsuleContext.MAIN_APP,
+                                onSend = viewModel::sendMessage,
+                                onSupplement = viewModel::sendSupplement,
+                                onTakeover = viewModel::requestTakeover,
+                                onResume = viewModel::requestResume,
+                                onSupplementAndResume = viewModel::sendSupplementAndResume,
+                                onStop = {
+                                    if (capsuleBinding.onStopRequested()) {
+                                        viewModel.stopTask()
+                                    }
+                                },
+                                onUserResponse = { callId, response ->
+                                    forwardUserResponse(capsuleBinding, viewModel::sendUserResponse, callId, response)
+                                },
+                                onApprovalResponse = { callId, decision, approvalScope, packageName ->
+                                    if (capsuleBinding.onApprovalResolved(callId)) {
+                                        viewModel.sendApprovalResponse(callId, decision, approvalScope, packageName)
+                                    }
+                                },
+                                onDismissError = { viewModel.dismissError() },
+                                onNavigate = { action ->
+                                    if (action == NavAction.OPEN_VIEWER) {
+                                        onOpenViewer()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                previousMode = capsuleBinding.previousMode(),
+                                pendingInputText = pendingInput,
+                                onPendingInputConsumed = { viewModel.consumePendingInput() },
+                                startupError = startupError,
+                                onDismissStartupError = { viewModel.dismissStartupError() },
+                                onStartupErrorClick = {
+                                    onOpenSettings(viewModel.startupErrorDeepLink.value)
+                                },
+                                voice = voiceDeps,
+                            )
+                        }
                     }
                 }
             ) { paddingValues ->
