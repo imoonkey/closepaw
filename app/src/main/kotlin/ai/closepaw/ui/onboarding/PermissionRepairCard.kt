@@ -16,9 +16,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.ui.theme.closePaw
@@ -115,7 +118,10 @@ private fun RepairRow(
                 horizontal = 12.dp,
                 vertical = 0.dp,
             ),
-            modifier = Modifier.height(28.dp),
+            modifier = Modifier
+                .minimumInteractiveComponentSize()
+                .height(28.dp)
+                .semantics { contentDescription = "Fix $text" },
         ) {
             Text(
                 text = "Fix",

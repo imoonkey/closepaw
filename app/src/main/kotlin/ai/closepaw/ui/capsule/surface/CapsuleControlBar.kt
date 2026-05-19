@@ -253,7 +253,9 @@ private fun NavIconButton(
 ) {
     FilledTonalIconButton(
         onClick = onClick,
-        modifier = Modifier.size(32.dp),
+        modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .size(32.dp),
         shape = MaterialTheme.shapes.medium,
     ) {
         Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(18.dp))

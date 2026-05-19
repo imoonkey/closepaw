@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -237,51 +239,60 @@ internal fun CapsuleInputBar(
         VoiceState.Unavailable -> null
         VoiceState.Idle -> {
             {
-                IconButton(
-                    onClick = onMicTap,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .testTag("qa-capsule-mic"),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Mic,
-                        contentDescription = "Start voice input",
-                        modifier = Modifier.size(18.dp),
-                    )
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    IconButton(
+                        onClick = onMicTap,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .size(36.dp)
+                            .testTag("qa-capsule-mic"),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Mic,
+                            contentDescription = "Start voice input",
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }
         VoiceState.Listening -> {
             {
-                IconButton(
-                    onClick = { voiceController?.stop() },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .testTag("qa-capsule-mic"),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.StopCircle,
-                        contentDescription = "Stop voice input",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
-                    )
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    IconButton(
+                        onClick = { voiceController?.stop() },
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .size(36.dp)
+                            .testTag("qa-capsule-mic"),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.StopCircle,
+                            contentDescription = "Stop voice input",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }
         VoiceState.Stopping -> {
             {
-                IconButton(
-                    onClick = {},
-                    enabled = false,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .testTag("qa-capsule-mic"),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.StopCircle,
-                        contentDescription = "Stopping voice input",
-                        modifier = Modifier.size(18.dp),
-                    )
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    IconButton(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .size(36.dp)
+                            .testTag("qa-capsule-mic"),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.StopCircle,
+                            contentDescription = "Stopping voice input",
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }
@@ -313,11 +324,12 @@ internal fun CapsuleInputBar(
         },
         leadingIcon = leadingIcon,
         trailingIcon = {
-            Box(modifier = Modifier.padding(end = 4.dp)) {
+            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 FilledIconButton(
                     onClick = onSendClick,
                     enabled = canSend,
                     modifier = Modifier
+                        .minimumInteractiveComponentSize()
                         .size(36.dp)
                         .testTag("qa-capsule-send")
                         .graphicsLayer {

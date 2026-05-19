@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,9 +41,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,6 +65,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -352,48 +363,37 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
 
 @Composable
 private fun FilterChipsRow(selected: AppFilter, onSelect: (AppFilter) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        AppFilter.entries.forEach { f ->
-            FilterChip(
-                label = f.label,
-                selected = selected == f,
-                onClick = { onSelect(f) },
-                modifier = Modifier.weight(1f),
-            )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        AppFilter.entries.forEachIndexed { index, filter ->
+            SegmentedButton(
+                selected = selected == filter,
+                onClick = { onSelect(filter) },
+                shape = SegmentedButtonDefaults.itemShape(
+                    index = index,
+                    count = AppFilter.entries.size,
+                ),
+                icon = {},
+            ) {
+                Text(
+                    text = filter.label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun FilterChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.small,
-        tonalElevation = if (selected) 2.dp else 0.dp,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(vertical = MaterialTheme.closePaw.spacing.sm, horizontal = MaterialTheme.closePaw.spacing.md),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurface,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+private fun appDetailsLabel(appLabel: String, isExpanded: Boolean): String {
+    return if (isExpanded) {
+        "Collapse $appLabel app details"
+    } else {
+        "Expand $appLabel app details"
     }
+}
+
+private fun appExpansionStateDescription(isExpanded: Boolean): String {
+    return if (isExpanded) "Expanded" else "Collapsed"
 }
 
 @Composable
@@ -566,6 +566,8 @@ private fun AppRowItem(
     }
     val hasContent = summary.hasMemory || summary.hasSkill
     val effectivelyBlocked = effectiveTier == AppTier.BLOCKED
+    val expansionLabel = appDetailsLabel(row.info.label, isExpanded)
+    val expansionStateDescription = appExpansionStateDescription(isExpanded)
 
     Surface(
         modifier = Modifier
@@ -585,7 +587,21 @@ private fun AppRowItem(
                         // Only active when there is something to show — empty rows
                         // route through the "+ Memory" affordance instead.
                         .let { base ->
-                            if (hasContent) base.clickable(onClick = onToggleExpand) else base
+                            if (hasContent) {
+                                base
+                                    .minimumInteractiveComponentSize()
+                                    .clickable(
+                                        role = Role.Button,
+                                        onClickLabel = expansionLabel,
+                                        onClick = onToggleExpand,
+                                    )
+                                    .semantics {
+                                        contentDescription = expansionLabel
+                                        stateDescription = expansionStateDescription
+                                    }
+                            } else {
+                                base
+                            }
                         },
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -702,18 +718,26 @@ private fun TrailingSlot(
     onAddMemory: () -> Unit,
 ) {
     if (hasContent) {
+        val expansionLabel = if (isExpanded) "Collapse app details" else "Expand app details"
+        val expansionStateDescription = appExpansionStateDescription(isExpanded)
         Surface(
             onClick = onToggleExpand,
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surface,
             modifier = Modifier
+                .minimumInteractiveComponentSize()
                 .size(32.dp)
+                .semantics {
+                    role = Role.Button
+                    contentDescription = expansionLabel
+                    stateDescription = expansionStateDescription
+                }
                 .testTag(APP_ROW_TRAILING_CHEVRON_TAG),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    contentDescription = null,
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
@@ -730,7 +754,16 @@ private fun TrailingSlot(
             shape = MaterialTheme.shapes.small,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp,
-            modifier = Modifier.testTag(APP_ROW_ADD_MEMORY_TAG),
+            modifier = Modifier
+                .minimumInteractiveComponentSize()
+                .semantics {
+                    role = Role.Button
+                    contentDescription = "Create app memory"
+                    if (addMemoryLocked) {
+                        stateDescription = "Disabled while memory edits are locked"
+                    }
+                }
+                .testTag(APP_ROW_ADD_MEMORY_TAG),
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -870,8 +903,18 @@ private fun SegmentChip(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        onClick = onClick,
-        modifier = modifier,
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .selectable(
+                selected = isSelected,
+                role = Role.RadioButton,
+                onClick = onClick,
+            )
+            .semantics {
+                contentDescription = label
+                selected = isSelected
+                stateDescription = if (isSelected) "Selected" else "Not selected"
+            },
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surface,
         shape = MaterialTheme.shapes.small,

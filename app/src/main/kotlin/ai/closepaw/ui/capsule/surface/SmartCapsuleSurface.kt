@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,6 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.ApprovalDecision
@@ -221,7 +225,21 @@ private fun StartupErrorBanner(
     val surfaceModifier = Modifier
         .fillMaxWidth()
         .padding(vertical = 4.dp)
-        .let { if (onClick != null) it.clickable { onClick() } else it }
+        .let {
+            if (onClick != null) {
+                it
+                    .minimumInteractiveComponentSize()
+                    .clickable(
+                        role = Role.Button,
+                        onClickLabel = "Open startup error",
+                    ) {
+                        onClick()
+                    }
+                    .semantics { contentDescription = "Startup error: $message" }
+            } else {
+                it
+            }
+        }
     Surface(
         modifier = surfaceModifier,
         color = MaterialTheme.colorScheme.errorContainer,
@@ -276,8 +294,15 @@ private fun CapsuleStatusLine(
     val rowModifier = if (onClick != null) {
         Modifier
             .fillMaxWidth()
+            .minimumInteractiveComponentSize()
             .clip(MaterialTheme.shapes.medium)
-            .clickable { onClick() }
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open current app",
+            ) {
+                onClick()
+            }
+            .semantics { contentDescription = "Capsule status: ${spec.thought.text}" }
             .padding(vertical = 2.dp)
     } else {
         Modifier.fillMaxWidth()
