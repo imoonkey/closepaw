@@ -194,6 +194,11 @@ fun ChatScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surface),
         ) {
+            // Draw one continuous grain pass behind every Scaffold slot so the
+            // masthead, page body, dock, and capsule shell share the same paper
+            // without placing grain over text or controls.
+            Box(modifier = Modifier.matchParentSize().paperGrain())
+
             // Empty-state paw mark — hoisted out of EmptyState so its TOP can
             // bleed up through the masthead band (Scaffold renders ON TOP, so
             // "ClosePaw" wordmark stays in front). Positioned low enough that
@@ -313,9 +318,6 @@ fun ChatScreen(
                     }
                 }
             }
-            // Draw one continuous grain pass after every Scaffold slot so the
-            // masthead, page body, dock, and capsule shell share the same paper.
-            Box(modifier = Modifier.matchParentSize().paperGrain())
         }
     }
 }

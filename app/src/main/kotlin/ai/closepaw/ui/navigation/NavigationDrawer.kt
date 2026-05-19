@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Add
@@ -213,7 +212,7 @@ private fun DrawerSessionItem(
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    val rowShape = RoundedCornerShape(8.dp)
+    val rowShape = MaterialTheme.shapes.small
     val isCorrupted = session.isCorrupted
     val rowColor = when {
         isCorrupted -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.24f)

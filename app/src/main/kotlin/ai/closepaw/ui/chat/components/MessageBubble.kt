@@ -1,5 +1,6 @@
 package ai.closepaw.ui.chat.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,9 +50,8 @@ fun MessageBubble(
     }
 }
 
-// Letter-on-paper: paper-wash background + asymmetric "folded corner" radius
-// (the top-start corner is the binding edge). No left rule — the corner shape
-// alone reads as the binding.
+// Letter-on-paper: paper-wash background + asymmetric "folded corner" radius.
+// Intentional local shape exception: the top-start corner is the binding edge.
 private val UserBubbleShape = RoundedCornerShape(
     topStart = 4.dp,
     topEnd = 12.dp,
@@ -76,6 +76,7 @@ private fun UserBubble(
                 .testTag("qa-user-bubble"),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             shape = UserBubbleShape,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)),
         ) {
             Column(
                 modifier = Modifier.padding(

@@ -9,6 +9,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -96,119 +97,124 @@ fun SettingsSheet(
         else onDismiss()
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .paperGrain()
-            .statusBarsPadding()
-            .displayCutoutPadding()
-            .navigationBarsPadding()
-            .imePadding()
     ) {
-        AnimatedContent(
-            targetState = settingsPage,
-            transitionSpec = {
-                if (reducedMotion) {
-                    // D1 §8: page slide collapses to a 120ms fade under reduced motion.
-                    val fade = tween<Float>(durationMillis = ClosePawMotion.Quick)
-                    fadeIn(fade) togetherWith fadeOut(fade)
-                } else {
-                    // D1 §5: 240ms page slide on EaseOutCubic. Sourced from ClosePawMotion
-                    // so settings shares the same page-transition cadence as the rest of the app.
-                    val spec = tween<androidx.compose.ui.unit.IntOffset>(
-                        durationMillis = ClosePawMotion.PageSlide,
-                        easing = ClosePawMotion.EaseOutCubic,
-                    )
-                    if (targetState == SettingsPage.HOME) {
-                        slideInHorizontally(spec) { -it } togetherWith slideOutHorizontally(spec) { it }
+        Box(modifier = Modifier.matchParentSize().paperGrain())
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .displayCutoutPadding()
+                .navigationBarsPadding()
+                .imePadding()
+        ) {
+            AnimatedContent(
+                targetState = settingsPage,
+                transitionSpec = {
+                    if (reducedMotion) {
+                        // D1 §8: page slide collapses to a 120ms fade under reduced motion.
+                        val fade = tween<Float>(durationMillis = ClosePawMotion.Quick)
+                        fadeIn(fade) togetherWith fadeOut(fade)
                     } else {
-                        slideInHorizontally(spec) { it } togetherWith slideOutHorizontally(spec) { -it }
+                        // D1 §5: 240ms page slide on EaseOutCubic. Sourced from ClosePawMotion
+                        // so settings shares the same page-transition cadence as the rest of the app.
+                        val spec = tween<androidx.compose.ui.unit.IntOffset>(
+                            durationMillis = ClosePawMotion.PageSlide,
+                            easing = ClosePawMotion.EaseOutCubic,
+                        )
+                        if (targetState == SettingsPage.HOME) {
+                            slideInHorizontally(spec) { -it } togetherWith slideOutHorizontally(spec) { it }
+                        } else {
+                            slideInHorizontally(spec) { it } togetherWith slideOutHorizontally(spec) { -it }
+                        }
                     }
+                },
+                label = "SettingsPageTransition"
+            ) { page ->
+                when (page) {
+                    SettingsPage.HOME -> SettingsHomePage(
+                        llmBackend = llmBackend,
+                        selectedModel = selectedModel,
+                        modelOptions = catalogModelOptions(modelCatalog.all()),
+                        selectedLocalModel = selectedLocalModel,
+                        modelCatalog = modelCatalog,
+                        perceptionMode = perceptionMode,
+                        isAccessibilityEnabled = isAccessibilityEnabled,
+                        isOverlayEnabled = isOverlayEnabled,
+                        debugMode = debugMode,
+                        platformMode = platformMode,
+                        effectivePlatformMode = effectivePlatformMode,
+                        appClassifier = appClassifier,
+                        onNavigate = { settingsPage = it },
+                        onDismiss = onDismiss
+                    )
+                    SettingsPage.LLM_AUTH -> LlmAuthSettingsPage(
+                        llmBackend = llmBackend,
+                        onBackendChange = onBackendChange,
+                        selectedModel = selectedModel,
+                        onModelChange = onModelChange,
+                        modelCatalog = modelCatalog,
+                        selectedLocalModel = selectedLocalModel,
+                        onLocalModelChange = onLocalModelChange,
+                        modelLoadingStatus = modelLoadingStatus,
+                        openAiAuthUiState = openAiAuthUiState,
+                        onStartOAuth = onStartOAuth,
+                        onCancelOAuth = onCancelOAuth,
+                        onSignOut = onSignOut,
+                        onBack = { settingsPage = SettingsPage.HOME },
+                        onClose = onDismiss,
+                        initialAuthTab = initialAuthTab,
+                        initialProvider = initialProvider,
+                        otherBaseUrl = otherBaseUrl,
+                        otherModelId = otherModelId,
+                        onOtherBaseUrlChange = onOtherBaseUrlChange,
+                        onOtherModelIdChange = onOtherModelIdChange,
+                    )
+                    SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
+                        perceptionMode = perceptionMode,
+                        onPerceptionModeChange = onPerceptionModeChange,
+                        platformMode = platformMode,
+                        effectivePlatformMode = effectivePlatformMode,
+                        onPlatformModeChange = onPlatformModeChange,
+                        browserScriptEnabled = browserScriptEnabled,
+                        onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
+                        onBack = { settingsPage = SettingsPage.HOME },
+                        onClose = onDismiss,
+                        isSessionRunning = isSessionRunning,
+                    )
+                    SettingsPage.MEMORY -> MemorySettingsPage(
+                        memoryStore = memoryStore,
+                        gate = memoryEditGate,
+                        onBack = { settingsPage = SettingsPage.HOME },
+                        onClose = onDismiss,
+                    )
+                    SettingsPage.PERMISSIONS_ADVANCED -> PermissionsAdvancedSettingsPage(
+                        isAccessibilityEnabled = isAccessibilityEnabled,
+                        isOverlayEnabled = isOverlayEnabled,
+                        onAccessibilityClick = onAccessibilityClick,
+                        onOverlayClick = onOverlayClick,
+                        debugMode = debugMode,
+                        onDebugModeChange = onDebugModeChange,
+                        traceEnabled = traceEnabled,
+                        onTraceEnabledChange = onTraceEnabledChange,
+                        onBack = { settingsPage = SettingsPage.HOME },
+                        onClose = onDismiss
+                    )
+                    SettingsPage.APP_ACCESS -> AppAccessSettingsPage(
+                        appClassifier = appClassifier,
+                        memoryStore = memoryStore,
+                        gate = memoryEditGate,
+                        onBack = { settingsPage = SettingsPage.HOME },
+                        onClose = onDismiss,
+                    )
+                    SettingsPage.OPEN_SOURCE_LICENSES -> OpenSourceLicensesPage(
+                        onBack = { settingsPage = SettingsPage.HOME },
+                        onClose = onDismiss,
+                    )
                 }
-            },
-            label = "SettingsPageTransition"
-        ) { page ->
-            when (page) {
-                SettingsPage.HOME -> SettingsHomePage(
-                    llmBackend = llmBackend,
-                    selectedModel = selectedModel,
-                    modelOptions = catalogModelOptions(modelCatalog.all()),
-                    selectedLocalModel = selectedLocalModel,
-                    modelCatalog = modelCatalog,
-                    perceptionMode = perceptionMode,
-                    isAccessibilityEnabled = isAccessibilityEnabled,
-                    isOverlayEnabled = isOverlayEnabled,
-                    debugMode = debugMode,
-                    platformMode = platformMode,
-                    effectivePlatformMode = effectivePlatformMode,
-                    appClassifier = appClassifier,
-                    onNavigate = { settingsPage = it },
-                    onDismiss = onDismiss
-                )
-                SettingsPage.LLM_AUTH -> LlmAuthSettingsPage(
-                    llmBackend = llmBackend,
-                    onBackendChange = onBackendChange,
-                    selectedModel = selectedModel,
-                    onModelChange = onModelChange,
-                    modelCatalog = modelCatalog,
-                    selectedLocalModel = selectedLocalModel,
-                    onLocalModelChange = onLocalModelChange,
-                    modelLoadingStatus = modelLoadingStatus,
-                    openAiAuthUiState = openAiAuthUiState,
-                    onStartOAuth = onStartOAuth,
-                    onCancelOAuth = onCancelOAuth,
-                    onSignOut = onSignOut,
-                    onBack = { settingsPage = SettingsPage.HOME },
-                    onClose = onDismiss,
-                    initialAuthTab = initialAuthTab,
-                    initialProvider = initialProvider,
-                    otherBaseUrl = otherBaseUrl,
-                    otherModelId = otherModelId,
-                    onOtherBaseUrlChange = onOtherBaseUrlChange,
-                    onOtherModelIdChange = onOtherModelIdChange,
-                )
-                SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
-                    perceptionMode = perceptionMode,
-                    onPerceptionModeChange = onPerceptionModeChange,
-                    platformMode = platformMode,
-                    effectivePlatformMode = effectivePlatformMode,
-                    onPlatformModeChange = onPlatformModeChange,
-                    browserScriptEnabled = browserScriptEnabled,
-                    onBrowserScriptEnabledChange = onBrowserScriptEnabledChange,
-                    onBack = { settingsPage = SettingsPage.HOME },
-                    onClose = onDismiss,
-                    isSessionRunning = isSessionRunning,
-                )
-                SettingsPage.MEMORY -> MemorySettingsPage(
-                    memoryStore = memoryStore,
-                    gate = memoryEditGate,
-                    onBack = { settingsPage = SettingsPage.HOME },
-                    onClose = onDismiss,
-                )
-                SettingsPage.PERMISSIONS_ADVANCED -> PermissionsAdvancedSettingsPage(
-                    isAccessibilityEnabled = isAccessibilityEnabled,
-                    isOverlayEnabled = isOverlayEnabled,
-                    onAccessibilityClick = onAccessibilityClick,
-                    onOverlayClick = onOverlayClick,
-                    debugMode = debugMode,
-                    onDebugModeChange = onDebugModeChange,
-                    traceEnabled = traceEnabled,
-                    onTraceEnabledChange = onTraceEnabledChange,
-                    onBack = { settingsPage = SettingsPage.HOME },
-                    onClose = onDismiss
-                )
-                SettingsPage.APP_ACCESS -> AppAccessSettingsPage(
-                    appClassifier = appClassifier,
-                    memoryStore = memoryStore,
-                    gate = memoryEditGate,
-                    onBack = { settingsPage = SettingsPage.HOME },
-                    onClose = onDismiss,
-                )
-                SettingsPage.OPEN_SOURCE_LICENSES -> OpenSourceLicensesPage(
-                    onBack = { settingsPage = SettingsPage.HOME },
-                    onClose = onDismiss,
-                )
             }
         }
     }

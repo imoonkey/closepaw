@@ -24,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ai.closepaw.R
 import ai.closepaw.ui.theme.AppWindowInsets
@@ -89,7 +91,11 @@ fun OnboardingShell(
             // Step title — D1 §4.2 identity surface (Fraunces).
             Text(
                 text = title,
-                style = MaterialTheme.typography.displaySmall.copy(fontFamily = Fraunces),
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontFamily = Fraunces,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Normal,
+                ),
                 color = MaterialTheme.colorScheme.onBackground
             )
 
