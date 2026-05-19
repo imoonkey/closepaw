@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-05-18: Paw mark — stroke bump, hero variant, EmptyState background, capsule unification, visualizer scope
+
+**What changed:**
+- `ic_paw.xml` strokeWidth bumped 2.2 → 3.4; viewport widened to 60×72 with a `<group translateX/Y=4>` so the heavier stroke caps don't get clipped at the viewport edge. Launcher PNGs re-rasterized at the new stroke from the SVG via headless Chrome.
+- New `ic_paw_hero.xml` (same paths, strokeWidth 2.0) for hero placements only. Small UI keeps `ic_paw`. Stroke matrix and rationale documented in `doc/main/ui/style.md`.
+- EmptyState big paw lifted out of `EmptyState.kt` into `ChatScreen`'s outer `Box` so it can bleed past the `Scaffold` content slot up into the masthead band. `Scaffold` now uses `containerColor = Color.Transparent` and the outer Box owns the page `surface` background, so the transparent `ChatHeader` renders the "ClosePaw" wordmark on top of the paw silhouette. Paw uses `ic_paw_hero` (2.0 stroke), tinted `colorScheme.primary` (Claw red), `offset(48dp, 88dp)`, `size(300dp)` — high enough for upward bleed at the top toes, low enough that the paw body never collides with the wordmark or the "What can I help you with?" title.
+- `SmartCapsuleSurface` outer `Surface` color: `surface` → `surfaceContainerLow`. Same tone whether the capsule shows only the input bar (EmptyState) or status + body + input (active), instead of the prior two-tone effect that looked unintentional in the input-only state. `navigationBarsPadding()` moved from the inner Column to the host (`ChatScreen.bottomBar` Column / both `CapsuleOverlayHost` containers) so the capsule pill chrome itself floats above the gesture nav handle; before, only the inner content lifted while the rounded bottom touched the nav.
+- `ActionVisualizerManager` now gated by `renderContext: StateFlow<CapsuleContext>`; renders only when `CapsuleContext.SCREEN_VIEWING`. Wired from `AgentService` via the existing overlay-controller state. Fixes the leak where VD-mode taps drew ripples on the user's own screen while the agent acted on the VirtualDisplay.
+
+**Why:**
+- The 2.2 stroke vanished at 14dp `StatusPawGlyph` / 16dp `Fleuron` on the launcher tile against Paper; 3.4 reads cleanly everywhere small but is too heavy at 300dp hero scale. Hero variant resolves the conflict in one extra asset instead of an SVG-parameter hack or a per-call-site override.
+- The EmptyState paw was a brand mark hidden in a content slot, getting clipped on three edges by Scaffold geometry. Hoisting it to the outer layer makes the bleed deliberate; tinting it Claw injects brand warmth into a page that was otherwise all ink-on-paper.
+- The capsule's two-tone Surface/TextField split was tried before (`f95899b4` → reverted at `1dc7d521`) by changing the wrong layer. Moving the outer Surface to `surfaceContainerLow` matches the input pill instead of vice versa — solves the cross-state inconsistency in the direction the previous attempt didn't try.
+- Visualizer leak was a real privacy/UX surprise: agent acting on a backgrounded VirtualDisplay still painted tap ripples on the foreground app the user was looking at. SCREEN_VIEWING gate is the minimal correct predicate; A11y viewer behavior unchanged.
+
+**Key files:**
+- Resources: `app/src/main/res/drawable/{ic_paw,ic_paw_hero}.xml`, `app/src/main/res/{drawable,mipmap}-{mdpi..xxxhdpi}/`, `app/src/main/res/values/colors.xml`
+- UI: `ui/chat/ChatScreen.kt`, `ui/chat/components/EmptyState.kt`, `ui/capsule/surface/SmartCapsuleSurface.kt`, `ui/overlay/compose/CapsuleOverlayHost.kt`
+- Visualizer: `ui/overlay/visualizer/ActionVisualizerManager.kt`, `app/AgentService.kt`
+- Doc sync: `doc/main/ui/style.md`, `doc/main/ui/overlay.md`, `doc/main/ui/capsule/architecture.md`
+
+**Verification:** `./gradlew installDebug` clean across multiple iterations; `ThinkingIndicatorCadenceTest` still passes (4-element contract intact). Visual verification on `AndroidWorldAvd2` emulator (after onboarding bypass via `--ez fresh_session true --es goal test`) and on real device `P0110`: launcher icon = Claw paw on Paper; EmptyState = Claw hero paw bleeding into masthead without overlapping "ClosePaw" wordmark; capsule sits as a single PaperInset pill above the gesture nav in all states.
+
+**Commit:** `030bde4f..d42bf840` (3 commits).
+**Next:** none queued. The `.design-preview/` scratch HTML used during this pass is still untracked — fine to leave or sweep.
+**Blockers:** None.
+
 ## 2026-05-18: Brand mark unified — line-art paw across launcher + every in-app surface
 
 **What changed:**

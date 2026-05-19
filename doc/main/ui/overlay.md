@@ -112,6 +112,8 @@ Compact floating pill on the real screen during VD `BACKGROUND` context. Shows s
 
 Visual feedback for agent touch actions. Canvas-based with automatic item lifetime management. Touch pass-through.
 
+**Render gate:** only emits in `CapsuleContext.SCREEN_VIEWING` (the user is watching the agent's screen). Suppressed in `MAIN_APP` and `BACKGROUND` — otherwise VD-mode taps would leak as ripples on the user's own screen. Wired via `renderContext: StateFlow<CapsuleContext>` from `AgentService` → `ServiceOverlayController.stateHolder.context`.
+
 | Type | Properties |
 |------|-----------|
 | **Click ripple** | 8→48dp expansion, 500ms, blue/purple at 60% opacity |

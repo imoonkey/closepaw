@@ -210,6 +210,19 @@ use these primitives directly — never reinvent the glyph or layout.
 | `PageMastheadIdentity(title, onClose)` | Convenience wrapper for top-level identity pages (Chat, Drawer, Settings home). Defaults to paw in leading and an optional close `IconButton` in trailing. |
 | `PageMastheadDrillDown(title, onBack, onClose)` | Convenience wrapper for drilled-down pages (every Settings sub-page). Back chevron (`Icons.Rounded.ChevronLeft`) in leading, close (`Icons.Rounded.Close`) in trailing. |
 | `PawGlyph(modifier, onClick)` | 18dp paw icon at `onSurface`. Optional tap target — defaults to passive identity glyph. |
+
+The brand mark ships in two stroke weights so it scales without the lines
+either vanishing or going chunky:
+
+| Asset | Stroke (52×64 viewport) | Use |
+|---|---|---|
+| `R.drawable.ic_paw` | 3.4 | All small UI ≤ ~64dp — Fleuron divider, masthead `PawGlyph`, `StatusPawGlyph`, `ThinkingIndicator`, onboarding step dots |
+| `R.drawable.ic_paw_hero` | 2.0 | Large hero placements only (currently the EmptyState background paw at 300dp). Matches the source-logo stroke ratio so it doesn't read as a heavy ink slab when blown up. |
+
+Both share the same viewport (60×72 with a `<group translateX/Y=4>` padding to
+keep round stroke caps inside the viewport) and same `strokeColor="#FFFFFF"`
+placeholder, tinted at the call site via `Icon(tint=...)` /
+`ColorFilter.tint`.
 | `SectionHeader(text)` | Fraunces italic 18sp `inkFaint`, 16dp top / 4dp bottom padding. Section subhead inside identity surfaces. |
 
 ### Mastheaded Surfaces
