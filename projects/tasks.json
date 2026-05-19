@@ -1832,5 +1832,62 @@
     "created": "2026-05-19T18:38:04Z",
     "updated": "2026-05-19T18:45:02Z",
     "agent": "w-uip-repair-narrow"
+  },
+  "ui-polish-fix-blocker": {
+    "parent": "ui-polish-release",
+    "depends": [],
+    "state": "done",
+    "title": "Fix codex-review blockers: capsule attention wrap + overlay voice provider",
+    "description": "Codex review of PR #50 flagged 1 Critical + 1 High. (1) P0-2/D1 capsule attention row still single non-wrapping Row, will clip at 360dp/fontScale 1.5 with 3 buttons (Always/Session/Reject). Fix: when requiredActionsOnly, wrap ActionButtonCluster contents in FlowRow (Compose foundation.layout.FlowRow, ExperimentalLayoutApi). (2) P1-7/D4 LocalVoiceFeedback defaults to {} and CapsuleOverlayHost never provides a sink, so voice failures invisible in overlay context. Fix: wrap SmartCapsuleSurface call site in CapsuleOverlayHost.kt:138 with CompositionLocalProvider(LocalVoiceFeedback provides ...) — use a Toast fallback since SettingsAlertCard host is main-app only.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleControlBar.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/compose/CapsuleOverlayHost.kt"
+    ],
+    "acceptCriteria": [
+      "ActionButtonCluster uses FlowRow (or vertical stack) when requiredActionsOnly=true",
+      "CapsuleOverlayHost wraps SmartCapsuleSurface with CompositionLocalProvider for LocalVoiceFeedback",
+      "Fallback sink for overlay is non-empty (toast or capsule banner)",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0"
+    ],
+    "tags": [
+      "p0",
+      "p1",
+      "review-fix"
+    ],
+    "estimate": "s",
+    "worktree": "uip-fix-blocker",
+    "created": "2026-05-19T19:13:43Z",
+    "updated": "2026-05-19T19:20:46Z",
+    "agent": "w-uip-fix-blocker"
+  },
+  "ui-polish-fix-p2gap": {
+    "parent": "ui-polish-release",
+    "depends": [],
+    "state": "done",
+    "title": "Fix codex-review P2 gaps: onboarding wrap + visualizer reduced-motion + picker semantics",
+    "description": "Codex review flagged 3 P2 items as GAP (claimed in design but not implemented). (a) P2-4: OnboardingSteps.kt:203 provider chips are a fixed Row — swap to FlowRow so they wrap under fontScale 1.5. (b) P2-7/D6: ActionVisualizerCompose.kt:56 runs unconditional withFrameMillis loop — branch on ClosePawMotion.reducedMotion(): if true, render static final markers (skip the frame loop and expansion interpolation at line 70). (c) P2-8: LlmAuthDiscoveryUi.kt:195 picker rows use bare clickable — add Modifier.selectable(role=Role.RadioButton, selected=...) + 48dp minimum (via minimumInteractiveComponentSize or Box wrapper). Also at LlmAuthDiscoveryUi.kt:247 the refresh metadata sits in same row as button — let it wrap below the button on narrow widths.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/compose/ActionVisualizerCompose.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt"
+    ],
+    "acceptCriteria": [
+      "OnboardingSteps provider chips use FlowRow (or equivalent wrapping container)",
+      "ActionVisualizerCompose reads ClosePawMotion.reducedMotion() and skips the frame loop when true",
+      "LlmAuthDiscoveryUi picker rows use Modifier.selectable with Role.RadioButton + 48dp effective target",
+      "./gradlew :app:assembleDebug exits 0",
+      "./gradlew :app:lint exits 0"
+    ],
+    "tags": [
+      "p2",
+      "review-fix"
+    ],
+    "estimate": "s",
+    "worktree": "uip-fix-p2gap",
+    "created": "2026-05-19T19:13:43Z",
+    "updated": "2026-05-19T19:20:46Z",
+    "agent": "w-uip-fix-p2gap"
   }
 }
