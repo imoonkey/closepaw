@@ -171,18 +171,20 @@ fun ChatScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surface),
         ) {
-            // Empty-state paw mark — hoisted out of EmptyState so it can bleed
-            // up through the masthead band. Scaffold (and its transparent
-            // ChatHeader) renders ON TOP, so the "ClosePaw" wordmark stays
-            // legible over the paw silhouette.
+            // Empty-state paw mark — hoisted out of EmptyState so its TOP can
+            // bleed up through the masthead band (Scaffold renders ON TOP, so
+            // "ClosePaw" wordmark stays in front). Positioned low enough that
+            // the paw body never lands on title text. Uses ic_paw_hero (thin
+            // stroke) and the Claw brand accent so the empty page isn't all
+            // ink-on-paper.
             if (messages.isEmpty() && uiState.showEmptyState) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_paw),
+                    painter = painterResource(R.drawable.ic_paw_hero),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 32.dp, y = 8.dp)
+                        .offset(x = 48.dp, y = 88.dp)
                         .size(300.dp),
                 )
             }
