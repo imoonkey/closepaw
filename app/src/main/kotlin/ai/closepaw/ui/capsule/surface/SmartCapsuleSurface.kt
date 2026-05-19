@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -125,13 +124,12 @@ fun SmartCapsuleSurface(
         modifier = modifier
             .fillMaxWidth()
             .foldedPaper(shape),
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = shape,
     ) {
         Column(
             modifier = Modifier
                 .padding(horizontal = spacing.md)
-                .navigationBarsPadding()
                 .padding(top = spacing.sm, bottom = 6.dp),
         ) {
             if (isTaskActive) {

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -205,6 +206,7 @@ class CapsuleOverlayHost(
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
                             .imePadding()
+                            .navigationBarsPadding()
                             .smartCapsuleHostPadding()
                     ) {
                         capsuleContent()
@@ -215,6 +217,7 @@ class CapsuleOverlayHost(
                     modifier = Modifier
                         .fillMaxWidth()
                         .imePadding()
+                        .navigationBarsPadding()
                         .smartCapsuleHostPadding()
                 ) {
                     capsuleContent()

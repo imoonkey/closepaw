@@ -172,7 +172,7 @@ class AgentService : AccessibilityService() {
 
         updateStatus("Accessibility Service connected")
 
-        overlayController =
+        val controller =
                 ServiceOverlayController(
                         context = this,
                         lifecycleOwner = serviceLifecycleOwner,
@@ -214,11 +214,13 @@ class AgentService : AccessibilityService() {
                                         }
                                 )
                 )
+        overlayController = controller
 
         actionVisualizer = ActionVisualizerManager(
                 context = this,
                 lifecycleOwner = serviceLifecycleOwner,
-                savedStateRegistryOwner = serviceLifecycleOwner
+                savedStateRegistryOwner = serviceLifecycleOwner,
+                renderContext = controller.stateHolder.context,
         )
         Log.i(TAG, "ActionVisualizerManager initialized")
 

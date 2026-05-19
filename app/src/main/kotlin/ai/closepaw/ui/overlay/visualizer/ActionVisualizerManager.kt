@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import ai.closepaw.ui.overlay.compose.VisualizerOverlayHost
+import ai.closepaw.ui.overlay.model.CapsuleContext
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Compose-backed touch action visualizer.
@@ -12,6 +14,7 @@ class ActionVisualizerManager(
     context: AccessibilityService,
     lifecycleOwner: LifecycleOwner,
     savedStateRegistryOwner: SavedStateRegistryOwner,
+    private val renderContext: StateFlow<CapsuleContext>,
 ) {
     private val overlayHost = VisualizerOverlayHost(
         service = context,
@@ -23,7 +26,7 @@ class ActionVisualizerManager(
     var enabled: Boolean = true
 
     fun showClick(x: Float, y: Float, longPress: Boolean = false) {
-        if (!enabled) return
+        if (!shouldRender()) return
         overlayHost.showClick(x = x, y = y, longPress = longPress)
     }
 
@@ -34,7 +37,7 @@ class ActionVisualizerManager(
         endY: Float,
         durationMs: Long,
     ) {
-        if (!enabled) return
+        if (!shouldRender()) return
         overlayHost.showSwipe(
             startX = startX,
             startY = startY,
@@ -52,7 +55,7 @@ class ActionVisualizerManager(
         endY: Float,
         durationMs: Long,
     ) {
-        if (!enabled) return
+        if (!shouldRender()) return
         overlayHost.showSwipe(
             startX = startX,
             startY = startY,
@@ -66,4 +69,7 @@ class ActionVisualizerManager(
     fun dispose() {
         overlayHost.dispose()
     }
+
+    private fun shouldRender(): Boolean =
+        enabled && renderContext.value == CapsuleContext.SCREEN_VIEWING
 }

@@ -68,18 +68,10 @@ fun EmptyState(
             .fillMaxSize()
             .clipToBounds(),
     ) {
-        // Top-right paw bleeds horizontally past the right edge (hard-clipped at
-        // the screen edge — reads as "page edge"). Sits fully below the masthead;
-        // no upward bleed, since the transparent ChatHeader still renders text on top.
-        Icon(
-            painter = painterResource(R.drawable.ic_paw),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = 56.dp, y = 0.dp)
-                .size(240.dp),
-        )
+        // Paw glyph is rendered by ChatScreen at the outer Box layer so it can
+        // bleed up through the masthead band (transparent ChatHeader sits on
+        // top, "ClosePaw" wordmark stays readable). Kept out of this composable
+        // to avoid Scaffold-content clipping.
 
         Column(
             modifier = Modifier

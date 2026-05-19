@@ -16,8 +16,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,6 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import ai.closepaw.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
@@ -160,10 +166,30 @@ fun ChatScreen(
         },
         gesturesEnabled = true
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface),
+        ) {
+            // Empty-state paw mark — hoisted out of EmptyState so it can bleed
+            // up through the masthead band. Scaffold (and its transparent
+            // ChatHeader) renders ON TOP, so the "ClosePaw" wordmark stays
+            // legible over the paw silhouette.
+            if (messages.isEmpty() && uiState.showEmptyState) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_paw),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 32.dp, y = 8.dp)
+                        .size(300.dp),
+                )
+            }
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                containerColor = Color.Transparent,
                 topBar = {
                     ChatHeader(
                         onMenuClick = {
@@ -178,6 +204,7 @@ fun ChatScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .imePadding()
+                            .navigationBarsPadding()
                             .smartCapsuleHostPadding()
                     ) {
                         if (repairModel != null) {

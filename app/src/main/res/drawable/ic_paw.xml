@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Line-art paw mark — traced from logo "44" exploration.
-     viewport 52×64 to match source aspect. strokeColor stays #FFFFFF
-     so call sites can tint via ColorFilter / Icon tint. -->
+     Design coords are 52×64; viewport padded to 60×72 (4 units of breathing
+     room on each side) so the 3.4 stroke width's caps don't get clipped at
+     the viewport edge. strokeColor stays #FFFFFF so call sites can tint
+     via ColorFilter / Icon tint. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="104dp"
-    android:height="128dp"
-    android:viewportWidth="52"
-    android:viewportHeight="64">
+    android:width="120dp"
+    android:height="144dp"
+    android:viewportWidth="60"
+    android:viewportHeight="72">
+
+    <group
+        android:translateX="4"
+        android:translateY="4">
 
     <!-- Toe 1 (far left, tilted -18°) -->
     <group
@@ -62,4 +68,6 @@
         android:strokeWidth="3.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"/>
+
+    </group>
 </vector>
