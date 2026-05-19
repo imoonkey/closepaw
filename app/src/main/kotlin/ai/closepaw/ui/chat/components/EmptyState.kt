@@ -39,7 +39,6 @@ import ai.closepaw.R
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
-import ai.closepaw.ui.theme.paperGrain
 import kotlinx.coroutines.delay
 
 private data class Suggestion(val verb: String, val gloss: String) {
@@ -67,8 +66,7 @@ fun EmptyState(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .clipToBounds()
-            .paperGrain(),
+            .clipToBounds(),
     ) {
         // Top-right paw bleeds horizontally past the right edge (hard-clipped at
         // the screen edge — reads as "page edge"). Sits fully below the masthead;

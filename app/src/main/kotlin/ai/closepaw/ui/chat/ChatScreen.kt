@@ -135,7 +135,7 @@ fun ChatScreen(
     
     ModalNavigationDrawer(
         drawerState = drawerState,
-        modifier = Modifier.paperGrain(),
+        modifier = modifier.fillMaxSize(),
         drawerContent = {
             NavigationDrawerContent(
                 sessions = sessions,
@@ -160,96 +160,101 @@ fun ChatScreen(
         },
         gesturesEnabled = true
     ) {
-        Scaffold(
-            modifier = modifier,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            topBar = {
-                ChatHeader(
-                    onMenuClick = {
-                        scope.launch { drawerState.open() }
-                    },
-                    onNewChatClick = onNewSession,
-                    showNewChatButton = messages.isNotEmpty()
-                )
-            },
-            bottomBar = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .imePadding()
-                        .smartCapsuleHostPadding()
-                ) {
-                    if (repairModel != null) {
-                        PermissionRepairCard(
-                            model = repairModel,
-                            onFixAccessibility = onFixAccessibility,
-                            onFixOverlay = onFixOverlay,
-                            onFixBattery = onFixBattery,
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                topBar = {
+                    ChatHeader(
+                        onMenuClick = {
+                            scope.launch { drawerState.open() }
+                        },
+                        onNewChatClick = onNewSession,
+                        showNewChatButton = messages.isNotEmpty()
+                    )
+                },
+                bottomBar = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .imePadding()
+                            .smartCapsuleHostPadding()
+                    ) {
+                        if (repairModel != null) {
+                            PermissionRepairCard(
+                                model = repairModel,
+                                onFixAccessibility = onFixAccessibility,
+                                onFixOverlay = onFixOverlay,
+                                onFixBattery = onFixBattery,
+                            )
+                        }
+                        SmartCapsuleSurface(
+                            mode = capsuleMode,
+                            isStopPending = isStopPending,
+                            platformMode = capsulePlatformMode,
+                            context = CapsuleContext.MAIN_APP,
+                            onSend = viewModel::sendMessage,
+                            onSupplement = viewModel::sendSupplement,
+                            onTakeover = viewModel::requestTakeover,
+                            onResume = viewModel::requestResume,
+                            onSupplementAndResume = viewModel::sendSupplementAndResume,
+                            onStop = {
+                                if (capsuleBinding.onStopRequested()) {
+                                    viewModel.stopTask()
+                                }
+                            },
+                            onUserResponse = { callId, response ->
+                                forwardUserResponse(capsuleBinding, viewModel::sendUserResponse, callId, response)
+                            },
+                            onApprovalResponse = { callId, decision, approvalScope, packageName ->
+                                if (capsuleBinding.onApprovalResolved(callId)) {
+                                    viewModel.sendApprovalResponse(callId, decision, approvalScope, packageName)
+                                }
+                            },
+                            onDismissError = { viewModel.dismissError() },
+                            onNavigate = { action ->
+                                if (action == NavAction.OPEN_VIEWER) {
+                                    onOpenViewer()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            previousMode = capsuleBinding.previousMode(),
+                            pendingInputText = pendingInput,
+                            onPendingInputConsumed = { viewModel.consumePendingInput() },
+                            startupError = startupError,
+                            onDismissStartupError = { viewModel.dismissStartupError() },
+                            onStartupErrorClick = {
+                                onOpenSettings(viewModel.startupErrorDeepLink.value)
+                            },
+                            voice = voiceDeps,
                         )
                     }
-                    SmartCapsuleSurface(
-                        mode = capsuleMode,
-                        isStopPending = isStopPending,
-                        platformMode = capsulePlatformMode,
-                        context = CapsuleContext.MAIN_APP,
-                        onSend = viewModel::sendMessage,
-                        onSupplement = viewModel::sendSupplement,
-                        onTakeover = viewModel::requestTakeover,
-                        onResume = viewModel::requestResume,
-                        onSupplementAndResume = viewModel::sendSupplementAndResume,
-                        onStop = {
-                            if (capsuleBinding.onStopRequested()) {
-                                viewModel.stopTask()
-                            }
-                        },
-                        onUserResponse = { callId, response ->
-                            forwardUserResponse(capsuleBinding, viewModel::sendUserResponse, callId, response)
-                        },
-                        onApprovalResponse = { callId, decision, approvalScope, packageName ->
-                            if (capsuleBinding.onApprovalResolved(callId)) {
-                                viewModel.sendApprovalResponse(callId, decision, approvalScope, packageName)
-                            }
-                        },
-                        onDismissError = { viewModel.dismissError() },
-                        onNavigate = { action ->
-                            if (action == NavAction.OPEN_VIEWER) {
-                                onOpenViewer()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        previousMode = capsuleBinding.previousMode(),
-                        pendingInputText = pendingInput,
-                        onPendingInputConsumed = { viewModel.consumePendingInput() },
-                        startupError = startupError,
-                        onDismissStartupError = { viewModel.dismissStartupError() },
-                        onStartupErrorClick = {
-                            onOpenSettings(viewModel.startupErrorDeepLink.value)
-                        },
-                        voice = voiceDeps,
-                    )
+                }
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                    if (messages.isEmpty() && uiState.showEmptyState) {
+                        // Empty state
+                        EmptyState(
+                            onSuggestionClick = viewModel::sendMessage,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (messages.isNotEmpty()) {
+                        // Message list
+                        MessageList(
+                            messages = messages,
+                            onOpenApp = onOpenApp,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
-        ) { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                if (messages.isEmpty() && uiState.showEmptyState) {
-                    // Empty state
-                    EmptyState(
-                        onSuggestionClick = viewModel::sendMessage,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else if (messages.isNotEmpty()) {
-                    // Message list
-                    MessageList(
-                        messages = messages,
-                        onOpenApp = onOpenApp,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
+            // Draw one continuous grain pass after every Scaffold slot so the
+            // masthead, page body, dock, and capsule shell share the same paper.
+            Box(modifier = Modifier.matchParentSize().paperGrain())
         }
     }
 }
