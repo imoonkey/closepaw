@@ -55,3 +55,25 @@ None.
 ## Recommendation
 BLOCK
 The P0 capsule attention layout still misses the release-blocker acceptance gate, and P1-7 is incomplete for overlay users. Fix those before merge; the P2 gaps can be handled in the same follow-up or explicitly moved out of this release scope.
+
+# Round 2 Review
+
+## Question A — original findings closed?
+- Critical (capsule attention non-wrapping row): VERIFIED CLOSED. `WaitingForApproval` still derives the three short approval labels from the render spec, but that state now sets `ControlLayout.RequiredActionsOnly` at `app/src/main/kotlin/ai/closepaw/ui/overlay/model/CapsuleRenderSpec.kt:132` and the control bar routes that layout through the full-width action-only path at `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleControlBar.kt:72`. The required-action cluster now renders in `FlowRow` at `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleControlBar.kt:199`, with individual buttons staying as separate children rather than a forced single row; the 48dp modifier at `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleControlBar.kt:122` does not make any one approval button wider than the available capsule width.
+- High (overlay voice feedback no sink): VERIFIED CLOSED. `CapsuleOverlayHost` now defines `LocalVoiceFeedback` as a Toast sink at `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/CapsuleOverlayHost.kt:143`, and the `CompositionLocalProvider` wraps the entire `SmartCapsuleSurface` invocation through `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/CapsuleOverlayHost.kt:205`. `CapsuleInputBar` reads that local at `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt:133` and sends recognizer and permission feedback through it at `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt:141`, `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt:158`, `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt:224`, and `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt:232`.
+- Medium #1 (onboarding wrap): VERIFIED CLOSED. The provider picker is now a `FlowRow` with both horizontal and vertical spacing at `app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt:206`, so provider chips can wrap instead of staying in a fixed horizontal row.
+- Medium #2 (visualizer reduced-motion): VERIFIED CLOSED. Reduced motion now prevents the frame loop from being launched at `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/ActionVisualizerCompose.kt:58` and forces `progress = 1f` at `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/ActionVisualizerCompose.kt:75`. I do not see a reduced-motion repaint regression: the host collects `items` into Compose at `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/VisualizerOverlayHost.kt:101`, and additions/removals replace the list through `items.update` at `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/VisualizerOverlayHost.kt:107` and `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/VisualizerOverlayHost.kt:111`, which is enough to recompose the static final markers without a frame clock.
+- Medium #3 (picker semantics): VERIFIED CLOSED. `PickerRow` now uses `selectable(role = Role.RadioButton)` at `app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt:203` instead of the prior bare click target, and `minimumInteractiveComponentSize()` is placed before `selectable` at `app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt:202`, so the selectable node receives the expanded effective target. The refresh area is now a vertical `Column` at `app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt:255`, with timestamp, error, and disabled reason rendered below the button at `app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt:270`, `app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt:279`, and `app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthDiscoveryUi.kt:287`; I do not see a layout regression that would hide the error display.
+
+## Question B — new issues introduced?
+## Critical
+None found.
+
+## High
+None found.
+
+## Medium
+None found.
+
+## Recommendation
+APPROVE_FOR_MERGE
